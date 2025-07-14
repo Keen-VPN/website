@@ -38,7 +38,7 @@ const PaymentSuccess = () => {
               </Button>
               
               <Button asChild variant="outline" className="w-full">
-                <Link to="/">Return to Homepage</Link>
+                <a href="keenvpn://success">Return to App</a>
               </Button>
             </div>
           </CardContent>
