@@ -23,16 +23,9 @@ const PaymentSuccess = () => {
           </CardHeader>
           
           <CardContent className="space-y-6">
-            
-            <div className="space-y-3">
-              <Button asChild className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90">
-                <Link to="/">Download KeenVPN App</Link>
-              </Button>
-              
-              <Button asChild variant="outline" className="w-full">
-                <a href="keenvpn://success">Return to App</a>
-              </Button>
-            </div>
+            <Button asChild className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90">
+              <a href="keenvpn://success">Return to App</a>
+            </Button>
           </CardContent>
         </Card>
       </div>
