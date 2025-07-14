@@ -20,12 +20,12 @@ const Features = () => {
     {
       icon: Smartphone,
       title: "Multi-Device Support",
-      description: "Protect up to 10 devices simultaneously with one account across all platforms."
+      description: "Protect multiple devices with one simple app installation across all platforms."
     },
     {
       icon: Server,
-      title: "5000+ Servers",
-      description: "Connect to our global network of high-speed servers in 60+ countries worldwide."
+      title: "Reliable Servers",
+      description: "Connect to our secure server network with expansion planned across key global locations."
     },
     {
       icon: Clock,

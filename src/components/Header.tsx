@@ -49,9 +49,8 @@ const Header = () => {
           </nav>
 
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="ghost">Sign In</Button>
             <Button className="bg-gradient-primary text-primary-foreground hover:opacity-90">
-              Get Started
+              Download App
             </Button>
           </div>
 
@@ -100,14 +99,11 @@ const Header = () => {
                 Terms
               </Link>
               <div className="flex flex-col space-y-2 pt-4">
-                <Button variant="ghost" onClick={() => setIsMenuOpen(false)}>
-                  Sign In
-                </Button>
                 <Button 
                   className="bg-gradient-primary text-primary-foreground hover:opacity-90"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  Get Started
+                  Download App
                 </Button>
               </div>
             </div>

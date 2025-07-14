@@ -4,51 +4,51 @@ import { Check } from "lucide-react";
 const Pricing = () => {
   const plans = [
     {
-      name: "Monthly",
-      price: "$12.99",
-      period: "/month",
-      description: "Perfect for trying out KeenVPN",
+      name: "Free Version",
+      price: "Free",
+      period: "",
+      description: "Basic protection to get started",
       features: [
-        "Unlimited bandwidth",
-        "5000+ servers in 60+ countries",
-        "Up to 10 devices",
-        "24/7 customer support",
-        "No-log policy",
-        "Kill switch protection"
+        "2 server locations",
+        "Basic encryption",
+        "Limited bandwidth",
+        "Community support",
+        "No-log policy"
       ],
-      popular: false
+      popular: false,
+      buttonText: "Download Free"
     },
     {
-      name: "Annual",
-      price: "$4.99",
+      name: "Premium",
+      price: "$9.99",
       period: "/month",
-      originalPrice: "$12.99",
-      description: "Best value for long-term protection",
+      description: "Full protection with premium features",
       features: [
-        "Everything in Monthly",
-        "61% savings",
-        "Priority customer support",
-        "Advanced threat protection",
-        "Dedicated IP option",
-        "30-day money-back guarantee"
+        "All server locations",
+        "Unlimited bandwidth", 
+        "Military-grade encryption",
+        "Priority support",
+        "Advanced security features",
+        "Multi-device support"
       ],
-      popular: true
+      popular: true,
+      buttonText: "Get Premium"
     },
     {
-      name: "2-Year",
-      price: "$2.99",
-      period: "/month",
-      originalPrice: "$12.99",
-      description: "Maximum savings for ultimate security",
+      name: "Lifetime",
+      price: "$149",
+      period: "one-time",
+      description: "Pay once, protect forever",
       features: [
-        "Everything in Annual",
-        "77% savings",
-        "Free additional months",
-        "Premium server access",
+        "Everything in Premium",
+        "Lifetime access",
+        "Future server expansions",
         "VIP support",
-        "Extended money-back guarantee"
+        "Early access to new features",
+        "No recurring fees"
       ],
-      popular: false
+      popular: false,
+      buttonText: "Buy Lifetime"
     }
   ];
 
@@ -60,7 +60,7 @@ const Pricing = () => {
             Choose Your Protection Plan
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            All plans include our complete feature set. Start with a 30-day money-back guarantee.
+            Start with our free version or upgrade for premium features and expanded server access.
           </p>
         </div>
 
@@ -89,11 +89,6 @@ const Pricing = () => {
                 <div className="mb-4">
                   <span className="text-4xl font-bold text-foreground">{plan.price}</span>
                   <span className="text-muted-foreground">{plan.period}</span>
-                  {plan.originalPrice && (
-                    <div className="text-sm text-muted-foreground line-through mt-1">
-                      {plan.originalPrice}/month
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -114,7 +109,7 @@ const Pricing = () => {
                 }`}
                 size="lg"
               >
-                Get Started
+                {plan.buttonText}
               </Button>
             </div>
           ))}
@@ -122,7 +117,7 @@ const Pricing = () => {
 
         <div className="text-center mt-12">
           <p className="text-muted-foreground">
-            All plans include a 30-day money-back guarantee. No questions asked.
+            Start with our free version and upgrade anytime for additional features.
           </p>
         </div>
       </div>

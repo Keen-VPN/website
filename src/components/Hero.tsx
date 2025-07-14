@@ -24,16 +24,16 @@ const Hero = () => {
             
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
               Experience lightning-fast, military-grade encrypted VPN protection. 
-              Browse anonymously, access global content, and keep your data safe from prying eyes.
+              Browse anonymously, access global content, and keep your data safe with our growing server network.
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Button size="lg" className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow text-lg px-8 py-6">
-              Start Free Trial
+              Download Now
             </Button>
             <Button size="lg" variant="outline" className="border-primary text-primary hover:bg-primary/10 text-lg px-8 py-6">
-              View Plans
+              Learn More
             </Button>
           </div>
 
@@ -45,7 +45,7 @@ const Hero = () => {
               </div>
               <h3 className="font-semibold text-foreground mb-2">Lightning Fast</h3>
               <p className="text-sm text-muted-foreground text-center">
-                Ultra-high speed servers across 50+ countries
+                High-performance servers with more locations coming soon
               </p>
             </div>
             
