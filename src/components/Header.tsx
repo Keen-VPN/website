@@ -1,5 +1,6 @@
 import { Shield, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import GoogleIcon from "@/components/ui/google-icon";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
@@ -102,6 +103,7 @@ const Header = () => {
               variant="outline"
               className="border-primary/50 hover:bg-primary/10"
             >
+              <GoogleIcon className="w-4 h-4 mr-2" />
               Login with Google
             </Button>
             <Button className="bg-gradient-primary text-primary-foreground hover:opacity-90">
@@ -162,6 +164,7 @@ const Header = () => {
                   variant="outline"
                   className="border-primary/50 hover:bg-primary/10"
                 >
+                  <GoogleIcon className="w-4 h-4 mr-2" />
                   Login with Google
                 </Button>
                 <Button 
