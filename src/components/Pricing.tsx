@@ -33,7 +33,7 @@ const Pricing = () => {
         </div>
 
         <div className="flex justify-center">
-          <div className="p-8 bg-gradient-card rounded-xl border border-primary/50 shadow-glow transition-all duration-300 max-w-md w-full">
+          <div className="relative p-8 bg-gradient-card rounded-xl border border-primary/50 shadow-glow transition-all duration-300 max-w-md w-full">
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
               <span className="bg-gradient-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium">
                 Annual Plan
