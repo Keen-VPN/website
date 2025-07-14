@@ -23,14 +23,6 @@ const PaymentSuccess = () => {
           </CardHeader>
           
           <CardContent className="space-y-6">
-            <div className="bg-muted p-4 rounded-lg">
-              <p className="text-sm text-muted-foreground mb-2">What happens next?</p>
-              <ul className="text-sm space-y-1 text-left">
-                <li>• You'll receive a confirmation email shortly</li>
-                <li>• Your VPN access is now active</li>
-                <li>• Download the app to get started</li>
-              </ul>
-            </div>
             
             <div className="space-y-3">
               <Button asChild className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90">
