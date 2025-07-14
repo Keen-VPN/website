@@ -103,8 +103,8 @@ const Header = () => {
               variant="outline"
               className="border-primary/50 hover:bg-primary/10"
             >
-              <GoogleIcon className="w-4 h-4 mr-2" />
-              Logi
+              <GoogleIcon className="w-4 h-4" />
+              Login
             </Button>
             <Button className="bg-gradient-primary text-primary-foreground hover:opacity-90">
               Download App
