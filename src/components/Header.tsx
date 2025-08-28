@@ -47,7 +47,7 @@ const Header = () => {
       });
 
       // Redirect to VPN app
-      window.location.href = `keenvpn://auth?token=${accessToken}`;
+      window.location.href = `vpnkeen://auth?token=${accessToken}`;
     } catch (error) {
       console.error("❌ Sign-in error:", error);
       toast({
@@ -78,6 +78,14 @@ const Header = () => {
               }`}
             >
               Home
+            </Link>
+            <Link 
+              to="/support" 
+              className={`text-sm font-medium transition-colors hover:text-primary ${
+                isActive('/support') ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            >
+              Support
             </Link>
             <Link 
               to="/privacy" 
@@ -136,6 +144,15 @@ const Header = () => {
                 onClick={() => setIsMenuOpen(false)}
               >
                 Home
+              </Link>
+              <Link 
+                to="/support" 
+                className={`text-sm font-medium transition-colors hover:text-primary ${
+                  isActive('/support') ? 'text-primary' : 'text-muted-foreground'
+                }`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Support
               </Link>
               <Link 
                 to="/privacy" 
