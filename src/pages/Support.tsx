@@ -28,15 +28,15 @@ const Support = () => {
       questions: [
         {
           q: "How do I download and install KeenVPN?",
-          a: "You can download KeenVPN from the Mac App Store or our website. For macOS, simply download the .dmg file and drag the app to your Applications folder. The app will guide you through the initial setup process."
+          a: "You can download KeenVPN from the App Store (iOS/macOS), Google Play Store (Android), Microsoft Store (Windows), or our website. Each platform has specific installation instructions, but all apps will guide you through the setup process."
         },
         {
           q: "What are the system requirements?",
-          a: "KeenVPN requires macOS 11.0 or later. The app is optimized for both Intel and Apple Silicon Macs. You'll need about 50MB of free storage space for installation."
+          a: "KeenVPN supports multiple platforms: macOS 11.0+, iOS 14.0+, Windows 10+, and Android 8.0+. The app is optimized for all device types and requires about 50MB of free storage space for installation."
         },
         {
           q: "How do I activate my subscription?",
-          a: "After purchasing, log in with your Google account in the app. Your subscription will be automatically activated. If you're having issues, contact support with your purchase details."
+          a: "After completing your purchase through Stripe, your subscription will be automatically activated in your KeenVPN account. If you're having issues with activation, contact support with your purchase details."
         }
       ]
     },
@@ -85,7 +85,7 @@ const Support = () => {
       questions: [
         {
           q: "How do I manage my subscription?",
-          a: "Your subscription is managed through your Google account or the Mac App Store, depending on how you purchased. You can view and modify your subscription in your account settings."
+          a: "Your subscription is managed through Stripe, our secure payment processor. You can view and modify your subscription by logging into your KeenVPN account or contacting our support team for assistance."
         },
         {
           q: "Can I get a refund?",
@@ -93,7 +93,7 @@ const Support = () => {
         },
         {
           q: "How many devices can I use with one account?",
-          a: "Currently, KeenVPN for macOS supports one device per account. We're working on multi-device support for future releases."
+          a: "KeenVPN supports multiple devices per account. You can use your subscription on up to 5 devices simultaneously, including macOS, iOS, Windows, and Android devices."
         }
       ]
     },

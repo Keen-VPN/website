@@ -25,7 +25,7 @@ const Hero = () => {
             </h1>
 
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
-              Experience lightning-fast, military-grade encrypted VPN
+              Experience lightning-fast, enterprise-grade encrypted VPN
               protection. Browse anonymously, access global content, and keep
               your data safe with our growing server network.
             </p>

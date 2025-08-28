@@ -16,7 +16,7 @@ const Footer = () => {
             </div>
             <p className="text-muted-foreground mb-6 max-w-md">
               Your trusted partner for online privacy and security. Protecting
-              millions of users worldwide with military-grade encryption and
+              millions of users worldwide with enterprise-grade encryption and
               zero-log policy.
             </p>
           </div>

@@ -69,7 +69,7 @@ const Terms = () => {
               <div className="text-muted-foreground space-y-3">
                 <p>KeenVPN provides virtual private network (VPN) services that:</p>
                 <ul className="list-disc list-inside space-y-2 ml-4">
-                  <li>Encrypt your internet connection using military-grade AES-256 encryption</li>
+                  <li>Encrypt your internet connection using enterprise-grade AES-256 encryption</li>
                   <li>Route your traffic through our global network of secure servers</li>
                   <li>Protect your privacy with our strict zero-log policy</li>
                   <li>Allow access to geo-restricted content and websites</li>

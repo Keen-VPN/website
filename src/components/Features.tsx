@@ -10,7 +10,7 @@ const Features = () => {
     {
       icon: Eye,
       title: "Anonymous Browsing",
-      description: "Hide your IP address and browse the web completely anonymously with military-grade encryption."
+      description: "Hide your IP address and browse the web completely anonymously with enterprise-grade encryption."
     },
     {
       icon: Wifi,
