@@ -21,6 +21,15 @@ const Footer = () => {
             </p>
           </div>
 
+          {/* Company Info */}
+          <div className="mb-6">
+            <h3 className="font-semibold text-foreground mb-2">Negative Nine Inc.</h3>
+            <div className="text-muted-foreground text-sm">
+              <p>134 N 4th St, office 203</p>
+              <p>Brooklyn, NY 11249</p>
+            </div>
+          </div>
+
           {/* Legal */}
           <div>
             <ul className="flex gap-4">
