@@ -188,10 +188,10 @@ const Support = () => {
                 <Button 
                   variant="outline" 
                   className="border-primary/50 hover:bg-primary/10"
-                  onClick={() => window.location.href = 'mailto:vpnkeenteam@gmail.com?subject=KeenVPN Support Request'}
+                  onClick={() => window.location.href = 'mailto:support@vpnkeen.com?subject=KeenVPN Support Request'}
                 >
                   <Mail className="h-4 w-4 mr-2" />
-                  vpnkeenteam@gmail.com
+                  support@vpnkeen.com
                 </Button>
               </div>
             </div>

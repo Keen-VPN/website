@@ -138,9 +138,8 @@ const Privacy = () => {
               <div className="text-muted-foreground">
                 <p className="mb-4">Questions about our privacy practices? We're here to help:</p>
                 <div className="bg-secondary/50 rounded-lg p-4">
-                  <p><strong>Privacy Team:</strong> privacy@keenvpn.com</p>
-                  <p><strong>Support:</strong> support@keenvpn.com</p>
-                  <p><strong>Legal Inquiries:</strong> legal@keenvpn.com</p>
+                  <p><strong>Privacy Team:</strong> privacy@vpnkeen.com</p>
+                  <p><strong>Support:</strong> support@vpnkeen.com</p>
                 </div>
               </div>
             </div>
