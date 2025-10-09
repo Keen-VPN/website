@@ -13,7 +13,7 @@ const Privacy = () => {
           <div className="text-center mb-12">
             <div className="inline-flex items-center bg-card/50 backdrop-blur-sm border border-border rounded-full px-4 py-2 mb-6">
               <Shield className="h-4 w-4 text-primary mr-2" />
-              <span className="text-sm text-muted-foreground">Last updated: January 15, 2024</span>
+              <span className="text-sm text-muted-foreground">Last updated: October 9, 2025</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
               Privacy Policy
@@ -55,10 +55,12 @@ const Privacy = () => {
                   <li>Your IP address when connected to our VPN</li>
                   <li>Websites you visit or content you access</li>
                   <li>DNS queries or browsing history</li>
-                  <li>Connection timestamps or session duration</li>
-                  <li>Bandwidth usage or data transferred</li>
-                  <li>Network traffic or metadata</li>
+                  <li>Specific timestamps of when you access individual websites or services</li>
+                  <li>Network traffic content or what data you transmit</li>
+                  <li>Any personally identifiable information about your online activities or destinations</li>
+                  <li>Connection logs that could link your activities to your identity</li>
                 </ul>
+                <p className="mt-4 text-sm italic">Note: While we do collect session duration and aggregated bandwidth for service optimization, this data is not linked to specific websites visited or content accessed, and cannot be used to identify your browsing behavior.</p>
               </div>
             </div>
 
@@ -120,6 +122,47 @@ const Privacy = () => {
             </div>
 
             <div className="bg-gradient-card rounded-xl p-8 border border-border/50 mb-8">
+              <h2 className="text-2xl font-bold text-foreground mb-4">VPN Data Collection</h2>
+              <div className="text-muted-foreground space-y-3">
+                <p><strong>What user information does KeenVPN collect using VPN?</strong></p>
+                <p>We collect minimal technical data only to maintain service quality and security:</p>
+                <ul className="list-disc list-inside space-y-2 ml-4">
+                  <li>Account email and authentication credentials (for account management)</li>
+                  <li>Payment information (securely processed by Stripe)</li>
+                  <li>Connection session duration (total time connected, for usage analytics and service optimization)</li>
+                  <li>Aggregated bandwidth usage (total data transferred, not linked to specific websites or activities)</li>
+                  <li>App version and device OS type (for compatibility and support)</li>
+                  <li>Server location you connected to (for service quality monitoring)</li>
+                </ul>
+                <p className="mt-4"><strong>What we do NOT collect:</strong></p>
+                <ul className="list-disc list-inside space-y-2 ml-4">
+                  <li>Browsing history, DNS queries, or websites visited</li>
+                  <li>IP addresses while connected to VPN</li>
+                  <li>Network traffic content or metadata</li>
+                  <li>Specific timestamps of individual browsing activities</li>
+                  <li>Any personally identifiable information about your online activities or destinations</li>
+                </ul>
+                <p className="mt-4"><strong>Purpose of data collection:</strong></p>
+                <p>The limited data we collect is used solely for:</p>
+                <ul className="list-disc list-inside space-y-2 ml-4">
+                  <li>Account creation, authentication, and subscription management</li>
+                  <li>Payment processing and billing</li>
+                  <li>Technical support and troubleshooting</li>
+                  <li>Service optimization and capacity planning (aggregated data only)</li>
+                  <li>Security monitoring to prevent abuse</li>
+                </ul>
+                <p className="mt-4"><strong>Data sharing:</strong></p>
+                <p>We do not sell or share your data with third parties for marketing. Limited data may be shared only with:</p>
+                <ul className="list-disc list-inside space-y-2 ml-4">
+                  <li><strong>Stripe:</strong> For secure payment processing</li>
+                  <li><strong>Google/Apple:</strong> For authentication services (Sign in with Apple/Google)</li>
+                  <li><strong>Supabase:</strong> For secure account data storage (encrypted)</li>
+                </ul>
+                <p>All data is stored securely with encryption and access controls. We never track or log your online activities.</p>
+              </div>
+            </div>
+
+            <div className="bg-gradient-card rounded-xl p-8 border border-border/50 mb-8">
               <h2 className="text-2xl font-bold text-foreground mb-4">Your Rights</h2>
               <div className="text-muted-foreground space-y-3">
                 <p>You have complete control over your information:</p>
@@ -130,6 +173,8 @@ const Privacy = () => {
                   <li>Export your account information</li>
                   <li>Opt out of marketing communications</li>
                 </ul>
+                <p className="mt-4"><strong>For California Residents (CCPA):</strong> You have additional rights including the right to know what personal information we collect and request deletion.</p>
+                <p><strong>For EU/UK Residents (GDPR):</strong> You have rights including access, rectification, erasure, data portability, and objection to processing.</p>
               </div>
             </div>
 
@@ -137,9 +182,15 @@ const Privacy = () => {
               <h2 className="text-2xl font-bold text-foreground mb-4">Contact Us</h2>
               <div className="text-muted-foreground">
                 <p className="mb-4">Questions about our privacy practices? We're here to help:</p>
-                <div className="bg-secondary/50 rounded-lg p-4">
+                <div className="bg-secondary/50 rounded-lg p-4 space-y-2">
                   <p><strong>Privacy Team:</strong> privacy@vpnkeen.com</p>
                   <p><strong>Support:</strong> support@vpnkeen.com</p>
+                  <p><strong>Business Address:</strong></p>
+                  <p className="ml-4">
+                    21915 W Firemist Ct<br />
+                    Cypress, TX 77433<br />
+                    United States
+                  </p>
                 </div>
               </div>
             </div>
