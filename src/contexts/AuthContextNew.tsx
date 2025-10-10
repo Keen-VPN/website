@@ -162,7 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Desktop user with subscription - trigger deep link to open app
                 console.log('🖥️ Desktop user with active subscription - triggering deep link');
                 const sessionToken = backendResponse.sessionToken;
-                window.location.href = `keenvpn://auth?token=${sessionToken}`;
+                window.location.href = `vpnkeen://auth?token=${sessionToken}`;
                 
                 // Show message to user
                 setTimeout(() => {
@@ -424,7 +424,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Desktop user with subscription - trigger deep link to open app
             console.log('🖥️ Desktop user with active subscription - triggering deep link');
             const sessionToken = backendResponse.sessionToken;
-            window.location.href = `keenvpn://auth?token=${sessionToken}`;
+            window.location.href = `vpnkeen://auth?token=${sessionToken}`;
             
             // Show message to user
             setTimeout(() => {

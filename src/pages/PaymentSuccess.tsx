@@ -47,7 +47,7 @@ const PaymentSuccess = () => {
             
             <div className="space-y-3">
               <Button asChild className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow" size="lg">
-                <a href="keenvpn://success">Open Desktop App</a>
+                <a href="vpnkeen://success">Open Desktop App</a>
               </Button>
               
               <Button asChild variant="outline" className="w-full">

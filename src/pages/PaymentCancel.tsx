@@ -50,7 +50,7 @@ const PaymentCancel = () => {
             </Button>
             
             <Button asChild variant="outline" className="w-full">
-              <a href="keenvpn://cancel">Return to App</a>
+              <a href="vpnkeen://cancel">Return to App</a>
             </Button>
             
             <Button asChild variant="ghost" className="w-full">

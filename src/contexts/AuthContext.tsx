@@ -156,7 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (data.sessionToken) {
                 console.log('💾 Storing session token');
                 localStorage.setItem('sessionToken', data.sessionToken);
-                localStorage.setItem("token", `keenvpn://auth?token=${data.sessionToken}`);
+                localStorage.setItem("token", `vpnkeen://auth?token=${data.sessionToken}`);
               }
               
               setSubscription(data.subscription);
@@ -213,7 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (data.success && data.sessionToken) {
                 console.log('💾 Storing session token');
                 localStorage.setItem('sessionToken', data.sessionToken);
-                localStorage.setItem("token", `keenvpn://auth?token=${data.sessionToken}`);
+                localStorage.setItem("token", `vpnkeen://auth?token=${data.sessionToken}`);
                 setSubscription(data.subscription);
                 
                 // Only redirect if we're on the signin page
@@ -355,7 +355,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Store session token
         console.log('💾 Storing session token');
         localStorage.setItem('sessionToken', data.sessionToken);
-        localStorage.setItem("token", `keenvpn://auth?token=${data.sessionToken}`);
+        localStorage.setItem("token", `vpnkeen://auth?token=${data.sessionToken}`);
         
         setSubscription(data.subscription);
 

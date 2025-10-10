@@ -159,7 +159,7 @@ const APP_TOKEN_KEY = 'token';
 export function storeSessionToken(sessionToken: string): void {
   localStorage.setItem(SESSION_TOKEN_KEY, sessionToken);
   // Also store for app deeplink
-  localStorage.setItem(APP_TOKEN_KEY, `keenvpn://auth?token=${sessionToken}`);
+  localStorage.setItem(APP_TOKEN_KEY, `vpnkeen://auth?token=${sessionToken}`);
 }
 
 export function getSessionToken(): string | null {

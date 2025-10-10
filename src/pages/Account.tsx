@@ -24,7 +24,7 @@ const Account = () => {
   const handleOpenApp = () => {
     if (!user) return;
     
-    const accessToken = localStorage.getItem('token')?.replace('keenvpn://auth?token=', '') || '';
+    const accessToken = localStorage.getItem('token')?.replace('vpnkeen://auth?token=', '') || '';
     window.location.href = `vpnkeen://auth?token=${accessToken}`;
   };
 
