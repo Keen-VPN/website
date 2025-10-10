@@ -1,60 +1,22 @@
-import { Shield, Menu, X } from "lucide-react";
+import { Shield, Menu, X, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import GoogleIcon from "@/components/ui/google-icon";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { auth, googleProvider } from "@/lib/firebase";
-import { useToast } from "@/hooks/use-toast";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContextNew";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
-  const { toast } = useToast();
+  const navigate = useNavigate();
+  const { user, subscription, signIn, logout } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
 
-  const handleGoogleLogin = async () => {
-    try {
-      toast({
-        title: "Opening Google Sign-In...",
-        description: "Please complete the authentication in the popup window.",
-      });
-
-      const result = await signInWithPopup(auth, googleProvider);
-      console.log("Full sign-in result:", result);
-
-      const user = result.user;
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-
-      if (!credential) {
-        toast({
-          title: "⚠️ No credential returned",
-          description: "Sign-in may still be successful.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const accessToken = credential.accessToken;
-      console.log("✅ AccessToken:", accessToken);
-      
-      localStorage.setItem("token", `keenvpn://auth?token=${accessToken}`);
-      
-      toast({
-        title: "✅ Login Successful",
-        description: "Redirecting to VPN app...",
-      });
-
-      // Redirect to VPN app
-      window.location.href = `vpnkeen://auth?token=${accessToken}`;
-    } catch (error) {
-      console.error("❌ Sign-in error:", error);
-      toast({
-        title: "Login Failed",
-        description: error.message || "An error occurred during sign-in",
-        variant: "destructive",
-      });
+  const handleSignIn = async () => {
+    const result = await signIn();
+    if (result.success && result.shouldRedirect) {
+      navigate(result.shouldRedirect);
     }
   };
 
@@ -106,14 +68,43 @@ const Header = () => {
           </nav>
 
           <div className="hidden md:flex items-center space-x-4">
-            <Button 
-              onClick={handleGoogleLogin}
-              variant="outline"
-              className="border-primary/50 hover:bg-primary/10"
-            >
-              <GoogleIcon className="w-4 h-4" />
-              Login with Google
-            </Button>
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="border-primary/50 hover:bg-primary/10">
+                    <User className="w-4 h-4 mr-2" />
+                    {user.email}
+                    {subscription?.status === 'active' && (
+                      <span className="ml-2 px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">
+                        Premium
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link to="/account">My Account</Link>
+                  </DropdownMenuItem>
+                  {subscription?.status !== 'active' && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/subscribe">Subscribe</Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={logout}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button 
+                onClick={() => navigate('/signin')}
+                variant="outline"
+                className="border-primary/50 hover:bg-primary/10"
+              >
+                Sign In
+              </Button>
+            )}
             <Button className="bg-gradient-primary text-primary-foreground hover:opacity-90">
               Download App
             </Button>
@@ -173,17 +164,63 @@ const Header = () => {
                 Terms
               </Link>
               <div className="flex flex-col space-y-2 pt-4">
-                <Button 
-                  onClick={() => {
-                    handleGoogleLogin();
-                    setIsMenuOpen(false);
-                  }}
-                  variant="outline"
-                  className="border-primary/50 hover:bg-primary/10"
-                >
-                  <GoogleIcon className="w-4 h-4 mr-2" />
-                  Login with Google
-                </Button>
+                {user ? (
+                  <>
+                    <div className="flex items-center space-x-2 p-2 bg-primary/5 rounded-lg">
+                      <User className="w-4 h-4" />
+                      <span className="text-sm font-medium">{user.email}</span>
+                      {subscription?.status === 'active' && (
+                        <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">
+                          Premium
+                        </span>
+                      )}
+                    </div>
+                    <Button 
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                      }}
+                      variant="outline"
+                      className="w-full"
+                      asChild
+                    >
+                      <Link to="/account">My Account</Link>
+                    </Button>
+                    {subscription?.status !== 'active' && (
+                      <Button 
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                        }}
+                        variant="outline"
+                        className="w-full"
+                        asChild
+                      >
+                        <Link to="/subscribe">Subscribe</Link>
+                      </Button>
+                    )}
+                    <Button 
+                      onClick={() => {
+                        logout();
+                        setIsMenuOpen(false);
+                      }}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sign Out
+                    </Button>
+                  </>
+                ) : (
+                  <Button 
+                    onClick={() => {
+                      navigate('/signin');
+                      setIsMenuOpen(false);
+                    }}
+                    variant="outline"
+                    className="border-primary/50 hover:bg-primary/10"
+                  >
+                    Sign In
+                  </Button>
+                )}
                 <Button 
                   className="bg-gradient-primary text-primary-foreground hover:opacity-90"
                   onClick={() => setIsMenuOpen(false)}

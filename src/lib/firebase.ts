@@ -2,12 +2,12 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD-EbWk-A-MMDQIx_yW0HTBj9-tD3U9KzI",
-  authDomain: "keenvpn-33217.firebaseapp.com",
-  projectId: "keenvpn-33217",
-  storageBucket: "keenvpn-33217.firebasestorage.app",
-  messagingSenderId: "820512492104",
-  appId: "1:820512492104:web:66cf560414114b02d2667d",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);

@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Pricing = () => {
+  const navigate = useNavigate();
+  
   const plan = {
     name: "KeenVPN Premium",
     price: "$100",
@@ -63,6 +66,7 @@ const Pricing = () => {
             </ul>
 
             <Button 
+              onClick={() => navigate('/subscribe')}
               className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
               size="lg"
             >
