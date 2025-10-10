@@ -159,18 +159,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (hasActiveSubscription) {
               // User has active subscription
               if (isDesktop) {
-                // Desktop user with subscription - trigger deep link to open app
-                console.log('🖥️ Desktop user with active subscription - triggering deep link');
-                const sessionToken = backendResponse.sessionToken;
-                window.location.href = `vpnkeen://auth?token=${sessionToken}`;
+                // Desktop user with subscription - only trigger deep link from specific pages
+                const shouldTriggerDeepLink = window.location.pathname === '/success' || 
+                                           window.location.pathname === '/subscribe' ||
+                                           window.location.search.includes('openapp=true');
                 
-                // Show message to user
-                setTimeout(() => {
+                if (shouldTriggerDeepLink) {
+                  console.log('🖥️ Desktop user with active subscription - triggering deep link from', window.location.pathname);
+                  const sessionToken = backendResponse.sessionToken;
+                  window.location.href = `vpnkeen://auth?token=${sessionToken}`;
+                  
+                  // Show message to user
+                  setTimeout(() => {
+                    if (window.location.pathname !== '/account') {
+                      // If deep link didn't work, redirect to account page
+                      window.location.href = '/account';
+                    }
+                  }, 2000);
+                } else {
+                  // Just redirect to account page without triggering deep link
                   if (window.location.pathname !== '/account') {
-                    // If deep link didn't work, redirect to account page
                     window.location.href = '/account';
                   }
-                }, 2000);
+                }
               } else {
                 // Web/mobile user with subscription - redirect to account page
                 if (window.location.pathname !== '/account') {
