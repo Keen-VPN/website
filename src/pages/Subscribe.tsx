@@ -1,20 +1,65 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Check, Loader2, ExternalLink } from 'lucide-react';
+import { Check, Loader2, ExternalLink, Monitor } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContextNew';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { BACKEND_URL as BACKEND_URL_AUTH } from '@/auth/backend';
+import { getSessionToken } from '@/auth/backend';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://vpnkeen.netlify.app/api';
+
+const BACKEND_URL = BACKEND_URL_AUTH || 'https://vpnkeen.netlify.app/api';
 
 const Subscribe = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading, signIn, subscription } = useAuth();
+  
+  // Check if user is on desktop
+  const isDesktop = /Mac|Windows|Linux/.test(navigator.userAgent) && 
+                    !/Mobile|Android|iPhone|iPad/.test(navigator.userAgent);
+  
+  // Check if user just logged in (from URL params or localStorage flag)
+  const justLoggedIn = searchParams.get('login') === 'true' || 
+                       localStorage.getItem('just_logged_in') === 'true';
+  
+  // Get session token for deep linking
+  const sessionToken = getSessionToken();
+
+  // Clear the just_logged_in flag after showing the prompt
+  useEffect(() => {
+    if (justLoggedIn) {
+      // Keep it for a bit, then clear
+      const timer = setTimeout(() => {
+        localStorage.removeItem('just_logged_in');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [justLoggedIn]);
+
+  const handleOpenDesktopApp = () => {
+    if (!sessionToken) {
+      toast({
+        title: 'Session token not found',
+        description: 'Please sign in again to get a session token.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Open desktop app with deep link
+    window.location.href = `vpnkeen://auth?token=${sessionToken}`;
+    
+    toast({
+      title: 'Opening Desktop App',
+      description: 'If the app doesn\'t open, please launch KeenVPN manually.',
+    });
+  };
 
   const handleSignIn = async () => {
     const result = await signIn();
@@ -168,6 +213,34 @@ const Subscribe = () => {
                   </p>
                 </div>
 
+                {/* Show "Open Desktop App" prompt for desktop users after login */}
+                {isDesktop && sessionToken && (
+                  <div className="mb-6 p-4 bg-primary/10 rounded-lg border border-primary/30">
+                    <div className="flex items-start space-x-3">
+                      <Monitor className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-foreground mb-1">
+                          {justLoggedIn ? 'Welcome! Open Desktop App' : 'Open Desktop App'}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {justLoggedIn 
+                            ? 'Open KeenVPN on your desktop to start using the VPN.'
+                            : 'Open KeenVPN on your desktop to start using the VPN.'}
+                        </p>
+                        <Button
+                          onClick={handleOpenDesktopApp}
+                          variant="outline"
+                          className="w-full border-primary/50 hover:bg-primary/10"
+                          size="sm"
+                        >
+                          <Monitor className="mr-2 h-4 w-4" />
+                          Open Desktop App
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <ul className="space-y-3 mb-8">
                   {plan.features.map((feature, index) => (
                     <li key={index} className="flex items-start space-x-3">
@@ -193,6 +266,18 @@ const Subscribe = () => {
                   'Subscribe Now'
                 )}
               </Button>
+
+              {/* Show "Open Desktop App" button for desktop users even without just logged in */}
+              {isDesktop && sessionToken && !justLoggedIn && (
+                <Button
+                  onClick={handleOpenDesktopApp}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Monitor className="mr-2 h-4 w-4" />
+                  Open Desktop App
+                </Button>
+              )}
 
               <Button
                 onClick={() => navigate('/account')}

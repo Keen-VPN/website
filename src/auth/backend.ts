@@ -1,6 +1,7 @@
 import { BackendAuthResponse, SubscriptionData } from './types';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://vpnkeen.netlify.app/api';
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://vpnkeen.netlify.app/api';
+// export const BACKEND_URL = 'http://localhost:3003/api';
 
 // ============================================================================
 // Backend Authentication

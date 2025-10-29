@@ -189,9 +189,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
               }
             } else {
-              // User doesn't have active subscription - redirect to subscribe page
-              if (window.location.pathname !== '/subscribe') {
-                window.location.href = '/subscribe';
+              // User doesn't have active subscription - redirect to account page
+              if (window.location.pathname !== '/account') {
+                window.location.href = '/account';
               }
             }
             return;
@@ -429,31 +429,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setIsAuthenticating(false);
         
-        if (hasActiveSubscription) {
-          // User has active subscription
-          if (isDesktop) {
-            // Desktop user with subscription - trigger deep link to open app
-            console.log('🖥️ Desktop user with active subscription - triggering deep link');
-            const sessionToken = backendResponse.sessionToken;
-            window.location.href = `vpnkeen://auth?token=${sessionToken}`;
-            
-            // Show message to user
-            setTimeout(() => {
-              if (window.location.pathname !== '/account') {
-                // If deep link didn't work, redirect to account page
-                window.location.href = '/account';
-              }
-            }, 2000);
-          } else {
-            // Web/mobile user with subscription - redirect to account page
+        if (isDesktop) {
+          // Desktop user - trigger deep link to open app regardless of subscription status
+          console.log('🖥️ Desktop user - triggering deep link to open app');
+          const sessionToken = backendResponse.sessionToken;
+          window.location.href = `vpnkeen://auth?token=${sessionToken}`;
+          
+          // Show message to user
+          setTimeout(() => {
             if (window.location.pathname !== '/account') {
+              // If deep link didn't work, redirect to account page
               window.location.href = '/account';
             }
-          }
+          }, 2000);
         } else {
-          // User doesn't have active subscription - redirect to subscribe page
-          if (window.location.pathname !== '/subscribe') {
-            window.location.href = '/subscribe';
+          // Web/mobile user - redirect to account page
+          if (window.location.pathname !== '/account') {
+            window.location.href = '/account';
           }
         }
         
