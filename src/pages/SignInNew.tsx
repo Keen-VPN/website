@@ -11,8 +11,25 @@ import Footer from '@/components/Footer';
 
 const SignIn = () => {
   const navigate = useNavigate();
-  const { signIn, loading: authLoading, user } = useAuth();
+  const { signIn, loading: authLoading, user, subscription } = useAuth();
   const [isProcessing, setIsProcessing] = React.useState(false);
+
+  // Immediately redirect if user is already logged in
+  React.useEffect(() => {
+    if (!authLoading && user) {
+      // User is already logged in - redirect immediately
+      // Use window.location for instant redirect (faster than navigate)
+      const currentPath = window.location.pathname;
+      if (currentPath === '/signin') {
+        const hasActiveSubscription = subscription && subscription.status === 'active';
+        if (hasActiveSubscription) {
+          window.location.href = '/account';
+        } else {
+          window.location.href = '/subscribe';
+        }
+      }
+    }
+  }, [user, authLoading, subscription]);
 
   // Debounce sign-in to prevent double-clicks
   const [handleGoogleSignIn, isGoogleDebouncing] = useDebounce(async () => {

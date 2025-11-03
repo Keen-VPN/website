@@ -2,6 +2,16 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   signInWithGoogle,
   signInWithApple,
   signOut as firebaseSignOut,
@@ -42,6 +52,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { toast } = useToast();
+  
+  // State for ASWebAuthenticationSession deeplink prompt
+  const [showDeeplinkPrompt, setShowDeeplinkPrompt] = useState(false);
+  const [pendingDeeplinkToken, setPendingDeeplinkToken] = useState<string | null>(null);
+  
+  // Check if user came from ASWebAuthenticationSession (macOS desktop app)
+  const isASWebSession = () => {
+    // Check URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('asweb') === '1') {
+      return true;
+    }
+    // Check sessionStorage (set on page load)
+    if (sessionStorage.getItem('asweb_session') === '1') {
+      return true;
+    }
+    return false;
+  };
+  
+  // Trigger deeplink after user confirms
+  const handleConfirmDeeplink = () => {
+    if (pendingDeeplinkToken) {
+      console.log('🔐 User confirmed - triggering deeplink');
+      window.location.href = `vpnkeen://auth?token=${pendingDeeplinkToken}`;
+      setShowDeeplinkPrompt(false);
+      setPendingDeeplinkToken(null);
+      sessionStorage.removeItem('asweb_session');
+    }
+  };
+  
+  // Cancel deeplink prompt
+  const handleCancelDeeplink = () => {
+    console.log('🚫 User cancelled deeplink prompt');
+    setShowDeeplinkPrompt(false);
+    setPendingDeeplinkToken(null);
+    sessionStorage.removeItem('asweb_session');
+    // Redirect to account page as fallback
+    if (window.location.pathname !== '/account') {
+      window.location.href = '/account';
+    }
+  };
 
   // ============================================================================
   // Subscription Management
@@ -72,6 +123,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let mounted = true;
 
     const initializeAuth = async () => {
+      // Check if this is an ASWebAuthenticationSession request (macOS desktop app)
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('asweb') === '1') {
+        // Store flag in sessionStorage for later use
+        sessionStorage.setItem('asweb_session', '1');
+        console.log('🔐 ASWebAuthenticationSession detected - will auto-trigger deeplink after login');
+      }
+      
       // Step 1: Check for redirect result FIRST
       const { checkRedirectResult } = await import('@/auth');
       const redirectResult = await checkRedirectResult();
@@ -150,48 +209,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             storeSessionToken(backendResponse.sessionToken);
             setSubscription(backendResponse.subscription || null);
             
-            // Check if user has active subscription
+            // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+            if (isASWebSession()) {
+              // Show prompt immediately - don't wait for other operations
+              console.log('🔐 ASWebAuthenticationSession (redirect) - showing deeplink prompt immediately');
+              setPendingDeeplinkToken(backendResponse.sessionToken);
+              // Use setTimeout to ensure modal appears in next tick for better UX
+              setTimeout(() => {
+                setShowDeeplinkPrompt(true);
+              }, 0);
+              
+              // Don't redirect - wait for user to confirm
+              return;
+            }
+            
+            // Normal web flow - redirect based on subscription status
             const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
             
-            // Detect if user is on desktop (macOS or Windows)
-            const isDesktop = /Mac|Windows|Linux/.test(navigator.userAgent) && !/Mobile|Android|iPhone|iPad/.test(navigator.userAgent);
-            
             if (hasActiveSubscription) {
-              // User has active subscription
-              if (isDesktop) {
-                // Desktop user with subscription - only trigger deep link from specific pages
-                const shouldTriggerDeepLink = window.location.pathname === '/success' || 
-                                           window.location.pathname === '/subscribe' ||
-                                           window.location.search.includes('openapp=true');
-                
-                if (shouldTriggerDeepLink) {
-                  console.log('🖥️ Desktop user with active subscription - triggering deep link from', window.location.pathname);
-                  const sessionToken = backendResponse.sessionToken;
-                  window.location.href = `vpnkeen://auth?token=${sessionToken}`;
-                  
-                  // Show message to user
-                  setTimeout(() => {
-                    if (window.location.pathname !== '/account') {
-                      // If deep link didn't work, redirect to account page
-                      window.location.href = '/account';
-                    }
-                  }, 2000);
-                } else {
-                  // Just redirect to account page without triggering deep link
-                  if (window.location.pathname !== '/account') {
-                    window.location.href = '/account';
-                  }
-                }
-              } else {
-                // Web/mobile user with subscription - redirect to account page
-                if (window.location.pathname !== '/account') {
-                  window.location.href = '/account';
-                }
-              }
-            } else {
-              // User doesn't have active subscription - redirect to account page
+              // User has active subscription - redirect to account page
               if (window.location.pathname !== '/account') {
                 window.location.href = '/account';
+              }
+            } else {
+              // User doesn't have active subscription - redirect to subscribe
+              if (window.location.pathname !== '/subscribe') {
+                window.location.href = '/subscribe';
               }
             }
             return;
@@ -220,10 +263,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
-      // Step 2: Check for existing session token
+      // Step 2: Check for existing session token (prioritize this for faster redirect)
       const sessionToken = getSessionToken();
       
       if (sessionToken) {
+        // Set loading to false immediately so UI can show logged-in state
+        setLoading(false);
+        
         const response = await verifySessionToken(sessionToken);
         
         if (response.success && response.user && mounted) {
@@ -238,7 +284,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSubscription(response.subscription);
           }
           
-          setLoading(false);
+          // Immediately redirect if on signin page
+          if (window.location.pathname === '/signin') {
+            const hasActiveSubscription = response.subscription && response.subscription.status === 'active';
+            if (hasActiveSubscription) {
+              window.location.href = '/account';
+            } else {
+              window.location.href = '/subscribe';
+            }
+          }
+          
           return;
         } else {
           // Session token is invalid - clear it
@@ -421,29 +476,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         storeSessionToken(backendResponse.sessionToken);
         setSubscription(backendResponse.subscription || null);
         
-        // Check if user has active subscription
-        const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
-        
-        // Detect if user is on desktop (macOS or Windows)
-        const isDesktop = /Mac|Windows|Linux/.test(navigator.userAgent) && !/Mobile|Android|iPhone|iPad/.test(navigator.userAgent);
-        
         setIsAuthenticating(false);
         
-        if (isDesktop) {
-          // Desktop user - trigger deep link to open app regardless of subscription status
-          console.log('🖥️ Desktop user - triggering deep link to open app');
-          const sessionToken = backendResponse.sessionToken;
-          window.location.href = `vpnkeen://auth?token=${sessionToken}`;
-          
-          // Show message to user
+        // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+        if (isASWebSession()) {
+          // Show prompt immediately - don't wait for other operations
+          console.log('🔐 ASWebAuthenticationSession - showing deeplink prompt immediately');
+          setPendingDeeplinkToken(backendResponse.sessionToken);
+          // Use setTimeout to ensure modal appears in next tick for better UX
           setTimeout(() => {
-            if (window.location.pathname !== '/account') {
-              // If deep link didn't work, redirect to account page
-              window.location.href = '/account';
-            }
-          }, 2000);
+            setShowDeeplinkPrompt(true);
+          }, 0);
+          
+          // Don't redirect - wait for user to confirm
+          return { success: true, shouldRedirect: null };
         } else {
-          // Web/mobile user - redirect to account page
+          // Normal web/mobile user - redirect to account page
           if (window.location.pathname !== '/account') {
             window.location.href = '/account';
           }
@@ -543,6 +591,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={value}>
       {children}
+      
+      {/* Deeplink Prompt Dialog for ASWebAuthenticationSession */}
+      <AlertDialog open={showDeeplinkPrompt} onOpenChange={setShowDeeplinkPrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Open KeenVPN App</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your authentication was successful! Would you like to open the KeenVPN desktop app now?
+              <br /><br />
+              Click "Open App" to return to the desktop app, or "Cancel" to stay on the web.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDeeplink}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeeplink}>
+              Open App
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AuthContext.Provider>
   );
 };

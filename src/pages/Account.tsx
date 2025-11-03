@@ -21,12 +21,7 @@ const Account = () => {
   const { toast } = useToast();
   const { user, loading, logout, subscription, refreshSubscription } = useAuth();
 
-  const handleOpenApp = () => {
-    if (!user) return;
-    
-    const accessToken = localStorage.getItem('token')?.replace('vpnkeen://auth?token=', '') || '';
-    window.location.href = `vpnkeen://auth?token=${accessToken}`;
-  };
+  // Removed handleOpenApp - ASWebAuthenticationSession now auto-triggers deeplink
 
   const handleRefreshSubscription = async () => {
     setSubscriptionLoading(true);
@@ -289,14 +284,6 @@ const Account = () => {
 
                       {subscription.status === 'active' ? (
                         <>
-                          <Button
-                            onClick={handleOpenApp}
-                            className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90"
-                          >
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Open VPN App
-                          </Button>
-                          
                           {!subscription.cancelAtPeriodEnd ? (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
