@@ -88,9 +88,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setShowDeeplinkPrompt(false);
     setPendingDeeplinkToken(null);
     sessionStorage.removeItem('asweb_session');
-    // Redirect to account page as fallback
-    if (window.location.pathname !== '/account') {
-      window.location.href = '/account';
+    
+    // Redirect based on subscription status
+    const hasActiveSubscription = subscription && subscription.status === 'active';
+    if (hasActiveSubscription) {
+      if (window.location.pathname !== '/account') {
+        window.location.href = '/account';
+      }
+    } else {
+      if (window.location.pathname !== '/subscribe') {
+        window.location.href = '/subscribe';
+      }
     }
   };
 
@@ -291,7 +299,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSubscription(response.subscription);
           }
           
-          // Immediately redirect if on signin page
+          // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+          // If user is already logged in and visits signin with asweb=1, show deeplink modal
+          if (window.location.pathname === '/signin' && isASWebSession()) {
+            console.log('🔐 ASWebSession detected - user already logged in, showing deeplink prompt');
+            setPendingDeeplinkToken(sessionToken);
+            setTimeout(() => {
+              setShowDeeplinkPrompt(true);
+            }, 0);
+            // Don't redirect - wait for user to confirm/cancel
+            return;
+          }
+          
+          // Immediately redirect if on signin page (normal web flow)
           if (window.location.pathname === '/signin') {
             const hasActiveSubscription = response.subscription && response.subscription.status === 'active';
             if (hasActiveSubscription) {
