@@ -300,15 +300,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           
           // Check if this is from ASWebAuthenticationSession (macOS desktop app)
-          // If user is already logged in and visits signin with asweb=1, show deeplink modal
-          if (window.location.pathname === '/signin' && isASWebSession()) {
-            console.log('🔐 ASWebSession detected - user already logged in, showing deeplink prompt');
-            setPendingDeeplinkToken(sessionToken);
-            setTimeout(() => {
-              setShowDeeplinkPrompt(true);
-            }, 0);
-            // Don't redirect - wait for user to confirm/cancel
-            return;
+          if (isASWebSession()) {
+            // If on account page, show deeplink modal immediately
+            if (window.location.pathname === '/account') {
+              console.log('🔐 ASWebSession detected - user on account page, showing deeplink prompt');
+              setPendingDeeplinkToken(sessionToken);
+              setTimeout(() => {
+                setShowDeeplinkPrompt(true);
+              }, 0);
+              // Don't do anything else - let modal show
+              return;
+            }
+            
+            // If on signin page and already logged in, redirect to account (which will show modal)
+            if (window.location.pathname === '/signin') {
+              console.log('🔐 ASWebSession detected - user already logged in on signin, redirecting to account');
+              window.location.href = '/account?asweb=1';
+              return;
+            }
           }
           
           // Immediately redirect if on signin page (normal web flow)
@@ -518,9 +527,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Don't redirect - wait for user to confirm
           return { success: true, shouldRedirect: null };
         } else {
-          // Normal web/mobile user - redirect to account page
-          if (window.location.pathname !== '/account') {
-            window.location.href = '/account';
+          // Normal web/mobile user - redirect based on subscription status
+          const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
+          
+          if (hasActiveSubscription) {
+            // User has active subscription - redirect to account page
+            if (window.location.pathname !== '/account') {
+              window.location.href = '/account';
+            }
+          } else {
+            // User doesn't have active subscription - redirect to subscribe
+            if (window.location.pathname !== '/subscribe') {
+              window.location.href = '/subscribe';
+            }
           }
         }
         
