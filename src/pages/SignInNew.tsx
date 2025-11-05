@@ -15,8 +15,20 @@ const SignIn = () => {
   const [isProcessing, setIsProcessing] = React.useState(false);
 
   // Immediately redirect if user is already logged in
+  // BUT: Don't redirect if this is from ASWebAuthenticationSession (macOS app)
+  // The deeplink modal needs to show first
   React.useEffect(() => {
     if (!authLoading && user) {
+      // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+      const urlParams = new URLSearchParams(window.location.search);
+      const isASWebSession = urlParams.get('asweb') === '1' || sessionStorage.getItem('asweb_session') === '1';
+      
+      // Don't redirect if we're in an ASWebSession - let the deeplink modal show
+      if (isASWebSession) {
+        console.log('🔐 ASWebSession detected - skipping auto-redirect to allow deeplink modal');
+        return;
+      }
+      
       // User is already logged in - redirect immediately
       // Use window.location for instant redirect (faster than navigate)
       const currentPath = window.location.pathname;

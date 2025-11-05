@@ -126,9 +126,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Check if this is an ASWebAuthenticationSession request (macOS desktop app)
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('asweb') === '1') {
-        // Store flag in sessionStorage for later use
+        // Store flag in sessionStorage for later use (persists through redirects)
         sessionStorage.setItem('asweb_session', '1');
         console.log('🔐 ASWebAuthenticationSession detected - will auto-trigger deeplink after login');
+      }
+      
+      // Also check if we already have the flag in sessionStorage (in case URL param was lost during redirect)
+      // This ensures the flag persists even if Firebase redirects change the URL
+      const existingFlag = sessionStorage.getItem('asweb_session');
+      if (existingFlag === '1') {
+        console.log('🔐 ASWebAuthenticationSession flag found in sessionStorage (persisted through redirect)');
       }
       
       // Step 1: Check for redirect result FIRST
