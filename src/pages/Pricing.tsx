@@ -118,7 +118,6 @@ const Pricing = () => {
   ];
 
   const allFeatures = [
-    "Server locations worldwide",
     "Simultaneous device connections",
     "Bandwidth",
     "Military-grade encryption",
@@ -133,18 +132,6 @@ const Pricing = () => {
   ];
 
   const featureComparison = [
-    {
-      feature: "Server locations worldwide",
-      individual: "50+",
-      team: "50+",
-      enterprise: "50+ (+ Private servers)",
-    },
-    {
-      feature: "Simultaneous device connections",
-      individual: "5",
-      team: "10",
-      enterprise: "Unlimited",
-    },
     {
       feature: "Bandwidth",
       individual: "Unlimited",
@@ -429,16 +416,7 @@ const Pricing = () => {
 
         {/* Trust Signals */}
         <section className="container mx-auto px-4 mb-20">
-          <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-            <div className="p-6 bg-gradient-card rounded-xl border border-border">
-              <div className="text-3xl font-bold text-primary mb-2">50+</div>
-              <div className="text-foreground font-medium mb-1">
-                Server Locations
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Worldwide coverage
-              </div>
-            </div>
+          <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 text-center">
             <div className="p-6 bg-gradient-card rounded-xl border border-border">
               <div className="text-3xl font-bold text-primary mb-2">
                 256-bit
