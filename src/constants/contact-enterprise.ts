@@ -1,4 +1,6 @@
 import { z } from "zod";
+import countryList from "react-select-country-list";
+import { isValidPhoneNumber } from "react-phone-number-input";
 
 // Disposable email domains for basic spam protection
 export const disposableEmailDomains = [
@@ -34,8 +36,8 @@ export const contactSalesSchema = z.object({
     .string()
     .optional()
     .refine(
-      (val) => !val || val.length >= 10,
-      "Phone number must be at least 10 digits"
+      (val) => !val || val === "" || isValidPhoneNumber(val),
+      "Please enter a valid phone number"
     ),
   useCase: z
     .string()
@@ -51,28 +53,8 @@ export const contactSalesSchema = z.object({
 
 export type ContactSalesForm = z.infer<typeof contactSalesSchema>;
 
-export const countries = [
-  "United States",
-  "Canada",
-  "United Kingdom",
-  "Germany",
-  "France",
-  "Australia",
-  "Japan",
-  "Singapore",
-  "Netherlands",
-  "Sweden",
-  "Norway",
-  "Denmark",
-  "Switzerland",
-  "Austria",
-  "Belgium",
-  "Finland",
-  "Ireland",
-  "New Zealand",
-  "South Korea",
-  "Other",
-];
+// Get all countries from react-select-country-list
+export const countries = countryList().getData();
 
 export const contactMethods = ["Email", "Phone", "Video Call"];
 

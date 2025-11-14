@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import PhoneInput from "react-phone-number-input";
+import "react-phone-number-input/style.css";
+import "./phone-input-styles.css";
 import {
   Dialog,
   DialogContent,
@@ -265,8 +268,8 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
                       </FormControl>
                       <SelectContent>
                         {countries.map((country) => (
-                          <SelectItem key={country} value={country}>
-                            {country}
+                          <SelectItem key={country.value} value={country.label}>
+                            {country.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -285,11 +288,22 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
                 <FormItem>
                   <FormLabel>Phone Number</FormLabel>
                   <FormControl>
-                    <Input
-                      type="tel"
-                      placeholder="+1-555-123-4567"
-                      {...field}
-                    />
+                    <div className="relative">
+                      <PhoneInput
+                        placeholder="Enter phone number"
+                        value={field.value}
+                        onChange={field.onChange}
+                        defaultCountry="US"
+                        className="PhoneInput flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        style={
+                          {
+                            "--PhoneInputCountryFlag-height": "1em",
+                            "--PhoneInputCountrySelectArrow-color":
+                              "hsl(var(--muted-foreground))",
+                          } as React.CSSProperties
+                        }
+                      />
+                    </div>
                   </FormControl>
                   <FormDescription>
                     Optional - for faster communication
