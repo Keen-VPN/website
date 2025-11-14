@@ -8,13 +8,13 @@ export const plans = [
     annualPriceDisplay: "$100",
     annualMonthlyEquivalent: "$8.33",
     features: [
+      { name: "1 month FREE TRIAL", included: true, highlighted: true },
       { name: "Access to all server locations", included: true },
       { name: "Unlimited bandwidth", included: true },
       { name: "Military-grade encryption", included: true },
       { name: "24/7 customer support", included: true },
       { name: "No-log policy guaranteed", included: true },
       { name: "Kill switch protection", included: true },
-      { name: "1 month free trial", included: true, highlighted: true },
       { name: "Priority support", included: false },
       { name: "Custom solutions", included: false },
     ],
@@ -30,13 +30,13 @@ export const plans = [
     annualPriceDisplay: "$150",
     annualMonthlyEquivalent: "$12.50",
     features: [
+      { name: "1 month FREE TRIAL", included: true, highlighted: true },
       { name: "Access to all server locations", included: true },
       { name: "Unlimited bandwidth", included: true },
       { name: "Military-grade encryption", included: true },
       { name: "24/7 customer support", included: true },
       { name: "No-log policy guaranteed", included: true },
       { name: "Kill switch protection", included: true },
-      { name: "1 month free trial", included: true, highlighted: true },
       { name: "Team management dashboard", included: true },
       { name: "Priority support", included: true },
       { name: "Custom solutions", included: false },
@@ -53,6 +53,7 @@ export const plans = [
     annualPriceDisplay: "Custom",
     annualMonthlyEquivalent: null,
     features: [
+      { name: "1 month FREE TRIAL", included: true, highlighted: true },
       { name: "Access to all server locations", included: true },
       { name: "Unlimited bandwidth", included: true },
       { name: "Military-grade encryption", included: true },
@@ -60,7 +61,6 @@ export const plans = [
       { name: "24/7 customer support", included: true },
       { name: "No-log policy guaranteed", included: true },
       { name: "Kill switch protection", included: true },
-      { name: "1 month free trial", included: true, highlighted: true },
       { name: "Team management dashboard", included: true },
       { name: "Priority support", included: true },
       { name: "Custom solutions", included: true },
@@ -72,9 +72,9 @@ export const plans = [
 
 export const faqs = [
   {
-    question: "What's included in the 1 month free trial?",
+    question: "What's included in the 1 month FREE TRIAL?",
     answer:
-      "All plans include a full-featured 1 month free trial. You'll have access to all premium features including unlimited bandwidth, all server locations, and our military-grade encryption. No credit card required to start.",
+      "All plans include a full-featured 1 month FREE TRIAL. You'll have access to all premium features including unlimited bandwidth, all server locations, and our military-grade encryption. No credit card required to start.",
   },
   {
     question: "Can I switch plans at any time?",
@@ -94,7 +94,13 @@ export const faqs = [
   {
     question: "What happens after my trial ends?",
     answer:
-      "After your 1 month free trial ends, you'll be automatically enrolled in your selected plan and billing will begin. You can cancel at any time before the trial ends with no charges.",
+      "After your 1 month FREE TRIAL ends, you'll be automatically enrolled in your selected plan and billing will begin. You can cancel at any time before the trial ends with no charges.",
+  },
+  {
+    question: "How do I get started with Enterprise solutions?",
+    answer:
+      "For Enterprise solutions with 50+ users, we offer custom pricing and dedicated support. Contact our sales team to discuss your specific requirements and get a personalized quote.",
+    isEnterprise: true,
   },
 ];
 

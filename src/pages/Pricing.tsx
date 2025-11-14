@@ -10,6 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import { plans, featureComparison, faqs } from "@/constants/pricing";
 
 const Pricing = () => {
@@ -114,23 +115,37 @@ const Pricing = () => {
                     )}
                   </div>
 
-                  <Button
-                    onClick={() =>
-                      plan.name === "Enterprise"
-                        ? navigate("/support")
-                        : // TODO: ADD DYNAMIC ROUTE TO SUBSCRIBE PAGE FOR EACH PLAN (/subscribe?plan=individual)
-                          navigate("/subscribe")
-                    }
-                    className={`w-full mb-6 ${
-                      plan.popular
-                        ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                        : "border-primary/50 hover:bg-primary/10"
-                    }`}
-                    variant={plan.popular ? "default" : "outline"}
-                    size="lg"
-                  >
-                    {plan.buttonText}
-                  </Button>
+                  {plan.name === "Enterprise" ? (
+                    <ContactSalesDialog>
+                      <Button
+                        className={`w-full mb-6 ${
+                          plan.popular
+                            ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                            : "border-primary/50 hover:bg-primary/10"
+                        }`}
+                        variant={plan.popular ? "default" : "outline"}
+                        size="lg"
+                      >
+                        {plan.buttonText}
+                      </Button>
+                    </ContactSalesDialog>
+                  ) : (
+                    <Button
+                      onClick={() =>
+                        // TODO: ADD DYNAMIC ROUTE TO SUBSCRIBE PAGE FOR EACH PLAN (/subscribe?plan=individual)
+                        navigate("/subscribe")
+                      }
+                      className={`w-full mb-6 ${
+                        plan.popular
+                          ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                          : "border-primary/50 hover:bg-primary/10"
+                      }`}
+                      variant={plan.popular ? "default" : "outline"}
+                      size="lg"
+                    >
+                      {plan.buttonText}
+                    </Button>
+                  )}
 
                   <ul className="space-y-3">
                     {plan.features
@@ -189,6 +204,15 @@ const Pricing = () => {
                   <div className="text-sm text-muted-foreground mt-1">
                     Custom
                   </div>
+                  <ContactSalesDialog>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 text-xs"
+                    >
+                      Contact Sales
+                    </Button>
+                  </ContactSalesDialog>
                 </div>
               </div>
 
@@ -289,6 +313,15 @@ const Pricing = () => {
                   </AccordionTrigger>
                   <AccordionContent className="text-muted-foreground pl-8">
                     {faq.answer}
+                    {(faq as any).isEnterprise && (
+                      <div className="mt-4">
+                        <ContactSalesDialog>
+                          <Button variant="outline" size="sm">
+                            Contact Sales Team
+                          </Button>
+                        </ContactSalesDialog>
+                      </div>
+                    )}
                   </AccordionContent>
                 </AccordionItem>
               ))}
