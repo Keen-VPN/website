@@ -1,6 +1,7 @@
-import { BackendAuthResponse, SubscriptionData } from './types';
+import { BackendAuthResponse, SubscriptionData } from "./types";
 
-export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://vpnkeen.netlify.app/api';
+export const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
 // export const BACKEND_URL = 'http://localhost:3003/api';
 
 // ============================================================================
@@ -13,26 +14,33 @@ export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://vpnkeen.
  */
 export async function authenticateWithBackend(
   accessToken: string,
-  provider: 'google' | 'apple' = 'google',
-  additionalData?: { userIdentifier?: string; email?: string; fullName?: string }
+  provider: "google" | "apple" = "google",
+  additionalData?: {
+    userIdentifier?: string;
+    email?: string;
+    fullName?: string;
+  }
 ): Promise<BackendAuthResponse> {
   try {
-    const endpoint = provider === 'apple' ? '/auth/apple/signin' : '/auth/google/signin';
-    const body = provider === 'apple' 
-      ? {
-          identityToken: accessToken,
-          userIdentifier: additionalData?.userIdentifier || accessToken.substring(0, 20),
-          email: additionalData?.email,
-          fullName: additionalData?.fullName
-        }
-      : {
-          idToken: accessToken  // Backend expects 'idToken' parameter for Google
-        };
-    
+    const endpoint =
+      provider === "apple" ? "/auth/apple/signin" : "/auth/google/signin";
+    const body =
+      provider === "apple"
+        ? {
+            identityToken: accessToken,
+            userIdentifier:
+              additionalData?.userIdentifier || accessToken.substring(0, 20),
+            email: additionalData?.email,
+            fullName: additionalData?.fullName,
+          }
+        : {
+            idToken: accessToken, // Backend expects 'idToken' parameter for Google
+          };
+
     const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
     });
@@ -40,14 +48,17 @@ export async function authenticateWithBackend(
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Backend authentication failed');
+      throw new Error(data.error || "Backend authentication failed");
     }
 
     return data;
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to authenticate with backend'
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to authenticate with backend",
     };
   }
 }
@@ -60,26 +71,27 @@ export async function verifySessionToken(
 ): Promise<BackendAuthResponse> {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/verify`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        sessionToken
+        sessionToken,
       }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Session verification failed');
+      throw new Error(data.error || "Session verification failed");
     }
 
     return data;
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to verify session'
+      error:
+        error instanceof Error ? error.message : "Failed to verify session",
     };
   }
 }
@@ -92,26 +104,29 @@ export async function cancelSubscription(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/subscription/cancel`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        sessionToken
+        sessionToken,
       }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Failed to cancel subscription');
+      throw new Error(data.error || "Failed to cancel subscription");
     }
 
     return data;
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to cancel subscription'
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to cancel subscription",
     };
   }
 }
@@ -124,28 +139,34 @@ export async function createCheckoutSession(
   email: string
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
-    const response = await fetch(`${BACKEND_URL}/subscription/create-checkout`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sessionToken,
-        email
-      }),
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/subscription/create-checkout`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionToken,
+          email,
+        }),
+      }
+    );
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Failed to create checkout session');
+      throw new Error(data.error || "Failed to create checkout session");
     }
 
     return data;
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to create checkout session'
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to create checkout session",
     };
   }
 }
@@ -154,8 +175,8 @@ export async function createCheckoutSession(
 // Session Storage
 // ============================================================================
 
-const SESSION_TOKEN_KEY = 'sessionToken';
-const APP_TOKEN_KEY = 'token';
+const SESSION_TOKEN_KEY = "sessionToken";
+const APP_TOKEN_KEY = "token";
 
 export function storeSessionToken(sessionToken: string): void {
   localStorage.setItem(SESSION_TOKEN_KEY, sessionToken);
@@ -170,7 +191,7 @@ export function getSessionToken(): string | null {
 export function clearSessionToken(): void {
   localStorage.removeItem(SESSION_TOKEN_KEY);
   localStorage.removeItem(APP_TOKEN_KEY);
-  localStorage.removeItem('google_access_token');
+  localStorage.removeItem("google_access_token");
 }
 
 /**
@@ -182,28 +203,102 @@ export async function deleteAccount(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/delete-account`, {
-      method: 'DELETE',
+      method: "DELETE",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         email,
-        userId
+        userId,
       }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Failed to delete account');
+      throw new Error(data.error || "Failed to delete account");
     }
 
     return data;
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to delete account'
+      error:
+        error instanceof Error ? error.message : "Failed to delete account",
     };
   }
 }
 
+/**
+ * Fetch subscription plans from backend
+ */
+export async function fetchSubscriptionPlans(): Promise<{
+  success: boolean;
+  plans?: any[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/subscription/plans`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to fetch subscription plans");
+    }
+
+    return {
+      success: true,
+      plans: data.data?.plans || [],
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch subscription plans",
+    };
+  }
+}
+
+/**
+ * Fetch a single subscription plan by ID from backend
+ */
+export async function fetchSubscriptionPlanById(planId: string): Promise<{
+  success: boolean;
+  plan?: any;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/subscription/plan/${planId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to fetch subscription plan");
+    }
+
+    return {
+      success: true,
+      plan: data.data?.plan || null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch subscription plan",
+    };
+  }
+}
