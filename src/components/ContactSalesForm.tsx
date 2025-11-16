@@ -115,7 +115,7 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-6 w-6 text-green-500" />
+              <CheckCircle className="h-6 w-6 text-primary" />
               <DialogTitle>Request Submitted Successfully</DialogTitle>
             </div>
           </DialogHeader>
@@ -137,7 +137,10 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
             <p className="text-sm text-muted-foreground">
               For urgent matters, please contact our support team directly.
             </p>
-            <Button onClick={handleClose} className="w-full">
+            <Button
+              onClick={handleClose}
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+            >
               Close
             </Button>
           </div>

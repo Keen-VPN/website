@@ -1,17 +1,45 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Loader2, ExternalLink, LogOut, Shield, CreditCard, Calendar, AlertTriangle, CheckCircle, XCircle, Trash2 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContextNew';
-import { useToast } from '@/hooks/use-toast';
-import { deleteAccount } from '@/auth';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Loader2,
+  ExternalLink,
+  LogOut,
+  Shield,
+  CreditCard,
+  Calendar,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Trash2,
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContextNew";
+import { useToast } from "@/hooks/use-toast";
+import { deleteAccount } from "@/auth";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://vpnkeen.netlify.app/api';
+const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
 
 const Account = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
@@ -19,7 +47,8 @@ const Account = () => {
   const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, logout, subscription, refreshSubscription } = useAuth();
+  const { user, loading, logout, subscription, refreshSubscription } =
+    useAuth();
 
   // Removed handleOpenApp - ASWebAuthenticationSession now auto-triggers deeplink
 
@@ -34,17 +63,17 @@ const Account = () => {
 
     try {
       setCancelling(true);
-      
+
       // Get Firebase ID token
       const idToken = await user.getIdToken();
-      
+
       const response = await fetch(`${BACKEND_URL}/subscription/cancel`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          idToken
+          idToken,
         }),
       });
 
@@ -52,19 +81,21 @@ const Account = () => {
 
       if (response.ok && data.success) {
         toast({
-          title: 'Subscription Cancelled',
-          description: 'Your subscription will remain active until the end of your billing period.',
+          title: "Subscription Cancelled",
+          description:
+            "Your subscription will remain active until the end of your billing period.",
         });
         // Refresh subscription status
         await refreshSubscription();
       } else {
-        throw new Error(data.error || 'Failed to cancel subscription');
+        throw new Error(data.error || "Failed to cancel subscription");
       }
     } catch (error) {
       toast({
-        title: 'Cancellation Failed',
-        description: error instanceof Error ? error.message : 'Please try again',
-        variant: 'destructive',
+        title: "Cancellation Failed",
+        description:
+          error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
       });
     } finally {
       setCancelling(false);
@@ -76,26 +107,28 @@ const Account = () => {
 
     try {
       setDeleting(true);
-      
+
       const result = await deleteAccount(user.email, user.uid);
 
       if (result.success) {
         toast({
-          title: 'Account Deleted',
-          description: 'Your account and all associated data have been permanently deleted.',
+          title: "Account Deleted",
+          description:
+            "Your account and all associated data have been permanently deleted.",
         });
-        
+
         // Sign out and redirect to home
         await logout();
-        navigate('/');
+        navigate("/");
       } else {
-        throw new Error(result.error || 'Failed to delete account');
+        throw new Error(result.error || "Failed to delete account");
       }
     } catch (error) {
       toast({
-        title: 'Deletion Failed',
-        description: error instanceof Error ? error.message : 'Please try again',
-        variant: 'destructive',
+        title: "Deletion Failed",
+        description:
+          error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
       });
     } finally {
       setDeleting(false);
@@ -103,31 +136,41 @@ const Account = () => {
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-500';
-      case 'inactive': return 'bg-gray-500';
-      case 'past_due': return 'bg-yellow-500';
-      case 'cancelled': return 'bg-red-500';
-      default: return 'bg-gray-500';
+      case "active":
+        return "bg-green-500";
+      case "inactive":
+        return "bg-gray-500";
+      case "past_due":
+        return "bg-yellow-500";
+      case "cancelled":
+        return "bg-red-500";
+      default:
+        return "bg-gray-500";
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'active': return 'Active';
-      case 'inactive': return 'Inactive';
-      case 'past_due': return 'Past Due';
-      case 'cancelled': return 'Cancelled';
-      default: return status;
+      case "active":
+        return "Active";
+      case "inactive":
+        return "Inactive";
+      case "past_due":
+        return "Past Due";
+      case "cancelled":
+        return "Cancelled";
+      default:
+        return status;
     }
   };
 
@@ -144,7 +187,7 @@ const Account = () => {
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 py-20 bg-gradient-hero flex items-center justify-center">
-          <Card className="max-w-md w-full text-center border-primary/50 shadow-glow">
+          <Card className="max-w-md w-full text-center border-accent/50 shadow-glow">
             <CardHeader>
               <CardTitle>Sign In Required</CardTitle>
               <CardDescription>
@@ -152,7 +195,7 @@ const Account = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => navigate('/subscribe')} className="w-full">
+              <Button onClick={() => navigate("/subscribe")} className="w-full">
                 Sign In
               </Button>
             </CardContent>
@@ -169,7 +212,9 @@ const Account = () => {
       <main className="flex-1 py-20 bg-gradient-hero">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold text-foreground mb-4">My Account</h1>
+            <h1 className="text-4xl font-bold text-foreground mb-4">
+              My <span className="text-primary">Account</span>
+            </h1>
             <p className="text-xl text-muted-foreground">
               Manage your KeenVPN subscription and account settings
             </p>
@@ -177,7 +222,7 @@ const Account = () => {
 
           <div className="grid md:grid-cols-2 gap-8">
             {/* Account Info */}
-            <Card className="border-primary/50 shadow-glow">
+            <Card className="border-accent/50 shadow-glow">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Shield className="h-5 w-5 mr-2" />
@@ -193,11 +238,7 @@ const Account = () => {
                   <p className="text-sm text-muted-foreground">Provider</p>
                   <p className="font-medium">Google</p>
                 </div>
-                <Button
-                  onClick={logout}
-                  variant="outline"
-                  className="w-full"
-                >
+                <Button onClick={logout} variant="outline" className="w-full">
                   <LogOut className="h-4 w-4 mr-2" />
                   Sign Out
                 </Button>
@@ -205,7 +246,7 @@ const Account = () => {
             </Card>
 
             {/* Subscription Status */}
-            <Card className="border-primary/50 shadow-glow">
+            <Card className="border-accent/50 shadow-glow">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <CreditCard className="h-5 w-5 mr-2" />
@@ -220,24 +261,32 @@ const Account = () => {
                 ) : subscription ? (
                   <>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Status</span>
-                      <Badge className={`${getStatusColor(subscription.status)} text-white`}>
+                      <span className="text-sm text-muted-foreground">
+                        Status
+                      </span>
+                      <Badge
+                        className={`${getStatusColor(
+                          subscription.status
+                        )} text-white`}
+                      >
                         {getStatusText(subscription.status)}
                       </Badge>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Plan</p>
-                      <p className="font-medium">{subscription.plan || 'KeenVPN Premium'}</p>
+                      <p className="font-medium">
+                        {subscription.plan || "KeenVPN Premium"}
+                      </p>
                     </div>
-                    
+
                     {/* Auto-Renewal Status */}
                     <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                       <div>
                         <p className="text-sm font-medium">Auto-Renewal</p>
                         <p className="text-xs text-muted-foreground">
-                          {subscription.cancelAtPeriodEnd 
-                            ? 'Cancelled - subscription ends on billing date' 
-                            : 'Active - automatically renews each period'}
+                          {subscription.cancelAtPeriodEnd
+                            ? "Cancelled - subscription ends on billing date"
+                            : "Active - automatically renews each period"}
                         </p>
                       </div>
                       {subscription.cancelAtPeriodEnd ? (
@@ -252,15 +301,19 @@ const Account = () => {
                         </Badge>
                       )}
                     </div>
-                    
+
                     {subscription.endDate && (
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
                         <div>
                           <p className="text-sm text-muted-foreground">
-                            {subscription.cancelAtPeriodEnd ? 'Subscription Ends' : 'Next Billing'}
+                            {subscription.cancelAtPeriodEnd
+                              ? "Subscription Ends"
+                              : "Next Billing"}
                           </p>
-                          <p className="font-medium">{formatDate(subscription.endDate)}</p>
+                          <p className="font-medium">
+                            {formatDate(subscription.endDate)}
+                          </p>
                         </div>
                       </div>
                     )}
@@ -278,11 +331,11 @@ const Account = () => {
                             Refreshing...
                           </>
                         ) : (
-                          'Refresh Status'
+                          "Refresh Status"
                         )}
                       </Button>
 
-                      {subscription.status === 'active' ? (
+                      {subscription.status === "active" ? (
                         <>
                           {!subscription.cancelAtPeriodEnd ? (
                             <AlertDialog>
@@ -302,19 +355,36 @@ const Account = () => {
                                     Turn Off Auto-Renewal
                                   </AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Are you sure you want to turn off auto-renewal? 
-                                    <br /><br />
+                                    Are you sure you want to turn off
+                                    auto-renewal?
+                                    <br />
+                                    <br />
                                     <strong>What happens:</strong>
                                     <ul className="list-disc list-inside mt-2 space-y-1">
-                                      <li>Your subscription will remain active until <strong>{formatDate(subscription.endDate)}</strong></li>
+                                      <li>
+                                        Your subscription will remain active
+                                        until{" "}
+                                        <strong>
+                                          {formatDate(subscription.endDate)}
+                                        </strong>
+                                      </li>
                                       <li>You will NOT be charged again</li>
-                                      <li>You can re-enable auto-renewal anytime before this date</li>
-                                      <li>After this date, you'll need to subscribe again to continue using KeenVPN</li>
+                                      <li>
+                                        You can re-enable auto-renewal anytime
+                                        before this date
+                                      </li>
+                                      <li>
+                                        After this date, you'll need to
+                                        subscribe again to continue using
+                                        KeenVPN
+                                      </li>
                                     </ul>
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Keep Auto-Renewal</AlertDialogCancel>
+                                  <AlertDialogCancel>
+                                    Keep Auto-Renewal
+                                  </AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={handleCancelSubscription}
                                     disabled={cancelling}
@@ -326,7 +396,7 @@ const Account = () => {
                                         Processing...
                                       </>
                                     ) : (
-                                      'Yes, Turn Off Auto-Renewal'
+                                      "Yes, Turn Off Auto-Renewal"
                                     )}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
@@ -342,19 +412,24 @@ const Account = () => {
                                       Auto-Renewal Cancelled
                                     </p>
                                     <p className="text-xs text-yellow-700 mt-1">
-                                      Your subscription will end on <strong>{formatDate(subscription.endDate)}</strong>
+                                      Your subscription will end on{" "}
+                                      <strong>
+                                        {formatDate(subscription.endDate)}
+                                      </strong>
                                       <br />
-                                      You will not be charged again unless you re-enable auto-renewal.
+                                      You will not be charged again unless you
+                                      re-enable auto-renewal.
                                     </p>
                                   </div>
                                 </div>
                               </div>
-                              
+
                               <Button
                                 onClick={() => {
                                   toast({
-                                    title: 'Re-enable Auto-Renewal',
-                                    description: 'Please contact support to re-enable auto-renewal, or subscribe again after your current period ends.',
+                                    title: "Re-enable Auto-Renewal",
+                                    description:
+                                      "Please contact support to re-enable auto-renewal, or subscribe again after your current period ends.",
                                   });
                                 }}
                                 variant="outline"
@@ -368,8 +443,8 @@ const Account = () => {
                         </>
                       ) : (
                         <Button
-                          onClick={() => navigate('/subscribe')}
-                          className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90"
+                          onClick={() => navigate("/subscribe")}
+                          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
                         >
                           Subscribe Now
                         </Button>
@@ -382,8 +457,8 @@ const Account = () => {
                       No active subscription found
                     </p>
                     <Button
-                      onClick={() => navigate('/subscribe')}
-                      className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90"
+                      onClick={() => navigate("/subscribe")}
+                      className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
                     >
                       Subscribe Now
                     </Button>
@@ -394,7 +469,7 @@ const Account = () => {
           </div>
 
           {/* Support Section */}
-          <Card className="mt-8 border-primary/50 shadow-glow">
+          <Card className="mt-8 border-accent/50 shadow-glow">
             <CardHeader>
               <CardTitle>Need Help?</CardTitle>
               <CardDescription>
@@ -403,7 +478,7 @@ const Account = () => {
             </CardHeader>
             <CardContent>
               <Button
-                onClick={() => navigate('/support')}
+                onClick={() => navigate("/support")}
                 variant="outline"
                 className="w-full"
               >
@@ -452,7 +527,9 @@ const Account = () => {
                     </AlertDialogTitle>
                     <AlertDialogDescription className="space-y-3">
                       <p>
-                        This action <strong>cannot be undone</strong>. This will permanently delete your account and remove all your data from our servers.
+                        This action <strong>cannot be undone</strong>. This will
+                        permanently delete your account and remove all your data
+                        from our servers.
                       </p>
                       <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/20">
                         <p className="text-sm font-medium text-destructive">
@@ -464,13 +541,14 @@ const Account = () => {
                           <li>All associated preferences and settings</li>
                         </ul>
                       </div>
-                      {subscription && subscription.status === 'active' && (
+                      {subscription && subscription.status === "active" && (
                         <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
                           <p className="text-sm font-medium text-yellow-800">
                             ⚠️ You have an active subscription
                           </p>
                           <p className="text-xs text-yellow-700 mt-1">
-                            Please cancel your subscription before deleting your account to avoid future charges.
+                            Please cancel your subscription before deleting your
+                            account to avoid future charges.
                           </p>
                         </div>
                       )}

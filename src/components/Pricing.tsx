@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 const Pricing = () => {
   const navigate = useNavigate();
-  
+
   const plan = {
     name: "KeenVPN Premium",
     price: "$100",
@@ -12,15 +12,15 @@ const Pricing = () => {
     description: "Complete VPN protection for the entire year",
     features: [
       "Access to all server locations",
-      "Unlimited bandwidth", 
+      "Unlimited bandwidth",
       "Military-grade encryption",
       "Multi-device support",
       "24/7 customer support",
       "No-log policy guaranteed",
       "Advanced security features",
-      "Kill switch protection"
+      "Kill switch protection",
     ],
-    buttonText: "Get KeenVPN"
+    buttonText: "Get KeenVPN",
   };
 
   return (
@@ -28,27 +28,32 @@ const Pricing = () => {
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Simple, Transparent Pricing
+            Simple, <span className="text-primary">Transparent</span> Pricing
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            One plan, one price. Get complete VPN protection for just $100 per year.
+            One plan, one price. Get complete VPN protection for just $100 per
+            year.
           </p>
         </div>
 
         <div className="flex justify-center">
-          <div className="relative p-8 bg-gradient-card rounded-xl border border-primary/50 shadow-glow transition-all duration-300 max-w-md w-full">
+          <div className="relative p-8 bg-gradient-card rounded-xl border border-accent/50 shadow-glow transition-all duration-300 max-w-md w-full hover:border-accent/70 hover:shadow-xl">
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-              <span className="bg-gradient-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium">
+              <span className="bg-primary text-primary-foreground px-6 py-2 rounded-full text-sm font-semibold shadow-lg">
                 Annual Plan
               </span>
             </div>
 
             <div className="text-center mb-8 mt-4">
-              <h3 className="text-2xl font-bold text-foreground mb-2">{plan.name}</h3>
+              <h3 className="text-2xl font-bold text-foreground mb-2">
+                {plan.name}
+              </h3>
               <p className="text-muted-foreground mb-4">{plan.description}</p>
-              
+
               <div className="mb-4">
-                <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+                <span className="text-4xl font-bold text-foreground">
+                  {plan.price}
+                </span>
                 <span className="text-muted-foreground">{plan.period}</span>
                 <div className="text-sm text-muted-foreground mt-1">
                   Just $8.33 per month
@@ -59,15 +64,17 @@ const Pricing = () => {
             <ul className="space-y-4 mb-8">
               {plan.features.map((feature, featureIndex) => (
                 <li key={featureIndex} className="flex items-start space-x-3">
-                  <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="p-1 bg-primary/20 rounded-full">
+                    <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                  </div>
                   <span className="text-muted-foreground">{feature}</span>
                 </li>
               ))}
             </ul>
 
-            <Button 
-              onClick={() => navigate('/subscribe')}
-              className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+            <Button
+              onClick={() => navigate("/subscribe")}
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow font-semibold text-lg transition-all hover:scale-105"
               size="lg"
             >
               {plan.buttonText}
