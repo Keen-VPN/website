@@ -305,9 +305,7 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
                       />
                     </div>
                   </FormControl>
-                  <FormDescription>
-                    Optional - for faster communication
-                  </FormDescription>
+
                   <FormMessage />
                 </FormItem>
               )}
