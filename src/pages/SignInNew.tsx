@@ -1,13 +1,19 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Shield, Apple } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContextNew';
-import { useDebounce } from '@/auth';
-import GoogleIcon from '@/components/ui/google-icon';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Loader2, Shield, Apple } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContextNew";
+import { useDebounce } from "@/auth";
+import GoogleIcon from "@/components/ui/google-icon";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 const SignIn = () => {
   const navigate = useNavigate();
@@ -20,12 +26,13 @@ const SignIn = () => {
       // User is already logged in - redirect immediately
       // Use window.location for instant redirect (faster than navigate)
       const currentPath = window.location.pathname;
-      if (currentPath === '/signin') {
-        const hasActiveSubscription = subscription && subscription.status === 'active';
+      if (currentPath === "/signin") {
+        const hasActiveSubscription =
+          subscription && subscription.status === "active";
         if (hasActiveSubscription) {
-          window.location.href = '/account';
+          window.location.href = "/account";
         } else {
-          window.location.href = '/subscribe';
+          window.location.href = "/subscribe";
         }
       }
     }
@@ -34,7 +41,7 @@ const SignIn = () => {
   // Debounce sign-in to prevent double-clicks
   const [handleGoogleSignIn, isGoogleDebouncing] = useDebounce(async () => {
     setIsProcessing(true);
-    const result = await signIn('google');
+    const result = await signIn("google");
     // Don't navigate here - AuthContext will handle redirect based on subscription status
     if (!result.success) {
       setIsProcessing(false);
@@ -44,7 +51,7 @@ const SignIn = () => {
 
   const [handleAppleSignIn, isAppleDebouncing] = useDebounce(async () => {
     setIsProcessing(true);
-    const result = await signIn('apple');
+    const result = await signIn("apple");
     // Don't navigate here - AuthContext will handle redirect based on subscription status
     if (!result.success) {
       setIsProcessing(false);
@@ -52,7 +59,8 @@ const SignIn = () => {
     // Keep processing state true to prevent UI flicker during redirect
   }, 2000);
 
-  const isLoading = authLoading || isGoogleDebouncing || isAppleDebouncing || isProcessing;
+  const isLoading =
+    authLoading || isGoogleDebouncing || isAppleDebouncing || isProcessing;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -88,7 +96,9 @@ const SignIn = () => {
                 {isGoogleDebouncing || (isLoading && !isAppleDebouncing) ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    {isGoogleDebouncing ? 'Please wait...' : 'Authenticating...'}
+                    {isGoogleDebouncing
+                      ? "Please wait..."
+                      : "Authenticating..."}
                   </>
                 ) : (
                   <>
@@ -107,7 +117,7 @@ const SignIn = () => {
                 {isAppleDebouncing ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    {isAppleDebouncing ? 'Please wait...' : 'Authenticating...'}
+                    {isAppleDebouncing ? "Please wait..." : "Authenticating..."}
                   </>
                 ) : (
                   <>
@@ -119,11 +129,11 @@ const SignIn = () => {
 
               <div className="text-center pt-4">
                 <p className="text-sm text-muted-foreground">
-                  By signing in, you agree to our{' '}
+                  By signing in, you agree to our{" "}
                   <a href="/terms" className="text-primary hover:underline">
                     Terms of Service
-                  </a>{' '}
-                  and{' '}
+                  </a>{" "}
+                  and{" "}
                   <a href="/privacy" className="text-primary hover:underline">
                     Privacy Policy
                   </a>
@@ -134,7 +144,8 @@ const SignIn = () => {
 
           <div className="text-center mt-8">
             <p className="text-sm text-muted-foreground">
-              Existing users will be signed in automatically.<br />
+              Existing users will be signed in automatically.
+              <br />
               New users will have an account created instantly.
             </p>
           </div>
@@ -146,4 +157,3 @@ const SignIn = () => {
 };
 
 export default SignIn;
-
