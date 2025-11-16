@@ -2,9 +2,6 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import PhoneInput from "react-phone-number-input";
-import "react-phone-number-input/style.css";
-import "./phone-input-styles.css";
 import {
   Dialog,
   DialogContent,
@@ -16,14 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Form,
   FormControl,
@@ -37,9 +26,6 @@ import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import {
   ContactSalesForm,
   contactSalesSchema,
-  countries,
-  contactMethods,
-  timePreferences,
 } from "@/constants/contact-enterprise";
 import { BACKEND_URL } from "@/auth/backend";
 
@@ -61,19 +47,17 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
       companyName: "",
       workEmail: "",
       teamSize: 50,
-      countryRegion: "",
-      hasConsent: false,
-      phone: "",
+      hasConsent: true,
       useCase: "",
-      preferredContactMethod: "Email",
-      preferredContactTime: "",
-      message: "",
     },
   });
 
   const onSubmit = async (data: ContactSalesForm) => {
     setIsSubmitting(true);
     setSubmitStatus("idle");
+
+    // Clear any existing server-side validation errors
+    form.clearErrors();
 
     try {
       // TODO: Replace with actual API endpoint URL from environment
@@ -90,6 +74,95 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
         setReferenceId(result.referenceId || `REF-${Date.now()}`);
         setSubmitStatus("success");
         form.reset();
+      } else if (response.status === 400) {
+        // Handle validation errors
+        try {
+          const errorData = await response.json();
+
+          // Check if we have validation errors array (direct format)
+          if (Array.isArray(errorData) && errorData.length > 0) {
+            let hasValidationErrors = false;
+
+            errorData.forEach((error: { field: string; message: string }) => {
+              if (error.field && error.message) {
+                const fieldName = error.field as keyof ContactSalesForm;
+
+                form.setError(fieldName, {
+                  type: "server",
+                  message: error.message,
+                });
+                hasValidationErrors = true;
+              }
+            });
+
+            if (hasValidationErrors) {
+              setIsSubmitting(false);
+              return;
+            }
+          }
+
+          // Handle nested errors format
+          if (errorData.errors && Array.isArray(errorData.errors)) {
+            let hasValidationErrors = false;
+
+            errorData.errors.forEach(
+              (error: { field: string; message: string }) => {
+                if (error.field && error.message) {
+                  form.setError(error.field as keyof ContactSalesForm, {
+                    type: "server",
+                    message: error.message,
+                  });
+                  hasValidationErrors = true;
+                }
+              }
+            );
+
+            if (hasValidationErrors) {
+              setIsSubmitting(false);
+              return;
+            }
+          }
+
+          // Handle validationErrors format (your backend format)
+          if (
+            errorData.validationErrors &&
+            Array.isArray(errorData.validationErrors)
+          ) {
+            let hasValidationErrors = false;
+
+            errorData.validationErrors.forEach(
+              (error: { field: string; message: string }) => {
+                if (error.field && error.message) {
+                  form.setError(error.field as keyof ContactSalesForm, {
+                    type: "server",
+                    message: error.message,
+                  });
+                  hasValidationErrors = true;
+                }
+              }
+            );
+
+            if (hasValidationErrors) {
+              setIsSubmitting(false);
+              return;
+            }
+          }
+
+          // Handle single error object format
+          if (errorData.field && errorData.message) {
+            form.setError(errorData.field as keyof ContactSalesForm, {
+              type: "server",
+              message: errorData.message,
+            });
+
+            setIsSubmitting(false);
+            return;
+          }
+        } catch (parseError) {
+          console.error("Error parsing validation errors:", parseError);
+        }
+        // If we can't parse validation errors, show generic error
+        setSubmitStatus("error");
       } else {
         console.error("Failed to submit contact form:", response.statusText);
         setSubmitStatus("error");
@@ -163,7 +236,13 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
               Please try again or contact our support team directly.
             </p>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setSubmitStatus("idle")}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  form.clearErrors();
+                  setSubmitStatus("idle");
+                }}
+              >
                 Try Again
               </Button>
               <Button onClick={handleClose}>Close</Button>
@@ -224,152 +303,30 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Team Size */}
-              <FormField
-                control={form.control}
-                name="teamSize"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Team Size *</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="50"
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(parseInt(e.target.value) || 0)
-                        }
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Number of users who will need VPN access
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Country/Region */}
-              <FormField
-                control={form.control}
-                name="countryRegion"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Country/Region *</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select your country" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {countries.map((country) => (
-                          <SelectItem key={country.value} value={country.label}>
-                            {country.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Phone (Optional) */}
+            {/* Team Size */}
             <FormField
               control={form.control}
-              name="phone"
+              name="teamSize"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
+                  <FormLabel>Team Size *</FormLabel>
                   <FormControl>
-                    <div className="relative">
-                      <PhoneInput
-                        placeholder="Enter phone number"
-                        value={field.value}
-                        onChange={field.onChange}
-                        defaultCountry="US"
-                        className="PhoneInput flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        style={
-                          {
-                            "--PhoneInputCountryFlag-height": "1em",
-                            "--PhoneInputCountrySelectArrow-color":
-                              "hsl(var(--muted-foreground))",
-                          } as React.CSSProperties
-                        }
-                      />
-                    </div>
+                    <Input
+                      type="number"
+                      placeholder="50"
+                      {...field}
+                      onChange={(e) =>
+                        field.onChange(parseInt(e.target.value) || 0)
+                      }
+                    />
                   </FormControl>
-
+                  <FormDescription>
+                    Number of users who will need VPN access
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Preferred Contact Method */}
-              <FormField
-                control={form.control}
-                name="preferredContactMethod"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Preferred Contact Method</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select contact method" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {contactMethods.map((method) => (
-                          <SelectItem key={method} value={method}>
-                            {method}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Preferred Contact Time */}
-              <FormField
-                control={form.control}
-                name="preferredContactTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Preferred Contact Time</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select time preference" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {timePreferences.map((time) => (
-                          <SelectItem key={time} value={time}>
-                            {time}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
 
             {/* Use Case */}
             <FormField
@@ -389,51 +346,6 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
                     Help us understand your specific needs
                   </FormDescription>
                   <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Message */}
-            <FormField
-              control={form.control}
-              name="message"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Additional Message</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Any additional information you'd like to share..."
-                      className="min-h-[80px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Consent Checkbox */}
-            <FormField
-              control={form.control}
-              name="hasConsent"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>
-                      I agree to be contacted by KeenVPN's sales team *
-                    </FormLabel>
-                    <FormDescription>
-                      We'll only use your information to respond to your inquiry
-                      and provide relevant product information.
-                    </FormDescription>
-                    <FormMessage />
-                  </div>
                 </FormItem>
               )}
             />

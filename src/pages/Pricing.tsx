@@ -65,13 +65,10 @@ const Pricing = () => {
         <section className="container mx-auto px-4 mb-20">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
             {plans.map((plan, index) => {
-              const price =
-                billingPeriod === "annual"
-                  ? plan.annualPriceDisplay
-                  : plan.monthlyPriceDisplay;
-              const period = billingPeriod === "annual" ? "/year" : "/month";
-              const monthlyEquivalent =
-                billingPeriod === "annual" && plan.annualMonthlyEquivalent;
+              const price = plan.monthlyPriceDisplay;
+              const period =
+                billingPeriod === "annual" ? " billed annually" : "/month";
+              const monthlyEquivalent = false; // Always false since we show monthly prices
 
               return (
                 <div
@@ -190,13 +187,17 @@ const Pricing = () => {
                 <div className="text-center">
                   <div className="text-foreground font-bold">Individual</div>
                   <div className="text-sm text-muted-foreground mt-1">
-                    {billingPeriod === "annual" ? "$100/year" : "$10/month"}
+                    {billingPeriod === "annual"
+                      ? "$10 billed annually"
+                      : "$10/month"}
                   </div>
                 </div>
                 <div className="text-center">
                   <div className="text-foreground font-bold">Team</div>
                   <div className="text-sm text-muted-foreground mt-1">
-                    {billingPeriod === "annual" ? "$150/year" : "$15/month"}
+                    {billingPeriod === "annual"
+                      ? "$15 billed annually"
+                      : "$15/month"}
                   </div>
                 </div>
                 <div className="text-center">
