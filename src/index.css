@@ -8,13 +8,12 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Brand Colors - KeenVPN */
-    /* Dark Navy Blue: #0F2040 - primary background */
-    /* Bright Orange: #E96716 - CTAs and highlights */
-    /* Teal/Light Blue: #3A7CA5 - accents */
-    /* Muted Steel Blue: #404C64 - secondary elements */
-    /* White: #F5F6FA - text/foreground */
-    /* Black: #000000 - deep contrasts */
+    /* Brand Colors  */
+    /* Oxford Blue: #0F2040 - primary background */
+    /* Persimmon: #E85C04 - CTAs and highlights (max 15% usage) */
+    /* Cerulean: #3A7CA5 - accents */
+    /* Anti-flash White: #F5F6FA - text/foreground */
+    /* Rich Black: #081020 - deep contrasts, overlays, gradients */
 
     --background: 217 62% 15%;
     --foreground: 225 33% 97%;
@@ -25,7 +24,7 @@ All colors MUST be HSL.
     --popover: 220 22% 20%;
     --popover-foreground: 225 33% 97%;
 
-    --primary: 21 82% 50%;
+    --primary: 21 90% 46%;
     --primary-foreground: 225 33% 97%;
 
     --secondary: 203 47% 44%;
@@ -42,28 +41,29 @@ All colors MUST be HSL.
 
     --border: 220 22% 25%;
     --input: 220 22% 25%;
-    --ring: 21 82% 50%;
+    --ring: 21 90% 46%;
 
     /* VPN-specific design tokens with brand colors */
-    --primary-glow: 21 82% 50%;
+    --primary-glow: 21 90% 46%;
     --primary-dark: 217 62% 10%;
+    --rich-black: 217 60% 8%;
     --gradient-primary: linear-gradient(
       135deg,
-      hsl(21 82% 50%),
-      hsl(21 82% 60%)
+      hsl(21 90% 46%),
+      hsl(21 90% 56%)
     );
     --gradient-hero: linear-gradient(
       180deg,
       hsl(217 62% 15%) 0%,
-      hsl(217 62% 18%) 100%
+      hsl(217 60% 8%) 100%
     );
     --gradient-card: linear-gradient(
       145deg,
       hsl(220 22% 20%) 0%,
       hsl(220 22% 25%) 100%
     );
-    --shadow-glow: 0 0 30px hsl(21 82% 50% / 0.4);
-    --shadow-card: 0 10px 40px hsl(217 62% 10% / 0.5);
+    --shadow-glow: 0 0 30px hsl(21 90% 46% / 0.4);
+    --shadow-card: 0 10px 40px hsl(217 60% 8% / 0.5);
 
     --radius: 0.5rem;
 
@@ -130,5 +130,7 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
+      "Segoe UI", sans-serif;
   }
 }
