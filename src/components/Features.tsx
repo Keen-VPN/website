@@ -5,33 +5,39 @@ const Features = () => {
     {
       icon: Shield,
       title: "Zero-Log Policy",
-      description: "We never track, collect, or store your online activity. Your privacy is guaranteed."
+      description:
+        "We never track, collect, or store your online activity. Your privacy is guaranteed.",
     },
     {
       icon: Eye,
       title: "Anonymous Browsing",
-      description: "Hide your IP address and browse the web completely anonymously with enterprise-grade encryption."
+      description:
+        "Hide your IP address and browse the web completely anonymously with enterprise-grade encryption.",
     },
     {
       icon: Wifi,
       title: "Public WiFi Protection",
-      description: "Stay safe on public networks with automatic encryption and threat detection."
+      description:
+        "Stay safe on public networks with automatic encryption and threat detection.",
     },
     {
       icon: Smartphone,
       title: "Multi-Device Support",
-      description: "Protect multiple devices with one simple app installation across all platforms."
+      description:
+        "Protect multiple devices with one simple app installation across all platforms.",
     },
     {
       icon: Server,
       title: "Reliable Servers",
-      description: "Connect to our secure server network with expansion planned across key global locations."
+      description:
+        "Connect to our secure server network with expansion planned across key global locations.",
     },
     {
       icon: Clock,
       title: "24/7 Support",
-      description: "Get instant help from our expert support team whenever you need assistance."
-    }
+      description:
+        "Get instant help from our expert support team whenever you need assistance.",
+    },
   ];
 
   return (
@@ -42,7 +48,8 @@ const Features = () => {
             Why Choose KeenVPN?
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Advanced security features designed to protect your digital life and ensure complete privacy online.
+            Advanced security features designed to protect your digital life and
+            ensure complete privacy online.
           </p>
         </div>
 
@@ -50,7 +57,7 @@ const Features = () => {
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
-              <div 
+              <div
                 key={index}
                 className="p-8 bg-gradient-card rounded-xl border border-border/50 shadow-card hover:shadow-glow transition-all duration-300 group"
               >
