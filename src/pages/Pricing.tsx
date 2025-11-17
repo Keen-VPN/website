@@ -261,7 +261,7 @@ const Pricing = () => {
                       {plan.monthlyPrice === null
                         ? "Custom"
                         : billingPeriod === "annual"
-                        ? `${plan.annualMonthlyEquivalent}, billed annually`
+                        ? `${plan.annualMonthlyEquivalent}/month, billed annually`
                         : `${plan.monthlyPriceDisplay}/month`}
                     </div>
                     {plan.name === "Enterprise" && (

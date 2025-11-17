@@ -39,7 +39,7 @@ const Subscribe = () => {
       try {
         setPlanLoading(true);
 
-        // Use premium_yearly as default if no planId is provided
+        // Use premium_monthly as default if no planId is provided
         const planToFetch = planIdParam || "premium_monthly";
 
         const response = await fetchSubscriptionPlanById(planToFetch);
