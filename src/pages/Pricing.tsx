@@ -243,33 +243,42 @@ const Pricing = () => {
 
         {/* Feature Comparison Table */}
         <section className="container mx-auto px-4 mb-20">
-          <h2 className="text-3xl font-bold text-foreground text-center mb-12">
+          <h2 className="text-2xl md:text-3xl font-bold text-foreground text-center mb-8 md:mb-12">
             Compare Plans
           </h2>
 
-          <div className="max-w-6xl mx-auto overflow-x-auto">
-            <div className="min-w-[640px] bg-gradient-card rounded-xl border border-border p-6">
+          <div className="max-w-6xl md:mx-auto overflow-x-auto -mx-4 px-4 md:px-0">
+            <div className="min-w-[600px] bg-gradient-card rounded-xl border border-border p-4 md:p-6">
               {/* Table Header */}
-              <div className="grid grid-cols-3 gap-4 mb-6 pb-6 border-b border-border">
-                <div className="text-muted-foreground font-medium">
+              <div className="grid grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6 pb-4 md:pb-6 border-b border-border">
+                <div className="text-muted-foreground font-medium text-sm md:text-base">
                   Features
                 </div>
                 {plans.map((plan, index) => (
                   <div key={index} className="text-center">
-                    <div className="text-foreground font-bold">{plan.name}</div>
-                    <div className="text-sm text-muted-foreground mt-1">
+                    <div className="text-foreground font-bold text-sm md:text-base">
+                      {plan.name}
+                    </div>
+                    <div className="text-xs md:text-sm text-muted-foreground mt-1 hidden sm:block">
                       {plan.monthlyPrice === null
                         ? "Custom"
                         : billingPeriod === "annual"
                         ? `${plan.annualMonthlyEquivalent}/month, billed annually`
                         : `${plan.monthlyPriceDisplay}/month`}
                     </div>
+                    <div className="text-xs text-muted-foreground mt-1 sm:hidden">
+                      {plan.monthlyPrice === null
+                        ? "Custom"
+                        : billingPeriod === "annual"
+                        ? plan.annualMonthlyEquivalent
+                        : plan.monthlyPriceDisplay}
+                    </div>
                     {plan.name === "Enterprise" && (
                       <ContactSalesDialog>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="mt-2 text-xs"
+                          className="mt-2 text-xs hidden md:inline-flex"
                         >
                           Contact Sales
                         </Button>
@@ -283,30 +292,36 @@ const Pricing = () => {
               {featureComparison.map((row, index) => (
                 <div
                   key={index}
-                  className="grid grid-cols-3 gap-4 py-4 border-b border-border/50 last:border-0"
+                  className="grid grid-cols-3 gap-2 md:gap-4 py-3 md:py-4 border-b border-border/50 last:border-0"
                 >
-                  <div className="text-foreground">{row.feature}</div>
+                  <div className="text-foreground text-xs md:text-sm lg:text-base">
+                    {row.feature}
+                  </div>
                   <div className="text-center text-muted-foreground">
                     {typeof row.individual === "boolean" ? (
                       row.individual ? (
-                        <Check className="h-5 w-5 text-primary inline-block" />
+                        <Check className="h-4 w-4 md:h-5 md:w-5 text-primary inline-block" />
                       ) : (
-                        <X className="h-5 w-5 text-muted-foreground/50 inline-block" />
+                        <X className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground/50 inline-block" />
                       )
                     ) : (
-                      row.individual
+                      <span className="text-xs md:text-sm">
+                        {row.individual}
+                      </span>
                     )}
                   </div>
 
                   <div className="text-center text-muted-foreground">
                     {typeof row.enterprise === "boolean" ? (
                       row.enterprise ? (
-                        <Check className="h-5 w-5 text-primary inline-block" />
+                        <Check className="h-4 w-4 md:h-5 md:w-5 text-primary inline-block" />
                       ) : (
-                        <X className="h-5 w-5 text-muted-foreground/50 inline-block" />
+                        <X className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground/50 inline-block" />
                       )
                     ) : (
-                      row.enterprise
+                      <span className="text-xs md:text-sm">
+                        {row.enterprise}
+                      </span>
                     )}
                   </div>
                 </div>

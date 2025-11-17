@@ -83,11 +83,11 @@ const SignIn = () => {
       <main className="flex-1 py-20 bg-gradient-hero">
         <div className="container mx-auto px-4 max-w-md">
           <div className="text-center mb-8">
-            <div className="mx-auto w-16 h-16 bg-primary rounded-full flex items-center justify-center mb-4 shadow-glow">
+            <div className="mx-auto flex items-center justify-center mb-4 shadow-glow">
               <img
                 src="/logo.png"
                 alt="KeenVPN"
-                className="h-8 w-8 transition-transform group-hover:scale-105"
+                className="h-10 w-10 transition-transform group-hover:scale-105"
               />
             </div>
             <h1 className="text-4xl font-bold text-foreground mb-4">

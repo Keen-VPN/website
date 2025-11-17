@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Check, Loader2, ExternalLink } from "lucide-react";
+import { Check, Loader2, ExternalLink, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContextNew";
 import Header from "@/components/Header";
@@ -211,21 +211,32 @@ const Subscribe = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button
-                  onClick={handleSignIn}
-                  disabled={loading}
-                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
-                  size="lg"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing in...
-                    </>
-                  ) : (
-                    "Sign in with Google"
-                  )}
-                </Button>
+                <div className="space-y-3">
+                  <Button
+                    onClick={handleSignIn}
+                    disabled={loading}
+                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
+                    size="lg"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Signing in...
+                      </>
+                    ) : (
+                      "Sign in with Google"
+                    )}
+                  </Button>
+
+                  <Button
+                    onClick={() => navigate("/pricing")}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <LayoutGrid className="mr-2 h-4 w-4" />
+                    View All Plans
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : (
@@ -288,14 +299,25 @@ const Subscribe = () => {
                     )}
                   </Button>
 
-                  <Button
-                    onClick={() => navigate("/account")}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Manage Account
-                  </Button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      onClick={() => navigate("/pricing")}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <LayoutGrid className="mr-2 h-4 w-4" />
+                      View All Plans
+                    </Button>
+
+                    <Button
+                      onClick={() => navigate("/account")}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Manage Account
+                    </Button>
+                  </div>
                 </div>
 
                 <p className="text-xs text-muted-foreground text-center mt-4">
