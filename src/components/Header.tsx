@@ -26,13 +26,15 @@ const Header = () => {
   };
 
   return (
-    <header className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-border">
+    <header className="fixed top-0 w-full z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="p-2 bg-gradient-primary rounded-lg shadow-glow">
-              <Shield className="h-6 w-6 text-primary-foreground" />
-            </div>
+          <Link to="/" className="flex items-center space-x-3 group">
+            <img
+              src="/logo.png"
+              alt="KeenVPN"
+              className="h-10 w-10 transition-transform group-hover:scale-105"
+            />
             <span className="text-xl font-bold text-foreground">KeenVPN</span>
           </Link>
 
@@ -86,12 +88,12 @@ const Header = () => {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
-                    className="border-primary/50 hover:bg-primary/10"
+                    className="border-accent/50 hover:bg-accent/10 hover:border-accent"
                   >
                     <User className="w-4 h-4 mr-2" />
                     {user.email}
                     {subscription?.status === "active" && (
-                      <span className="ml-2 px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">
+                      <span className="ml-2 px-2 py-0.5 bg-primary text-primary-foreground text-xs rounded-full font-medium">
                         Premium
                       </span>
                     )}
@@ -116,12 +118,12 @@ const Header = () => {
               <Button
                 onClick={() => navigate("/signin")}
                 variant="outline"
-                className="border-primary/50 hover:bg-primary/10"
+                className="border-accent/50 hover:bg-accent/10 hover:border-accent"
               >
                 Sign In
               </Button>
             )}
-            <Button className="bg-gradient-primary text-primary-foreground hover:opacity-90">
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-glow transition-all">
               Download App
             </Button>
           </div>
@@ -197,11 +199,11 @@ const Header = () => {
               <div className="flex flex-col space-y-2 pt-4">
                 {user ? (
                   <>
-                    <div className="flex items-center space-x-2 p-2 bg-primary/5 rounded-lg">
-                      <User className="w-4 h-4" />
+                    <div className="flex items-center space-x-2 p-2 bg-accent/10 rounded-lg border border-accent/20">
+                      <User className="w-4 h-4 text-accent" />
                       <span className="text-sm font-medium">{user.email}</span>
                       {subscription?.status === "active" && (
-                        <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">
+                        <span className="px-2 py-0.5 bg-primary text-primary-foreground text-xs rounded-full font-medium">
                           Premium
                         </span>
                       )}
@@ -247,13 +249,13 @@ const Header = () => {
                       setIsMenuOpen(false);
                     }}
                     variant="outline"
-                    className="border-primary/50 hover:bg-primary/10"
+                    className="border-accent/50 hover:bg-accent/10 hover:border-accent"
                   >
                     Sign In
                   </Button>
                 )}
                 <Button
-                  className="bg-gradient-primary text-primary-foreground hover:opacity-90"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-glow transition-all"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Download App

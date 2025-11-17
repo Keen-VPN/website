@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Check, Loader2, ExternalLink } from "lucide-react";
+import { Check, Loader2, ExternalLink, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContextNew";
 import Header from "@/components/Header";
@@ -39,8 +39,8 @@ const Subscribe = () => {
       try {
         setPlanLoading(true);
 
-        // Use premium_yearly as default if no planId is provided
-        const planToFetch = planIdParam || "premium_yearly";
+        // Use premium_monthly as default if no planId is provided
+        const planToFetch = planIdParam || "premium_monthly";
 
         const response = await fetchSubscriptionPlanById(planToFetch);
 
@@ -155,7 +155,7 @@ const Subscribe = () => {
             : selectedPlan.name || "KeenVPN Premium",
         price: `$${selectedPlan.price || 0}`,
         period:
-          selectedPlan.period === "year" ? "/month billed annually" : "/month",
+          selectedPlan.period === "year" ? "/month, billed annually" : "/month",
         description:
           selectedPlan.description ||
           `${selectedPlan.name} - Complete VPN protection`,
@@ -203,7 +203,7 @@ const Subscribe = () => {
           </div>
 
           {!user ? (
-            <Card className="border-primary/50 shadow-glow">
+            <Card className="border-accent/50 shadow-glow">
               <CardHeader>
                 <CardTitle>Sign In to Continue</CardTitle>
                 <CardDescription>
@@ -211,25 +211,36 @@ const Subscribe = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button
-                  onClick={handleSignIn}
-                  disabled={loading}
-                  className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90"
-                  size="lg"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing in...
-                    </>
-                  ) : (
-                    "Sign in with Google"
-                  )}
-                </Button>
+                <div className="space-y-3">
+                  <Button
+                    onClick={handleSignIn}
+                    disabled={loading}
+                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
+                    size="lg"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Signing in...
+                      </>
+                    ) : (
+                      "Sign in with Google"
+                    )}
+                  </Button>
+
+                  <Button
+                    onClick={() => navigate("/pricing")}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <LayoutGrid className="mr-2 h-4 w-4" />
+                    View All Plans
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : (
-            <Card className="border-primary/50 shadow-glow">
+            <Card className="border-accent/50 shadow-glow">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -251,7 +262,7 @@ const Subscribe = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="mb-6 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                <div className="mb-6 p-4 bg-accent/10 rounded-lg border border-accent/20">
                   <p className="text-sm text-muted-foreground">
                     <span className="font-semibold text-foreground">
                       Signed in as:
@@ -263,7 +274,9 @@ const Subscribe = () => {
                 <ul className="space-y-3 mb-8">
                   {planDisplay.features.map((feature, index) => (
                     <li key={index} className="flex items-start space-x-3">
-                      <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="p-1 bg-primary/20 rounded-full mt-0.5">
+                        <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                      </div>
                       <span className="text-muted-foreground">{feature}</span>
                     </li>
                   ))}
@@ -286,14 +299,25 @@ const Subscribe = () => {
                     )}
                   </Button>
 
-                  <Button
-                    onClick={() => navigate("/account")}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Manage Account
-                  </Button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      onClick={() => navigate("/pricing")}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <LayoutGrid className="mr-2 h-4 w-4" />
+                      View All Plans
+                    </Button>
+
+                    <Button
+                      onClick={() => navigate("/account")}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Manage Account
+                    </Button>
+                  </div>
                 </div>
 
                 <p className="text-xs text-muted-foreground text-center mt-4">

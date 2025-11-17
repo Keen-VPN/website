@@ -1,12 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Shield, Apple } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import GoogleIcon from '@/components/ui/google-icon';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Loader2, Shield, Apple } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import GoogleIcon from "@/components/ui/google-icon";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 const SignIn = () => {
   const [loading, setLoading] = useState(false);
@@ -15,7 +21,7 @@ const SignIn = () => {
 
   useEffect(() => {
     // Simple effect to test hooks
-    console.log('SignIn component mounted');
+    console.log("SignIn component mounted");
   }, []);
 
   const handleGoogleSignIn = async () => {
@@ -26,7 +32,7 @@ const SignIn = () => {
         navigate(result.shouldRedirect);
       }
     } catch (error) {
-      console.error('Sign in error:', error);
+      console.error("Sign in error:", error);
     } finally {
       setLoading(false);
     }
@@ -45,7 +51,11 @@ const SignIn = () => {
         <div className="container mx-auto px-4 max-w-md">
           <div className="text-center mb-8">
             <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mb-4">
-              <Shield className="h-8 w-8 text-primary-foreground" />
+              <img
+                src="/logo.png"
+                alt="KeenVPN"
+                className="h-8 w-8 transition-transform group-hover:scale-105"
+              />
             </div>
             <h1 className="text-4xl font-bold text-foreground mb-4">
               Welcome to KeenVPN
@@ -97,11 +107,11 @@ const SignIn = () => {
 
               <div className="text-center pt-4">
                 <p className="text-sm text-muted-foreground">
-                  By signing in, you agree to our{' '}
+                  By signing in, you agree to our{" "}
                   <a href="/terms" className="text-primary hover:underline">
                     Terms of Service
-                  </a>{' '}
-                  and{' '}
+                  </a>{" "}
+                  and{" "}
                   <a href="/privacy" className="text-primary hover:underline">
                     Privacy Policy
                   </a>
@@ -115,7 +125,8 @@ const SignIn = () => {
               🔐 One-Click Authentication
             </p>
             <p className="text-sm text-muted-foreground">
-              Existing users will be signed in automatically.<br />
+              Existing users will be signed in automatically.
+              <br />
               New users will have an account created instantly.
             </p>
           </div>
