@@ -129,7 +129,7 @@ const Pricing = () => {
                 plan.monthlyPrice === null
                   ? ""
                   : isAnnual
-                  ? "/month billed annually"
+                  ? "/month, billed annually"
                   : "/month";
               const monthlyEquivalent =
                 isAnnual && plan.annualMonthlyEquivalent
@@ -250,7 +250,7 @@ const Pricing = () => {
           <div className="max-w-6xl mx-auto overflow-x-auto">
             <div className="min-w-[640px] bg-gradient-card rounded-xl border border-border p-6">
               {/* Table Header */}
-              <div className="grid grid-cols-4 gap-4 mb-6 pb-6 border-b border-border">
+              <div className="grid grid-cols-3 gap-4 mb-6 pb-6 border-b border-border">
                 <div className="text-muted-foreground font-medium">
                   Features
                 </div>
@@ -261,7 +261,7 @@ const Pricing = () => {
                       {plan.monthlyPrice === null
                         ? "Custom"
                         : billingPeriod === "annual"
-                        ? `${plan.annualPriceDisplay} billed annually`
+                        ? `${plan.annualMonthlyEquivalent}, billed annually`
                         : `${plan.monthlyPriceDisplay}/month`}
                     </div>
                     {plan.name === "Enterprise" && (
@@ -283,7 +283,7 @@ const Pricing = () => {
               {featureComparison.map((row, index) => (
                 <div
                   key={index}
-                  className="grid grid-cols-4 gap-4 py-4 border-b border-border/50 last:border-0"
+                  className="grid grid-cols-3 gap-4 py-4 border-b border-border/50 last:border-0"
                 >
                   <div className="text-foreground">{row.feature}</div>
                   <div className="text-center text-muted-foreground">
@@ -297,17 +297,7 @@ const Pricing = () => {
                       row.individual
                     )}
                   </div>
-                  <div className="text-center text-muted-foreground">
-                    {typeof row.team === "boolean" ? (
-                      row.team ? (
-                        <Check className="h-5 w-5 text-primary inline-block" />
-                      ) : (
-                        <X className="h-5 w-5 text-muted-foreground/50 inline-block" />
-                      )
-                    ) : (
-                      row.team
-                    )}
-                  </div>
+
                   <div className="text-center text-muted-foreground">
                     {typeof row.enterprise === "boolean" ? (
                       row.enterprise ? (
