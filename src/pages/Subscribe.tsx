@@ -40,7 +40,7 @@ const Subscribe = () => {
         setPlanLoading(true);
 
         // Use premium_yearly as default if no planId is provided
-        const planToFetch = planIdParam || "premium_yearly";
+        const planToFetch = planIdParam || "premium_monthly";
 
         const response = await fetchSubscriptionPlanById(planToFetch);
 
@@ -155,7 +155,7 @@ const Subscribe = () => {
             : selectedPlan.name || "KeenVPN Premium",
         price: `$${selectedPlan.price || 0}`,
         period:
-          selectedPlan.period === "year" ? "/month billed annually" : "/month",
+          selectedPlan.period === "year" ? "/month, billed annually" : "/month",
         description:
           selectedPlan.description ||
           `${selectedPlan.name} - Complete VPN protection`,
