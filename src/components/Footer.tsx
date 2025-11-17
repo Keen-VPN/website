@@ -16,14 +16,15 @@ const Footer = () => {
             </div>
             <h3 className="font-semibold text-foreground mb-2">About Us</h3>
             <p className="text-muted-foreground mb-4 max-w-md">
-              KeenVPN is a secure VPN service owned and operated by Negative Nine Inc., 
-              a technology company based in Texas, USA. Our mission is to provide 
-              privacy-first networking tools to individuals and businesses across the globe.
+              KeenVPN is a secure VPN service owned and operated by Negative
+              Nine Inc., a technology company based in Texas, USA. Our mission
+              is to provide privacy-first networking tools to individuals and
+              businesses across the globe.
             </p>
             <div className="flex items-center space-x-2 text-muted-foreground">
               <Mail className="h-4 w-4" />
-              <a 
-                href="mailto:support@vpnkeen.com" 
+              <a
+                href="mailto:support@vpnkeen.com"
                 className="hover:text-primary transition-colors"
               >
                 support@vpnkeen.com
@@ -73,7 +74,8 @@ const Footer = () => {
 
         <div className="border-t border-border mt-8 pt-8 text-center">
           <p className="text-muted-foreground">
-            © 2025 Negative Nine Inc. All rights reserved. KeenVPN™ is a product of Negative Nine Inc., registered in the United States.
+            © 2025 Negative Nine Inc. All rights reserved. KeenVPN™ is a product
+            of Negative Nine Inc., registered in the United States.
           </p>
         </div>
       </div>

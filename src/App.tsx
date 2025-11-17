@@ -17,6 +17,7 @@ import PaymentCancel from "./pages/PaymentCancel";
 import AuthDebug from "./pages/AuthDebug";
 import AppleDebug from "./pages/AppleDebug";
 import NotFound from "./pages/NotFound";
+import Pricing from "./pages/Pricing";
 
 const queryClient = new QueryClient();
 
@@ -29,30 +30,31 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/pricing" element={<Pricing />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/support" element={<Support />} />
             <Route path="/signin" element={<SignIn />} />
-            <Route 
-              path="/subscribe" 
+            <Route
+              path="/subscribe"
               element={
                 <ProtectedRoute>
                   <Subscribe />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/account" 
+            <Route
+              path="/account"
               element={
                 <ProtectedRoute>
                   <Account />
                 </ProtectedRoute>
-              } 
+              }
             />
             <Route path="/success" element={<PaymentSuccess />} />
             <Route path="/cancel" element={<PaymentCancel />} />
             {/* <Route path="/auth/debug" element={<AuthDebug />} /> */}
-        {/* <Route path="/apple/debug" element={<AppleDebug />} /> */}
+            {/* <Route path="/apple/debug" element={<AppleDebug />} /> */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
