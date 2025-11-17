@@ -39,13 +39,10 @@ const Subscribe = () => {
       try {
         setPlanLoading(true);
 
-        if (!planIdParam) {
-          // No planId provided, use Premium yearly plan as fallback
-          setSelectedPlan("premium_yearly");
-          return;
-        }
+        // Use premium_yearly as default if no planId is provided
+        const planToFetch = planIdParam || "premium_yearly";
 
-        const response = await fetchSubscriptionPlanById(planIdParam);
+        const response = await fetchSubscriptionPlanById(planToFetch);
 
         if (response.success && response.plan) {
           // Use the plan directly from API - no transformation needed
