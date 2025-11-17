@@ -8,42 +8,62 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 220 26% 6%;
-    --foreground: 210 40% 98%;
+    /* Brand Colors  */
+    /* Oxford Blue: #0F2040 - primary background */
+    /* Persimmon: #E85C04 - CTAs and highlights (max 15% usage) */
+    /* Cerulean: #3A7CA5 - accents */
+    /* Anti-flash White: #F5F6FA - text/foreground */
+    /* Rich Black: #081020 - deep contrasts, overlays, gradients */
 
-    --card: 220 20% 8%;
-    --card-foreground: 210 40% 98%;
+    --background: 217 62% 15%;
+    --foreground: 225 33% 97%;
 
-    --popover: 220 20% 8%;
-    --popover-foreground: 210 40% 98%;
+    --card: 220 22% 20%;
+    --card-foreground: 225 33% 97%;
 
-    --primary: 200 98% 39%;
-    --primary-foreground: 220 26% 6%;
+    --popover: 220 22% 20%;
+    --popover-foreground: 225 33% 97%;
 
-    --secondary: 220 17% 15%;
-    --secondary-foreground: 210 40% 98%;
+    --primary: 21 90% 46%;
+    --primary-foreground: 225 33% 97%;
 
-    --muted: 220 17% 15%;
-    --muted-foreground: 215 20% 65%;
+    --secondary: 203 47% 44%;
+    --secondary-foreground: 225 33% 97%;
 
-    --accent: 200 98% 39%;
-    --accent-foreground: 220 26% 6%;
+    --muted: 220 22% 32%;
+    --muted-foreground: 220 15% 70%;
+
+    --accent: 203 47% 44%;
+    --accent-foreground: 225 33% 97%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 225 33% 97%;
 
-    --border: 220 17% 20%;
-    --input: 220 17% 20%;
-    --ring: 200 98% 39%;
+    --border: 220 22% 25%;
+    --input: 220 22% 25%;
+    --ring: 21 90% 46%;
 
-    /* VPN-specific design tokens */
-    --primary-glow: 200 100% 50%;
-    --primary-dark: 200 98% 25%;
-    --gradient-primary: linear-gradient(135deg, hsl(200 98% 39%), hsl(180 100% 35%));
-    --gradient-hero: linear-gradient(180deg, hsl(220 26% 6%) 0%, hsl(220 20% 10%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(220 20% 8%) 0%, hsl(220 17% 12%) 100%);
-    --shadow-glow: 0 0 30px hsl(200 98% 39% / 0.3);
-    --shadow-card: 0 10px 40px hsl(220 26% 6% / 0.5);
+    /* VPN-specific design tokens with brand colors */
+    --primary-glow: 21 90% 46%;
+    --primary-dark: 217 62% 10%;
+    --rich-black: 217 60% 8%;
+    --gradient-primary: linear-gradient(
+      135deg,
+      hsl(21 90% 46%),
+      hsl(21 90% 56%)
+    );
+    --gradient-hero: linear-gradient(
+      180deg,
+      hsl(217 62% 15%) 0%,
+      hsl(217 60% 8%) 100%
+    );
+    --gradient-card: linear-gradient(
+      145deg,
+      hsl(220 22% 20%) 0%,
+      hsl(220 22% 25%) 100%
+    );
+    --shadow-glow: 0 0 30px hsl(21 90% 46% / 0.4);
+    --shadow-card: 0 10px 40px hsl(217 60% 8% / 0.5);
 
     --radius: 0.5rem;
 
@@ -110,5 +130,7 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
+      "Segoe UI", sans-serif;
   }
 }

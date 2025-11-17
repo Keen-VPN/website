@@ -25,9 +25,9 @@ export const enterprisePlan = {
 
 export const faqs = [
   {
-    question: "What's included in the 1 month FREE TRIAL?",
+    question: "What's included in the 1 month free trial?",
     answer:
-      "All plans include a full-featured 1 month FREE TRIAL. You'll have access to all premium features including unlimited bandwidth, all server locations, and our military-grade encryption. No credit card required to start.",
+      "All plans include a full-featured 1 month free trial. You'll have access to all premium features including unlimited bandwidth, all server locations, and our military-grade encryption. No credit card required to start.",
   },
   {
     question: "Can I switch plans at any time?",
@@ -47,7 +47,7 @@ export const faqs = [
   {
     question: "What happens after my trial ends?",
     answer:
-      "After your 1 month FREE TRIAL ends, you'll be automatically enrolled in your selected plan and billing will begin. You can cancel at any time before the trial ends with no charges.",
+      "After your 1 month free trial ends, you'll be automatically enrolled in your selected plan and billing will begin. You can cancel at any time before the trial ends with no charges.",
   },
   {
     question: "How do I get started with Enterprise solutions?",

@@ -45,7 +45,7 @@ const Features = () => {
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Why Choose KeenVPN?
+            Why Choose <span className="text-primary">KeenVPN</span>?
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Advanced security features designed to protect your digital life and
@@ -59,10 +59,10 @@ const Features = () => {
             return (
               <div
                 key={index}
-                className="p-8 bg-gradient-card rounded-xl border border-border/50 shadow-card hover:shadow-glow transition-all duration-300 group"
+                className="p-8 bg-gradient-card rounded-xl border border-accent/30 shadow-card hover:shadow-glow transition-all duration-300 group hover:border-accent/50"
               >
                 <div className="mb-6">
-                  <div className="inline-flex p-3 bg-primary/20 rounded-lg group-hover:bg-primary/30 transition-colors">
+                  <div className="inline-flex p-3 bg-primary/20 rounded-lg group-hover:bg-primary/30 transition-colors shadow-md">
                     <Icon className="h-8 w-8 text-primary" />
                   </div>
                 </div>

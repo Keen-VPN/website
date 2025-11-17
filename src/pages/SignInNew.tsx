@@ -25,18 +25,22 @@ const SignIn = () => {
     if (!authLoading && user) {
       // Check if this is from ASWebAuthenticationSession (macOS desktop app)
       const urlParams = new URLSearchParams(window.location.search);
-      const isASWebSession = urlParams.get('asweb') === '1' || sessionStorage.getItem('asweb_session') === '1';
-      
+      const isASWebSession =
+        urlParams.get("asweb") === "1" ||
+        sessionStorage.getItem("asweb_session") === "1";
+
       const currentPath = window.location.pathname;
       if (currentPath === "/signin") {
         if (isASWebSession) {
           // If user is already logged in and visited signin via macOS app, redirect to account
           // The account page will show the deeplink modal
-          console.log('🔐 ASWebSession detected - redirecting logged-in user to account page');
-          window.location.href = '/account?asweb=1';
+          console.log(
+            "🔐 ASWebSession detected - redirecting logged-in user to account page"
+          );
+          window.location.href = "/account?asweb=1";
           return;
         }
-        
+
         // Normal web flow - redirect based on subscription
         const hasActiveSubscription =
           subscription && subscription.status === "active";
@@ -79,18 +83,22 @@ const SignIn = () => {
       <main className="flex-1 py-20 bg-gradient-hero">
         <div className="container mx-auto px-4 max-w-md">
           <div className="text-center mb-8">
-            <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mb-4">
-              <Shield className="h-8 w-8 text-primary-foreground" />
+            <div className="mx-auto flex items-center justify-center my-4 ">
+              <img
+                src="/logo.png"
+                alt="KeenVPN"
+                className="h-14 w-14 transition-transform group-hover:scale-105 shadow-glow rounded-full"
+              />
             </div>
             <h1 className="text-4xl font-bold text-foreground mb-4">
-              Welcome to KeenVPN
+              Welcome to <span className="text-primary">KeenVPN</span>
             </h1>
             <p className="text-xl text-muted-foreground">
               Get started with secure VPN access
             </p>
           </div>
 
-          <Card className="border-primary/50 shadow-glow">
+          <Card className="border-accent/50 shadow-glow">
             <CardHeader className="text-center">
               <CardTitle className="text-2xl">Continue with</CardTitle>
               <CardDescription>

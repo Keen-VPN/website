@@ -8,10 +8,8 @@ const Footer = () => {
         <div className="flex justify-between">
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="p-2 bg-gradient-primary rounded-lg shadow-glow">
-                <Shield className="h-6 w-6 text-primary-foreground" />
-              </div>
+            <div className="flex items-center space-x-3 mb-4">
+              <img src="/logo.png" alt="KeenVPN" className="h-12 w-12" />
               <span className="text-xl font-bold text-foreground">KeenVPN</span>
             </div>
             <h3 className="font-semibold text-foreground mb-2">About Us</h3>
@@ -22,10 +20,10 @@ const Footer = () => {
               businesses across the globe.
             </p>
             <div className="flex items-center space-x-2 text-muted-foreground">
-              <Mail className="h-4 w-4" />
+              <Mail className="h-4 w-4 text-accent" />
               <a
                 href="mailto:support@vpnkeen.com"
-                className="hover:text-primary transition-colors"
+                className="hover:text-primary transition-colors font-medium"
               >
                 support@vpnkeen.com
               </a>
