@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Loader2, ExternalLink, LogOut, Shield, CreditCard, Calendar, AlertTriangle, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContextNew';
 import { useToast } from '@/hooks/use-toast';
-import { deleteAccount } from '@/auth';
+import { deleteAccount, getSessionToken } from '@/auth';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
@@ -21,7 +21,28 @@ const Account = () => {
   const { toast } = useToast();
   const { user, loading, logout, subscription, refreshSubscription } = useAuth();
 
-  // Removed handleOpenApp - ASWebAuthenticationSession now auto-triggers deeplink
+  // Check for ASWebSession when account page loads and show deeplink modal if needed
+  useEffect(() => {
+    if (!loading && user) {
+      // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+      const urlParams = new URLSearchParams(window.location.search);
+      const isASWebSession = urlParams.get('asweb') === '1' || sessionStorage.getItem('asweb_session') === '1';
+      
+      if (isASWebSession) {
+        // Store flag in sessionStorage if from URL param
+        if (urlParams.get('asweb') === '1') {
+          sessionStorage.setItem('asweb_session', '1');
+        }
+        
+        // Get session token and trigger deeplink modal
+        const sessionToken = getSessionToken();
+        if (sessionToken) {
+          console.log('🔐 Account page: ASWebSession detected, deeplink modal should show via AuthContext');
+          // The modal will be shown by AuthContext's initializeAuth, but we ensure flag is set
+        }
+      }
+    }
+  }, [user, loading]);
 
   const handleRefreshSubscription = async () => {
     setSubscriptionLoading(true);
