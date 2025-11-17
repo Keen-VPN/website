@@ -20,13 +20,28 @@ const SignIn = () => {
   const { signIn, loading: authLoading, user, subscription } = useAuth();
   const [isProcessing, setIsProcessing] = React.useState(false);
 
-  // Immediately redirect if user is already logged in
+  // Redirect logic for logged-in users
   React.useEffect(() => {
     if (!authLoading && user) {
-      // User is already logged in - redirect immediately
-      // Use window.location for instant redirect (faster than navigate)
+      // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+      const urlParams = new URLSearchParams(window.location.search);
+      const isASWebSession =
+        urlParams.get("asweb") === "1" ||
+        sessionStorage.getItem("asweb_session") === "1";
+
       const currentPath = window.location.pathname;
       if (currentPath === "/signin") {
+        if (isASWebSession) {
+          // If user is already logged in and visited signin via macOS app, redirect to account
+          // The account page will show the deeplink modal
+          console.log(
+            "🔐 ASWebSession detected - redirecting logged-in user to account page"
+          );
+          window.location.href = "/account?asweb=1";
+          return;
+        }
+
+        // Normal web flow - redirect based on subscription
         const hasActiveSubscription =
           subscription && subscription.status === "active";
         if (hasActiveSubscription) {

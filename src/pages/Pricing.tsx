@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, X, HelpCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -11,13 +11,58 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { ContactSalesDialog } from "@/components/ContactSalesForm";
-import { plans, featureComparison, faqs } from "@/constants/pricing";
+import { enterprisePlan, featureComparison, faqs } from "@/constants/pricing";
+import { fetchSubscriptionPlans } from "@/auth/backend";
+import { transformApiPlans } from "@/lib/pricing";
 
 const Pricing = () => {
   const navigate = useNavigate();
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
     "annual"
   );
+  const [plans, setPlans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        setLoading(true);
+        const response = await fetchSubscriptionPlans();
+
+        if (response.success && response.plans) {
+          const transformedPlans = transformApiPlans(response.plans);
+          setPlans([...transformedPlans, enterprisePlan]);
+        } else {
+          setError(response.error || "Failed to load plans");
+          setPlans([enterprisePlan]);
+        }
+      } catch (err) {
+        setError("Failed to load plans");
+        setPlans([enterprisePlan]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPlans();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="pt-24 pb-20">
+          <div className="container mx-auto px-4 text-center">
+            <div className="text-xl text-muted-foreground">
+              Loading plans...
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -61,17 +106,35 @@ const Pricing = () => {
           </div>
         </section>
 
+        {/* Error Banner */}
+        {error && (
+          <section className="container mx-auto px-4 mb-8">
+            <div className="max-w-4xl mx-auto bg-destructive/10 border border-destructive/50 rounded-lg p-4 text-center">
+              <p className="text-destructive">
+                {error}. Showing available plans.
+              </p>
+            </div>
+          </section>
+        )}
+
         {/* Pricing Cards */}
         <section className="container mx-auto px-4 mb-20">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto">
             {plans.map((plan, index) => {
-              const price =
-                billingPeriod === "annual"
-                  ? plan.annualPriceDisplay
-                  : plan.monthlyPriceDisplay;
-              const period = billingPeriod === "annual" ? "/year" : "/month";
+              const isAnnual = billingPeriod === "annual";
+              const price = isAnnual
+                ? plan.annualPriceDisplay || plan.monthlyPriceDisplay
+                : plan.monthlyPriceDisplay;
+              const period =
+                plan.monthlyPrice === null
+                  ? ""
+                  : isAnnual
+                  ? "/month billed annually"
+                  : "/month";
               const monthlyEquivalent =
-                billingPeriod === "annual" && plan.annualMonthlyEquivalent;
+                isAnnual && plan.annualMonthlyEquivalent
+                  ? plan.annualMonthlyEquivalent
+                  : null;
 
               return (
                 <div
@@ -102,17 +165,16 @@ const Pricing = () => {
                   <div className="mb-6">
                     <div className="flex items-baseline gap-2">
                       <span className="text-4xl font-bold text-foreground">
-                        {price}
+                        {plan.name === "Enterprise"
+                          ? "Custom"
+                          : isAnnual
+                          ? monthlyEquivalent
+                          : price}
                       </span>
                       {period && (
                         <span className="text-muted-foreground">{period}</span>
                       )}
                     </div>
-                    {monthlyEquivalent && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Just {monthlyEquivalent}/month
-                      </p>
-                    )}
                   </div>
 
                   {plan.name === "Enterprise" ? (
@@ -131,10 +193,15 @@ const Pricing = () => {
                     </ContactSalesDialog>
                   ) : (
                     <Button
-                      onClick={() =>
-                        // TODO: ADD DYNAMIC ROUTE TO SUBSCRIBE PAGE FOR EACH PLAN (/subscribe?plan=individual)
-                        navigate("/subscribe")
-                      }
+                      onClick={() => {
+                        const queryParams = new URLSearchParams({
+                          planId: isAnnual
+                            ? plan.annualId || ""
+                            : plan.monthlyId || "",
+                        });
+                        console.log(queryParams.toString(), plan);
+                        navigate(`/subscribe?${queryParams.toString()}`);
+                      }}
                       className={`w-full mb-6 ${
                         plan.popular
                           ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
@@ -187,33 +254,29 @@ const Pricing = () => {
                 <div className="text-muted-foreground font-medium">
                   Features
                 </div>
-                <div className="text-center">
-                  <div className="text-foreground font-bold">Individual</div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    {billingPeriod === "annual" ? "$100/year" : "$10/month"}
+                {plans.map((plan, index) => (
+                  <div key={index} className="text-center">
+                    <div className="text-foreground font-bold">{plan.name}</div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {plan.monthlyPrice === null
+                        ? "Custom"
+                        : billingPeriod === "annual"
+                        ? `${plan.annualPriceDisplay} billed annually`
+                        : `${plan.monthlyPriceDisplay}/month`}
+                    </div>
+                    {plan.name === "Enterprise" && (
+                      <ContactSalesDialog>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 text-xs"
+                        >
+                          Contact Sales
+                        </Button>
+                      </ContactSalesDialog>
+                    )}
                   </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-foreground font-bold">Team</div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    {billingPeriod === "annual" ? "$150/year" : "$15/month"}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-foreground font-bold">Enterprise</div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    Custom
-                  </div>
-                  <ContactSalesDialog>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2 text-xs"
-                    >
-                      Contact Sales
-                    </Button>
-                  </ContactSalesDialog>
-                </div>
+                ))}
               </div>
 
               {/* Table Body */}

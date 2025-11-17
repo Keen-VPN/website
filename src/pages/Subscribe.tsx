@@ -13,18 +13,59 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContextNew";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { BACKEND_URL as BACKEND_URL_AUTH } from "@/auth/backend";
+import {
+  BACKEND_URL as BACKEND_URL_AUTH,
+  fetchSubscriptionPlanById,
+} from "@/auth/backend";
+import { enterprisePlan } from "@/constants/pricing";
 
 const BACKEND_URL = BACKEND_URL_AUTH || "https://vpnkeen.netlify.app/api";
 
 const Subscribe = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [planLoading, setPlanLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading, signIn, subscription } = useAuth();
 
-  // Removed desktop app button handling - ASWebAuthenticationSession now auto-triggers deeplink
+  // Get URL parameters
+  const planIdParam = searchParams.get("planId");
+
+  // Fetch the specific plan by ID
+  useEffect(() => {
+    const loadPlan = async () => {
+      try {
+        setPlanLoading(true);
+
+        if (!planIdParam) {
+          // No planId provided, use Premium yearly plan as fallback
+          setSelectedPlan("premium_yearly");
+          return;
+        }
+
+        const response = await fetchSubscriptionPlanById(planIdParam);
+
+        if (response.success && response.plan) {
+          // Use the plan directly from API - no transformation needed
+          setSelectedPlan(response.plan);
+        } else {
+          console.error("Failed to load plan:", response.error);
+          // Fallback to enterprise plan
+          setSelectedPlan(enterprisePlan);
+        }
+      } catch (err) {
+        console.error("Failed to load plan:", err);
+        // Fallback to enterprise plan
+        setSelectedPlan(enterprisePlan);
+      } finally {
+        setPlanLoading(false);
+      }
+    };
+
+    loadPlan();
+  }, [planIdParam]);
 
   const handleSignIn = async () => {
     const result = await signIn();
@@ -38,6 +79,15 @@ const Subscribe = () => {
       toast({
         title: "Authentication required",
         description: "Please sign in to subscribe",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedPlan) {
+      toast({
+        title: "No plan selected",
+        description: "Please select a plan to subscribe",
         variant: "destructive",
       });
       return;
@@ -70,6 +120,7 @@ const Subscribe = () => {
           body: JSON.stringify({
             idToken,
             email: user.email,
+            planId: selectedPlan.id,
           }),
         }
       );
@@ -98,24 +149,44 @@ const Subscribe = () => {
     }
   };
 
-  const plan = {
-    name: "KeenVPN Premium",
-    price: "$100",
-    period: "/year",
-    description: "Complete VPN protection for the entire year",
-    features: [
-      "Unlimited bandwidth with no throttling",
-      "Multi-device support (up to 10 devices)",
-      "24/7 priority customer support",
-      "Strict no-log policy guaranteed",
-      "Advanced security features & kill switch",
-    ],
-  };
+  // Create plan display object from selectedPlan
+  const planDisplay = selectedPlan
+    ? {
+        name:
+          selectedPlan.name === "Enterprise"
+            ? "KeenVPN Enterprise"
+            : selectedPlan.name || "KeenVPN Premium",
+        price: `$${selectedPlan.price || 0}`,
+        period:
+          selectedPlan.period === "year" ? "/month billed annually" : "/month",
+        description:
+          selectedPlan.description ||
+          `${selectedPlan.name} - Complete VPN protection`,
+        features:
+          selectedPlan.features
+            ?.filter((f) => f.included)
+            ?.map((f) => f.name) || [],
+      }
+    : null;
 
-  if (loading) {
+  if (loading || planLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">
+          {loading ? "Loading..." : "Loading plans..."}
+        </span>
+      </div>
+    );
+  }
+
+  if (!selectedPlan || !planDisplay) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">No plan selected</p>
+          <Button onClick={() => navigate("/pricing")}>Back to Pricing</Button>
+        </div>
       </div>
     );
   }
@@ -127,11 +198,10 @@ const Subscribe = () => {
         <div className="container mx-auto px-4 max-w-2xl">
           <div className="text-center mb-8">
             <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
-              Subscribe to <span className="text-primary">KeenVPN</span>
+              Subscribe to {planDisplay.name}
             </h1>
             <p className="text-xl text-muted-foreground">
-              Get complete VPN protection for just{" "}
-              <span className="text-primary font-semibold">$100</span> per year
+              {planDisplay.description}
             </p>
           </div>
 
@@ -166,17 +236,21 @@ const Subscribe = () => {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                    <CardTitle className="text-2xl">
+                      {planDisplay.name}
+                    </CardTitle>
                     <CardDescription className="mt-2">
-                      {plan.description}
+                      {planDisplay.description}
                     </CardDescription>
                   </div>
                 </div>
                 <div className="mt-4">
                   <span className="text-4xl font-bold text-foreground">
-                    {plan.price}
+                    {planDisplay.price}
                   </span>
-                  <span className="text-muted-foreground">{plan.period}</span>
+                  <span className="text-muted-foreground">
+                    {planDisplay.period}
+                  </span>
                 </div>
               </CardHeader>
               <CardContent>
@@ -190,7 +264,7 @@ const Subscribe = () => {
                 </div>
 
                 <ul className="space-y-3 mb-8">
-                  {plan.features.map((feature, index) => (
+                  {planDisplay.features.map((feature, index) => (
                     <li key={index} className="flex items-start space-x-3">
                       <div className="p-1 bg-primary/20 rounded-full mt-0.5">
                         <Check className="h-4 w-4 text-primary flex-shrink-0" />
@@ -204,7 +278,7 @@ const Subscribe = () => {
                   <Button
                     onClick={handleSubscribe}
                     disabled={checkoutLoading}
-                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow font-semibold transition-all hover:scale-105"
+                    className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
                     size="lg"
                   >
                     {checkoutLoading ? (

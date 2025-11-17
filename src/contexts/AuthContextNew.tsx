@@ -88,9 +88,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setShowDeeplinkPrompt(false);
     setPendingDeeplinkToken(null);
     sessionStorage.removeItem('asweb_session');
-    // Redirect to account page as fallback
-    if (window.location.pathname !== '/account') {
-      window.location.href = '/account';
+    
+    // Redirect based on subscription status
+    const hasActiveSubscription = subscription && subscription.status === 'active';
+    if (hasActiveSubscription) {
+      if (window.location.pathname !== '/account') {
+        window.location.href = '/account';
+      }
+    } else {
+      if (window.location.pathname !== '/subscribe') {
+        window.location.href = '/subscribe';
+      }
     }
   };
 
@@ -126,9 +134,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Check if this is an ASWebAuthenticationSession request (macOS desktop app)
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('asweb') === '1') {
-        // Store flag in sessionStorage for later use
+        // Store flag in sessionStorage for later use (persists through redirects)
         sessionStorage.setItem('asweb_session', '1');
         console.log('🔐 ASWebAuthenticationSession detected - will auto-trigger deeplink after login');
+      }
+      
+      // Also check if we already have the flag in sessionStorage (in case URL param was lost during redirect)
+      // This ensures the flag persists even if Firebase redirects change the URL
+      const existingFlag = sessionStorage.getItem('asweb_session');
+      if (existingFlag === '1') {
+        console.log('🔐 ASWebAuthenticationSession flag found in sessionStorage (persisted through redirect)');
       }
       
       // Step 1: Check for redirect result FIRST
@@ -267,48 +282,77 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const sessionToken = getSessionToken();
       
       if (sessionToken) {
-        // Set loading to false immediately so UI can show logged-in state
-        setLoading(false);
+        // Verify existing session token before updating UI state
+        try {
+          const response = await verifySessionToken(sessionToken);
         
-        const response = await verifySessionToken(sessionToken);
-        
-        if (response.success && response.user && mounted) {
-          // Create a mock Firebase user for compatibility
-          setUser({
-            uid: response.user.id,
-            email: response.user.email,
-            displayName: response.user.name,
-          } as FirebaseUser);
-          
-          if (response.subscription) {
-            setSubscription(response.subscription);
-          }
-          
-          // Immediately redirect if on signin page
-          if (window.location.pathname === '/signin') {
-            const hasActiveSubscription = response.subscription && response.subscription.status === 'active';
-            if (hasActiveSubscription) {
-              window.location.href = '/account';
-            } else {
-              window.location.href = '/subscribe';
+          if (response.success && response.user && mounted) {
+            // Create a mock Firebase user for compatibility
+            setUser({
+              uid: response.user.id,
+              email: response.user.email,
+              displayName: response.user.name,
+            } as FirebaseUser);
+            
+            if (response.subscription) {
+              setSubscription(response.subscription);
             }
+            
+            // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+            if (isASWebSession()) {
+              // If on account page, show deeplink modal immediately
+              if (window.location.pathname === '/account') {
+                console.log('🔐 ASWebSession detected - user on account page, showing deeplink prompt');
+                setPendingDeeplinkToken(sessionToken);
+                setTimeout(() => {
+                  setShowDeeplinkPrompt(true);
+                }, 0);
+                // Don't do anything else - let modal show
+                setLoading(false);
+                return;
+              }
+              
+              // If on signin page and already logged in, redirect to account (which will show modal)
+              if (window.location.pathname === '/signin') {
+                console.log('🔐 ASWebSession detected - user already logged in on signin, redirecting to account');
+                window.location.href = '/account?asweb=1';
+                setLoading(false);
+                return;
+              }
+            }
+            
+            // Immediately redirect if on signin page (normal web flow)
+            if (window.location.pathname === '/signin') {
+              const hasActiveSubscription = response.subscription && response.subscription.status === 'active';
+              if (hasActiveSubscription) {
+                window.location.href = '/account';
+              } else {
+                window.location.href = '/subscribe';
+              }
+            }
+            
+            setLoading(false);
+            return;
+          } else {
+            // Session token is invalid - clear it
+            console.log('🚨 Invalid session token, clearing auth state');
+            clearSessionToken();
+            
+            // Also clear Firebase auth if user is still authenticated
+            // This handles the case where user was deleted from desktop but still has Firebase auth
+            try {
+              const { signOut } = await import('@/auth');
+              await signOut();
+              console.log('🚨 Cleared Firebase auth due to invalid session token');
+            } catch (error) {
+              console.warn('⚠️ Failed to clear Firebase auth:', error);
+            }
+            
+            setLoading(false);
           }
-          
-          return;
-        } else {
-          // Session token is invalid - clear it
-          console.log('🚨 Invalid session token, clearing auth state');
-          clearSessionToken();
-          
-          // Also clear Firebase auth if user is still authenticated
-          // This handles the case where user was deleted from desktop but still has Firebase auth
-          try {
-            const { signOut } = await import('@/auth');
-            await signOut();
-            console.log('🚨 Cleared Firebase auth due to invalid session token');
-          } catch (error) {
-            console.warn('⚠️ Failed to clear Firebase auth:', error);
-          }
+        } catch (error) {
+          console.warn('⚠️ Failed to verify session token, falling back to Firebase auth listener:', error);
+          setLoading(false);
         }
       }
 
@@ -491,9 +535,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Don't redirect - wait for user to confirm
           return { success: true, shouldRedirect: null };
         } else {
-          // Normal web/mobile user - redirect to account page
-          if (window.location.pathname !== '/account') {
-            window.location.href = '/account';
+          // Normal web/mobile user - redirect based on subscription status
+          const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
+          
+          if (hasActiveSubscription) {
+            // User has active subscription - redirect to account page
+            if (window.location.pathname !== '/account') {
+              window.location.href = '/account';
+            }
+          } else {
+            // User doesn't have active subscription - redirect to subscribe
+            if (window.location.pathname !== '/subscribe') {
+              window.location.href = '/subscribe';
+            }
           }
         }
         
