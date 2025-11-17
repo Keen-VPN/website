@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContextNew";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAccount } from "@/auth";
+import { deleteAccount, getSessionToken } from "@/auth";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
