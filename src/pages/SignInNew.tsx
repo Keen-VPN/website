@@ -84,7 +84,11 @@ const SignIn = () => {
         <div className="container mx-auto px-4 max-w-md">
           <div className="text-center mb-8">
             <div className="mx-auto w-16 h-16 bg-primary rounded-full flex items-center justify-center mb-4 shadow-glow">
-              <Shield className="h-8 w-8 text-primary-foreground" />
+              <img
+                src="/logo.png"
+                alt="KeenVPN"
+                className="h-8 w-8 transition-transform group-hover:scale-105"
+              />
             </div>
             <h1 className="text-4xl font-bold text-foreground mb-4">
               Welcome to <span className="text-primary">KeenVPN</span>
