@@ -40,8 +40,8 @@ const Subscribe = () => {
         setPlanLoading(true);
 
         if (!planIdParam) {
-          // No planId provided, use Premium yearly plan as fallback
-          setSelectedPlan("premium_yearly");
+          // No planId provided, use Premium monthly plan as fallback
+          setSelectedPlan("premium_monthly");
           return;
         }
 
