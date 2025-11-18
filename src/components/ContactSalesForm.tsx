@@ -207,9 +207,7 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
                 </p>
               </div>
             )}
-            <p className="text-sm text-muted-foreground">
-              For urgent matters, please contact our support team directly.
-            </p>
+
             <Button
               onClick={handleClose}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
