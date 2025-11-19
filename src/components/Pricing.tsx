@@ -162,7 +162,11 @@ const Pricing = () => {
           <h3 className="text-2xl font-bold text-foreground mb-2">
             {plan.name}
           </h3>
-          <p className="text-muted-foreground mb-4">{plan.description}</p>
+          <p className="text-muted-foreground mb-4">
+            {isAnnual
+              ? "Complete VPN protection for the entire year"
+              : "Complete VPN protection with monthly flexibility"}
+          </p>
 
           <div className="mb-4">
             <span className="text-4xl font-bold text-foreground">
@@ -172,10 +176,10 @@ const Pricing = () => {
                 : plan.price}
             </span>
             <span className="text-muted-foreground">
-              {plan.period} " "
+              {plan.period}
               {monthlyEquivalent && (
                 <span className="text-sm text-muted-foreground mt-1">
-                  {monthlyEquivalent}
+                  {`, ${monthlyEquivalent}`}
                 </span>
               )}
             </span>

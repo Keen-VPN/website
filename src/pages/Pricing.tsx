@@ -101,9 +101,7 @@ const Pricing = () => {
               }`}
             >
               Annual
-              <span className="ml-2 text-sm font-semibold bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                (Save 17%)
-              </span>
+              <span className="ml-2 text-sm">(Save 17%)</span>
             </button>
           </div>
         </section>
@@ -174,7 +172,7 @@ const Pricing = () => {
                         {plan.name === "Enterprise"
                           ? "Custom"
                           : isAnnual
-                          ? `$${monthlyEquivalent}`
+                          ? monthlyEquivalent
                           : price}
                       </span>
                       {period && (
@@ -410,7 +408,7 @@ const Pricing = () => {
               Ready to protect your privacy?
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
-              Start your 1 month free trial today. Cancel anytime during trial.
+              Start your 1 month free trial today. No credit card required.
             </p>
             <Button
               onClick={() => navigate("/subscribe")}
