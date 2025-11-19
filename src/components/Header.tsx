@@ -31,7 +31,7 @@ const Header = () => {
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-3 group">
             <img
-              src="/logo.png"
+              src="/logo-white.png"
               alt="KeenVPN"
               className="h-10 w-10 transition-transform group-hover:scale-105"
             />
