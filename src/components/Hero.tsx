@@ -5,7 +5,7 @@ const Hero = () => {
   return (
     <section className="relative min-h-screen bg-gradient-hero flex items-center justify-center overflow-hidden">
       {/* Background Effects with Brand Colors */}
-      <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,hsl(203_47%_44%/0.08)_25%,hsl(203_47%_44%/0.08)_50%,transparent_50%,transparent_75%,hsl(203_47%_44%/0.08)_75%)] bg-[length:60px_60px] animate-pulse"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-50"></div>
 
       <div className="container mx-auto px-4 pt-20 relative z-10">
         <div className="max-w-4xl mx-auto text-center">

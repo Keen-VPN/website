@@ -94,14 +94,16 @@ const Pricing = () => {
             </button>
             <button
               onClick={() => setBillingPeriod("annual")}
-              className={`px-6 py-2 rounded-full transition-all ${
+              className={`px-6 py-2 rounded-full transition-all relative ${
                 billingPeriod === "annual"
                   ? "bg-gradient-primary text-primary-foreground shadow-glow"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Annual
-              <span className="ml-2 text-sm">(Save 17%)</span>
+              <span className="ml-2 text-sm font-semibold bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                (Save 17%)
+              </span>
             </button>
           </div>
         </section>
@@ -119,7 +121,7 @@ const Pricing = () => {
 
         {/* Pricing Cards */}
         <section className="container mx-auto px-4 mb-20">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto items-stretch">
             {plans.map((plan, index) => {
               const isAnnual = billingPeriod === "annual";
               const price = isAnnual
@@ -139,7 +141,7 @@ const Pricing = () => {
               return (
                 <div
                   key={index}
-                  className={`relative p-8 rounded-xl border transition-all duration-300 ${
+                  className={`relative p-8 rounded-xl border transition-all duration-300 flex flex-col h-full ${
                     plan.popular
                       ? "bg-gradient-card border-primary shadow-glow scale-105 md:scale-110"
                       : "bg-card border-border hover:border-primary/50"
@@ -158,7 +160,11 @@ const Pricing = () => {
                       {plan.name}
                     </h3>
                     <p className="text-muted-foreground text-sm">
-                      {plan.description}
+                      {plan.name === "Enterprise"
+                        ? plan.description
+                        : isAnnual
+                        ? "Complete VPN protection for the entire year"
+                        : "Complete VPN protection with monthly flexibility"}
                     </p>
                   </div>
 
@@ -168,7 +174,7 @@ const Pricing = () => {
                         {plan.name === "Enterprise"
                           ? "Custom"
                           : isAnnual
-                          ? monthlyEquivalent
+                          ? `$${monthlyEquivalent}`
                           : price}
                       </span>
                       {period && (
@@ -214,7 +220,7 @@ const Pricing = () => {
                     </Button>
                   )}
 
-                  <ul className="space-y-3">
+                  <ul className="space-y-3 flex-grow mb-6">
                     {plan.features
                       .filter((f) => f.included)
                       .map((feature, featureIndex) => (
@@ -404,7 +410,7 @@ const Pricing = () => {
               Ready to protect your privacy?
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
-              Start your 1 month free trial today. No credit card required.
+              Start your 1 month free trial today. Cancel anytime during trial.
             </p>
             <Button
               onClick={() => navigate("/subscribe")}
