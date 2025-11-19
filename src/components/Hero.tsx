@@ -36,7 +36,7 @@ const Hero = () => {
             >
               Download Now
             </Button>
-            <a href="https://docs.google.com/forms/d/1C_rRoaqkMz7Pitn_nerlL33Gzosfl850JWh0TA2pg20">
+            {/* <a href="https://docs.google.com/forms/d/1C_rRoaqkMz7Pitn_nerlL33Gzosfl850JWh0TA2pg20">
               <Button
                 size="lg"
                 variant="outline"
@@ -44,7 +44,7 @@ const Hero = () => {
               >
                 Learn More
               </Button>
-            </a>
+            </a> */}
           </div>
 
           {/* Feature Highlights */}

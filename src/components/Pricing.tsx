@@ -167,15 +167,18 @@ const Pricing = () => {
           <div className="mb-4">
             <span className="text-4xl font-bold text-foreground">
               {isAnnual
-                ? (parseFloat(plan.price.replace("$", "")) / 12).toFixed(2)
+                ? "$" +
+                  (parseFloat(plan.price.replace("$", "")) / 12).toFixed(2)
                 : plan.price}
             </span>
-            <span className="text-muted-foreground">{plan.period}</span>
-            {monthlyEquivalent && (
-              <div className="text-sm text-muted-foreground mt-1">
-                {monthlyEquivalent}
-              </div>
-            )}
+            <span className="text-muted-foreground">
+              {plan.period} " "
+              {monthlyEquivalent && (
+                <span className="text-sm text-muted-foreground mt-1">
+                  {monthlyEquivalent}
+                </span>
+              )}
+            </span>
           </div>
         </div>
 
