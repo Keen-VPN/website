@@ -22,12 +22,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, Copy } from "lucide-react";
 import {
   ContactSalesForm,
   contactSalesSchema,
 } from "@/constants/contact-enterprise";
 import { BACKEND_URL } from "@/auth/backend";
+import { useToast } from "@/hooks/use-toast";
 
 interface ContactSalesDialogProps {
   children: React.ReactNode;
@@ -40,6 +41,8 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
     "idle" | "success" | "error"
   >("idle");
   const [referenceId, setReferenceId] = useState<string>("");
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
 
   const form = useForm<ContactSalesForm>({
     resolver: zodResolver(contactSalesSchema),
@@ -60,7 +63,6 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
     form.clearErrors();
 
     try {
-      // TODO: Replace with actual API endpoint URL from environment
       const response = await fetch(`${BACKEND_URL}/sales-contact/submit`, {
         method: "POST",
         headers: {
@@ -179,6 +181,28 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
     setIsOpen(false);
     setSubmitStatus("idle");
     setReferenceId("");
+    setCopied(false);
+  };
+
+  const handleCopyReferenceId = async () => {
+    if (referenceId) {
+      try {
+        await navigator.clipboard.writeText(referenceId);
+        setCopied(true);
+        toast({
+          title: "Copied to Clipboard",
+          description: "Reference ID copied to clipboard",
+        });
+        setTimeout(() => setCopied(false), 2000);
+      } catch (error) {
+        console.error("Failed to copy reference ID:", error);
+        toast({
+          title: "Copy Failed",
+          description: "Failed to copy reference ID to clipboard",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   if (submitStatus === "success") {
@@ -199,10 +223,26 @@ export function ContactSalesDialog({ children }: ContactSalesDialogProps) {
             </p>
             {referenceId && (
               <div className="p-3 bg-muted rounded-md">
-                <p className="text-sm font-medium">
-                  Reference ID: {referenceId}
-                </p>
-                <p className="text-xs text-muted-foreground">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">
+                    Reference ID: {referenceId}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleCopyReferenceId}
+                    className="h-8 w-8 shrink-0"
+                    title="Copy reference ID"
+                  >
+                    {copied ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
                   Please keep this reference ID for your records.
                 </p>
               </div>
