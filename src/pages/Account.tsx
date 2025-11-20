@@ -468,10 +468,14 @@ const Account = () => {
                         </>
                       ) : (
                         <Button
-                          onClick={() => navigate("/subscribe")}
+                          onClick={() =>
+                            navigate(subscription ? "/account" : "/subscribe")
+                          }
                           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
                         >
-                          Subscribe Now
+                          {subscription
+                            ? "Manage Subscription"
+                            : "Subscribe Now"}
                         </Button>
                       )}
                     </div>
@@ -502,13 +506,12 @@ const Account = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button
-                onClick={() => navigate("/support")}
-                variant="outline"
-                className="w-full"
+              <a
+                href="mailto:support@vpnkeen.com?subject=Support Request&body=Hello KeenVPN Support Team,%0D%0A%0D%0AI need assistance with:%0D%0A%0D%0A[Please describe your issue here]%0D%0A%0D%0AThank you!"
+                className="w-full inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
               >
                 Contact Support
-              </Button>
+              </a>
             </CardContent>
           </Card>
 
