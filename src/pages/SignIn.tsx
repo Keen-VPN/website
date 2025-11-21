@@ -52,7 +52,7 @@ const SignIn = () => {
           <div className="text-center mb-8">
             <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mb-4">
               <img
-                src="/logo.png"
+                src="/logo-white.png"
                 alt="KeenVPN"
                 className="h-8 w-8 transition-transform group-hover:scale-105"
               />

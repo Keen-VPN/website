@@ -94,7 +94,7 @@ const Pricing = () => {
             </button>
             <button
               onClick={() => setBillingPeriod("annual")}
-              className={`px-6 py-2 rounded-full transition-all ${
+              className={`px-6 py-2 rounded-full transition-all relative ${
                 billingPeriod === "annual"
                   ? "bg-gradient-primary text-primary-foreground shadow-glow"
                   : "text-muted-foreground hover:text-foreground"
@@ -119,7 +119,7 @@ const Pricing = () => {
 
         {/* Pricing Cards */}
         <section className="container mx-auto px-4 mb-20">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto items-stretch">
             {plans.map((plan, index) => {
               const isAnnual = billingPeriod === "annual";
               const price = isAnnual
@@ -139,7 +139,7 @@ const Pricing = () => {
               return (
                 <div
                   key={index}
-                  className={`relative p-8 rounded-xl border transition-all duration-300 ${
+                  className={`relative p-8 rounded-xl border transition-all duration-300 flex flex-col h-full ${
                     plan.popular
                       ? "bg-gradient-card border-primary shadow-glow scale-105 md:scale-110"
                       : "bg-card border-border hover:border-primary/50"
@@ -158,7 +158,11 @@ const Pricing = () => {
                       {plan.name}
                     </h3>
                     <p className="text-muted-foreground text-sm">
-                      {plan.description}
+                      {plan.name === "Enterprise"
+                        ? plan.description
+                        : isAnnual
+                        ? "Complete VPN protection for the entire year"
+                        : "Complete VPN protection with monthly flexibility"}
                     </p>
                   </div>
 
@@ -214,7 +218,7 @@ const Pricing = () => {
                     </Button>
                   )}
 
-                  <ul className="space-y-3">
+                  <ul className="space-y-3 flex-grow mb-6">
                     {plan.features
                       .filter((f) => f.included)
                       .map((feature, featureIndex) => (

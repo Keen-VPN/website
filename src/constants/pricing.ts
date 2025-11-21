@@ -27,7 +27,7 @@ export const faqs = [
   {
     question: "What's included in the 1 month free trial?",
     answer:
-      "All plans include a full-featured 1 month free trial. You'll have access to all premium features including unlimited bandwidth, all server locations, and our military-grade encryption. No credit card required to start.",
+      "All plans include a full-featured 1 month free trial. You'll have access to all premium features including unlimited bandwidth, all server locations, and our military-grade encryption. Simply provide a payment method to start your trial and cancel anytime during the trial period if not satisfied.",
   },
   {
     question: "Can I switch plans at any time?",

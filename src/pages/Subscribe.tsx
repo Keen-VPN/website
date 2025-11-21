@@ -153,7 +153,10 @@ const Subscribe = () => {
           selectedPlan.name === "Enterprise"
             ? "KeenVPN Enterprise"
             : selectedPlan.name || "KeenVPN Premium",
-        price: `$${selectedPlan.price || 0}`,
+        price:
+          selectedPlan.period === "year"
+            ? `$${(selectedPlan.price / 12).toFixed(2) || 0}`
+            : `$${selectedPlan.price || 0}`,
         period:
           selectedPlan.period === "year" ? "/month, billed annually" : "/month",
         description:

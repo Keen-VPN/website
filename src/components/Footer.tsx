@@ -9,7 +9,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center space-x-3 mb-4">
-              <img src="/logo.png" alt="KeenVPN" className="h-12 w-12" />
+              <img src="/logo-white.png" alt="KeenVPN" className="h-12 w-12" />
               <span className="text-xl font-bold text-foreground">KeenVPN</span>
             </div>
             <h3 className="font-semibold text-foreground mb-2">About Us</h3>
