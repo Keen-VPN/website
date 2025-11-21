@@ -9,12 +9,14 @@ import {
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContextNew";
+import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, subscription, signIn, logout } = useAuth();
+  const appStoreUrl = useAppStoreUrl();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -123,7 +125,10 @@ const Header = () => {
                 Sign In
               </Button>
             )}
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-glow transition-all">
+            <Button
+              className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-glow transition-all"
+              onClick={() => window.open(appStoreUrl, "_blank")}
+            >
               Download App
             </Button>
           </div>
@@ -256,7 +261,10 @@ const Header = () => {
                 )}
                 <Button
                   className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-glow transition-all"
-                  onClick={() => setIsMenuOpen(false)}
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    window.open(appStoreUrl, "_blank");
+                  }}
                 >
                   Download App
                 </Button>
