@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Shield, Zap, Globe, Lock } from "lucide-react";
+import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 
 const Hero = () => {
+  const appStoreUrl = useAppStoreUrl();
+
   return (
     <section className="relative min-h-screen bg-gradient-hero flex items-center justify-center overflow-hidden">
       {/* Background Effects with Brand Colors */}
@@ -33,6 +36,7 @@ const Hero = () => {
             <Button
               size="lg"
               className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-lg px-8 py-6 font-semibold transition-all hover:scale-105"
+              onClick={() => window.open(appStoreUrl, "_blank")}
             >
               Download Now
             </Button>
