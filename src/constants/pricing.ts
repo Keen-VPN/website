@@ -55,6 +55,11 @@ export const faqs = [
       "For Enterprise solutions with 50+ users, we offer custom pricing and dedicated support. Contact our sales team to discuss your specific requirements and get a personalized quote.",
     isEnterprise: true,
   },
+  {
+    question: "How do I request a refund?",
+    answer:
+      "For refund request, please send an email to our support team via support@vpnkeen.com. Our support team will assist you with your refund request.",
+  },
 ];
 
 export const allFeatures = [

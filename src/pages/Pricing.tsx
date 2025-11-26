@@ -384,7 +384,19 @@ const Pricing = () => {
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="text-muted-foreground pl-8">
-                    {faq.answer}
+                    {faq.answer.split(/(support@vpnkeen\.com)/).map((part, i) =>
+                      part === "support@vpnkeen.com" ? (
+                        <a
+                          key={i}
+                          href="mailto:support@vpnkeen.com"
+                          className="text-primary hover:underline"
+                        >
+                          {part}
+                        </a>
+                      ) : (
+                        <span key={i}>{part}</span>
+                      )
+                    )}
                     {(faq as any).isEnterprise && (
                       <div className="mt-4">
                         <ContactSalesDialog>

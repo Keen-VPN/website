@@ -479,6 +479,18 @@ const Account = () => {
                         </Button>
                       )}
                     </div>
+                    <div className="pt-4 mt-4 border-t border-border">
+                      <p className="text-sm text-muted-foreground">
+                        For refund request, please send an email to our support
+                        team via{" "}
+                        <a
+                          href="mailto:support@vpnkeen.com"
+                          className="text-primary hover:underline"
+                        >
+                          support@vpnkeen.com
+                        </a>
+                      </p>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -491,6 +503,18 @@ const Account = () => {
                     >
                       Subscribe Now
                     </Button>
+                    <div className="pt-4 mt-4 border-t border-border">
+                      <p className="text-sm text-muted-foreground">
+                        For refund request, please send an email to our support
+                        team via{" "}
+                        <a
+                          href="mailto:support@vpnkeen.com"
+                          className="text-primary hover:underline"
+                        >
+                          support@vpnkeen.com
+                        </a>
+                      </p>
+                    </div>
                   </>
                 )}
               </CardContent>

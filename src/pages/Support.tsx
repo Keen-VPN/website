@@ -88,7 +88,7 @@ const Support = () => {
         },
         {
           q: "Can I get a refund?",
-          a: "Yes, we offer a 30-day money-back guarantee. Contact our support team within 30 days of purchase if you're not satisfied with the service.",
+          a: "For refund request, please send an email to our support team via support@vpnkeen.com. Our support team will assist you with your refund request.",
         },
         {
           q: "How many devices can I use with one account?",
@@ -176,7 +176,21 @@ const Support = () => {
                           {item.q}
                         </AccordionTrigger>
                         <AccordionContent className="text-muted-foreground">
-                          {item.a}
+                          {item.a
+                            .split(/(support@vpnkeen\.com)/)
+                            .map((part, i) =>
+                              part === "support@vpnkeen.com" ? (
+                                <a
+                                  key={i}
+                                  href="mailto:support@vpnkeen.com"
+                                  className="text-primary hover:underline"
+                                >
+                                  {part}
+                                </a>
+                              ) : (
+                                <span key={i}>{part}</span>
+                              )
+                            )}
                         </AccordionContent>
                       </AccordionItem>
                     ))}
