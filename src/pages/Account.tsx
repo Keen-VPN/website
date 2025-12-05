@@ -31,6 +31,7 @@ import {
   CheckCircle,
   XCircle,
   Trash2,
+  History,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContextNew";
 import { useToast } from "@/hooks/use-toast";
@@ -343,6 +344,15 @@ const Account = () => {
                       </div>
                     )}
                     <div className="space-y-3">
+                      <Button
+                        onClick={() => navigate("/account/subscription-history")}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        <History className="h-4 w-4 mr-2" />
+                        View Billing History
+                      </Button>
+                      
                       <Button
                         onClick={handleRefreshSubscription}
                         variant="ghost"
