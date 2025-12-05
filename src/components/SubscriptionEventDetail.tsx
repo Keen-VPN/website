@@ -28,7 +28,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   fetchSubscriptionEventDetail,
   formatEventDate,
@@ -56,7 +56,7 @@ export function SubscriptionEventDetail({
   const [error, setError] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (event && open) {
