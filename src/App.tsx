@@ -12,6 +12,7 @@ import Support from "./pages/Support";
 import SignIn from "./pages/SignInNew";
 import Subscribe from "./pages/Subscribe";
 import Account from "./pages/Account";
+import SubscriptionHistory from "./pages/SubscriptionHistory";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentCancel from "./pages/PaymentCancel";
 import AuthDebug from "./pages/AuthDebug";
@@ -48,6 +49,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Account />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/account/subscription-history"
+              element={
+                <ProtectedRoute>
+                  <SubscriptionHistory />
                 </ProtectedRoute>
               }
             />
