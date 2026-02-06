@@ -1,432 +1,683 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User as FirebaseUser, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, getRedirectResult } from 'firebase/auth';
-import { auth, googleProvider } from '@/lib/firebase';
-import { signInWithPopup, signOut } from 'firebase/auth';
+import { User as FirebaseUser } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  signInWithGoogle,
+  signInWithApple,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  mapFirebaseError,
+  authenticateWithBackend,
+  verifySessionToken,
+  storeSessionToken,
+  getSessionToken,
+  clearSessionToken,
+  type SubscriptionData,
+  type SignInResult
+} from '@/auth';
 
-interface SubscriptionData {
-  status: string;
-  endDate: string;
-  customerId: string;
-  plan?: string;
-  cancelAtPeriodEnd?: boolean;
-}
+// ============================================================================
+// Context Types
+// ============================================================================
 
 interface AuthContextType {
   user: FirebaseUser | null;
   subscription: SubscriptionData | null;
   loading: boolean;
-  signIn: () => Promise<{ success: boolean; shouldRedirect?: string }>;
+  signIn: (provider?: 'google' | 'apple') => Promise<{ success: boolean; shouldRedirect?: string }>;
   logout: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://vpnkeen.netlify.app/api';
+// ============================================================================
+// Auth Provider
+// ============================================================================
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { toast } = useToast();
 
-  const fetchSubscriptionStatusByToken = async (sessionToken: string) => {
-    try {
-      // Use the verify endpoint which returns user + subscription data
-      const response = await fetch(`${BACKEND_URL}/auth/verify`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sessionToken
-        }),
-      });
+  // State for ASWebAuthenticationSession deeplink prompt
+  const [showDeeplinkPrompt, setShowDeeplinkPrompt] = useState(false);
+  const [pendingDeeplinkToken, setPendingDeeplinkToken] = useState<string | null>(null);
 
-      const data = await response.json();
+  // Check if user came from ASWebAuthenticationSession (macOS desktop app)
+  const isASWebSession = () => {
+    // Check URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('asweb') === '1') {
+      return true;
+    }
+    // Check sessionStorage (set on page load)
+    if (sessionStorage.getItem('asweb_session') === '1') {
+      return true;
+    }
+    return false;
+  };
 
-      if (data.success && data.subscription) {
-        setSubscription(data.subscription);
-      } else {
-        setSubscription(null);
-      }
-    } catch (error) {
-      console.error('Error fetching subscription by token:', error);
-      setSubscription(null);
+  // Trigger deeplink after user confirms
+  const handleConfirmDeeplink = () => {
+    if (pendingDeeplinkToken) {
+      console.info('🔐 User confirmed - triggering deeplink');
+      window.location.href = `vpnkeen://auth?token=${pendingDeeplinkToken}`;
+      setShowDeeplinkPrompt(false);
+      setPendingDeeplinkToken(null);
+      sessionStorage.removeItem('asweb_session');
     }
   };
 
-  useEffect(() => {
-    // Check for existing session token first
-    const checkSession = async () => {
-      const sessionToken = localStorage.getItem('sessionToken');
-      
-      if (sessionToken) {
-        console.log('🔍 Found existing session token, verifying...');
-        try {
-          // Verify session token with backend
-          const response = await fetch(`${BACKEND_URL}/auth/verify`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ sessionToken }),
-          });
+  // Cancel deeplink prompt
+  const handleCancelDeeplink = () => {
+    console.info('🚫 User cancelled deeplink prompt');
+    setShowDeeplinkPrompt(false);
+    setPendingDeeplinkToken(null);
+    sessionStorage.removeItem('asweb_session');
 
-          const data = await response.json();
-          
-          if (data.success && data.user) {
-            console.log('✅ Session token valid, user authenticated');
-            // Create a mock Firebase user object for compatibility
+    // Redirect based on subscription status
+    const hasActiveSubscription = subscription && subscription.status === 'active';
+    if (hasActiveSubscription) {
+      if (window.location.pathname !== '/account') {
+        window.location.href = '/account';
+      }
+    } else {
+      if (window.location.pathname !== '/subscribe') {
+        window.location.href = '/subscribe';
+      }
+    }
+  };
+
+  // ============================================================================
+  // Subscription Management
+  // ============================================================================
+
+  const fetchSubscriptionFromBackend = async (sessionToken: string) => {
+    try {
+      const response = await verifySessionToken(sessionToken);
+
+      if (response.success && response.subscription) {
+        setSubscription(response.subscription);
+        return response.subscription;
+      } else {
+        setSubscription(null);
+        return null;
+      }
+    } catch {
+      setSubscription(null);
+      return null;
+    }
+  };
+
+  // ============================================================================
+  // Initialize Auth State
+  // ============================================================================
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      // Check if this is an ASWebAuthenticationSession request (macOS desktop app)
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('asweb') === '1') {
+        // Store flag in sessionStorage for later use (persists through redirects)
+        sessionStorage.setItem('asweb_session', '1');
+        console.info('🔐 ASWebAuthenticationSession detected - will auto-trigger deeplink after login');
+      }
+
+      // Also check if we already have the flag in sessionStorage (in case URL param was lost during redirect)
+      // This ensures the flag persists even if Firebase redirects change the URL
+      const existingFlag = sessionStorage.getItem('asweb_session');
+      if (existingFlag === '1') {
+        console.info('🔐 ASWebAuthenticationSession flag found in sessionStorage (persisted through redirect)');
+      }
+
+      // Step 1: Check for redirect result FIRST
+      const { checkRedirectResult } = await import('@/auth');
+      const redirectResult = await checkRedirectResult();
+
+      if (redirectResult && redirectResult.success && redirectResult.user) {
+        // Set user immediately so UI updates
+        setUser(redirectResult.user);
+        setLoading(false);
+
+        const accessToken = redirectResult.accessToken;
+        if (accessToken) {
+          // Determine provider from user's provider data
+          const providerData = redirectResult.user.providerData?.[0];
+          const providerId = providerData?.providerId || '';
+          const providerType = providerId.includes('apple') ? 'apple' : 'google';
+
+          // For Apple, extract the actual Apple user identifier from providerData
+          // Debug: Log all providerData to understand the structure
+          if (providerType === 'apple') {
+            console.log('🍎 Apple Sign-In - Full Provider Data:', {
+              allProviderData: redirectResult.user.providerData,
+              firstProvider: redirectResult.user.providerData?.[0],
+              firebaseUid: redirectResult.user.uid,
+              email: redirectResult.user.email
+            });
+          }
+
+          // Extract Apple user ID - try multiple approaches
+          let appleUserId = redirectResult.user.uid; // fallback
+          if (providerType === 'apple') {
+            if (providerData?.uid && providerData.uid !== redirectResult.user.uid) {
+              // providerData.uid is different from Firebase UID - this is likely the Apple user ID
+              appleUserId = providerData.uid;
+            } else if (providerData?.uid === redirectResult.user.uid) {
+              // providerData.uid is same as Firebase UID - this might not be the real Apple user ID
+              // Try to get it from the Firebase ID token instead
+              try {
+                const idTokenResult = await redirectResult.user.getIdTokenResult();
+                const customClaims = idTokenResult.claims;
+                console.log('🍎 Firebase ID Token Claims:', customClaims);
+
+                // Apple user ID might be in custom claims or we need to decode the token
+                if (customClaims.sub && customClaims.sub !== redirectResult.user.uid) {
+                  appleUserId = customClaims.sub;
+                }
+              } catch {
+                // Ignore errors when getting ID token claims
+              }
+            }
+          }
+
+          // Log for debugging cross-platform matching
+          if (providerType === 'apple') {
+            console.log('🍎 Apple Sign-In - Final User Identifiers:', {
+              firebaseUid: redirectResult.user.uid,
+              providerDataUid: providerData?.uid,
+              extractedAppleUserId: appleUserId,
+              email: redirectResult.user.email,
+              providerId: providerId,
+              isAppleUserIdExtracted: appleUserId !== redirectResult.user.uid
+            });
+          }
+
+          // Authenticate with backend
+          const backendResponse = await authenticateWithBackend(
+            accessToken,
+            providerType,
+            providerType === 'apple' ? {
+              userIdentifier: appleUserId,
+              email: redirectResult.user.email || undefined,
+              fullName: redirectResult.user.displayName || undefined
+            } : undefined
+          );
+
+          if (backendResponse.success && backendResponse.sessionToken) {
+            storeSessionToken(backendResponse.sessionToken);
+            setSubscription(backendResponse.subscription || null);
+
+            // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+            if (isASWebSession()) {
+              // Show prompt immediately - don't wait for other operations
+              console.log('🔐 ASWebAuthenticationSession (redirect) - showing deeplink prompt immediately');
+              setPendingDeeplinkToken(backendResponse.sessionToken);
+              // Use setTimeout to ensure modal appears in next tick for better UX
+              setTimeout(() => {
+                setShowDeeplinkPrompt(true);
+              }, 0);
+
+              // Don't redirect - wait for user to confirm
+              return;
+            }
+
+            // Normal web flow - redirect based on subscription status
+            const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
+
+            if (hasActiveSubscription) {
+              // User has active subscription - redirect to account page
+              if (window.location.pathname !== '/account') {
+                window.location.href = '/account';
+              }
+            } else {
+              // User doesn't have active subscription - redirect to subscribe
+              if (window.location.pathname !== '/subscribe') {
+                window.location.href = '/subscribe';
+              }
+            }
+            return;
+          } else if (backendResponse.error?.includes('recently deleted')) {
+            // Handle case where user account was deleted but Firebase auth is still active
+            console.log('🚨 Account was recently deleted, clearing Firebase auth and redirecting to sign-in');
+
+            // Clear Firebase auth
+            const { signOut } = await import('@/auth');
+            await signOut();
+
+            // Clear session token
+            clearSessionToken();
+
+            // Clear user state
+            setUser(null);
+            setSubscription(null);
+
+            // Show user-friendly message with exact time
+            alert(backendResponse.error);
+
+            // Redirect to sign-in page
+            window.location.href = '/signin';
+            return;
+          }
+        }
+      }
+
+      // Step 2: Check for existing session token (prioritize this for faster redirect)
+      const sessionToken = getSessionToken();
+
+      if (sessionToken) {
+        // Verify existing session token before updating UI state
+        try {
+          const response = await verifySessionToken(sessionToken);
+
+          if (response.success && response.user && mounted) {
+            // Create a mock Firebase user for compatibility
             setUser({
-              uid: data.user.id,
-              email: data.user.email,
-              displayName: data.user.name,
-            } as any);
-            
-            // Fetch subscription status
-            await fetchSubscriptionStatusByToken(sessionToken);
+              uid: response.user.id,
+              email: response.user.email,
+              displayName: response.user.name,
+            } as FirebaseUser);
+
+            if (response.subscription) {
+              setSubscription(response.subscription);
+            }
+
+            // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+            if (isASWebSession()) {
+              // If on account page, show deeplink modal immediately
+              if (window.location.pathname === '/account') {
+                console.log('🔐 ASWebSession detected - user on account page, showing deeplink prompt');
+                setPendingDeeplinkToken(sessionToken);
+                setTimeout(() => {
+                  setShowDeeplinkPrompt(true);
+                }, 0);
+                // Don't do anything else - let modal show
+                setLoading(false);
+                return;
+              }
+
+              // If on signin page and already logged in, redirect to account (which will show modal)
+              if (window.location.pathname === '/signin') {
+                console.log('🔐 ASWebSession detected - user already logged in on signin, redirecting to account');
+                window.location.href = '/account?asweb=1';
+                setLoading(false);
+                return;
+              }
+            }
+
+            // Immediately redirect if on signin page (normal web flow)
+            if (window.location.pathname === '/signin') {
+              const hasActiveSubscription = response.subscription && response.subscription.status === 'active';
+              if (hasActiveSubscription) {
+                window.location.href = '/account';
+              } else {
+                window.location.href = '/subscribe';
+              }
+            }
+
             setLoading(false);
             return;
           } else {
-            console.log('❌ Session token invalid, clearing...');
-            localStorage.removeItem('sessionToken');
-            localStorage.removeItem('token');
-            localStorage.removeItem('google_access_token');
+            // Session token is invalid - clear it
+            console.log('🚨 Invalid session token, clearing auth state');
+            clearSessionToken();
+
+            // Also clear Firebase auth if user is still authenticated
+            // This handles the case where user was deleted from desktop but still has Firebase auth
+            try {
+              const { signOut } = await import('@/auth');
+              await signOut();
+              console.info('🚨 Cleared Firebase auth due to invalid session token');
+            } catch {
+              // Ignore errors when clearing persistence
+            }
+
+            setLoading(false);
           }
         } catch (error) {
-          console.error('Error verifying session token:', error);
-          localStorage.removeItem('sessionToken');
-          localStorage.removeItem('token');
-          localStorage.removeItem('google_access_token');
+          console.warn('⚠️ Failed to verify session token, falling back to Firebase auth listener:', error);
+          setLoading(false);
         }
       }
-      
-      // Fall back to Firebase auth state
-      setLoading(false);
-    };
 
-    // Check for redirect result FIRST (before checking session)
-    const checkRedirectResult = async () => {
-      try {
-        console.log('🔍 Checking for redirect result...');
-        console.log('🔍 Current URL:', window.location.href);
-        console.log('🔍 URL params:', window.location.search);
-        
-        const result = await getRedirectResult(auth);
-        console.log('🔍 getRedirectResult returned:', result);
-        
-        if (result) {
-          console.log('✅ Redirect result found!', result);
-          console.log('✅ User:', result.user?.email);
-          
-          const credential = GoogleAuthProvider.credentialFromResult(result);
-          console.log('✅ Credential:', credential);
-          
-          const accessToken = credential?.accessToken;
-          
-          if (!accessToken) {
-            console.error('❌ No access token from redirect result');
-            console.error('❌ Credential object:', credential);
-            return;
-          }
-          
-          console.log('✅ Access token obtained:', accessToken.substring(0, 20) + '...');
-          localStorage.setItem('google_access_token', accessToken);
-          
-          // Handle post-redirect routing
-          try {
-            console.log('🔵 Sending Google access token to backend after redirect...');
-            const response = await fetch(`${BACKEND_URL}/auth/google/signin`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                idToken: accessToken  // Backend expects this as 'idToken' but uses it as access_token
-              }),
-            });
+      // Step 3: Set up Firebase auth state listener
+      const unsubscribe = onAuthStateChanged(async (firebaseUser) => {
+        if (!mounted) return;
 
-            const data = await response.json();
-            console.log('✅ Backend response:', data);
-            
-            if (data.success) {
-              // Store session token
-              if (data.sessionToken) {
-                console.log('💾 Storing session token');
-                localStorage.setItem('sessionToken', data.sessionToken);
-                localStorage.setItem("token", `vpnkeen://auth?token=${data.sessionToken}`);
-              }
-              
-              setSubscription(data.subscription);
-              
-              if (data.subscription && data.subscription.status === 'active') {
-                // Active user - redirect to account management
-                console.log('🔄 Redirecting to /account');
-                window.location.href = "/account";
-              } else {
-                // User exists but no active subscription - redirect to subscribe
-                console.log('🔄 Redirecting to /subscribe');
-                window.location.href = "/subscribe";
-              }
-            } else {
-              // New user - redirect to subscribe
-              console.log('🔄 Redirecting to /subscribe (new user)');
-              window.location.href = "/subscribe";
-            }
-          } catch (error) {
-            console.error("❌ Error checking subscription after redirect:", error);
-            // Fallback - redirect to subscribe page
-            console.log('🔄 Redirecting to /subscribe (error fallback)');
-            window.location.href = "/subscribe";
-          }
-        } else {
-          console.log('ℹ️ No redirect result found');
-          console.log('ℹ️ Checking if user is authenticated via Firebase...');
-          
-          // Check if user is authenticated but we didn't get redirect result
-          // This can happen if the page reloaded or redirect was already processed
-          const currentUser = auth.currentUser;
-          if (currentUser) {
-            console.log('✅ User is authenticated via Firebase:', currentUser.email);
-            console.log('🔵 Getting Firebase ID token to send to backend...');
-            
-            try {
-              const idToken = await currentUser.getIdToken();
-              console.log('✅ Got Firebase ID token');
-              
-              // Send Firebase ID token to backend
-              const response = await fetch(`${BACKEND_URL}/auth/google/signin`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  idToken
-                }),
-              });
-
-              const data = await response.json();
-              console.log('✅ Backend response:', data);
-              
-              if (data.success && data.sessionToken) {
-                console.log('💾 Storing session token');
-                localStorage.setItem('sessionToken', data.sessionToken);
-                localStorage.setItem("token", `vpnkeen://auth?token=${data.sessionToken}`);
-                setSubscription(data.subscription);
-                
-                // Only redirect if we're on the signin page
-                if (window.location.pathname === '/signin') {
-                  if (data.subscription && data.subscription.status === 'active') {
-                    console.log('🔄 Redirecting to /account');
-                    window.location.href = "/account";
-                  } else {
-                    console.log('🔄 Redirecting to /subscribe');
-                    window.location.href = "/subscribe";
-                  }
-                }
-              }
-            } catch (error) {
-              console.error('❌ Error processing authenticated user:', error);
-            }
-          } else {
-            console.log('ℹ️ No authenticated user found (normal page load)');
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error checking redirect result:', error);
-        console.error('❌ Error details:', {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          error
-        });
-      }
-    };
-
-    // Set up Firebase auth state listener
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // Only update if we don't already have a valid session
-      const sessionToken = localStorage.getItem('sessionToken');
-      if (!sessionToken) {
         setUser(firebaseUser);
-        
-        if (firebaseUser) {
-          // Fetch subscription status
-          await fetchSubscriptionStatus(firebaseUser);
-        } else {
+
+        if (firebaseUser && !isAuthenticating) {
+          // User is authenticated, fetch subscription
+          const sessionToken = getSessionToken();
+          if (sessionToken) {
+            await fetchSubscriptionFromBackend(sessionToken);
+          }
+        } else if (!firebaseUser) {
           setSubscription(null);
         }
-        
-        setLoading(false);
-      }
-    });
 
-    // Execute in order: redirect result first, then session check
-    const initAuth = async () => {
-      await checkRedirectResult();
-      await checkSession();
+        setLoading(false);
+      });
+
+      setLoading(false);
+
+      return () => {
+        mounted = false;
+        unsubscribe();
+      };
     };
 
-    initAuth();
-
-    return () => unsubscribe();
+    initializeAuth();
   }, []);
 
-  const fetchSubscriptionStatus = async (firebaseUser: FirebaseUser) => {
-    try {
-      const idToken = await firebaseUser.getIdToken();
-      
-      const response = await fetch(`${BACKEND_URL}/auth/google/signin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          idToken
-        }),
-      });
+  // ============================================================================
+  // Sign In
+  // ============================================================================
 
-      const data = await response.json();
-
-      if (data.success && data.subscription) {
-        setSubscription(data.subscription);
-      } else {
-        setSubscription(null);
-      }
-    } catch (error) {
-      console.error('Error fetching subscription:', error);
-      setSubscription(null);
-    }
-  };
-
-  const signIn = async (): Promise<{ success: boolean; shouldRedirect?: string }> => {
-    try {
-      toast({
-        title: "Opening Google Sign-In...",
-        description: "Please complete the authentication in the popup window.",
-      });
-
-      console.log('🔵 Initiating Google Sign-In with popup...');
-      const result = await signInWithPopup(auth, googleProvider);
-      console.log("✅ Full sign-in result:", result);
-
-      const user = result.user;
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-
-      if (!credential) {
-        console.warn("⚠️ No credential returned");
-        toast({
-          title: "⚠️ No credential returned",
-          description: "Sign-in may still be successful.",
-          variant: "destructive",
-        });
-        return { success: false };
-      }
-
-      const accessToken = credential.accessToken;
-      console.log("✅ AccessToken:", accessToken?.substring(0, 20) + '...');
-      
-      if (!accessToken) {
-        console.error("❌ No access token");
-        return { success: false };
-      }
-
-      // Send access token to backend
-      console.log('🔵 Sending access token to backend...');
-      const response = await fetch(`${BACKEND_URL}/auth/google/signin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          idToken: accessToken  // Backend expects 'idToken' but will verify as access token
-        }),
-      });
-
-      const data = await response.json();
-      console.log('✅ Backend response:', data);
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Backend authentication failed');
-      }
-
-      if (data.success && data.sessionToken) {
-        // Store session token
-        console.log('💾 Storing session token');
-        localStorage.setItem('sessionToken', data.sessionToken);
-        localStorage.setItem("token", `vpnkeen://auth?token=${data.sessionToken}`);
-        
-        setSubscription(data.subscription);
-
-        toast({
-          title: "✅ Login Successful",
-          description: "Redirecting...",
-        });
-
-        if (data.subscription && data.subscription.status === 'active') {
-          return { success: true, shouldRedirect: "/account" };
-        } else {
-          return { success: true, shouldRedirect: "/subscribe" };
-        }
-      } else {
-        throw new Error(data.error || 'Authentication failed');
-      }
-    } catch (error: any) {
-      console.error("❌ Sign-in error:", error);
-      console.error("❌ Error code:", error?.code);
-      
-      toast({
-        title: "Login Failed",
-        description: error?.message || "An error occurred during sign-in",
-        variant: "destructive",
-      });
+  const signIn = React.useCallback(async (provider: 'google' | 'apple' = 'google'): Promise<{ success: boolean; shouldRedirect?: string }> => {
+    if (isAuthenticating) {
       return { success: false };
     }
-  };
 
-  const logout = async () => {
+    setIsAuthenticating(true);
+
     try {
-      await signOut(auth);
-      localStorage.removeItem('token');
-      localStorage.removeItem('sessionToken');
-      localStorage.removeItem('google_access_token');
+      const providerName = provider === 'apple' ? 'Apple' : 'Google';
+
+      toast({
+        title: `Opening ${providerName} Sign-In...`,
+        description: "Please complete the authentication.",
+      });
+
+      // Use centralized sign-in with automatic fallback
+      const result: SignInResult = provider === 'apple'
+        ? await signInWithApple()
+        : await signInWithGoogle();
+
+      // If redirect was used, the page will redirect away
+      if (result.usedRedirect) {
+        return { success: true };
+      }
+
+      // Handle errors
+      if (!result.success || !result.user) {
+        const error = result.error;
+        if (error) {
+          toast({
+            title: "Sign-In Failed",
+            description: error.userMessage,
+            variant: "destructive",
+          });
+        }
+        setIsAuthenticating(false);
+        return { success: false };
+      }
+
+      // Set user immediately for UI update
+      setUser(result.user);
+
+      // Get access token for backend
+      const accessToken = result.accessToken;
+      if (!accessToken) {
+        toast({
+          title: "Authentication Error",
+          description: "No access token received. Please try again.",
+          variant: "destructive",
+        });
+        setIsAuthenticating(false);
+        return { success: false };
+      }
+
+      // Determine provider type - use parameter first, then detect from user data
+      const providerData = result.user.providerData?.[0];
+      const providerId = providerData?.providerId || '';
+      const detectedProvider = providerId.includes('apple') ? 'apple' : 'google';
+
+      // Use the provider parameter if it matches, otherwise use detected
+      const providerType = provider === detectedProvider ? provider : detectedProvider;
+
+      // For Apple, extract the actual Apple user identifier from providerData
+      // Debug: Log all providerData to understand the structure
+      if (providerType === 'apple') {
+        console.log('🍎 Apple Sign-In - Full Provider Data:', {
+          allProviderData: result.user.providerData,
+          firstProvider: result.user.providerData?.[0],
+          firebaseUid: result.user.uid,
+          email: result.user.email
+        });
+      }
+
+      // Extract Apple user ID - try multiple approaches
+      let appleUserId = result.user.uid; // fallback
+      if (providerType === 'apple') {
+        if (providerData?.uid && providerData.uid !== result.user.uid) {
+          // providerData.uid is different from Firebase UID - this is likely the Apple user ID
+          appleUserId = providerData.uid;
+        } else if (providerData?.uid === result.user.uid) {
+          // providerData.uid is same as Firebase UID - this might not be the real Apple user ID
+          // Try to get it from the Firebase ID token instead
+          try {
+            const idTokenResult = await result.user.getIdTokenResult();
+            const customClaims = idTokenResult.claims;
+            console.log('🍎 Firebase ID Token Claims:', customClaims);
+
+            // Apple user ID might be in custom claims or we need to decode the token
+            if (customClaims.sub && customClaims.sub !== result.user.uid) {
+              appleUserId = customClaims.sub;
+            }
+          } catch (error) {
+            console.warn('⚠️ Failed to get ID token claims:', error);
+          }
+        }
+      }
+
+      // Log for debugging cross-platform matching
+      if (providerType === 'apple') {
+        console.log('🍎 Apple Sign-In - Final User Identifiers:', {
+          firebaseUid: result.user.uid,
+          providerDataUid: providerData?.uid,
+          extractedAppleUserId: appleUserId,
+          email: result.user.email,
+          providerId: providerId,
+          isAppleUserIdExtracted: appleUserId !== result.user.uid
+        });
+      }
+
+      // Show immediate feedback
+      toast({
+        title: "✅ Authenticated",
+        description: "Checking subscription status...",
+      });
+
+      // Authenticate with backend (WAIT for response to check subscription)
+      const backendResponse = await authenticateWithBackend(
+        accessToken,
+        providerType,
+        providerType === 'apple' ? {
+          // Additional Apple data logic is handled inside authenticateWithBackend helper or requires complex extraction here
+          // For simplicity in this callback wrap, passing undefined for optional fields if not readily available
+          email: result.user.email || undefined,
+          fullName: result.user.displayName || undefined
+        } : undefined
+      );
+
+      if (backendResponse.success && backendResponse.sessionToken) {
+        storeSessionToken(backendResponse.sessionToken);
+        setSubscription(backendResponse.subscription || null);
+
+        setIsAuthenticating(false);
+
+        // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+        if (isASWebSession()) {
+          // Show prompt immediately - don't wait for other operations
+          console.info('🔐 ASWebAuthenticationSession - showing deeplink prompt immediately');
+          setPendingDeeplinkToken(backendResponse.sessionToken);
+          // Use setTimeout to ensure modal appears in next tick for better UX
+          setTimeout(() => {
+            setShowDeeplinkPrompt(true);
+          }, 0);
+
+          // Don't redirect - wait for user to confirm
+          return { success: true, shouldRedirect: undefined };
+        } else {
+          // Normal web/mobile user - redirect based on subscription status
+          const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
+
+          if (hasActiveSubscription) {
+            // User has active subscription - redirect to account page
+            if (window.location.pathname !== '/account') {
+              window.location.href = '/account';
+            }
+          } else {
+            // User doesn't have active subscription - redirect to subscribe
+            if (window.location.pathname !== '/subscribe') {
+              window.location.href = '/subscribe';
+            }
+          }
+        }
+
+        return { success: true, shouldRedirect: undefined };
+      } else if (backendResponse.error?.includes('recently deleted')) {
+        // Handle case where user account was deleted but Firebase auth is still active
+        console.info('🚨 Account was recently deleted during popup sign-in, clearing Firebase auth');
+
+        // Clear Firebase auth
+        import('@/auth').then(({ signOut }) => signOut()).catch(console.error);
+
+        // Clear session token
+        clearSessionToken();
+
+        // Clear user state
+        setUser(null);
+        setSubscription(null);
+
+        setIsAuthenticating(false);
+
+        toast({
+          title: "Account Recently Deleted",
+          description: backendResponse.error,
+          variant: "destructive",
+          duration: 10000, // Show for 10 seconds so user can read the exact time
+        });
+
+        return { success: false };
+      }
+
+      setIsAuthenticating(false);
+      return { success: false };
+    } catch (error: unknown) {
+      const mappedError = mapFirebaseError(error);
+
+      toast({
+        title: "Sign-In Error",
+        description: mappedError.userMessage,
+        variant: "destructive",
+      });
+
+      setIsAuthenticating(false);
+      return { success: false };
+    }
+  }, [isAuthenticating, toast]);
+
+  // ============================================================================
+  // Logout
+  // ============================================================================
+
+  const logout = React.useCallback(async () => {
+    try {
+      await firebaseSignOut();
+      clearSessionToken();
+      setUser(null);
       setSubscription(null);
+
       toast({
         title: 'Signed out successfully',
         description: 'You have been signed out of your account',
       });
-    } catch (error) {
-      console.error('Sign out error:', error);
+    } catch {
       toast({
         title: 'Sign out failed',
         description: 'Please try again',
         variant: 'destructive',
       });
     }
-  };
+  }, [toast]);
 
-  const refreshSubscription = async () => {
-    if (user) {
-      await fetchSubscriptionStatus(user);
+  // ============================================================================
+  // Refresh Subscription
+  // ============================================================================
+
+  const refreshSubscription = React.useCallback(async () => {
+    const sessionToken = getSessionToken();
+    if (sessionToken) {
+      await fetchSubscriptionFromBackend(sessionToken);
     }
-  };
+  }, []);
 
-  const value = {
+  // ============================================================================
+  // Context Value
+  // ============================================================================
+
+  // ============================================================================
+  // Context Value
+  // ============================================================================
+
+  const value = React.useMemo<AuthContextType>(() => ({
     user,
     subscription,
     loading,
     signIn,
     logout,
     refreshSubscription,
-  };
+  }), [user, subscription, loading]);
 
   return (
     <AuthContext.Provider value={value}>
       {children}
+
+      {/* Deeplink Prompt Dialog for ASWebAuthenticationSession */}
+      <AlertDialog open={showDeeplinkPrompt} onOpenChange={setShowDeeplinkPrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Open KeenVPN App</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your authentication was successful! Would you like to open the KeenVPN desktop app now?
+              <br /><br />
+              Click "Open App" to return to the desktop app, or "Cancel" to stay on the web.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDeeplink}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeeplink}>
+              Open App
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AuthContext.Provider>
   );
 };
+
+// ============================================================================
+// Hook
+// ============================================================================
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -435,3 +686,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

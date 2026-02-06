@@ -1,4 +1,4 @@
-import { Shield, Menu, X, User, LogOut } from "lucide-react";
+import { Menu, X, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContextNew";
+import { useAuth } from "@/contexts/AuthContext";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 
 const Header = () => {
@@ -19,13 +19,6 @@ const Header = () => {
   const appStoreUrl = useAppStoreUrl();
 
   const isActive = (path: string) => location.pathname === path;
-
-  const handleSignIn = async () => {
-    const result = await signIn();
-    if (result.success && result.shouldRedirect) {
-      navigate(result.shouldRedirect);
-    }
-  };
 
   return (
     <header className="fixed top-0 w-full z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
@@ -44,41 +37,36 @@ const Header = () => {
           <nav className="hidden md:flex items-center space-x-8">
             <Link
               to="/"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                isActive("/") ? "text-primary" : "text-muted-foreground"
-              }`}
+              className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/") ? "text-primary" : "text-muted-foreground"
+                }`}
             >
               Home
             </Link>
             <Link
               to="/pricing"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                isActive("/pricing") ? "text-primary" : "text-muted-foreground"
-              }`}
+              className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/pricing") ? "text-primary" : "text-muted-foreground"
+                }`}
             >
               Pricing
             </Link>
             <Link
               to="/support"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                isActive("/support") ? "text-primary" : "text-muted-foreground"
-              }`}
+              className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/support") ? "text-primary" : "text-muted-foreground"
+                }`}
             >
               Support
             </Link>
             <Link
               to="/privacy"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                isActive("/privacy") ? "text-primary" : "text-muted-foreground"
-              }`}
+              className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/privacy") ? "text-primary" : "text-muted-foreground"
+                }`}
             >
               Privacy
             </Link>
             <Link
               to="/terms"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                isActive("/terms") ? "text-primary" : "text-muted-foreground"
-              }`}
+              className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/terms") ? "text-primary" : "text-muted-foreground"
+                }`}
             >
               Terms
             </Link>
@@ -152,51 +140,46 @@ const Header = () => {
             <div className="flex flex-col space-y-4">
               <Link
                 to="/"
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  isActive("/") ? "text-primary" : "text-muted-foreground"
-                }`}
+                className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/") ? "text-primary" : "text-muted-foreground"
+                  }`}
                 onClick={() => setIsMenuOpen(false)}
               >
                 Home
               </Link>
               <Link
                 to="/pricing"
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  isActive("/pricing")
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                }`}
+                className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/pricing")
+                  ? "text-primary"
+                  : "text-muted-foreground"
+                  }`}
                 onClick={() => setIsMenuOpen(false)}
               >
                 Pricing
               </Link>
               <Link
                 to="/support"
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  isActive("/support")
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                }`}
+                className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/support")
+                  ? "text-primary"
+                  : "text-muted-foreground"
+                  }`}
                 onClick={() => setIsMenuOpen(false)}
               >
                 Support
               </Link>
               <Link
                 to="/privacy"
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  isActive("/privacy")
-                    ? "text-primary"
-                    : "text-muted-foreground"
-                }`}
+                className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/privacy")
+                  ? "text-primary"
+                  : "text-muted-foreground"
+                  }`}
                 onClick={() => setIsMenuOpen(false)}
               >
                 Privacy
               </Link>
               <Link
                 to="/terms"
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  isActive("/terms") ? "text-primary" : "text-muted-foreground"
-                }`}
+                className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/terms") ? "text-primary" : "text-muted-foreground"
+                  }`}
                 onClick={() => setIsMenuOpen(false)}
               >
                 Terms

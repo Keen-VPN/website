@@ -3,8 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Shield, RefreshCw, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
-import { getCurrentUser, getCurrentUserIdToken, getSessionToken } from '@/auth';
-import { useAuth } from '@/contexts/AuthContextNew';
+import { getCurrentUserIdToken, getSessionToken } from '@/auth';
+import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
@@ -17,7 +17,7 @@ const AuthDebug = () => {
   const fetchIdToken = async () => {
     setRefreshing(true);
     setTokenError(null);
-    
+
     try {
       const token = await getCurrentUserIdToken(true);
       setIdToken(token);
@@ -70,15 +70,15 @@ const AuthDebug = () => {
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="text-muted-foreground">Project ID:</div>
                   <div className="font-mono">{firebaseConfig.projectId || '❌ Not set'}</div>
-                  
+
                   <div className="text-muted-foreground">Auth Domain:</div>
                   <div className="font-mono">{firebaseConfig.authDomain || '❌ Not set'}</div>
-                  
+
                   <div className="text-muted-foreground">API Key:</div>
                   <div className="font-mono">
                     {firebaseConfig.apiKey ? `${firebaseConfig.apiKey.substring(0, 10)}...` : '❌ Not set'}
                   </div>
-                  
+
                   <div className="text-muted-foreground">Backend URL:</div>
                   <div className="font-mono">{firebaseConfig.backendUrl || '❌ Not set'}</div>
                 </div>
@@ -114,13 +114,13 @@ const AuthDebug = () => {
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="text-muted-foreground">UID:</div>
                     <div className="font-mono break-all">{user.uid}</div>
-                    
+
                     <div className="text-muted-foreground">Email:</div>
                     <div className="font-mono">{user.email}</div>
-                    
+
                     <div className="text-muted-foreground">Display Name:</div>
                     <div className="font-mono">{user.displayName || 'N/A'}</div>
-                    
+
                     <div className="text-muted-foreground">Email Verified:</div>
                     <div>
                       {user.emailVerified ? (
@@ -129,7 +129,7 @@ const AuthDebug = () => {
                         <Badge variant="secondary">No</Badge>
                       )}
                     </div>
-                    
+
                     <div className="text-muted-foreground">Provider:</div>
                     <div className="font-mono">
                       {user.providerData?.[0]?.providerId || 'N/A'}
@@ -237,10 +237,10 @@ const AuthDebug = () => {
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="text-muted-foreground">Status:</div>
                     <div className="font-mono">{subscription.status}</div>
-                    
+
                     <div className="text-muted-foreground">Plan:</div>
                     <div className="font-mono">{subscription.plan || 'Premium'}</div>
-                    
+
                     {subscription.endDate && (
                       <>
                         <div className="text-muted-foreground">End Date:</div>
@@ -249,7 +249,7 @@ const AuthDebug = () => {
                         </div>
                       </>
                     )}
-                    
+
                     {subscription.cancelAtPeriodEnd !== undefined && (
                       <>
                         <div className="text-muted-foreground">Cancel at Period End:</div>
@@ -281,13 +281,13 @@ const AuthDebug = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="text-muted-foreground">Current URL:</div>
                   <div className="font-mono break-all">{window.location.href}</div>
-                  
+
                   <div className="text-muted-foreground">Origin:</div>
                   <div className="font-mono">{window.location.origin}</div>
-                  
+
                   <div className="text-muted-foreground">User Agent:</div>
                   <div className="font-mono text-xs break-all">{navigator.userAgent}</div>
-                  
+
                   <div className="text-muted-foreground">Online:</div>
                   <div>
                     {navigator.onLine ? (

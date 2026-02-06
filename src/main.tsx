@@ -7,12 +7,23 @@ import { initAuth } from './auth'
 initAuth()
   .then(() => {
     console.log('✅ Auth initialized, rendering app...');
-    createRoot(document.getElementById("root")!).render(<App />);
+    const rootElement = document.getElementById('root');
+    if (!rootElement) throw new Error('Failed to find the root element');
+
+    const root = document.getElementById("root");
+    if (root) {
+      createRoot(root).render(<App />);
+    }
   })
-  .catch((error) => {
+  .catch((error: Error) => {
     console.error('❌ Failed to initialize auth:', error);
     // Render error state
-    document.getElementById("root")!.innerHTML = `
+    const rootElement = document.getElementById("root");
+    if (!rootElement) {
+      console.error('Failed to find the root element to display auth error.');
+      return; // Or throw a more critical error if this is unrecoverable
+    }
+    rootElement.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: center; height: 100vh; font-family: system-ui;">
         <div style="text-align: center; padding: 2rem;">
           <h1 style="color: #ef4444; margin-bottom: 1rem;">Authentication Error</h1>

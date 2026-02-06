@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Loader2,
-  ExternalLink,
   LogOut,
   Shield,
   CreditCard,
@@ -32,7 +31,7 @@ import {
   XCircle,
   Trash2,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContextNew";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { deleteAccount, getSessionToken } from "@/auth";
 import Header from "@/components/Header";

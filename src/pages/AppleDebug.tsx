@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Copy, CheckCircle, AlertTriangle } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContextNew';
+import { useAuth } from '@/contexts/AuthContext';
 import { signInWithApple } from '@/auth';
 import { useToast } from '@/hooks/use-toast';
 import Header from '@/components/Header';
@@ -21,13 +21,13 @@ const AppleDebug = () => {
     try {
       const result = await signInWithApple();
       console.log('🍎 Apple Sign-In Result:', result);
-      
+
       if (result.success && result.user) {
         // Extract debug information
         const providerData = result.user.providerData?.[0];
         const providerId = providerData?.providerId || '';
         const isApple = providerId.includes('apple');
-        
+
         const debugData = {
           timestamp: new Date().toISOString(),
           firebaseUid: result.user.uid,
@@ -44,16 +44,16 @@ const AppleDebug = () => {
             accessToken: result.credential.accessToken?.substring(0, 20) + '...',
             idToken: result.credential.idToken?.substring(0, 20) + '...'
           } : null,
-          extractedAppleUserId: isApple && providerData?.uid !== result.user.uid 
-            ? providerData.uid 
+          extractedAppleUserId: isApple && providerData?.uid !== result.user.uid
+            ? providerData.uid
             : result.user.uid,
           isAppleUserIdExtracted: isApple && providerData?.uid !== result.user.uid,
           isPrivateRelayEmail: result.user.email?.includes('@privaterelay.appleid.com') || false,
           emailType: result.user.email?.includes('@privaterelay.appleid.com') ? 'Private Relay' : 'Real Email'
         };
-        
+
         setDebugInfo(debugData);
-        
+
         toast({
           title: "Apple Sign-In Debug Complete",
           description: "Check the debug information below",
