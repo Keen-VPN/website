@@ -92,33 +92,30 @@ class SubscriptionHistoryCache {
 
   private getCacheKey(filters: HistoryFilters): string {
     // Create a stable key by sorting object properties
-    const sortedFilters = Object.keys(filters)
-      .sort()
-      .reduce((result, key) => {
-        result[key] = filters[key as keyof HistoryFilters];
-        return result;
-      }, {} as HistoryFilters);
-    return JSON.stringify(sortedFilters);
+    const sortedKeys = Object.keys(filters).sort();
+    return sortedKeys
+      .map(key => `${key}:${filters[key as keyof HistoryFilters]}`)
+      .join('|');
   }
 
   private cleanup(): void {
     const now = Date.now();
     const keysToDelete: string[] = [];
-    
+
     // Remove expired entries
     for (const [key, entry] of this.cache.entries()) {
       if (now - entry.timestamp > this.MAX_AGE) {
         keysToDelete.push(key);
       }
     }
-    
+
     keysToDelete.forEach(key => this.cache.delete(key));
-    
+
     // If still too many entries, remove oldest ones
     if (this.cache.size > this.MAX_ENTRIES) {
       const entries = Array.from(this.cache.entries())
         .sort((a, b) => a[1].timestamp - b[1].timestamp);
-      
+
       const toRemove = entries.slice(0, this.cache.size - this.MAX_ENTRIES);
       toRemove.forEach(([key]) => this.cache.delete(key));
     }
@@ -127,24 +124,24 @@ class SubscriptionHistoryCache {
   get(filters: HistoryFilters): CacheEntry | null {
     const key = this.getCacheKey(filters);
     const entry = this.cache.get(key);
-    
+
     if (entry && Date.now() - entry.timestamp < this.MAX_AGE) {
       // Move to end (LRU behavior)
       this.cache.delete(key);
       this.cache.set(key, entry);
       return entry;
     }
-    
+
     if (entry) {
       this.cache.delete(key);
     }
-    
+
     return null;
   }
 
   set(filters: HistoryFilters, data: SubscriptionHistoryResponse, etag: string): void {
     const key = this.getCacheKey(filters);
-    
+
     // Remove oldest entry if at capacity
     if (this.cache.size >= this.MAX_ENTRIES) {
       const firstKey = this.cache.keys().next().value;
@@ -152,7 +149,7 @@ class SubscriptionHistoryCache {
         this.cache.delete(firstKey);
       }
     }
-    
+
     this.cache.set(key, {
       data,
       etag,
@@ -180,7 +177,7 @@ const cache = new SubscriptionHistoryCache();
  */
 function sanitizeFilters(filters: HistoryFilters): HistoryFilters {
   const sanitized: HistoryFilters = {};
-  
+
   // Validate and sanitize page
   if (filters.page !== undefined) {
     const page = Math.max(1, Math.floor(Number(filters.page) || 1));
@@ -190,18 +187,18 @@ function sanitizeFilters(filters: HistoryFilters): HistoryFilters {
       sanitized.page = 1;
     }
   }
-  
+
   // Validate and sanitize limit
   if (filters.limit !== undefined) {
     const limit = Math.max(1, Math.min(100, Math.floor(Number(filters.limit) || 25)));
     sanitized.limit = limit;
   }
-  
+
   // Validate provider
   if (filters.provider && ['stripe', 'apple_iap'].includes(filters.provider)) {
     sanitized.provider = filters.provider;
   }
-  
+
   // Validate and sanitize dates
   if (filters.dateFrom) {
     try {
@@ -209,22 +206,22 @@ function sanitizeFilters(filters: HistoryFilters): HistoryFilters {
       if (!isNaN(date.getTime()) && date.getFullYear() >= 2020 && date.getFullYear() <= new Date().getFullYear() + 1) {
         sanitized.dateFrom = date.toISOString();
       }
-    } catch (error) {
+    } catch {
       console.warn('Invalid dateFrom filter:', filters.dateFrom);
     }
   }
-  
+
   if (filters.dateTo) {
     try {
       const date = new Date(filters.dateTo);
       if (!isNaN(date.getTime()) && date.getFullYear() >= 2020 && date.getFullYear() <= new Date().getFullYear() + 1) {
         sanitized.dateTo = date.toISOString();
       }
-    } catch (error) {
+    } catch {
       console.warn('Invalid dateTo filter:', filters.dateTo);
     }
   }
-  
+
   return sanitized;
 }
 
@@ -264,7 +261,7 @@ export async function fetchSubscriptionHistory(
 
     // Check cache first
     const cachedEntry = cache.get(sanitizedFilters);
-    
+
     // Build query parameters
     const params = new URLSearchParams();
     if (sanitizedFilters.page) params.append('page', sanitizedFilters.page.toString());
@@ -274,7 +271,7 @@ export async function fetchSubscriptionHistory(
     if (sanitizedFilters.dateTo) params.append('dateTo', sanitizedFilters.dateTo);
 
     const url = `${BACKEND_URL}/subscription/history${params.toString() ? `?${params.toString()}` : ''}`;
-    
+
     // Set up headers
     const headers: HeadersInit = {
       'Authorization': `Bearer ${sessionToken}`,
@@ -306,7 +303,7 @@ export async function fetchSubscriptionHistory(
     }
 
     const data: SubscriptionHistoryResponse = await response.json();
-    
+
     // Cache the response with ETag
     const etag = response.headers.get('ETag');
     if (etag && data.success) {
@@ -449,7 +446,7 @@ export function formatCurrency(amount: number | undefined, currency: string): st
   if (typeof amount !== 'number') {
     return '';
   }
-  
+
   try {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -457,7 +454,7 @@ export function formatCurrency(amount: number | undefined, currency: string): st
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(amount);
-  } catch (error) {
+  } catch {
     // Fallback for unsupported currencies
     return `${currency.toUpperCase()} ${amount.toFixed(2)}`;
   }
@@ -472,7 +469,7 @@ export function formatEventDate(dateString: string): {
   full: string;
 } {
   const date = new Date(dateString);
-  
+
   return {
     date: date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -501,13 +498,13 @@ export function formatEventDate(dateString: string): {
 export function getEventTypeLabel(eventType: SubscriptionEvent['eventType']): string {
   const labels: Record<SubscriptionEvent['eventType'], string> = {
     purchase: 'Purchase',
-    renewal: 'Renewal', 
+    renewal: 'Renewal',
     cancellation: 'Cancellation',
     plan_change: 'Plan Change',
     trial_start: 'Trial Started',
     trial_end: 'Trial Ended'
   };
-  
+
   return labels[eventType] || eventType;
 }
 
@@ -536,7 +533,7 @@ export function getStatusInfo(status: SubscriptionEvent['status']): {
       className: 'bg-blue-500 text-white'
     }
   };
-  
+
   return statusMap[status] || { label: status, className: 'bg-gray-500 text-white' };
 }
 
@@ -557,6 +554,6 @@ export function getProviderInfo(provider: SubscriptionEvent['provider']): {
       className: 'bg-gray-100 text-gray-800 border-gray-200'
     }
   };
-  
+
   return providerMap[provider] || { label: provider, className: 'bg-gray-100 text-gray-800 border-gray-200' };
 }

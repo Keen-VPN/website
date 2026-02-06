@@ -129,13 +129,13 @@ export function SubscriptionHistoryFilters({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Provider Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Provider</label>
+                <label className="text-sm font-medium text-foreground" htmlFor="provider-select">Provider</label>
                 <Select
                   value={filters.provider || "all"}
                   onValueChange={handleProviderChange}
                   disabled={loading}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="provider-select">
                     <SelectValue placeholder="All providers" />
                   </SelectTrigger>
                   <SelectContent>
@@ -148,10 +148,11 @@ export function SubscriptionHistoryFilters({
 
               {/* Date From Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">From Date</label>
+                <label className="text-sm font-medium text-foreground" htmlFor="date-from">From Date</label>
                 <Popover open={dateFromOpen} onOpenChange={setDateFromOpen}>
                   <PopoverTrigger asChild>
                     <Button
+                      id="date-from"
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left font-normal",
@@ -180,10 +181,11 @@ export function SubscriptionHistoryFilters({
 
               {/* Date To Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">To Date</label>
+                <label className="text-sm font-medium text-foreground" htmlFor="date-to">To Date</label>
                 <Popover open={dateToOpen} onOpenChange={setDateToOpen}>
                   <PopoverTrigger asChild>
                     <Button
+                      id="date-to"
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left font-normal",
@@ -212,13 +214,13 @@ export function SubscriptionHistoryFilters({
 
               {/* Items Per Page */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Items per page</label>
+                <label className="text-sm font-medium text-foreground" htmlFor="limit-select">Items per page</label>
                 <Select
                   value={(filters.limit || 25).toString()}
                   onValueChange={handleLimitChange}
                   disabled={loading}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="limit-select">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

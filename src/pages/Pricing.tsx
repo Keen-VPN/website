@@ -15,12 +15,14 @@ import { enterprisePlan, featureComparison, faqs } from "@/constants/pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { transformApiPlans } from "@/lib/pricing";
 
+import { PricingPlan } from "@/lib/pricing";
+
 const Pricing = () => {
   const navigate = useNavigate();
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
     "annual"
   );
-  const [plans, setPlans] = useState<any[]>([]);
+  const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +39,7 @@ const Pricing = () => {
           setError(response.error || "Failed to load plans");
           setPlans([enterprisePlan]);
         }
-      } catch (err) {
+      } catch {
         setError("Failed to load plans");
         setPlans([enterprisePlan]);
       } finally {
@@ -84,21 +86,19 @@ const Pricing = () => {
           <div className="inline-flex items-center gap-4 bg-gradient-card p-2 rounded-full border border-border">
             <button
               onClick={() => setBillingPeriod("monthly")}
-              className={`px-6 py-2 rounded-full transition-all ${
-                billingPeriod === "monthly"
-                  ? "bg-gradient-primary text-primary-foreground shadow-glow"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`px-6 py-2 rounded-full transition-all ${billingPeriod === "monthly"
+                ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
             >
               Monthly
             </button>
             <button
               onClick={() => setBillingPeriod("annual")}
-              className={`px-6 py-2 rounded-full transition-all relative ${
-                billingPeriod === "annual"
-                  ? "bg-gradient-primary text-primary-foreground shadow-glow"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`px-6 py-2 rounded-full transition-all relative ${billingPeriod === "annual"
+                ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
             >
               Annual
               <span className="ml-2 text-sm">(Save 17%)</span>
@@ -129,8 +129,8 @@ const Pricing = () => {
                 plan.monthlyPrice === null
                   ? ""
                   : isAnnual
-                  ? "/month, billed annually"
-                  : "/month";
+                    ? "/month, billed annually"
+                    : "/month";
               const monthlyEquivalent =
                 isAnnual && plan.annualMonthlyEquivalent
                   ? plan.annualMonthlyEquivalent
@@ -139,11 +139,10 @@ const Pricing = () => {
               return (
                 <div
                   key={index}
-                  className={`relative p-8 rounded-xl border transition-all duration-300 flex flex-col h-full ${
-                    plan.popular
-                      ? "bg-gradient-card border-primary shadow-glow scale-105 md:scale-110"
-                      : "bg-card border-border hover:border-primary/50"
-                  }`}
+                  className={`relative p-8 rounded-xl border transition-all duration-300 flex flex-col h-full ${plan.popular
+                    ? "bg-gradient-card border-primary shadow-glow scale-105 md:scale-110"
+                    : "bg-card border-border hover:border-primary/50"
+                    }`}
                 >
                   {plan.popular && (
                     <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
@@ -161,8 +160,8 @@ const Pricing = () => {
                       {plan.name === "Enterprise"
                         ? plan.description
                         : isAnnual
-                        ? "Complete VPN protection for the entire year"
-                        : "Complete VPN protection with monthly flexibility"}
+                          ? "Complete VPN protection for the entire year"
+                          : "Complete VPN protection with monthly flexibility"}
                     </p>
                   </div>
 
@@ -172,8 +171,8 @@ const Pricing = () => {
                         {plan.name === "Enterprise"
                           ? "Custom"
                           : isAnnual
-                          ? monthlyEquivalent
-                          : price}
+                            ? monthlyEquivalent
+                            : price}
                       </span>
                       {period && (
                         <span className="text-muted-foreground">{period}</span>
@@ -184,11 +183,10 @@ const Pricing = () => {
                   {plan.name === "Enterprise" ? (
                     <ContactSalesDialog>
                       <Button
-                        className={`w-full mb-6 ${
-                          plan.popular
-                            ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                            : "border-primary/50 hover:bg-primary/10"
-                        }`}
+                        className={`w-full mb-6 ${plan.popular
+                          ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                          : "border-primary/50 hover:bg-primary/10"
+                          }`}
                         variant={plan.popular ? "default" : "outline"}
                         size="lg"
                       >
@@ -203,14 +201,12 @@ const Pricing = () => {
                             ? plan.annualId || ""
                             : plan.monthlyId || "",
                         });
-                        console.log(queryParams.toString(), plan);
                         navigate(`/subscribe?${queryParams.toString()}`);
                       }}
-                      className={`w-full mb-6 ${
-                        plan.popular
-                          ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                          : "border-primary/50 hover:bg-primary/10"
-                      }`}
+                      className={`w - full mb - 6 ${plan.popular
+                        ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                        : "border-primary/50 hover:bg-primary/10"
+                        }`}
                       variant={plan.popular ? "default" : "outline"}
                       size="lg"
                     >
@@ -228,11 +224,10 @@ const Pricing = () => {
                         >
                           <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                           <span
-                            className={`text-sm ${
-                              feature.highlighted
-                                ? "text-foreground font-medium"
-                                : "text-muted-foreground"
-                            }`}
+                            className={`text - sm ${feature.highlighted
+                              ? "text-foreground font-medium"
+                              : "text-muted-foreground"
+                              }`}
                           >
                             {feature.name}
                           </span>
@@ -267,15 +262,15 @@ const Pricing = () => {
                       {plan.monthlyPrice === null
                         ? "Custom"
                         : billingPeriod === "annual"
-                        ? `${plan.annualMonthlyEquivalent}/month, billed annually`
-                        : `${plan.monthlyPriceDisplay}/month`}
+                          ? `${plan.annualMonthlyEquivalent} / month, billed annually`
+                          : `${plan.monthlyPriceDisplay} / month`}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1 sm:hidden">
                       {plan.monthlyPrice === null
                         ? "Custom"
                         : billingPeriod === "annual"
-                        ? plan.annualMonthlyEquivalent
-                        : plan.monthlyPriceDisplay}
+                          ? plan.annualMonthlyEquivalent
+                          : plan.monthlyPriceDisplay}
                     </div>
                     {plan.name === "Enterprise" && (
                       <ContactSalesDialog>
@@ -372,7 +367,7 @@ const Pricing = () => {
               {faqs.map((faq, index) => (
                 <AccordionItem
                   key={index}
-                  value={`item-${index}`}
+                  value={`item - ${index}`}
                   className="bg-gradient-card rounded-xl border border-border px-6"
                 >
                   <AccordionTrigger className="text-left hover:text-primary">
@@ -397,7 +392,7 @@ const Pricing = () => {
                         <span key={i}>{part}</span>
                       )
                     )}
-                    {(faq as any).isEnterprise && (
+                    {'isEnterprise' in faq && (faq as { isEnterprise: boolean }).isEnterprise && (
                       <div className="mt-4">
                         <ContactSalesDialog>
                           <Button variant="outline" size="sm">

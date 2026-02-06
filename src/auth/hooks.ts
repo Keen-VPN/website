@@ -3,9 +3,9 @@ import { useState, useCallback, useRef } from 'react';
 /**
  * Debounce hook to prevent double-clicks on auth buttons
  */
-export function useDebounce<T extends (...args: any[]) => any>(
+export function useDebounce<T extends (...args: unknown[]) => unknown>(
   callback: T,
-  delay: number = 1000
+  delay = 1000
 ): [T, boolean] {
   const [isDebouncing, setIsDebouncing] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);

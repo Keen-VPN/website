@@ -1,4 +1,4 @@
-import { BackendAuthResponse, SubscriptionData } from "./types";
+import { BackendAuthResponse } from "./types";
 
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
@@ -27,15 +27,15 @@ export async function authenticateWithBackend(
     const body =
       provider === "apple"
         ? {
-            identityToken: accessToken,
-            userIdentifier:
-              additionalData?.userIdentifier || accessToken.substring(0, 20),
-            email: additionalData?.email,
-            fullName: additionalData?.fullName,
-          }
+          identityToken: accessToken,
+          userIdentifier:
+            additionalData?.userIdentifier || accessToken.substring(0, 20),
+          email: additionalData?.email,
+          fullName: additionalData?.fullName,
+        }
         : {
-            idToken: accessToken, // Backend expects 'idToken' parameter for Google
-          };
+          idToken: accessToken, // Backend expects 'idToken' parameter for Google
+        };
 
     const response = await fetch(`${BACKEND_URL}${endpoint}`, {
       method: "POST",
@@ -136,7 +136,8 @@ export async function cancelSubscription(
  */
 export async function createCheckoutSession(
   sessionToken: string,
-  email: string
+  email: string,
+  priceId?: string
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
     const response = await fetch(
@@ -149,6 +150,7 @@ export async function createCheckoutSession(
         body: JSON.stringify({
           sessionToken,
           email,
+          priceId,
         }),
       }
     );
@@ -234,7 +236,7 @@ export async function deleteAccount(
  */
 export async function fetchSubscriptionPlans(): Promise<{
   success: boolean;
-  plans?: any[];
+  plans?: Record<string, unknown>[];
   error?: string;
 }> {
   try {
@@ -271,7 +273,7 @@ export async function fetchSubscriptionPlans(): Promise<{
  */
 export async function fetchSubscriptionPlanById(planId: string): Promise<{
   success: boolean;
-  plan?: any;
+  plan?: Record<string, unknown>;
   error?: string;
 }> {
   try {

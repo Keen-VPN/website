@@ -1,7 +1,6 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import {
-  Shield,
   Mail,
   HelpCircle,
   Smartphone,
@@ -216,8 +215,8 @@ const Support = () => {
                   variant="outline"
                   className="border-accent/50 hover:bg-accent/10 hover:border-accent"
                   onClick={() =>
-                    (window.location.href =
-                      "mailto:support@vpnkeen.com?subject=KeenVPN Support Request")
+                  (window.location.href =
+                    "mailto:support@vpnkeen.com?subject=KeenVPN Support Request")
                   }
                 >
                   <Mail className="h-4 w-4 mr-2" />

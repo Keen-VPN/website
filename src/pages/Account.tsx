@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Loader2,
-  ExternalLink,
   LogOut,
   Shield,
   CreditCard,
@@ -33,7 +32,7 @@ import {
   Trash2,
   History,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContextNew";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { deleteAccount, getSessionToken } from "@/auth";
 import Header from "@/components/Header";
@@ -69,7 +68,8 @@ const Account = () => {
         // Get session token and trigger deeplink modal
         const sessionToken = getSessionToken();
         if (sessionToken) {
-          console.log(
+          // eslint-disable-next-line no-console
+          console.info(
             "🔐 Account page: ASWebSession detected, deeplink modal should show via AuthContext"
           );
           // The modal will be shown by AuthContext's initializeAuth, but we ensure flag is set
@@ -352,7 +352,7 @@ const Account = () => {
                         <History className="h-4 w-4 mr-2" />
                         View Billing History
                       </Button>
-                      
+
                       <Button
                         onClick={handleRefreshSubscription}
                         variant="ghost"

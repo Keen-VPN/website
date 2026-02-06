@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   fetchSubscriptionHistory,
-  clearSubscriptionHistoryCache,
   type SubscriptionEvent,
   type PaginationInfo,
   type HistoryFilters
@@ -44,22 +43,22 @@ export function useSubscriptionHistory(
 
   const fetchData = useCallback(async (newFilters?: HistoryFilters, append = false) => {
     const currentFilters = newFilters || filters;
-    
+
     // Cancel previous request if still pending
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    
+
     // Create new abort controller for this request
     abortControllerRef.current = new AbortController();
-    
+
     // Debounce rapid requests
     const requestKey = JSON.stringify(currentFilters);
     if (requestKey === lastFetchRef.current && !append) {
       return; // Duplicate request, skip
     }
     lastFetchRef.current = requestKey;
-    
+
     if (!append) {
       setLoading(true);
     }
@@ -67,7 +66,7 @@ export function useSubscriptionHistory(
 
     try {
       const response = await fetchSubscriptionHistory(currentFilters);
-      
+
       if (response.success) {
         if (append) {
           // For pagination - append new events
@@ -95,7 +94,7 @@ export function useSubscriptionHistory(
       if (err instanceof Error && err.name === 'AbortError') {
         return;
       }
-      
+
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
       setError(errorMessage);
       if (!append) {
@@ -137,20 +136,18 @@ export function useSubscriptionHistory(
       page: 1 // Reset to first page when filters change
     };
     setFiltersState(updatedFilters);
-    
+
     // Clear retry timeout when filters change
     if (retryTimeoutRef.current) {
       clearTimeout(retryTimeoutRef.current);
       retryTimeoutRef.current = null;
     }
-    
-    fetchData(updatedFilters, false);
-  }, [fetchData]);
+  }, []);
 
   // Initial load
   useEffect(() => {
     fetchData();
-  }, []); // Only run on mount
+  }, [fetchData]); // Run when filters change (fetchData recreation)
 
   // Cleanup on unmount
   useEffect(() => {
