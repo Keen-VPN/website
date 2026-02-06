@@ -1,0 +1,167 @@
+
+> vite_react_shadcn_ts@0.0.0 lint
+> eslint .
+
+
+/Users/deimos/Workspace/keenvpn/website/src/auth/backend.ts
+  239:11  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  276:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/deimos/Workspace/keenvpn/website/src/auth/firebase.ts
+   15:3   error    'UserCredential' is defined but never used                                         @typescript-eslint/no-unused-vars
+   43:15  error    '_' is defined but never used                                                      @typescript-eslint/no-unused-vars
+   90:3   error    Unnecessary try/catch wrapper                                                      no-useless-catch
+  111:11  error    'redirectTimestamp' is assigned a value but never used                             @typescript-eslint/no-unused-vars
+  140:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  141:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  142:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  147:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  162:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  164:19  error    Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  210:41  error    Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  276:16  error    Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  289:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  290:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  318:19  error    Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  338:31  error    Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  413:12  error    'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+
+/Users/deimos/Workspace/keenvpn/website/src/auth/hooks.ts
+  6:49  error  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  6:59  error  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  8:3   error  Type number trivially inferred from a number literal, remove type annotation  @typescript-eslint/no-inferrable-types
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ContactSalesForm.tsx
+  4:13  error  'z' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/deimos/Workspace/keenvpn/website/src/components/Footer.tsx
+  1:10  error  'Shield' is defined but never used     @typescript-eslint/no-unused-vars
+  1:18  error  'Twitter' is defined but never used    @typescript-eslint/no-unused-vars
+  1:27  error  'Facebook' is defined but never used   @typescript-eslint/no-unused-vars
+  1:37  error  'Instagram' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/deimos/Workspace/keenvpn/website/src/components/Header.tsx
+  18:31  error  'signIn' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/deimos/Workspace/keenvpn/website/src/components/Pricing.tsx
+   35:35  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   44:24  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   45:21  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   60:17  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+   67:17  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  120:16  error    'err' is defined but never used                                                                                                           @typescript-eslint/no-unused-vars
+  145:6   warning  React Hook useEffect has missing dependencies: 'defaultFeatures' and 'transformPlan'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/deimos/Workspace/keenvpn/website/src/components/SubscriptionEventDetail.tsx
+   26:3   error    'Calendar' is defined but never used                                                                                 @typescript-eslint/no-unused-vars
+   65:6   warning  React Hook useEffect has a missing dependency: 'fetchEventDetail'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   98:14  error    'err' is defined but never used                                                                                      @typescript-eslint/no-unused-vars
+  142:9   error    'redactCardInfo' is assigned a value but never used                                                                  @typescript-eslint/no-unused-vars
+  147:9   error    'redactCustomerId' is assigned a value but never used                                                                @typescript-eslint/no-unused-vars
+  152:9   error    'sanitizeForDisplay' is assigned a value but never used                                                              @typescript-eslint/no-unused-vars
+  273:23  error    Forbidden non-null assertion                                                                                         @typescript-eslint/no-non-null-assertion
+  310:23  error    Forbidden non-null assertion                                                                                         @typescript-eslint/no-non-null-assertion
+
+/Users/deimos/Workspace/keenvpn/website/src/components/SubscriptionHistoryFilters.tsx
+  132:17  error  A form label must be associated with a control  jsx-a11y/label-has-associated-control
+  151:17  error  A form label must be associated with a control  jsx-a11y/label-has-associated-control
+  183:17  error  A form label must be associated with a control  jsx-a11y/label-has-associated-control
+  215:17  error  A form label must be associated with a control  jsx-a11y/label-has-associated-control
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/alert.tsx
+  39:3  error  Headings must have content and the content must be accessible by a screen reader  jsx-a11y/heading-has-content
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/badge.tsx
+  36:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/button.tsx
+  56:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/calendar.tsx
+  55:25  error  '_props' is defined but never used  @typescript-eslint/no-unused-vars
+  56:26  error  '_props' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/card.tsx
+  36:3  error  Headings must have content and the content must be accessible by a screen reader  jsx-a11y/heading-has-content
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/carousel.tsx
+  15:6  error  Use an `interface` instead of a `type`  @typescript-eslint/consistent-type-definitions
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/chart.tsx
+  19:6  error  Use an `interface` instead of a `type`  @typescript-eslint/consistent-type-definitions
+  70:7  error  '_' is defined but never used           @typescript-eslint/no-unused-vars
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/command.tsx
+  24:11  error  An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/form.tsx
+   18:6  error    Use an `interface` instead of a `type`                                                                                          @typescript-eslint/consistent-type-definitions
+   65:6  error    Use an `interface` instead of a `type`                                                                                          @typescript-eslint/consistent-type-definitions
+  168:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/navigation-menu.tsx
+  119:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/pagination.tsx
+  48:3  error  Anchors must have content and the content must be accessible by a screen reader  jsx-a11y/anchor-has-content
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/sidebar.tsx
+   27:6  error    Use an `interface` instead of a `type`                                                                                          @typescript-eslint/consistent-type-definitions
+  760:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/sonner.tsx
+  29:19  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/textarea.tsx
+  5:18  error  An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+
+/Users/deimos/Workspace/keenvpn/website/src/components/ui/toggle.tsx
+  43:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/deimos/Workspace/keenvpn/website/src/contexts/AuthContext.tsx
+   76:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+   86:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  138:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  145:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  167:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  187:17  warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  201:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  229:15  warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  257:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  304:17  warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  316:17  warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  337:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  345:15  warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  386:6   warning  React Hook useEffect has a missing dependency: 'isAuthenticating'. Either include it or remove the dependency array                                   react-hooks/exhaustive-deps
+  457:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  477:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  491:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  528:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  557:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                                                     no-console
+  647:7   warning  React Hook React.useMemo has missing dependencies: 'logout', 'refreshSubscription', and 'signIn'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  682:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                        react-refresh/only-export-components
+
+/Users/deimos/Workspace/keenvpn/website/src/hooks/use-toast.ts
+  18:7  error  'actionTypes' is assigned a value but only used as a type  @typescript-eslint/no-unused-vars
+
+/Users/deimos/Workspace/keenvpn/website/src/hooks/useSubscriptionHistory.ts
+    4:3  error    'clearSubscriptionHistoryCache' is defined but never used                                                     @typescript-eslint/no-unused-vars
+  153:6  warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/deimos/Workspace/keenvpn/website/src/lib/subscription-history-api.ts
+  212:14  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  223:14  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  460:12  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/deimos/Workspace/keenvpn/website/src/main.tsx
+  9:5  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/deimos/Workspace/keenvpn/website/src/pages/Account.tsx
+  71:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/deimos/Workspace/keenvpn/website/src/pages/AppleDebug.tsx
+  45:7  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+✖ 97 problems (56 errors, 41 warnings)
+  6 errors and 0 warnings potentially fixable with the `--fix` option.
+
