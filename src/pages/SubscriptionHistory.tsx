@@ -19,9 +19,8 @@ import {
   RefreshCw,
   ChevronRight,
   History,
-  AlertCircle,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContextNew";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscriptionHistory } from "@/hooks/useSubscriptionHistory";
 import {
@@ -45,7 +44,7 @@ const SubscriptionHistory = () => {
   const { toast } = useToast();
   const [selectedEvent, setSelectedEvent] = useState<SubscriptionEvent | null>(null);
   const [eventDetailOpen, setEventDetailOpen] = useState(false);
-  
+
   const {
     events,
     pagination,
@@ -64,7 +63,7 @@ const SubscriptionHistory = () => {
         title: "Refreshed",
         description: "Subscription history has been updated",
       });
-    } catch (error) {
+    } catch {
       toast({
         title: "Refresh Failed",
         description: "Failed to refresh subscription history",
@@ -162,7 +161,7 @@ const SubscriptionHistory = () => {
             {/* Empty State */}
             <div className="mt-8">
               <SubscriptionHistoryEmptyState
-                hasFilters={hasActiveFilters}
+                hasFilters={!!hasActiveFilters}
                 onClearFilters={hasActiveFilters ? clearFilters : undefined}
               />
             </div>
@@ -289,8 +288,8 @@ const SubscriptionHistory = () => {
                       {events.filter(e => {
                         const eventDate = new Date(e.eventDate);
                         const now = new Date();
-                        return eventDate.getMonth() === now.getMonth() && 
-                               eventDate.getFullYear() === now.getFullYear();
+                        return eventDate.getMonth() === now.getMonth() &&
+                          eventDate.getFullYear() === now.getFullYear();
                       }).length}
                     </p>
                   </div>
@@ -346,20 +345,20 @@ const SubscriptionHistory = () => {
                           const providerInfo = getProviderInfo(event.provider);
 
                           return (
-                        <TableRow
-                          key={event.id}
-                          className="cursor-pointer hover:bg-muted/50 focus-within:bg-muted/50"
-                          onClick={() => handleEventClick(event)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              handleEventClick(event);
-                            }
-                          }}
-                          tabIndex={0}
-                          role="button"
-                          aria-label={`View details for ${getEventTypeLabel(event.eventType)} on ${formatEventDate(event.eventDate).date}`}
-                        >
+                            <TableRow
+                              key={event.id}
+                              className="cursor-pointer hover:bg-muted/50 focus-within:bg-muted/50"
+                              onClick={() => handleEventClick(event)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  handleEventClick(event);
+                                }
+                              }}
+                              tabIndex={0}
+                              role="button"
+                              aria-label={`View details for ${getEventTypeLabel(event.eventType)} on ${formatEventDate(event.eventDate).date}`}
+                            >
                               <TableCell>
                                 <div>
                                   <p className="font-medium">{dateInfo.date}</p>
@@ -508,7 +507,7 @@ const SubscriptionHistory = () => {
         </div>
       </main>
       <Footer />
-      
+
       {/* Event Detail Modal */}
       <SubscriptionEventDetail
         event={selectedEvent}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,10 +9,32 @@ import { useToast } from '@/hooks/use-toast';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
+interface DebugInfo {
+  timestamp: string;
+  firebaseUid: string;
+  email: string | null;
+  displayName: string | null;
+  providerData: unknown;
+  firstProvider: unknown;
+  providerId: string;
+  isAppleProvider: boolean;
+  providerDataUid?: string;
+  accessToken?: string;
+  credential?: {
+    providerId: string;
+    accessToken?: string;
+    idToken?: string;
+  } | null;
+  extractedAppleUserId: string;
+  isAppleUserIdExtracted: boolean;
+  isPrivateRelayEmail: boolean;
+  emailType: string;
+}
+
 const AppleDebug = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -20,7 +42,8 @@ const AppleDebug = () => {
     setLoading(true);
     try {
       const result = await signInWithApple();
-      console.log('🍎 Apple Sign-In Result:', result);
+      // eslint-disable-next-line no-console
+      console.debug('Apple Sign-In response:', result);
 
       if (result.success && result.user) {
         // Extract debug information
@@ -39,11 +62,13 @@ const AppleDebug = () => {
           isAppleProvider: isApple,
           providerDataUid: providerData?.uid,
           accessToken: result.accessToken?.substring(0, 20) + '...',
+          /* eslint-disable @typescript-eslint/no-explicit-any */
           credential: result.credential ? {
-            providerId: result.credential.providerId,
-            accessToken: result.credential.accessToken?.substring(0, 20) + '...',
-            idToken: result.credential.idToken?.substring(0, 20) + '...'
+            providerId: (result.credential as any).providerId,
+            accessToken: (result.credential as any).accessToken?.substring(0, 20) + '...',
+            idToken: (result.credential as any).idToken?.substring(0, 20) + '...'
           } : null,
+          /* eslint-enable @typescript-eslint/no-explicit-any */
           extractedAppleUserId: isApple && providerData?.uid !== result.user.uid
             ? providerData.uid
             : result.user.uid,

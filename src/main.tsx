@@ -6,7 +6,8 @@ import { initAuth } from './auth'
 // Initialize Firebase Auth before rendering
 initAuth()
   .then(() => {
-    console.log('✅ Auth initialized, rendering app...');
+    // eslint-disable-next-line no-console
+    console.info('✅ Auth initialized, rendering app...');
     const rootElement = document.getElementById('root');
     if (!rootElement) throw new Error('Failed to find the root element');
 

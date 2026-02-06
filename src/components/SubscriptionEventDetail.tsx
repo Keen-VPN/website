@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,7 +23,6 @@ import {
   Check,
   AlertCircle,
   CreditCard,
-  Calendar,
   Building,
   Smartphone,
 } from "lucide-react";
@@ -58,13 +57,7 @@ export function SubscriptionEventDetail({
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  useEffect(() => {
-    if (event && open) {
-      fetchEventDetail();
-    }
-  }, [event, open]);
-
-  const fetchEventDetail = async () => {
+  const fetchEventDetail = useCallback(async () => {
     if (!event) return;
 
     setLoading(true);
@@ -73,18 +66,24 @@ export function SubscriptionEventDetail({
 
     try {
       const response = await fetchSubscriptionEventDetail(event.id);
-      
+
       if (response.success) {
         setEventDetail(response.data.event);
       } else {
         setError(response.error || "Failed to load event details");
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred");
+    } catch {
+      setError("Failed to load subscription details");
     } finally {
       setLoading(false);
     }
-  };
+  }, [event]);
+
+  useEffect(() => {
+    if (event && open) {
+      fetchEventDetail();
+    }
+  }, [event, open, fetchEventDetail]);
 
   const copyToClipboard = async (text: string, fieldName: string) => {
     try {
@@ -95,7 +94,7 @@ export function SubscriptionEventDetail({
         title: "Copied",
         description: `${fieldName} copied to clipboard`,
       });
-    } catch (err) {
+    } catch {
       toast({
         title: "Copy Failed",
         description: "Unable to copy to clipboard",
@@ -130,7 +129,7 @@ Please describe your issue:
 [Your message here]
 
 Thank you!`);
-    
+
     window.open(`mailto:support@vpnkeen.com?subject=${subject}&body=${body}`, "_blank");
   };
 
@@ -139,30 +138,7 @@ Thank you!`);
     return `${id.slice(0, 4)}...${id.slice(-4)}`;
   };
 
-  const redactCardInfo = (brand: string, last4: string): string => {
-    if (!brand || !last4) return "Card information unavailable";
-    return `${brand} •••• ${last4}`;
-  };
 
-  const redactCustomerId = (id: string): string => {
-    if (!id || id.length <= 8) return id;
-    return `${id.slice(0, 3)}...${id.slice(-3)}`;
-  };
-
-  const sanitizeForDisplay = (text: string): string => {
-    // Remove any potential sensitive patterns
-    return text
-      .replace(/\b\d{13,19}\b/g, '••••••••••••••••') // Credit card numbers
-      .replace(/\b\d{3}-\d{2}-\d{4}\b/g, '•••-••-••••') // SSN patterns
-      .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, (email) => {
-        // Only redact if it's not the user's own email or support email
-        if (email.includes('vpnkeen.com') || email.includes('support@')) {
-          return email;
-        }
-        const [local, domain] = email.split('@');
-        return `${local.slice(0, 2)}***@${domain}`;
-      });
-  };
 
   if (!event) return null;
 
@@ -190,7 +166,7 @@ Thank you!`);
             </Badge>
           </div>
         </div>
-        
+
         <p className="text-foreground">{event.description}</p>
       </div>
 
@@ -256,7 +232,7 @@ Thank you!`);
               <Building className="h-4 w-4 mr-2" />
               Provider Information
             </h4>
-            
+
             {event.provider === 'stripe' && eventDetail.additionalDetails.stripeSubscriptionId && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -270,7 +246,7 @@ Thank you!`);
                     variant="ghost"
                     size="sm"
                     onClick={() => copyToClipboard(
-                      eventDetail.additionalDetails.stripeSubscriptionId!,
+                      eventDetail.additionalDetails.stripeSubscriptionId || "",
                       "Subscription ID"
                     )}
                     aria-label={copiedField === "Subscription ID" ? "Copied to clipboard" : "Copy subscription ID to clipboard"}
@@ -282,7 +258,7 @@ Thank you!`);
                     )}
                   </Button>
                 </div>
-                
+
                 {eventDetail.additionalDetails.cancelAtPeriodEnd !== undefined && (
                   <div>
                     <p className="text-sm text-muted-foreground">Auto-Renewal</p>
@@ -307,7 +283,7 @@ Thank you!`);
                     variant="ghost"
                     size="sm"
                     onClick={() => copyToClipboard(
-                      eventDetail.additionalDetails.transactionId!,
+                      eventDetail.additionalDetails.transactionId || "",
                       "Transaction ID"
                     )}
                     aria-label={copiedField === "Transaction ID" ? "Copied to clipboard" : "Copy transaction ID to clipboard"}
@@ -319,14 +295,14 @@ Thank you!`);
                     )}
                   </Button>
                 </div>
-                
+
                 {eventDetail.additionalDetails.environment && (
                   <div>
                     <p className="text-sm text-muted-foreground">Environment</p>
                     <p className="font-medium">{eventDetail.additionalDetails.environment}</p>
                   </div>
                 )}
-                
+
                 {eventDetail.additionalDetails.productId && (
                   <div>
                     <p className="text-sm text-muted-foreground">Product ID</p>
@@ -350,7 +326,7 @@ Thank you!`);
                   Open Billing Portal
                 </Button>
               )}
-              
+
               {eventDetail.providerActions.appStoreManage && (
                 <Button onClick={handleAppStoreManage} className="flex-1">
                   <Smartphone className="h-4 w-4 mr-2" />

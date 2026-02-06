@@ -15,7 +15,7 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, subscription, signIn, logout } = useAuth();
+  const { user, subscription, logout } = useAuth();
   const appStoreUrl = useAppStoreUrl();
 
   const isActive = (path: string) => location.pathname === path;

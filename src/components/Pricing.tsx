@@ -21,34 +21,34 @@ const Pricing = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const defaultFeatures = [
-    "Access to all server locations",
-    "Unlimited bandwidth",
-    "Military-grade encryption",
-    "Multi-device support",
-    "24/7 customer support",
-    "No-log policy guaranteed",
-    "Advanced security features",
-    "Kill switch protection",
-  ];
-
-  const transformPlan = (apiPlan: any): Plan => {
-    return {
-      name: apiPlan.name || "KeenVPN Premium",
-      price: `$${apiPlan.price || 100}`,
-      period: "/month",
-      description:
-        apiPlan.description || "Complete VPN protection for the entire year",
-      features:
-        apiPlan.features
-          ?.filter((f: any) => f.included)
-          ?.map((f: any) => f.name) || defaultFeatures,
-      buttonText: "Get KeenVPN",
-      planId: apiPlan.id,
-    };
-  };
-
   useEffect(() => {
+    const defaultFeatures = [
+      "Access to all server locations",
+      "Unlimited bandwidth",
+      "Military-grade encryption",
+      "Multi-device support",
+      "24/7 customer support",
+      "No-log policy guaranteed",
+      "Advanced security features",
+      "Kill switch protection",
+    ];
+
+    const transformPlan = (apiPlan: Record<string, unknown>): Plan => {
+      return {
+        name: (apiPlan.name as string) || "KeenVPN Premium",
+        price: `$${apiPlan.price || 100}`,
+        period: "/month",
+        description:
+          (apiPlan.description as string) || "Complete VPN protection for the entire year",
+        features:
+          (apiPlan.features as Record<string, unknown>[])
+            ?.filter((f) => f.included)
+            ?.map((f) => f.name as string) || defaultFeatures,
+        buttonText: "Get KeenVPN",
+        planId: apiPlan.id as string,
+      };
+    };
+
     const loadPlans = async () => {
       try {
         setLoading(true);
@@ -57,14 +57,14 @@ const Pricing = () => {
         if (response.success && response.plans && response.plans.length > 0) {
           // Find annual and monthly plans
           const foundAnnualPlan = response.plans.find(
-            (p: any) =>
+            (p: Record<string, unknown>) =>
               p.period === "year" ||
               p.billingPeriod === "year" ||
               p.interval === "year"
           );
 
           const foundMonthlyPlan = response.plans.find(
-            (p: any) =>
+            (p: Record<string, unknown>) =>
               p.period === "month" ||
               p.billingPeriod === "month" ||
               p.interval === "month"
@@ -99,43 +99,9 @@ const Pricing = () => {
           }
         } else {
           setError(response.error || "Failed to load plans");
-          // Fallback to default plans
-          setAnnualPlan({
-            name: "KeenVPN Premium",
-            price: "$100",
-            period: "/year",
-            description: "Complete VPN protection for the entire year",
-            features: defaultFeatures,
-            buttonText: "Get KeenVPN",
-          });
-          setMonthlyPlan({
-            name: "KeenVPN Premium",
-            price: "$10",
-            period: "/month",
-            description: "Complete VPN protection month to month",
-            features: defaultFeatures,
-            buttonText: "Get KeenVPN",
-          });
         }
-      } catch (err) {
+      } catch {
         setError("Failed to load plans");
-        // Fallback to default plans
-        setAnnualPlan({
-          name: "KeenVPN Premium",
-          price: "$100",
-          period: "/year",
-          description: "Complete VPN protection for the entire year",
-          features: defaultFeatures,
-          buttonText: "Get KeenVPN",
-        });
-        setMonthlyPlan({
-          name: "KeenVPN Premium",
-          price: "$10",
-          period: "/month",
-          description: "Complete VPN protection month to month",
-          features: defaultFeatures,
-          buttonText: "Get KeenVPN",
-        });
       } finally {
         setLoading(false);
       }
@@ -172,7 +138,7 @@ const Pricing = () => {
             <span className="text-4xl font-bold text-foreground">
               {isAnnual
                 ? "$" +
-                  (parseFloat(plan.price.replace("$", "")) / 12).toFixed(2)
+                (parseFloat(plan.price.replace("$", "")) / 12).toFixed(2)
                 : plan.price}
             </span>
             <span className="text-muted-foreground">

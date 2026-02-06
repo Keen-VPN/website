@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -383,6 +384,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     initializeAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ============================================================================
@@ -644,7 +646,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     logout,
     refreshSubscription,
-  }), [user, subscription, loading]);
+  }), [user, subscription, loading, signIn, logout, refreshSubscription]);
 
   return (
     <AuthContext.Provider value={value}>

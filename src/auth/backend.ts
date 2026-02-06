@@ -236,7 +236,7 @@ export async function deleteAccount(
  */
 export async function fetchSubscriptionPlans(): Promise<{
   success: boolean;
-  plans?: any[];
+  plans?: Record<string, unknown>[];
   error?: string;
 }> {
   try {
@@ -273,7 +273,7 @@ export async function fetchSubscriptionPlans(): Promise<{
  */
 export async function fetchSubscriptionPlanById(planId: string): Promise<{
   success: boolean;
-  plan?: any;
+  plan?: Record<string, unknown>;
   error?: string;
 }> {
   try {

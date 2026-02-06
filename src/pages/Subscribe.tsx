@@ -46,7 +46,7 @@ const Subscribe = () => {
 
         if (response.success && response.plan) {
           // Use the plan directly from API - no transformation needed
-          setSelectedPlan(response.plan);
+          setSelectedPlan(response.plan as unknown as ApiPlan);
         } else {
           console.error("Failed to load plan:", response.error);
           // Fallback to enterprise plan
@@ -112,6 +112,10 @@ const Subscribe = () => {
 
       if (!sessionToken) {
         throw new Error("No session token found");
+      }
+
+      if (!user.email) {
+        throw new Error("User email is required");
       }
 
       const { success, url, error } = await createCheckoutSession(
