@@ -17,7 +17,6 @@ import Footer from "@/components/Footer";
 import {
   fetchSubscriptionPlanById,
   createCheckoutSession,
-  getSessionToken,
 } from "@/auth/backend";
 import { enterprisePlan } from "@/constants/pricing";
 
@@ -103,15 +102,19 @@ const Subscribe = () => {
     try {
       setCheckoutLoading(true);
 
-      // Determine price ID based on plan type
-      const priceId = "priceId" in selectedPlan
-        ? selectedPlan.priceId
-        : (selectedPlan.monthlyPriceId || selectedPlan.annualPriceId);
+      // Determine plan ID based on plan type
+      const planId = "id" in selectedPlan
+        ? selectedPlan.id
+        : (selectedPlan.monthlyId || selectedPlan.annualId);
 
-      const sessionToken = getSessionToken();
+      if (!planId) {
+        throw new Error("Plan ID is required");
+      }
 
-      if (!sessionToken) {
-        throw new Error("No session token found");
+      const idToken = await user.getIdToken();
+
+      if (!idToken) {
+        throw new Error("No ID token found");
       }
 
       if (!user.email) {
@@ -119,9 +122,9 @@ const Subscribe = () => {
       }
 
       const { success, url, error } = await createCheckoutSession(
-        sessionToken,
+        idToken,
         user.email,
-        priceId
+        planId
       );
 
       if (!success) {
