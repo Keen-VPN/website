@@ -135,9 +135,9 @@ export async function cancelSubscription(
  * Create Stripe checkout session
  */
 export async function createCheckoutSession(
-  sessionToken: string,
+  idToken: string,
   email: string,
-  priceId?: string
+  planId: string
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
     const response = await fetch(
@@ -148,9 +148,9 @@ export async function createCheckoutSession(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          sessionToken,
+          idToken,
           email,
-          priceId,
+          planId,
         }),
       }
     );
