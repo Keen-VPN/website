@@ -8,22 +8,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PricingPlan, ApiPlan } from "@/lib/pricing";
 import { Check, Loader2, ExternalLink, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContextNew";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import {
-  BACKEND_URL as BACKEND_URL_AUTH,
   fetchSubscriptionPlanById,
+  createCheckoutSession,
 } from "@/auth/backend";
 import { enterprisePlan } from "@/constants/pricing";
 
-const BACKEND_URL = BACKEND_URL_AUTH || "https://vpnkeen.netlify.app/api";
-
 const Subscribe = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PricingPlan | ApiPlan | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -46,7 +45,7 @@ const Subscribe = () => {
 
         if (response.success && response.plan) {
           // Use the plan directly from API - no transformation needed
-          setSelectedPlan(response.plan);
+          setSelectedPlan(response.plan as unknown as ApiPlan);
         } else {
           console.error("Failed to load plan:", response.error);
           // Fallback to enterprise plan
@@ -103,34 +102,38 @@ const Subscribe = () => {
     try {
       setCheckoutLoading(true);
 
-      // Get Firebase ID token
-      const idToken = await user.getIdToken();
+      // Determine plan ID based on plan type
+      const planId = "id" in selectedPlan
+        ? selectedPlan.id
+        : (selectedPlan.monthlyId || selectedPlan.annualId);
 
-      // Create checkout session
-      const response = await fetch(
-        `${BACKEND_URL}/subscription/create-checkout`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            idToken,
-            email: user.email,
-            planId: selectedPlan.id,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create checkout session");
+      if (!planId) {
+        throw new Error("Plan ID is required");
       }
 
-      if (data.url) {
+      const idToken = await user.getIdToken();
+
+      if (!idToken) {
+        throw new Error("No ID token found");
+      }
+
+      if (!user.email) {
+        throw new Error("User email is required");
+      }
+
+      const { success, url, error } = await createCheckoutSession(
+        idToken,
+        user.email,
+        planId
+      );
+
+      if (!success) {
+        throw new Error(error || "Failed to create checkout session");
+      }
+
+      if (url) {
         // Redirect to Stripe Checkout
-        window.location.href = data.url;
+        window.location.href = url;
       } else {
         throw new Error("No checkout URL received");
       }
@@ -149,24 +152,30 @@ const Subscribe = () => {
   // Create plan display object from selectedPlan
   const planDisplay = selectedPlan
     ? {
-        name:
-          selectedPlan.name === "Enterprise"
-            ? "KeenVPN Enterprise"
-            : selectedPlan.name || "KeenVPN Premium",
-        price:
-          selectedPlan.period === "year"
+      name:
+        selectedPlan.name === "Enterprise"
+          ? "KeenVPN Enterprise"
+          : selectedPlan.name || "KeenVPN Premium",
+      price:
+        "period" in selectedPlan
+          ? selectedPlan.period === "year"
             ? `$${(selectedPlan.price / 12).toFixed(2) || 0}`
-            : `$${selectedPlan.price || 0}`,
-        period:
-          selectedPlan.period === "year" ? "/month, billed annually" : "/month",
-        description:
-          selectedPlan.description ||
-          `${selectedPlan.name} - Complete VPN protection`,
-        features:
-          selectedPlan.features
-            ?.filter((f) => f.included)
-            ?.map((f) => f.name) || [],
-      }
+            : `$${selectedPlan.price || 0}`
+          : selectedPlan.monthlyPriceDisplay, // Fallback for PricingPlan (Enterprise)
+      period:
+        "period" in selectedPlan
+          ? selectedPlan.period === "year"
+            ? "/month, billed annually"
+            : "/month"
+          : "/month", // Default
+      description:
+        selectedPlan.description ||
+        `${selectedPlan.name} - Complete VPN protection`,
+      features:
+        selectedPlan.features
+          ?.filter((f) => f.included)
+          ?.map((f) => f.name) || [],
+    }
     : null;
 
   if (loading || planLoading) {

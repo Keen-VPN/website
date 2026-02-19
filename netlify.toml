@@ -1,0 +1,7 @@
+ [build]
+   command = "npm run lint && npm run typecheck && npm run build"
+   publish = "dist"
+
+ [build.environment]
+   NODE_VERSION = "20"
+

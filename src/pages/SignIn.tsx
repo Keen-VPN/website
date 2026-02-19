@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,41 +7,73 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, Shield, Apple } from "lucide-react";
+import { Loader2, Apple } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDebounce } from "@/auth";
 import GoogleIcon from "@/components/ui/google-icon";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 const SignIn = () => {
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const { signIn, loading: authLoading, user, subscription } = useAuth();
+  const [isProcessing, setIsProcessing] = React.useState(false);
 
-  useEffect(() => {
-    // Simple effect to test hooks
-    console.log("SignIn component mounted");
-  }, []);
+  // Redirect logic for logged-in users
+  React.useEffect(() => {
+    if (!authLoading && user) {
+      // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+      const urlParams = new URLSearchParams(window.location.search);
+      const isASWebSession =
+        urlParams.get("asweb") === "1" ||
+        sessionStorage.getItem("asweb_session") === "1";
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    try {
-      const result = await signIn();
-      if (result.success && result.shouldRedirect) {
-        navigate(result.shouldRedirect);
+      const currentPath = window.location.pathname;
+      if (currentPath === "/signin") {
+        if (isASWebSession) {
+          // If user is already logged in and visited signin via macOS app, redirect to account
+          // The account page will show the deeplink modal
+          console.warn(
+            "🔐 ASWebSession detected - redirecting logged-in user to account page"
+          );
+          window.location.href = "/account?asweb=1";
+          return;
+        }
+
+        // Normal web flow - redirect based on subscription
+        const hasActiveSubscription =
+          subscription && subscription.status === "active";
+        if (hasActiveSubscription) {
+          window.location.href = "/account";
+        } else {
+          window.location.href = "/subscribe";
+        }
       }
-    } catch (error) {
-      console.error("Sign in error:", error);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [user, authLoading, subscription]);
 
-  const handleAppleSignIn = () => {
-    // For now, redirect to Google sign-in
-    // In a real implementation, you'd integrate Apple Sign-In
-    handleGoogleSignIn();
-  };
+  // Debounce sign-in to prevent double-clicks
+  const [handleGoogleSignIn, isGoogleDebouncing] = useDebounce(async () => {
+    setIsProcessing(true);
+    const result = await signIn("google");
+    // Don't navigate here - AuthContext will handle redirect based on subscription status
+    if (!result.success) {
+      setIsProcessing(false);
+    }
+    // Keep processing state true to prevent UI flicker during redirect
+  }, 2000);
+
+  const [handleAppleSignIn, isAppleDebouncing] = useDebounce(async () => {
+    setIsProcessing(true);
+    const result = await signIn("apple");
+    // Don't navigate here - AuthContext will handle redirect based on subscription status
+    if (!result.success) {
+      setIsProcessing(false);
+    }
+    // Keep processing state true to prevent UI flicker during redirect
+  }, 2000);
+
+  const isLoading =
+    authLoading || isGoogleDebouncing || isAppleDebouncing || isProcessing;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -50,59 +81,67 @@ const SignIn = () => {
       <main className="flex-1 py-20 bg-gradient-hero">
         <div className="container mx-auto px-4 max-w-md">
           <div className="text-center mb-8">
-            <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mb-4">
+            <div className="mx-auto flex items-center justify-center my-4 ">
               <img
                 src="/logo-white.png"
                 alt="KeenVPN"
-                className="h-8 w-8 transition-transform group-hover:scale-105"
+                className="h-14 w-14 transition-transform group-hover:scale-105"
               />
             </div>
             <h1 className="text-4xl font-bold text-foreground mb-4">
-              Welcome to KeenVPN
+              Welcome to <span className="text-primary">KeenVPN</span>
             </h1>
-            <p className="text-xl text-muted-foreground mb-2">
-              Sign in or create your account
-            </p>
-            <p className="text-sm text-muted-foreground">
-              New users will be automatically registered
+            <p className="text-xl text-muted-foreground">
+              Get started with secure VPN access
             </p>
           </div>
 
-          <Card className="border-primary/50 shadow-glow">
+          <Card className="border-accent/50 shadow-glow">
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl">Sign In / Sign Up</CardTitle>
+              <CardTitle className="text-2xl">Continue with</CardTitle>
               <CardDescription>
-                One click to sign in or create your account
+                Choose your preferred sign-in method
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Button
                 onClick={handleGoogleSignIn}
-                disabled={loading}
+                disabled={isLoading}
                 className="w-full bg-white text-gray-900 hover:bg-gray-50 border border-gray-300"
                 size="lg"
               >
-                {loading ? (
+                {isGoogleDebouncing || (isLoading && !isAppleDebouncing) ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Authenticating...
+                    {isGoogleDebouncing
+                      ? "Please wait..."
+                      : "Authenticating..."}
                   </>
                 ) : (
                   <>
                     <GoogleIcon className="mr-2 h-5 w-5" />
-                    Sign In / Sign Up with Google
+                    Continue with Google
                   </>
                 )}
               </Button>
 
               <Button
                 onClick={handleAppleSignIn}
-                disabled={loading}
+                disabled={isLoading}
                 className="w-full bg-black text-white hover:bg-gray-800"
                 size="lg"
               >
-                <Apple className="mr-2 h-5 w-5" />
-                Sign In / Sign Up with Apple
+                {isAppleDebouncing ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    {isAppleDebouncing ? "Please wait..." : "Authenticating..."}
+                  </>
+                ) : (
+                  <>
+                    <Apple className="mr-2 h-5 w-5" />
+                    Continue with Apple
+                  </>
+                )}
               </Button>
 
               <div className="text-center pt-4">
@@ -120,10 +159,7 @@ const SignIn = () => {
             </CardContent>
           </Card>
 
-          <div className="text-center mt-8 space-y-2">
-            <p className="text-sm text-muted-foreground font-medium">
-              🔐 One-Click Authentication
-            </p>
+          <div className="text-center mt-8">
             <p className="text-sm text-muted-foreground">
               Existing users will be signed in automatically.
               <br />
