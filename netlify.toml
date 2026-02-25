@@ -4,6 +4,3 @@
 
  [build.environment]
    NODE_VERSION = "20"
-
- [context.staging.environment]
-   VITE_BACKEND_URL = "https://keenvpnstaging.netlify.app/api"
