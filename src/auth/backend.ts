@@ -19,7 +19,7 @@ export async function authenticateWithBackend(
     userIdentifier?: string;
     email?: string;
     fullName?: string;
-  }
+  },
 ): Promise<BackendAuthResponse> {
   try {
     const endpoint =
@@ -27,15 +27,15 @@ export async function authenticateWithBackend(
     const body =
       provider === "apple"
         ? {
-          identityToken: accessToken,
-          userIdentifier:
-            additionalData?.userIdentifier || accessToken.substring(0, 20),
-          email: additionalData?.email,
-          fullName: additionalData?.fullName,
-        }
+            identityToken: accessToken,
+            userIdentifier:
+              additionalData?.userIdentifier || accessToken.substring(0, 20),
+            email: additionalData?.email,
+            fullName: additionalData?.fullName,
+          }
         : {
-          idToken: accessToken, // Backend expects 'idToken' parameter for Google
-        };
+            idToken: accessToken, // Backend expects 'idToken' parameter for Google
+          };
 
     const response = await fetch(`${BACKEND_URL}${endpoint}`, {
       method: "POST",
@@ -67,7 +67,7 @@ export async function authenticateWithBackend(
  * Verify session token with backend
  */
 export async function verifySessionToken(
-  sessionToken: string
+  sessionToken: string,
 ): Promise<BackendAuthResponse> {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/verify`, {
@@ -100,7 +100,7 @@ export async function verifySessionToken(
  * Cancel subscription
  */
 export async function cancelSubscription(
-  sessionToken: string
+  sessionToken: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/subscription/cancel`, {
@@ -136,24 +136,23 @@ export async function cancelSubscription(
  */
 export async function createCheckoutSession(
   idToken: string,
-  email: string,
-  planId: string
+  planId: string,
+  successUrl?: string,
+  cancelUrl?: string,
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
-    const response = await fetch(
-      `${BACKEND_URL}/subscription/create-checkout`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          idToken,
-          email,
-          planId,
-        }),
-      }
-    );
+    const response = await fetch(`${BACKEND_URL}/payment/stripe/checkout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({
+        planId,
+        successUrl,
+        cancelUrl,
+      }),
+    });
 
     const data = await response.json();
 
@@ -201,7 +200,7 @@ export function clearSessionToken(): void {
  */
 export async function deleteAccount(
   email: string,
-  userId: string
+  userId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/delete-account`, {
