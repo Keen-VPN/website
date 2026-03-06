@@ -20,7 +20,7 @@ import { PricingPlan } from "@/lib/pricing";
 const Pricing = () => {
   const navigate = useNavigate();
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
-    "annual"
+    "annual",
   );
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,19 +86,21 @@ const Pricing = () => {
           <div className="inline-flex items-center gap-4 bg-gradient-card p-2 rounded-full border border-border">
             <button
               onClick={() => setBillingPeriod("monthly")}
-              className={`px-6 py-2 rounded-full transition-all ${billingPeriod === "monthly"
-                ? "bg-gradient-primary text-primary-foreground shadow-glow"
-                : "text-muted-foreground hover:text-foreground"
-                }`}
+              className={`px-6 py-2 rounded-full transition-all ${
+                billingPeriod === "monthly"
+                  ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
             >
               Monthly
             </button>
             <button
               onClick={() => setBillingPeriod("annual")}
-              className={`px-6 py-2 rounded-full transition-all relative ${billingPeriod === "annual"
-                ? "bg-gradient-primary text-primary-foreground shadow-glow"
-                : "text-muted-foreground hover:text-foreground"
-                }`}
+              className={`px-6 py-2 rounded-full transition-all relative ${
+                billingPeriod === "annual"
+                  ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
             >
               Annual
               <span className="ml-2 text-sm">(Save 17%)</span>
@@ -139,10 +141,11 @@ const Pricing = () => {
               return (
                 <div
                   key={index}
-                  className={`relative p-8 rounded-xl border transition-all duration-300 flex flex-col h-full ${plan.popular
-                    ? "bg-gradient-card border-primary shadow-glow scale-105 md:scale-110"
-                    : "bg-card border-border hover:border-primary/50"
-                    }`}
+                  className={`relative p-8 rounded-xl border transition-all duration-300 flex flex-col h-full ${
+                    plan.popular
+                      ? "bg-gradient-card border-primary shadow-glow scale-105 md:scale-110"
+                      : "bg-card border-border hover:border-primary/50"
+                  }`}
                 >
                   {plan.popular && (
                     <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
@@ -183,10 +186,11 @@ const Pricing = () => {
                   {plan.name === "Enterprise" ? (
                     <ContactSalesDialog>
                       <Button
-                        className={`w-full mb-6 ${plan.popular
-                          ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                          : "border-primary/50 hover:bg-primary/10"
-                          }`}
+                        className={`w-full mb-6 ${
+                          plan.popular
+                            ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                            : "border-primary/50 hover:bg-primary/10"
+                        }`}
                         variant={plan.popular ? "default" : "outline"}
                         size="lg"
                       >
@@ -203,10 +207,11 @@ const Pricing = () => {
                         });
                         navigate(`/subscribe?${queryParams.toString()}`);
                       }}
-                      className={`w - full mb - 6 ${plan.popular
-                        ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                        : "border-primary/50 hover:bg-primary/10"
-                        }`}
+                      className={`w - full mb - 6 ${
+                        plan.popular
+                          ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                          : "border-primary/50 hover:bg-primary/10"
+                      }`}
                       variant={plan.popular ? "default" : "outline"}
                       size="lg"
                     >
@@ -224,10 +229,11 @@ const Pricing = () => {
                         >
                           <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                           <span
-                            className={`text - sm ${feature.highlighted
-                              ? "text-foreground font-medium"
-                              : "text-muted-foreground"
-                              }`}
+                            className={`text - sm ${
+                              feature.highlighted
+                                ? "text-foreground font-medium"
+                                : "text-muted-foreground"
+                            }`}
                           >
                             {feature.name}
                           </span>
@@ -379,28 +385,31 @@ const Pricing = () => {
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="text-muted-foreground pl-8">
-                    {faq.answer.split(/(support@vpnkeen\.com)/).map((part, i) =>
-                      part === "support@vpnkeen.com" ? (
-                        <a
-                          key={i}
-                          href="mailto:support@vpnkeen.com"
-                          className="text-primary hover:underline"
-                        >
-                          {part}
-                        </a>
-                      ) : (
-                        <span key={i}>{part}</span>
-                      )
-                    )}
-                    {'isEnterprise' in faq && (faq as { isEnterprise: boolean }).isEnterprise && (
-                      <div className="mt-4">
-                        <ContactSalesDialog>
-                          <Button variant="outline" size="sm">
-                            Contact Sales Team
-                          </Button>
-                        </ContactSalesDialog>
-                      </div>
-                    )}
+                    {faq.answer
+                      .split(/(support@vpnkeen\.com)/)
+                      .map((part, i) =>
+                        part === "support@vpnkeen.com" ? (
+                          <a
+                            key={i}
+                            href="mailto:support@vpnkeen.com"
+                            className="text-primary hover:underline"
+                          >
+                            {part}
+                          </a>
+                        ) : (
+                          <span key={i}>{part}</span>
+                        ),
+                      )}
+                    {"isEnterprise" in faq &&
+                      (faq as { isEnterprise: boolean }).isEnterprise && (
+                        <div className="mt-4">
+                          <ContactSalesDialog>
+                            <Button variant="outline" size="sm">
+                              Contact Sales Team
+                            </Button>
+                          </ContactSalesDialog>
+                        </div>
+                      )}
                   </AccordionContent>
                 </AccordionItem>
               ))}
@@ -415,7 +424,7 @@ const Pricing = () => {
               Ready to protect your privacy?
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
-              Start your 1 month free trial today. No credit card required.
+              Start your 1 month free trial today
             </p>
             <Button
               onClick={() => navigate("/subscribe")}

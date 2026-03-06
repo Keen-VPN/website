@@ -117,14 +117,14 @@ const Subscribe = () => {
         throw new Error("No ID token found");
       }
 
-      if (!user.email) {
-        throw new Error("User email is required");
-      }
+      const successUrl = `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = `${window.location.origin}/pricing`;
 
       const { success, url, error } = await createCheckoutSession(
         idToken,
-        user.email,
-        planId
+        planId,
+        successUrl,
+        cancelUrl
       );
 
       if (!success) {
