@@ -1,4 +1,4 @@
-import { BackendAuthResponse, SubscriptionData } from "./types";
+import { BackendAuthResponse } from "./types";
 
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
@@ -19,7 +19,7 @@ export async function authenticateWithBackend(
     userIdentifier?: string;
     email?: string;
     fullName?: string;
-  }
+  },
 ): Promise<BackendAuthResponse> {
   try {
     const endpoint =
@@ -67,7 +67,7 @@ export async function authenticateWithBackend(
  * Verify session token with backend
  */
 export async function verifySessionToken(
-  sessionToken: string
+  sessionToken: string,
 ): Promise<BackendAuthResponse> {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/verify`, {
@@ -100,7 +100,7 @@ export async function verifySessionToken(
  * Cancel subscription
  */
 export async function cancelSubscription(
-  sessionToken: string
+  sessionToken: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/subscription/cancel`, {
@@ -135,23 +135,24 @@ export async function cancelSubscription(
  * Create Stripe checkout session
  */
 export async function createCheckoutSession(
-  sessionToken: string,
-  email: string
+  idToken: string,
+  planId: string,
+  successUrl?: string,
+  cancelUrl?: string,
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
-    const response = await fetch(
-      `${BACKEND_URL}/subscription/create-checkout`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sessionToken,
-          email,
-        }),
-      }
-    );
+    const response = await fetch(`${BACKEND_URL}/payment/stripe/checkout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({
+        planId,
+        successUrl,
+        cancelUrl,
+      }),
+    });
 
     const data = await response.json();
 
@@ -199,7 +200,7 @@ export function clearSessionToken(): void {
  */
 export async function deleteAccount(
   email: string,
-  userId: string
+  userId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/delete-account`, {
@@ -234,7 +235,7 @@ export async function deleteAccount(
  */
 export async function fetchSubscriptionPlans(): Promise<{
   success: boolean;
-  plans?: any[];
+  plans?: Record<string, unknown>[];
   error?: string;
 }> {
   try {
@@ -271,7 +272,7 @@ export async function fetchSubscriptionPlans(): Promise<{
  */
 export async function fetchSubscriptionPlanById(planId: string): Promise<{
   success: boolean;
-  plan?: any;
+  plan?: Record<string, unknown>;
   error?: string;
 }> {
   try {

@@ -15,12 +15,14 @@ import { enterprisePlan, featureComparison, faqs } from "@/constants/pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { transformApiPlans } from "@/lib/pricing";
 
+import { PricingPlan } from "@/lib/pricing";
+
 const Pricing = () => {
   const navigate = useNavigate();
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
-    "annual"
+    "annual",
   );
-  const [plans, setPlans] = useState<any[]>([]);
+  const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +39,7 @@ const Pricing = () => {
           setError(response.error || "Failed to load plans");
           setPlans([enterprisePlan]);
         }
-      } catch (err) {
+      } catch {
         setError("Failed to load plans");
         setPlans([enterprisePlan]);
       } finally {
@@ -129,8 +131,8 @@ const Pricing = () => {
                 plan.monthlyPrice === null
                   ? ""
                   : isAnnual
-                  ? "/month, billed annually"
-                  : "/month";
+                    ? "/month, billed annually"
+                    : "/month";
               const monthlyEquivalent =
                 isAnnual && plan.annualMonthlyEquivalent
                   ? plan.annualMonthlyEquivalent
@@ -161,8 +163,8 @@ const Pricing = () => {
                       {plan.name === "Enterprise"
                         ? plan.description
                         : isAnnual
-                        ? "Complete VPN protection for the entire year"
-                        : "Complete VPN protection with monthly flexibility"}
+                          ? "Complete VPN protection for the entire year"
+                          : "Complete VPN protection with monthly flexibility"}
                     </p>
                   </div>
 
@@ -172,8 +174,8 @@ const Pricing = () => {
                         {plan.name === "Enterprise"
                           ? "Custom"
                           : isAnnual
-                          ? monthlyEquivalent
-                          : price}
+                            ? monthlyEquivalent
+                            : price}
                       </span>
                       {period && (
                         <span className="text-muted-foreground">{period}</span>
@@ -203,10 +205,9 @@ const Pricing = () => {
                             ? plan.annualId || ""
                             : plan.monthlyId || "",
                         });
-                        console.log(queryParams.toString(), plan);
                         navigate(`/subscribe?${queryParams.toString()}`);
                       }}
-                      className={`w-full mb-6 ${
+                      className={`w - full mb - 6 ${
                         plan.popular
                           ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
                           : "border-primary/50 hover:bg-primary/10"
@@ -228,7 +229,7 @@ const Pricing = () => {
                         >
                           <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                           <span
-                            className={`text-sm ${
+                            className={`text - sm ${
                               feature.highlighted
                                 ? "text-foreground font-medium"
                                 : "text-muted-foreground"
@@ -267,15 +268,15 @@ const Pricing = () => {
                       {plan.monthlyPrice === null
                         ? "Custom"
                         : billingPeriod === "annual"
-                        ? `${plan.annualMonthlyEquivalent}/month, billed annually`
-                        : `${plan.monthlyPriceDisplay}/month`}
+                          ? `${plan.annualMonthlyEquivalent} / month, billed annually`
+                          : `${plan.monthlyPriceDisplay} / month`}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1 sm:hidden">
                       {plan.monthlyPrice === null
                         ? "Custom"
                         : billingPeriod === "annual"
-                        ? plan.annualMonthlyEquivalent
-                        : plan.monthlyPriceDisplay}
+                          ? plan.annualMonthlyEquivalent
+                          : plan.monthlyPriceDisplay}
                     </div>
                     {plan.name === "Enterprise" && (
                       <ContactSalesDialog>
@@ -372,7 +373,7 @@ const Pricing = () => {
               {faqs.map((faq, index) => (
                 <AccordionItem
                   key={index}
-                  value={`item-${index}`}
+                  value={`item - ${index}`}
                   className="bg-gradient-card rounded-xl border border-border px-6"
                 >
                   <AccordionTrigger className="text-left hover:text-primary">
@@ -384,28 +385,31 @@ const Pricing = () => {
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="text-muted-foreground pl-8">
-                    {faq.answer.split(/(support@vpnkeen\.com)/).map((part, i) =>
-                      part === "support@vpnkeen.com" ? (
-                        <a
-                          key={i}
-                          href="mailto:support@vpnkeen.com"
-                          className="text-primary hover:underline"
-                        >
-                          {part}
-                        </a>
-                      ) : (
-                        <span key={i}>{part}</span>
-                      )
-                    )}
-                    {(faq as any).isEnterprise && (
-                      <div className="mt-4">
-                        <ContactSalesDialog>
-                          <Button variant="outline" size="sm">
-                            Contact Sales Team
-                          </Button>
-                        </ContactSalesDialog>
-                      </div>
-                    )}
+                    {faq.answer
+                      .split(/(support@vpnkeen\.com)/)
+                      .map((part, i) =>
+                        part === "support@vpnkeen.com" ? (
+                          <a
+                            key={i}
+                            href="mailto:support@vpnkeen.com"
+                            className="text-primary hover:underline"
+                          >
+                            {part}
+                          </a>
+                        ) : (
+                          <span key={i}>{part}</span>
+                        ),
+                      )}
+                    {"isEnterprise" in faq &&
+                      (faq as { isEnterprise: boolean }).isEnterprise && (
+                        <div className="mt-4">
+                          <ContactSalesDialog>
+                            <Button variant="outline" size="sm">
+                              Contact Sales Team
+                            </Button>
+                          </ContactSalesDialog>
+                        </div>
+                      )}
                   </AccordionContent>
                 </AccordionItem>
               ))}
@@ -420,7 +424,7 @@ const Pricing = () => {
               Ready to protect your privacy?
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
-              Start your 1 month free trial today. No credit card required.
+              Start your 1 month free trial today
             </p>
             <Button
               onClick={() => navigate("/subscribe")}

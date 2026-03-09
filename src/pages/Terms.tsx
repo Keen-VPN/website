@@ -6,7 +6,7 @@ const Terms = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="pt-24 pb-16">
         <div className="container mx-auto px-4 max-w-4xl">
           {/* Header */}
@@ -82,7 +82,7 @@ const Terms = () => {
               <h2 className="text-2xl font-bold text-foreground mb-4">2. Acceptable Use</h2>
               <div className="text-muted-foreground space-y-4">
                 <p>You agree to use KeenVPN services responsibly and in compliance with all applicable laws. You may NOT use our service for:</p>
-                
+
                 <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-foreground mb-2">Prohibited Activities</h3>
                   <ul className="list-disc list-inside space-y-1 ml-4">
@@ -103,14 +103,6 @@ const Terms = () => {
               <h2 className="text-2xl font-bold text-foreground mb-4">3. Auto-Renewable Subscriptions</h2>
               <div className="text-muted-foreground space-y-4">
                 <p>KeenVPN offers auto-renewable subscription plans with the following terms:</p>
-                
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">Subscription Plan</h3>
-                  <ul className="list-disc list-inside space-y-2 ml-4">
-                    <li><strong>Annual Plan:</strong> $100.00/year - Billed every 12 months</li>
-                  </ul>
-                  <p className="mt-2">All prices are in USD and may vary by region. Applicable taxes will be added at checkout.</p>
-                </div>
 
                 <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-foreground mb-2">Auto-Renewal Terms</h3>

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import {
   getAuth,
@@ -11,8 +12,7 @@ import {
   getRedirectResult,
   signOut as firebaseSignOut,
   onAuthStateChanged as firebaseOnAuthStateChanged,
-  User as FirebaseUser,
-  UserCredential
+  User as FirebaseUser
 } from 'firebase/auth';
 
 // ============================================================================
@@ -40,7 +40,7 @@ function loadFirebaseConfig(): FirebaseConfig {
 
   // Validate required fields
   const missing = Object.entries(config)
-    .filter(([_, value]) => !value)
+    .filter(([, value]) => !value)
     .map(([key]) => key);
 
   if (missing.length > 0) {
@@ -87,13 +87,9 @@ export async function initAuth(): Promise<Auth> {
 
   const authInstance = getFirebaseAuth();
 
-  try {
-    // Set persistence to local (survives browser restarts)
-    await setPersistence(authInstance, browserLocalPersistence);
-    isInitialized = true;
-  } catch (error) {
-    throw error;
-  }
+  // Set persistence to local (survives browser restarts)
+  await setPersistence(authInstance, browserLocalPersistence);
+  isInitialized = true;
 
   return authInstance;
 }
@@ -104,27 +100,26 @@ export async function initAuth(): Promise<Auth> {
  */
 export async function checkRedirectResult(): Promise<SignInResult | null> {
   const authInstance = getFirebaseAuth();
-  
+
   try {
     // Check if we were expecting a redirect
     const redirectPending = sessionStorage.getItem('auth_redirect_pending');
-    const redirectTimestamp = sessionStorage.getItem('auth_redirect_timestamp');
-    
+
     if (redirectPending) {
       // Clear the flags
       sessionStorage.removeItem('auth_redirect_pending');
       sessionStorage.removeItem('auth_redirect_timestamp');
     }
-    
+
     const result = await getRedirectResult(authInstance);
-    
+
     if (result) {
       // Try to get credential from either Google or Apple
       let credential = GoogleAuthProvider.credentialFromResult(result);
       if (!credential) {
         credential = OAuthProvider.credentialFromResult(result);
       }
-      
+
       return {
         success: true,
         user: result.user,
@@ -133,19 +128,19 @@ export async function checkRedirectResult(): Promise<SignInResult | null> {
         usedRedirect: true
       };
     }
-    
+
     // Check if user is authenticated but no redirect result
     // This can happen if redirect already processed
     if (authInstance.currentUser) {
       console.log('⚠️ User is authenticated but no redirect result');
       console.log('⚠️ This may mean redirect was already processed');
       console.log('⚠️ Current user:', authInstance.currentUser.email);
-      
+
       // Try to get a fresh ID token
       try {
         const idToken = await authInstance.currentUser.getIdToken();
         console.log('✅ Got ID token for authenticated user');
-        
+
         // Return a result so we can process this user
         return {
           success: true,
@@ -158,10 +153,10 @@ export async function checkRedirectResult(): Promise<SignInResult | null> {
         console.error('❌ Failed to get ID token:', tokenError);
       }
     }
-    
+
     console.log('ℹ️ No redirect result (normal page load)');
     return null;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Redirect result error:', error);
     const mappedError = mapFirebaseError(error);
     return {
@@ -207,9 +202,9 @@ export interface AuthError {
   shouldRetry: boolean;
 }
 
-export function mapFirebaseError(error: any): AuthError {
-  const code = error?.code || 'unknown';
-  const message = error?.message || 'Unknown error';
+export function mapFirebaseError(error: unknown): AuthError {
+  const code = (error as { code?: string })?.code || 'unknown';
+  const message = (error as { message?: string })?.message || 'Unknown error';
 
   const errorMap: Record<string, { userMessage: string; shouldRetry: boolean }> = {
     'auth/popup-closed-by-user': {
@@ -273,7 +268,7 @@ export function mapFirebaseError(error: any): AuthError {
 export interface SignInResult {
   success: boolean;
   user?: FirebaseUser;
-  credential?: any;
+  credential?: unknown;
   accessToken?: string;
   error?: AuthError;
   usedRedirect?: boolean;
@@ -288,26 +283,26 @@ async function signInWithProvider(provider: GoogleAuthProvider | OAuthProvider, 
   try {
     console.log(`🔵 Attempting ${providerName} Sign-In with popup...`);
     console.log('🔵 Note: COOP warnings are normal and do not prevent sign-in');
-    
+
     // Try popup first
     const result = await signInWithPopup(authInstance, provider);
     let credential;
-    
+
     if (provider instanceof GoogleAuthProvider) {
       credential = GoogleAuthProvider.credentialFromResult(result);
     } else if (provider instanceof OAuthProvider) {
       credential = OAuthProvider.credentialFromResult(result);
     }
-    
-    
+
+
     // For Apple, we need to get the Firebase ID token instead
     let tokenToUse = credential?.accessToken || credential?.idToken;
-    
+
     // If no token in credential (common with Apple), get Firebase ID token
     if (!tokenToUse && result.user) {
       tokenToUse = await result.user.getIdToken();
     }
-    
+
     return {
       success: true,
       user: result.user,
@@ -315,19 +310,19 @@ async function signInWithProvider(provider: GoogleAuthProvider | OAuthProvider, 
       accessToken: tokenToUse,
       usedRedirect: false
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     const mappedError = mapFirebaseError(error);
 
     // Handle specific cases where we should fallback to redirect
     if (
-      error?.code === 'auth/popup-blocked' ||
-      error?.code === 'auth/popup-closed-by-user' ||
-      error?.code === 'auth/cancelled-popup-request'
+      (error as { code?: string })?.code === 'auth/popup-blocked' ||
+      (error as { code?: string })?.code === 'auth/popup-closed-by-user' ||
+      (error as { code?: string })?.code === 'auth/cancelled-popup-request'
     ) {
       // Store a flag to indicate we're expecting a redirect
       sessionStorage.setItem('auth_redirect_pending', 'true');
       sessionStorage.setItem('auth_redirect_timestamp', Date.now().toString());
-      
+
       try {
         await signInWithRedirect(authInstance, provider);
         // Redirect will happen, so we return a special result
@@ -335,7 +330,7 @@ async function signInWithProvider(provider: GoogleAuthProvider | OAuthProvider, 
           success: true,
           usedRedirect: true
         };
-      } catch (redirectError: any) {
+      } catch (redirectError: unknown) {
         sessionStorage.removeItem('auth_redirect_pending');
         sessionStorage.removeItem('auth_redirect_timestamp');
         const redirectMappedError = mapFirebaseError(redirectError);
@@ -402,7 +397,7 @@ export function onAuthStateChanged(
 export async function getCurrentUserIdToken(forceRefresh = false): Promise<string | null> {
   const authInstance = getFirebaseAuth();
   const user = authInstance.currentUser;
-  
+
   if (!user) {
     return null;
   }
@@ -410,7 +405,7 @@ export async function getCurrentUserIdToken(forceRefresh = false): Promise<strin
   try {
     const token = await user.getIdToken(forceRefresh);
     return token;
-  } catch (error) {
+  } catch {
     return null;
   }
 }

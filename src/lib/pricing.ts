@@ -1,40 +1,41 @@
-interface ApiPlan {
+export interface ApiPlan {
   id: string;
   name: string;
   price: number;
   period: string;
   interval: string;
   billingPeriod: string;
-  features: Array<{
+  features: {
     name: string;
     included: boolean;
     highlighted?: boolean;
-  }>;
+  }[];
   priceId: string;
+  description?: string;
 }
 
-interface TransformedPlan {
+export interface PricingPlan {
   monthlyId?: string;
   annualId?: string;
   name: string;
   description: string;
-  monthlyPrice: number;
-  annualPrice: number;
+  monthlyPrice: number | null;
+  annualPrice: number | null;
   monthlyPriceDisplay: string;
   annualPriceDisplay: string;
   annualMonthlyEquivalent: string | null;
-  features: Array<{
+  features: {
     name: string;
     included: boolean;
     highlighted?: boolean;
-  }>;
+  }[];
   buttonText: string;
   popular: boolean;
   monthlyPriceId?: string;
   annualPriceId?: string;
 }
 
-export function transformApiPlans(apiPlans: ApiPlan[]): TransformedPlan[] {
+export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
   const plansByType = apiPlans.reduce((acc, plan) => {
     const isPremium = plan.id.toLowerCase().includes("premium");
     const isTeam = plan.id.toLowerCase().includes("team");
@@ -53,7 +54,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): TransformedPlan[] {
     return acc;
   }, {} as Record<string, { monthly: ApiPlan | null; annual: ApiPlan | null }>);
 
-  const transformedPlans: TransformedPlan[] = [];
+  const transformedPlans: PricingPlan[] = [];
 
   Object.entries(plansByType).forEach(([type, { monthly, annual }]) => {
     if (!monthly && !annual) return;
@@ -69,8 +70,8 @@ export function transformApiPlans(apiPlans: ApiPlan[]): TransformedPlan[] {
     const features = annual?.features?.length
       ? annual.features
       : monthly?.features?.length
-      ? monthly.features
-      : [];
+        ? monthly.features
+        : [];
 
     transformedPlans.push({
       monthlyId: monthly?.id,
@@ -79,8 +80,8 @@ export function transformApiPlans(apiPlans: ApiPlan[]): TransformedPlan[] {
       description: isPremium
         ? "Perfect for personal use"
         : isTeam
-        ? "For small teams and organizations (2-50 users)"
-        : "Premium VPN service",
+          ? "For small teams and organizations (2-50 users)"
+          : "Premium VPN service",
       monthlyPrice,
       annualPrice,
       monthlyPriceDisplay: `$${monthlyPrice}`,
