@@ -280,6 +280,18 @@ export interface SignInResult {
 async function signInWithProvider(provider: GoogleAuthProvider | OAuthProvider, providerName: string): Promise<SignInResult> {
   const authInstance = getFirebaseAuth();
 
+  // ASWebAuthenticationSession (macOS desktop app) can't handle popups —
+  // cross-window communication fails in the embedded browser.
+  // Go straight to redirect flow.
+  const isASWebSession = sessionStorage.getItem('asweb_session') === '1';
+  if (isASWebSession) {
+    console.log(`🔐 ASWebAuthenticationSession detected — using redirect for ${providerName}`);
+    sessionStorage.setItem('auth_redirect_pending', 'true');
+    sessionStorage.setItem('auth_redirect_timestamp', Date.now().toString());
+    await signInWithRedirect(authInstance, provider);
+    return { success: true, usedRedirect: true };
+  }
+
   try {
     console.log(`🔵 Attempting ${providerName} Sign-In with popup...`);
     console.log('🔵 Note: COOP warnings are normal and do not prevent sign-in');

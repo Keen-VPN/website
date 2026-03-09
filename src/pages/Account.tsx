@@ -50,29 +50,33 @@ const Account = () => {
   const { user, loading, logout, subscription, refreshSubscription } =
     useAuth();
 
-  // Check for ASWebSession when account page loads and show deeplink modal if needed
+  // ASWebAuthenticationSession fallback state
+  const [isASWeb, setIsASWeb] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+
+  // Check for ASWebSession when account page loads
   useEffect(() => {
     if (!loading && user) {
       // Check if this is from ASWebAuthenticationSession (macOS desktop app)
       const urlParams = new URLSearchParams(window.location.search);
-      const isASWebSession =
+      const aswebDetected =
         urlParams.get("asweb") === "1" ||
         sessionStorage.getItem("asweb_session") === "1";
 
-      if (isASWebSession) {
+      if (aswebDetected) {
         // Store flag in sessionStorage if from URL param
         if (urlParams.get("asweb") === "1") {
           sessionStorage.setItem("asweb_session", "1");
         }
 
-        // Get session token and trigger deeplink modal
-        const sessionToken = getSessionToken();
-        if (sessionToken) {
+        const token = getSessionToken();
+        if (token) {
+          setIsASWeb(true);
+          setSessionToken(token);
           // eslint-disable-next-line no-console
           console.info(
-            "🔐 Account page: ASWebSession detected, deeplink modal should show via AuthContext"
+            "🔐 Account page: ASWebSession detected, showing Return to App banner"
           );
-          // The modal will be shown by AuthContext's initializeAuth, but we ensure flag is set
         }
       }
     }
@@ -245,6 +249,21 @@ const Account = () => {
               Manage your KeenVPN subscription and account settings
             </p>
           </div>
+
+          {/* ASWebAuthenticationSession fallback — visible "Return to App" button */}
+          {isASWeb && sessionToken && (
+            <Card className="mb-8 border-primary/50 shadow-glow bg-primary/5">
+              <CardContent className="flex flex-col items-center gap-4 py-6">
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-foreground">Authentication Successful</h3>
+                  <p className="text-sm text-muted-foreground mt-1">Click below to return to the KeenVPN desktop app</p>
+                </div>
+                <Button asChild className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow" size="lg">
+                  <a href={`vpnkeen://auth?token=${sessionToken}`}>Return to KeenVPN App</a>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="grid md:grid-cols-2 gap-8">
             {/* Account Info */}
