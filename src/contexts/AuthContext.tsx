@@ -2,16 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+
 import {
   signInWithGoogle,
   signInWithApple,
@@ -53,10 +44,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { toast } = useToast();
 
-  // State for ASWebAuthenticationSession deeplink prompt
-  const [showDeeplinkPrompt, setShowDeeplinkPrompt] = useState(false);
-  const [pendingDeeplinkToken, setPendingDeeplinkToken] = useState<string | null>(null);
-
   // Check if user came from ASWebAuthenticationSession (macOS desktop app)
   const isASWebSession = () => {
     // Check URL parameter
@@ -69,37 +56,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return true;
     }
     return false;
-  };
-
-  // Trigger deeplink after user confirms
-  const handleConfirmDeeplink = () => {
-    if (pendingDeeplinkToken) {
-      console.info('🔐 User confirmed - triggering deeplink');
-      window.location.href = `vpnkeen://auth?token=${pendingDeeplinkToken}`;
-      setShowDeeplinkPrompt(false);
-      setPendingDeeplinkToken(null);
-      sessionStorage.removeItem('asweb_session');
-    }
-  };
-
-  // Cancel deeplink prompt
-  const handleCancelDeeplink = () => {
-    console.info('🚫 User cancelled deeplink prompt');
-    setShowDeeplinkPrompt(false);
-    setPendingDeeplinkToken(null);
-    sessionStorage.removeItem('asweb_session');
-
-    // Redirect based on subscription status
-    const hasActiveSubscription = subscription && subscription.status === 'active';
-    if (hasActiveSubscription) {
-      if (window.location.pathname !== '/account') {
-        window.location.href = '/account';
-      }
-    } else {
-      if (window.location.pathname !== '/subscribe') {
-        window.location.href = '/subscribe';
-      }
-    }
   };
 
   // ============================================================================
@@ -137,6 +93,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Store flag in sessionStorage for later use (persists through redirects)
         sessionStorage.setItem('asweb_session', '1');
         console.info('🔐 ASWebAuthenticationSession detected - will auto-trigger deeplink after login');
+      } else if (window.location.pathname === '/signin' && !sessionStorage.getItem('auth_redirect_pending')) {
+        // Clear stale asweb_session when visiting /signin without ?asweb=1
+        // and no redirect is in progress. Prevents normal signin from
+        // incorrectly using the redirect flow.
+        sessionStorage.removeItem('asweb_session');
       }
 
       // Also check if we already have the flag in sessionStorage (in case URL param was lost during redirect)
@@ -226,12 +187,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Check if this is from ASWebAuthenticationSession (macOS desktop app)
             if (isASWebSession()) {
-              // Auto-trigger deeplink back to the macOS app — user explicitly
-              // initiated auth from the app, so returning is expected behavior.
-              console.log('🔐 ASWebAuthenticationSession (redirect) - auto-triggering deeplink');
-              // Don't clear asweb_session — if the deeplink fails, Account.tsx
-              // needs the flag to show the "Return to App" fallback button.
-              window.location.href = `vpnkeen://auth?token=${backendResponse.sessionToken}`;
+              if (window.location.pathname !== '/account') {
+                console.log('🔐 ASWebAuthenticationSession (redirect) - redirecting to /account for manual deeplink');
+                window.location.href = '/account?asweb=1';
+              }
               return;
             }
 
@@ -296,26 +255,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             // Check if this is from ASWebAuthenticationSession (macOS desktop app)
-            if (isASWebSession()) {
-              // If on account page, show deeplink modal immediately
-              if (window.location.pathname === '/account') {
-                console.log('🔐 ASWebSession detected - user on account page, showing deeplink prompt');
-                setPendingDeeplinkToken(sessionToken);
-                setTimeout(() => {
-                  setShowDeeplinkPrompt(true);
-                }, 0);
-                // Don't do anything else - let modal show
-                setLoading(false);
-                return;
-              }
-
-              // If on signin page and already logged in, redirect to account (which will show modal)
-              if (window.location.pathname === '/signin') {
-                console.log('🔐 ASWebSession detected - user already logged in on signin, redirecting to account');
-                window.location.href = '/account?asweb=1';
-                setLoading(false);
-                return;
-              }
+            if (isASWebSession() && window.location.pathname === '/signin') {
+              console.log('🔐 ASWebSession detected - user already logged in on signin, redirecting to account');
+              window.location.href = '/account?asweb=1';
+              setLoading(false);
+              return;
             }
 
             // Immediately redirect if on signin page (normal web flow)
@@ -360,10 +304,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(firebaseUser);
 
         if (firebaseUser && !isAuthenticating) {
-          // User is authenticated, fetch subscription
           const sessionToken = getSessionToken();
           if (sessionToken) {
             await fetchSubscriptionFromBackend(sessionToken);
+          } else {
+            // Firebase user exists but no backend session — authenticate now.
+            // This handles redirect flows where getRedirectResult() returned null
+            // (e.g., ASWebAuthenticationSession storage isolation).
+            try {
+              const idToken = await firebaseUser.getIdToken();
+              const providerData = firebaseUser.providerData?.[0];
+              const providerType = providerData?.providerId?.includes('apple') ? 'apple' : 'google';
+
+              const backendResponse = await authenticateWithBackend(
+                idToken,
+                providerType,
+                providerType === 'apple' ? {
+                  email: firebaseUser.email || undefined,
+                  fullName: firebaseUser.displayName || undefined
+                } : undefined
+              );
+
+              if (backendResponse.success && backendResponse.sessionToken) {
+                storeSessionToken(backendResponse.sessionToken);
+                setSubscription(backendResponse.subscription || null);
+
+                // Redirect from signin page
+                if (window.location.pathname === '/signin') {
+                  if (isASWebSession()) {
+                    window.location.href = '/account?asweb=1';
+                  } else {
+                    const hasActive = backendResponse.subscription?.status === 'active';
+                    window.location.href = hasActive ? '/account' : '/subscribe';
+                  }
+                  return;
+                }
+
+              }
+            } catch (err) {
+              console.error('Failed to sync Firebase user with backend:', err);
+            }
           }
         } else if (!firebaseUser) {
           setSubscription(null);
@@ -523,11 +503,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Check if this is from ASWebAuthenticationSession (macOS desktop app)
         if (isASWebSession()) {
-          // Auto-trigger deeplink back to the macOS app
-          console.info('🔐 ASWebAuthenticationSession - auto-triggering deeplink');
-          // Don't clear asweb_session — if the deeplink fails, Account.tsx
-          // needs the flag to show the "Return to App" fallback button.
-          window.location.href = `vpnkeen://auth?token=${backendResponse.sessionToken}`;
+          if (window.location.pathname !== '/account') {
+            console.info('🔐 ASWebAuthenticationSession - redirecting to /account for manual deeplink');
+            window.location.href = '/account?asweb=1';
+          }
           return { success: true, shouldRedirect: undefined };
         } else {
           // Normal web/mobile user - redirect based on subscription status
@@ -645,27 +624,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider value={value}>
       {children}
 
-      {/* Deeplink Prompt Dialog for ASWebAuthenticationSession */}
-      <AlertDialog open={showDeeplinkPrompt} onOpenChange={setShowDeeplinkPrompt}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Open KeenVPN App</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your authentication was successful! Would you like to open the KeenVPN desktop app now?
-              <br /><br />
-              Click "Open App" to return to the desktop app, or "Cancel" to stay on the web.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelDeeplink}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDeeplink}>
-              Open App
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </AuthContext.Provider>
   );
 };
