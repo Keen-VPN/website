@@ -258,7 +258,7 @@ const Account = () => {
                         Authentication Successful
                       </h3>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Click below to return to the KeenVPN desktop app
+                        Click below to return to the KeenVPN app
                       </p>
                     </div>
                     <Button
