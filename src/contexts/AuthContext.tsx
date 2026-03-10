@@ -226,15 +226,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Check if this is from ASWebAuthenticationSession (macOS desktop app)
             if (isASWebSession()) {
-              // Show prompt immediately - don't wait for other operations
-              console.log('🔐 ASWebAuthenticationSession (redirect) - showing deeplink prompt immediately');
-              setPendingDeeplinkToken(backendResponse.sessionToken);
-              // Use setTimeout to ensure modal appears in next tick for better UX
-              setTimeout(() => {
-                setShowDeeplinkPrompt(true);
-              }, 0);
-
-              // Don't redirect - wait for user to confirm
+              // Auto-trigger deeplink back to the macOS app — user explicitly
+              // initiated auth from the app, so returning is expected behavior.
+              console.log('🔐 ASWebAuthenticationSession (redirect) - auto-triggering deeplink');
+              // Don't clear asweb_session — if the deeplink fails, Account.tsx
+              // needs the flag to show the "Return to App" fallback button.
+              window.location.href = `vpnkeen://auth?token=${backendResponse.sessionToken}`;
               return;
             }
 
@@ -526,15 +523,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Check if this is from ASWebAuthenticationSession (macOS desktop app)
         if (isASWebSession()) {
-          // Show prompt immediately - don't wait for other operations
-          console.info('🔐 ASWebAuthenticationSession - showing deeplink prompt immediately');
-          setPendingDeeplinkToken(backendResponse.sessionToken);
-          // Use setTimeout to ensure modal appears in next tick for better UX
-          setTimeout(() => {
-            setShowDeeplinkPrompt(true);
-          }, 0);
-
-          // Don't redirect - wait for user to confirm
+          // Auto-trigger deeplink back to the macOS app
+          console.info('🔐 ASWebAuthenticationSession - auto-triggering deeplink');
+          // Don't clear asweb_session — if the deeplink fails, Account.tsx
+          // needs the flag to show the "Return to App" fallback button.
+          window.location.href = `vpnkeen://auth?token=${backendResponse.sessionToken}`;
           return { success: true, shouldRedirect: undefined };
         } else {
           // Normal web/mobile user - redirect based on subscription status
