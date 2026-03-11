@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,37 +50,34 @@ const Account = () => {
   const { user, loading, logout, subscription, refreshSubscription } =
     useAuth();
 
-  // ASWebAuthenticationSession fallback state
-  const [isASWeb, setIsASWeb] = useState(false);
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
-
-  // Check for ASWebSession when account page loads
-  useEffect(() => {
-    if (!loading && user) {
-      // Check if this is from ASWebAuthenticationSession (macOS desktop app)
-      const urlParams = new URLSearchParams(window.location.search);
-      const aswebDetected =
-        urlParams.get("asweb") === "1" ||
-        sessionStorage.getItem("asweb_session") === "1";
-
-      if (aswebDetected) {
-        // Store flag in sessionStorage if from URL param
-        if (urlParams.get("asweb") === "1") {
-          sessionStorage.setItem("asweb_session", "1");
-        }
-
-        const token = getSessionToken();
-        if (token) {
-          setIsASWeb(true);
-          setSessionToken(token);
-          // eslint-disable-next-line no-console
-          console.info(
-            "🔐 Account page: ASWebSession detected, showing Return to App banner"
-          );
-        }
-      }
+  // ASWebAuthenticationSession detection
+  const isASWeb = useMemo(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const detected =
+      urlParams.get("asweb") === "1" ||
+      sessionStorage.getItem("asweb_session") === "1";
+    if (detected && urlParams.get("asweb") === "1") {
+      sessionStorage.setItem("asweb_session", "1");
     }
-  }, [user, loading]);
+    return detected;
+  }, []);
+
+  // The session token may not be in localStorage yet when Account first mounts
+  // (AuthContext is still verifying with the backend). Poll until it arrives.
+  const [sessionToken, setSessionToken] = useState<string | null>(() =>
+    isASWeb ? getSessionToken() : null,
+  );
+  useEffect(() => {
+    if (!isASWeb || sessionToken) return;
+    const id = setInterval(() => {
+      const token = getSessionToken();
+      if (token) {
+        setSessionToken(token);
+        clearInterval(id);
+      }
+    }, 200);
+    return () => clearInterval(id);
+  }, [isASWeb, sessionToken]);
 
   const handleRefreshSubscription = async () => {
     setSubscriptionLoading(true);
@@ -251,16 +248,37 @@ const Account = () => {
           </div>
 
           {/* ASWebAuthenticationSession fallback — visible "Return to App" button */}
-          {isASWeb && sessionToken && (
+          {isASWeb && (
             <Card className="mb-8 border-primary/50 shadow-glow bg-primary/5">
               <CardContent className="flex flex-col items-center gap-4 py-6">
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold text-foreground">Authentication Successful</h3>
-                  <p className="text-sm text-muted-foreground mt-1">Click below to return to the KeenVPN desktop app</p>
-                </div>
-                <Button asChild className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow" size="lg">
-                  <a href={`vpnkeen://auth?token=${sessionToken}`}>Return to KeenVPN App</a>
-                </Button>
+                {sessionToken ? (
+                  <>
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold text-foreground">
+                        Authentication Successful
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Click below to return to the KeenVPN app
+                      </p>
+                    </div>
+                    <Button
+                      asChild
+                      className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                      size="lg"
+                    >
+                      <a href={`vpnkeen://auth?token=${sessionToken}`}>
+                        Return to KeenVPN App
+                      </a>
+                    </Button>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">
+                      Preparing your session...
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -311,7 +329,7 @@ const Account = () => {
                       </span>
                       <Badge
                         className={`${getStatusColor(
-                          subscription.status
+                          subscription.status,
                         )} text-white`}
                       >
                         {getStatusText(subscription.status)}
@@ -364,7 +382,9 @@ const Account = () => {
                     )}
                     <div className="space-y-3">
                       <Button
-                        onClick={() => navigate("/account/subscription-history")}
+                        onClick={() =>
+                          navigate("/account/subscription-history")
+                        }
                         variant="outline"
                         className="w-full"
                       >
