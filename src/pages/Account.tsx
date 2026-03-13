@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { deleteAccount, getSessionToken } from "@/auth";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
 
 const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
@@ -49,6 +50,9 @@ const Account = () => {
   const { toast } = useToast();
   const { user, loading, logout, subscription, refreshSubscription } =
     useAuth();
+
+  const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
+  const unsupportedDeviceName = useMemo(() => getUnsupportedDeviceName(), []);
 
   // ASWebAuthenticationSession detection
   const isASWeb = useMemo(() => {
@@ -251,32 +255,40 @@ const Account = () => {
           {isASWeb && (
             <Card className="mb-8 border-primary/50 shadow-glow bg-primary/5">
               <CardContent className="flex flex-col items-center gap-4 py-6">
-                {sessionToken ? (
-                  <>
-                    <div className="text-center">
-                      <h3 className="text-lg font-semibold text-foreground">
-                        Authentication Successful
-                      </h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Click below to return to the KeenVPN app
+                {isDeepLinkSupported ? (
+                  sessionToken ? (
+                    <>
+                      <div className="text-center">
+                        <h3 className="text-lg font-semibold text-foreground">
+                          Authentication Successful
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Click below to return to the KeenVPN app
+                        </p>
+                      </div>
+                      <Button
+                        asChild
+                        className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                        size="lg"
+                      >
+                        <a href={`vpnkeen://auth?token=${sessionToken}`}>
+                          Return to KeenVPN App
+                        </a>
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">
+                        Preparing your session...
                       </p>
                     </div>
-                    <Button
-                      asChild
-                      className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                      size="lg"
-                    >
-                      <a href={`vpnkeen://auth?token=${sessionToken}`}>
-                        Return to KeenVPN App
-                      </a>
-                    </Button>
-                  </>
+                  )
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">
-                      Preparing your session...
-                    </p>
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold text-foreground">
+                      Your {unsupportedDeviceName} is not currently supported
+                    </h3>
                   </div>
                 )}
               </CardContent>

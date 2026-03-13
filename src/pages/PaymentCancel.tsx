@@ -1,11 +1,16 @@
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { XCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
 
 const PaymentCancel = () => {
+  const deepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
+  const unsupportedDevice = useMemo(() => getUnsupportedDeviceName(), []);
+
   return (
     <div className="min-h-screen bg-gradient-hero">
       <Header />
@@ -48,11 +53,17 @@ const PaymentCancel = () => {
             <Button asChild className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow" size="lg">
               <Link to="/subscribe">Try Again</Link>
             </Button>
-            
-            <Button asChild variant="outline" className="w-full">
-              <a href="vpnkeen://cancel">Return to App</a>
-            </Button>
-            
+
+            {deepLinkSupported ? (
+              <Button asChild variant="outline" className="w-full">
+                <a href="vpnkeen://cancel">Return to App</a>
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center">
+                Your {unsupportedDevice} is not currently supported
+              </p>
+            )}
+
             <Button asChild variant="ghost" className="w-full">
               <Link to="/">Back to Website</Link>
             </Button>
