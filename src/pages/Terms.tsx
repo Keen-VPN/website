@@ -1,10 +1,16 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { FileText, AlertTriangle, CreditCard, Shield } from "lucide-react";
+import SEOHead from "@/components/SEOHead";
 
 const Terms = () => {
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Terms of Service — KeenVPN"
+        description="Read KeenVPN's terms of service. 30-day money-back guarantee, zero-logs policy, and fair usage terms."
+        canonical="https://vpnkeen.com/terms"
+      />
       <Header />
 
       <main className="pt-24 pb-16">

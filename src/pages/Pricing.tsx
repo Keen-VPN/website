@@ -16,6 +16,7 @@ import { fetchSubscriptionPlans } from "@/auth/backend";
 import { transformApiPlans } from "@/lib/pricing";
 
 import { PricingPlan } from "@/lib/pricing";
+import SEOHead from "@/components/SEOHead";
 
 const Pricing = () => {
   const navigate = useNavigate();
@@ -68,6 +69,11 @@ const Pricing = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="KeenVPN Pricing — Affordable VPN Plans for iOS & macOS"
+        description="Choose a KeenVPN plan that fits your needs. Simple, transparent pricing with monthly and annual options. Start with a free trial today."
+        canonical="https://vpnkeen.com/pricing"
+      />
       <Header />
 
       <main className="pt-24 pb-20">

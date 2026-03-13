@@ -13,6 +13,7 @@ import { useDebounce } from "@/auth";
 import GoogleIcon from "@/components/ui/google-icon";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import SEOHead from "@/components/SEOHead";
 
 const SignIn = () => {
   const { signIn, loading: authLoading, user, subscription } = useAuth();
@@ -77,6 +78,11 @@ const SignIn = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SEOHead
+        title="Sign In — KeenVPN"
+        description="Sign in to your KeenVPN account to manage your subscription and settings."
+        canonical="https://vpnkeen.com/signin"
+      />
       <Header />
       <main className="flex-1 py-20 bg-gradient-hero">
         <div className="container mx-auto px-4 max-w-md">

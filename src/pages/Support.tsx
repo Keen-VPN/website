@@ -16,6 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import SEOHead from "@/components/SEOHead";
 
 const Support = () => {
   const faqCategories = [
@@ -118,6 +119,11 @@ const Support = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Support Center — KeenVPN Help & FAQs"
+        description="Get help with KeenVPN. Browse FAQs on setup, connection issues, security, and billing. Contact our support team anytime."
+        canonical="https://vpnkeen.com/support"
+      />
       <Header />
 
       <main className="pt-24 pb-16">

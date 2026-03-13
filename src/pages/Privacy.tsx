@@ -1,10 +1,16 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Shield, Eye, Database, Lock, Server, UserX } from "lucide-react";
+import SEOHead from "@/components/SEOHead";
 
 const Privacy = () => {
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Privacy Policy — KeenVPN Zero Logs VPN"
+        description="KeenVPN has a strict zero-logs policy. We never track, collect, or store your online activity. Read our full privacy policy."
+        canonical="https://vpnkeen.com/privacy"
+      />
       <Header />
       
       <main className="pt-24 pb-16">
