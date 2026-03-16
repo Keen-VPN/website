@@ -57,8 +57,9 @@ const Subscribe = () => {
   // If user is signed in (Firebase) but has no backend session token, sign them out
   // so the sign-in card is shown and they can re-authenticate to get a fresh session.
   // Skip while sign-in is in progress (isAuthenticating). After redirect (Apple/Google),
-  // onAuthStateChanged may still be calling the backend to get a session token, so we
-  // wait briefly before treating "no token" as expired; otherwise we'd flash "signed out".
+  // the backend call (apple/signin or login) can take several seconds (e.g. Apple key fetch),
+  // so we wait long enough before treating "no token" as expired to avoid logging out mid-sign-in.
+  const SESSION_EXPIRED_CHECK_DELAY_MS = 10_000;
   useEffect(() => {
     if (loading || isAuthenticating || !user || sessionInvalidHandled) return;
     if (!getSessionToken()) {
@@ -70,7 +71,7 @@ const Subscribe = () => {
           };
           runLogout();
         }
-      }, 2000);
+      }, SESSION_EXPIRED_CHECK_DELAY_MS);
       return () => clearTimeout(timeoutId);
     }
   }, [user, loading, isAuthenticating, sessionInvalidHandled, logout, toast]);
