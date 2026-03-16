@@ -2,15 +2,43 @@ import { BackendAuthResponse } from "./types";
 
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
-// export const BACKEND_URL = 'http://localhost:3003/api';
 
 // ============================================================================
 // Backend Authentication
 // ============================================================================
 
 /**
- * Authenticate with backend using Google OAuth access token
- * Backend will verify token, create/update user, and return session token
+ * Login with Firebase ID token. Use this when you have a Firebase user and need
+ * a backend session (e.g. from onAuthStateChanged). Works for any provider (Google/Apple).
+ * Do not send Firebase token to /auth/apple/signin — that endpoint expects an Apple identity token.
+ */
+export async function loginWithFirebaseToken(
+  idToken: string,
+): Promise<BackendAuthResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Login failed");
+    }
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to authenticate",
+    };
+  }
+}
+
+/**
+ * Authenticate with backend using provider-specific token:
+ * - Google: pass Firebase ID token (backend /auth/google/signin).
+ * - Apple: pass Apple identity token (backend /auth/apple/signin). Do not pass Firebase token.
  */
 export async function authenticateWithBackend(
   accessToken: string,
@@ -131,16 +159,28 @@ export async function cancelSubscription(
   }
 }
 
+/** Sentinel error code when checkout fails due to expired/invalid session (e.g. 401). */
+export const CHECKOUT_ERROR_SESSION_EXPIRED = "SESSION_EXPIRED" as const;
+
+export type CreateCheckoutResult =
+  | { success: true; url: string }
+  | {
+      success: false;
+      error: string;
+      errorCode?: typeof CHECKOUT_ERROR_SESSION_EXPIRED;
+    };
+
 /**
  * Create Stripe checkout session.
  * Uses the backend session token (from login/Apple sign-in), not the Firebase ID token.
+ * Returns errorCode CHECKOUT_ERROR_SESSION_EXPIRED when the backend returns 401.
  */
 export async function createCheckoutSession(
   sessionToken: string,
   planId: string,
   successUrl?: string,
   cancelUrl?: string,
-): Promise<{ success: boolean; url?: string; error?: string }> {
+): Promise<CreateCheckoutResult> {
   try {
     const response = await fetch(`${BACKEND_URL}/payment/stripe/checkout`, {
       method: "POST",
@@ -155,13 +195,29 @@ export async function createCheckoutSession(
       }),
     });
 
-    const data = await response.json();
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      url?: string;
+      error?: string;
+    };
 
     if (!response.ok) {
-      throw new Error(data.error || "Failed to create checkout session");
+      const errorMessage = data?.error || "Failed to create checkout session";
+      const isUnauthorized = response.status === 401;
+      return {
+        success: false,
+        error: errorMessage,
+        ...(isUnauthorized && { errorCode: CHECKOUT_ERROR_SESSION_EXPIRED }),
+      };
     }
 
-    return data;
+    if (data?.success && data?.url) {
+      return { success: true, url: data.url };
+    }
+    return {
+      success: false,
+      error: data?.error || "No checkout URL received",
+    };
   } catch (error) {
     return {
       success: false,
