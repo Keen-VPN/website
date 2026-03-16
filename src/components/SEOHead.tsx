@@ -20,11 +20,11 @@ const SEOHead = ({ title, description, canonical, ogTitle, ogDescription, noInde
       <meta property="og:description" content={ogDescription ?? description} />
       <meta property="og:url" content={canonical} />
       <meta property="og:type" content="website" />
-      <meta property="og:image" content="https://vpnkeen.com/favicon.png" />
-      <meta name="twitter:card" content="summary" />
+      <meta property="og:image" content="https://vpnkeen.com/og-image.png" />
+      <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={ogTitle ?? title} />
       <meta name="twitter:description" content={ogDescription ?? description} />
-      <meta name="twitter:image" content="https://vpnkeen.com/favicon.png" />
+      <meta name="twitter:image" content="https://vpnkeen.com/og-image.png" />
     </Helmet>
   );
 };
