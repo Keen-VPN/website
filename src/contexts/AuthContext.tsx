@@ -509,18 +509,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (token) {
           try {
             const response = await verifySessionToken(token);
-            if (response.success && response.subscription) setSubscription(response.subscription);
-            if (response.success && window.location.pathname === '/signin') {
+            if (!response.success) {
+              clearSessionToken();
+              setIsAuthenticating(false);
+              return { success: false };
+            }
+            if (response.subscription) setSubscription(response.subscription);
+            if (window.location.pathname === '/signin') {
               const hasActive = response.subscription?.status === 'active';
               window.location.href = hasActive ? '/account' : '/subscribe';
               setIsAuthenticating(false);
               return { success: true };
             }
+            setIsAuthenticating(false);
+            return { success: true };
           } catch {
-            // ignore
+            clearSessionToken();
+            setIsAuthenticating(false);
+            return { success: false };
           }
-          setIsAuthenticating(false);
-          return { success: true };
         }
         // onAuthStateChanged ran but left no session token (backend auth failed)
         setIsAuthenticating(false);
