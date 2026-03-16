@@ -35,32 +35,44 @@ const Subscribe = () => {
   // Get URL parameters
   const planIdParam = searchParams.get("planId");
 
+  // Single place for "session expired" flow: show one toast and attempt logout without rethrowing,
+  // so the outer catch never runs and we avoid double toasts.
+  const handleSessionExpiredAndLogout = async (): Promise<void> => {
+    toast({
+      title: "Session expired",
+      description: "Please sign in again to continue to checkout.",
+      variant: "destructive",
+    });
+    try {
+      await logout();
+    } catch {
+      toast({
+        title: "Sign out failed",
+        description: "Please try again or refresh the page.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // If user is signed in (Firebase) but has no backend session token, sign them out
   // so the sign-in card is shown and they can re-authenticate to get a fresh session.
   useEffect(() => {
     if (loading || !user || sessionInvalidHandled) return;
     if (!getSessionToken()) {
       const runLogout = async () => {
-        toast({
-          title: "Session expired",
-          description: "Please sign in again to continue to checkout.",
-          variant: "destructive",
-        });
-        try {
-          await logout();
-        } catch {
-          toast({
-            title: "Sign out failed",
-            description: "Please try again or refresh the page.",
-            variant: "destructive",
-          });
-        } finally {
-          setSessionInvalidHandled(true);
-        }
+        await handleSessionExpiredAndLogout();
+        setSessionInvalidHandled(true);
       };
       runLogout();
     }
   }, [user, loading, sessionInvalidHandled, logout, toast]);
+
+  // Reset so we can run the invalid-session flow again if they later end up without a token.
+  useEffect(() => {
+    if (user && getSessionToken()) {
+      setSessionInvalidHandled(false);
+    }
+  }, [user]);
 
   // Fetch the specific plan by ID
   useEffect(() => {
@@ -144,12 +156,7 @@ const Subscribe = () => {
       const sessionToken = getSessionToken();
 
       if (!sessionToken) {
-        toast({
-          title: "Session expired",
-          description: "Please sign in again to continue to checkout.",
-          variant: "destructive",
-        });
-        await logout();
+        await handleSessionExpiredAndLogout();
         setCheckoutLoading(false);
         return;
       }
@@ -166,12 +173,7 @@ const Subscribe = () => {
 
       if (!result.success) {
         if (result.errorCode === CHECKOUT_ERROR_SESSION_EXPIRED) {
-          toast({
-            title: "Session expired",
-            description: "Please sign in again to continue to checkout.",
-            variant: "destructive",
-          });
-          await logout();
+          await handleSessionExpiredAndLogout();
           setCheckoutLoading(false);
           return;
         }
