@@ -174,73 +174,77 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
           }
 
-          // Authenticate with backend (guard against duplicate call from onAuthStateChanged)
-          if (backendAuthInProgressRef.current) return;
-          backendAuthInProgressRef.current = true;
-          let backendResponse: Awaited<ReturnType<typeof authenticateWithBackend>>;
-          try {
-            backendResponse = await authenticateWithBackend(
-              accessToken,
-              providerType,
-              providerType === 'apple' ? {
-                userIdentifier: appleUserId,
-                email: redirectResult.user.email || undefined,
-                fullName: redirectResult.user.displayName || undefined
-              } : undefined
-            );
-          } finally {
-            backendAuthInProgressRef.current = false;
-          }
+          // Authenticate with backend (guard against duplicate call from onAuthStateChanged).
+          // Only skip the backend call when ref is already true; never skip Steps 2/3 (listener setup).
+          if (!backendAuthInProgressRef.current) {
+            backendAuthInProgressRef.current = true;
+            let backendResponse: Awaited<ReturnType<typeof authenticateWithBackend>>;
+            try {
+              backendResponse = await authenticateWithBackend(
+                accessToken,
+                providerType,
+                providerType === 'apple' ? {
+                  userIdentifier: appleUserId,
+                  email: redirectResult.user.email || undefined,
+                  fullName: redirectResult.user.displayName || undefined
+                } : undefined
+              );
+            } finally {
+              backendAuthInProgressRef.current = false;
+            }
 
-          if (backendResponse?.success && backendResponse?.sessionToken) {
-            storeSessionToken(backendResponse.sessionToken);
-            setSubscription(backendResponse.subscription || null);
+            if (backendResponse?.success && backendResponse?.sessionToken) {
+              storeSessionToken(backendResponse.sessionToken);
+              setSubscription(backendResponse.subscription || null);
 
-            // Check if this is from ASWebAuthenticationSession (macOS desktop app)
-            if (isASWebSession()) {
-              if (window.location.pathname !== '/account') {
-                console.log('🔐 ASWebAuthenticationSession (redirect) - redirecting to /account for manual deeplink');
-                window.location.href = '/account?asweb=1';
+              // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+              if (isASWebSession()) {
+                if (window.location.pathname !== '/account') {
+                  console.log('🔐 ASWebAuthenticationSession (redirect) - redirecting to /account for manual deeplink');
+                  window.location.href = '/account?asweb=1';
+                }
+                return;
+              }
+
+              // Normal web flow - redirect based on subscription status
+              const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
+
+              if (hasActiveSubscription) {
+                // User has active subscription - redirect to account page
+                if (window.location.pathname !== '/account') {
+                  window.location.href = '/account';
+                }
+              } else {
+                // User doesn't have active subscription - redirect to subscribe
+                if (window.location.pathname !== '/subscribe') {
+                  window.location.href = '/subscribe';
+                }
               }
               return;
+            } else if (backendResponse?.error?.includes('recently deleted')) {
+              // Handle case where user account was deleted but Firebase auth is still active
+              console.log('🚨 Account was recently deleted, clearing Firebase auth and redirecting to sign-in');
+
+              // Clear Firebase auth
+              const { signOut } = await import('@/auth');
+              await signOut();
+
+              // Clear session token
+              clearSessionToken();
+
+              // Clear user state
+              setUser(null);
+              setSubscription(null);
+
+              // Show user-friendly message with exact time
+              alert(backendResponse.error);
+
+              // Redirect to sign-in page
+              window.location.href = '/signin';
+              return;
             }
-
-            // Normal web flow - redirect based on subscription status
-            const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
-
-            if (hasActiveSubscription) {
-              // User has active subscription - redirect to account page
-              if (window.location.pathname !== '/account') {
-                window.location.href = '/account';
-              }
-            } else {
-              // User doesn't have active subscription - redirect to subscribe
-              if (window.location.pathname !== '/subscribe') {
-                window.location.href = '/subscribe';
-              }
-            }
-            return;
-          } else if (backendResponse?.error?.includes('recently deleted')) {
-            // Handle case where user account was deleted but Firebase auth is still active
-            console.log('🚨 Account was recently deleted, clearing Firebase auth and redirecting to sign-in');
-
-            // Clear Firebase auth
-            const { signOut } = await import('@/auth');
-            await signOut();
-
-            // Clear session token
-            clearSessionToken();
-
-            // Clear user state
-            setUser(null);
-            setSubscription(null);
-
-            // Show user-friendly message with exact time
-            alert(backendResponse.error);
-
-            // Redirect to sign-in page
-            window.location.href = '/signin';
-            return;
+          } else {
+            setLoading(false);
           }
         }
       }
@@ -409,8 +413,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false };
       }
 
-      // Claim backend auth immediately so onAuthStateChanged won't also call the API
-      backendAuthInProgressRef.current = true;
+      // Claim backend auth so we don't duplicate the API call. Only set if not already
+      // claimed by onAuthStateChanged (which can fire before signInWith* Promise resolves).
+      const refAlreadyClaimed = backendAuthInProgressRef.current;
+      if (!refAlreadyClaimed) {
+        backendAuthInProgressRef.current = true;
+      }
 
       // Set user immediately for UI update
       setUser(result.user);
@@ -489,9 +497,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Checking subscription status...",
       });
 
-      // If ref is false here, onAuthStateChanged already ran and completed (set ref, called API, cleared in finally).
-      // Skip our call to avoid duplicate request; sync subscription and redirect like the listener would.
-      if (!backendAuthInProgressRef.current) {
+      // If ref was already claimed by onAuthStateChanged, or it's now false (listener finished),
+      // skip our backend call to avoid duplicate request.
+      if (refAlreadyClaimed || !backendAuthInProgressRef.current) {
+        if (refAlreadyClaimed) {
+          // Listener owns the backend call; let it store token and redirect.
+          setIsAuthenticating(false);
+          return { success: true };
+        }
         const token = getSessionToken();
         if (token) {
           try {
