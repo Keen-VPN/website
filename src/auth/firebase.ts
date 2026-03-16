@@ -121,18 +121,18 @@ export async function checkRedirectResult(): Promise<SignInResult | null> {
       }
 
       let accessToken = credential?.accessToken || credential?.idToken;
-
-      // Credential extraction can fail after redirect auth.
-      // Fall back to Firebase ID token (same pattern as popup flow, line 314).
       if (!accessToken && result.user) {
         accessToken = await result.user.getIdToken();
       }
+      const isApple = result.user.providerData?.[0]?.providerId?.includes('apple');
+      const appleIdentityToken = isApple ? (credential as { idToken?: string } | null)?.idToken : undefined;
 
       return {
         success: true,
         user: result.user,
         credential,
         accessToken,
+        appleIdentityToken,
         usedRedirect: true
       };
     }
@@ -278,6 +278,8 @@ export interface SignInResult {
   user?: FirebaseUser;
   credential?: unknown;
   accessToken?: string;
+  /** When signing in with Apple: the raw Apple identity token (JWT). If missing, accessToken is a Firebase ID token — use /auth/login, not /auth/apple/signin. */
+  appleIdentityToken?: string;
   error?: AuthError;
   usedRedirect?: boolean;
 }
@@ -303,19 +305,19 @@ async function signInWithProvider(provider: GoogleAuthProvider | OAuthProvider, 
     }
 
 
-    // For Apple, we need to get the Firebase ID token instead
+    // Prefer credential idToken (Apple/Google identity token); fall back to Firebase ID token (common with Apple).
     let tokenToUse = credential?.accessToken || credential?.idToken;
-
-    // If no token in credential (common with Apple), get Firebase ID token
     if (!tokenToUse && result.user) {
       tokenToUse = await result.user.getIdToken();
     }
+    const appleIdentityToken = providerName === 'Apple' ? (credential as { idToken?: string } | null)?.idToken : undefined;
 
     return {
       success: true,
       user: result.user,
       credential,
       accessToken: tokenToUse,
+      appleIdentityToken,
       usedRedirect: false
     };
   } catch (error: unknown) {

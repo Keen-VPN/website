@@ -25,7 +25,9 @@ export async function loginWithFirebaseToken(
     if (!response.ok) {
       throw new Error(data.error || "Login failed");
     }
-    return data;
+    // Backend /auth/login doesn't include `success` in its response (unlike /auth/apple/signin).
+    // Callers check `backendResponse.success && backendResponse.sessionToken` before storing.
+    return { success: true, ...data };
   } catch (error) {
     return {
       success: false,
@@ -92,7 +94,9 @@ export async function authenticateWithBackend(
 }
 
 /**
- * Verify session token with backend
+ * Verify session token with backend.
+ * Returns unauthorized: true only when the backend explicitly rejects the token (401 or 200 with success: false).
+ * On network errors we return success: false without unauthorized so the client does not clear the session.
  */
 export async function verifySessionToken(
   sessionToken: string,
@@ -108,18 +112,22 @@ export async function verifySessionToken(
       }),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
-    if (!response.ok) {
-      throw new Error(data.error || "Session verification failed");
+    if (response.ok) {
+      return data;
     }
-
-    return data;
+    return {
+      success: false,
+      error: data?.error || "Session verification failed",
+      unauthorized: response.status === 401,
+    };
   } catch (error) {
     return {
       success: false,
       error:
         error instanceof Error ? error.message : "Failed to verify session",
+      unauthorized: false,
     };
   }
 }

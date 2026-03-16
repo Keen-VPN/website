@@ -178,20 +178,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Only skip the backend call when ref is already true; never skip Steps 2/3 (listener setup).
           if (!backendAuthInProgressRef.current) {
             backendAuthInProgressRef.current = true;
-            let backendResponse: Awaited<ReturnType<typeof authenticateWithBackend>>;
-            try {
-              backendResponse = await authenticateWithBackend(
-                accessToken,
-                providerType,
-                providerType === 'apple' ? {
-                  userIdentifier: appleUserId,
-                  email: redirectResult.user.email || undefined,
-                  fullName: redirectResult.user.displayName || undefined
-                } : undefined
-              );
-            } finally {
-              backendAuthInProgressRef.current = false;
-            }
+      let backendResponse: Awaited<ReturnType<typeof authenticateWithBackend>>;
+      try {
+        if (providerType === 'apple' && !redirectResult.appleIdentityToken) {
+          // Firebase token only — backend expects Apple JWT at /auth/apple/signin; use /auth/login instead.
+          backendResponse = await loginWithFirebaseToken(accessToken);
+        } else if (providerType === 'apple' && redirectResult.appleIdentityToken) {
+          backendResponse = await authenticateWithBackend(
+            redirectResult.appleIdentityToken,
+            'apple',
+            { userIdentifier: appleUserId, email: redirectResult.user.email || undefined, fullName: redirectResult.user.displayName || undefined }
+          );
+        } else {
+          backendResponse = await authenticateWithBackend(
+            accessToken,
+            providerType,
+            undefined
+          );
+        }
+      } finally {
+        backendAuthInProgressRef.current = false;
+      }
 
             if (backendResponse?.success && backendResponse?.sessionToken) {
               storeSessionToken(backendResponse.sessionToken);
@@ -289,13 +296,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             setLoading(false);
             return;
-          } else {
-            // Session token is invalid - clear it
+          }
+          if (response.unauthorized) {
+            // Backend explicitly rejected the token (401 or invalid) — clear session
             console.log('🚨 Invalid session token, clearing auth state');
             clearSessionToken();
 
             // Also clear Firebase auth if user is still authenticated
-            // This handles the case where user was deleted from desktop but still has Firebase auth
             try {
               const { signOut } = await import('@/auth');
               await signOut();
@@ -303,9 +310,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } catch {
               // Ignore errors when clearing persistence
             }
-
-            setLoading(false);
           }
+          // On network error (success: false, unauthorized: false) we do not clear — keep session and let Firebase listener run
+          setLoading(false);
         } catch (error) {
           console.warn('⚠️ Failed to verify session token, falling back to Firebase auth listener:', error);
           setLoading(false);
@@ -507,29 +514,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         const token = getSessionToken();
         if (token) {
-          try {
-            const response = await verifySessionToken(token);
-            if (!response.success) {
+          const response = await verifySessionToken(token);
+          if (!response.success) {
+            if (response.unauthorized) {
               clearSessionToken();
               setSubscription(null);
-              setIsAuthenticating(false);
-              return { success: false };
             }
-            if (response.subscription) setSubscription(response.subscription);
-            if (window.location.pathname === '/signin') {
-              const hasActive = response.subscription?.status === 'active';
-              window.location.href = hasActive ? '/account' : '/subscribe';
-              setIsAuthenticating(false);
-              return { success: true };
-            }
-            setIsAuthenticating(false);
-            return { success: true };
-          } catch {
-            clearSessionToken();
-            setSubscription(null);
             setIsAuthenticating(false);
             return { success: false };
           }
+          if (response.subscription) setSubscription(response.subscription);
+          if (window.location.pathname === '/signin') {
+            const hasActive = response.subscription?.status === 'active';
+            window.location.href = hasActive ? '/account' : '/subscribe';
+            setIsAuthenticating(false);
+            return { success: true };
+          }
+          setIsAuthenticating(false);
+          return { success: true };
         }
         // onAuthStateChanged ran but left no session token (backend auth failed)
         setIsAuthenticating(false);
@@ -538,14 +540,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       let backendResponse: Awaited<ReturnType<typeof authenticateWithBackend>>;
       try {
-        backendResponse = await authenticateWithBackend(
-          accessToken,
-          providerType,
-          providerType === 'apple' ? {
-            email: result.user.email || undefined,
-            fullName: result.user.displayName || undefined
-          } : undefined
-        );
+        if (providerType === 'apple' && !result.appleIdentityToken) {
+          // We only have Firebase ID token; /auth/apple/signin expects Apple JWT. Use /auth/login instead.
+          backendResponse = await loginWithFirebaseToken(accessToken);
+        } else if (providerType === 'apple' && result.appleIdentityToken) {
+          backendResponse = await authenticateWithBackend(
+            result.appleIdentityToken,
+            'apple',
+            { email: result.user.email || undefined, fullName: result.user.displayName || undefined }
+          );
+        } else {
+          backendResponse = await authenticateWithBackend(
+            accessToken,
+            providerType,
+            providerType === 'apple' ? { email: result.user.email || undefined, fullName: result.user.displayName || undefined } : undefined
+          );
+        }
       } finally {
         backendAuthInProgressRef.current = false;
       }
