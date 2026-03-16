@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,7 +37,7 @@ const Subscribe = () => {
 
   // Single place for "session expired" flow: show one toast and attempt logout without rethrowing,
   // so the outer catch never runs and we avoid double toasts.
-  const handleSessionExpiredAndLogout = async (): Promise<void> => {
+  const handleSessionExpiredAndLogout = useCallback(async (): Promise<void> => {
     toast({
       title: "Session expired",
       description: "Please sign in again to continue to checkout.",
@@ -52,7 +52,7 @@ const Subscribe = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [toast, logout]);
 
   // If user is signed in (Firebase) but has no backend session token, sign them out
   // so the sign-in card is shown and they can re-authenticate to get a fresh session.
@@ -74,7 +74,7 @@ const Subscribe = () => {
       }, SESSION_EXPIRED_CHECK_DELAY_MS);
       return () => clearTimeout(timeoutId);
     }
-  }, [user, loading, isAuthenticating, sessionInvalidHandled, logout, toast]);
+  }, [user, loading, isAuthenticating, sessionInvalidHandled, handleSessionExpiredAndLogout]);
 
   // Reset so we can run the invalid-session flow again if they later end up without a token.
   useEffect(() => {

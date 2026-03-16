@@ -192,7 +192,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             backendAuthInProgressRef.current = false;
           }
 
-          if (backendResponse!.success && backendResponse!.sessionToken) {
+          if (backendResponse?.success && backendResponse?.sessionToken) {
             storeSessionToken(backendResponse.sessionToken);
             setSubscription(backendResponse.subscription || null);
 
@@ -220,7 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
             return;
-          } else if (backendResponse!.error?.includes('recently deleted')) {
+          } else if (backendResponse?.error?.includes('recently deleted')) {
             // Handle case where user account was deleted but Firebase auth is still active
             console.log('🚨 Account was recently deleted, clearing Firebase auth and redirecting to sign-in');
 
@@ -660,9 +660,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 // ============================================================================
-// Hook
+// Hook (exported from same file as provider for ergonomics; refresh warning acceptable)
 // ============================================================================
 
+// eslint-disable-next-line react-refresh/only-export-components -- useAuth is the standard hook for AuthContext
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
