@@ -506,9 +506,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } catch {
             // ignore
           }
+          setIsAuthenticating(false);
+          return { success: true };
         }
+        // onAuthStateChanged ran but left no session token (backend auth failed)
         setIsAuthenticating(false);
-        return { success: true };
+        return { success: false };
       }
 
       let backendResponse: Awaited<ReturnType<typeof authenticateWithBackend>>;
