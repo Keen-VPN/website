@@ -17,6 +17,7 @@ import Footer from "@/components/Footer";
 import {
   fetchSubscriptionPlanById,
   createCheckoutSession,
+  getSessionToken,
 } from "@/auth/backend";
 import { enterprisePlan } from "@/constants/pricing";
 
@@ -111,17 +112,17 @@ const Subscribe = () => {
         throw new Error("Plan ID is required");
       }
 
-      const idToken = await user.getIdToken();
+      const sessionToken = getSessionToken();
 
-      if (!idToken) {
-        throw new Error("No ID token found");
+      if (!sessionToken) {
+        throw new Error("Please sign in again to continue");
       }
 
       const successUrl = `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}`;
       const cancelUrl = `${window.location.origin}/pricing`;
 
       const { success, url, error } = await createCheckoutSession(
-        idToken,
+        sessionToken,
         planId,
         successUrl,
         cancelUrl
