@@ -538,87 +538,87 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false };
       }
 
-      let backendResponse: Awaited<ReturnType<typeof authenticateWithBackend>>;
-      try {
-        if (providerType === 'apple' && !result.appleIdentityToken) {
-          // We only have Firebase ID token; /auth/apple/signin expects Apple JWT. Use /auth/login instead.
-          backendResponse = await loginWithFirebaseToken(accessToken);
-        } else if (providerType === 'apple' && result.appleIdentityToken) {
-          backendResponse = await authenticateWithBackend(
-            result.appleIdentityToken,
-            'apple',
-            { email: result.user.email || undefined, fullName: result.user.displayName || undefined }
-          );
-        } else {
-          backendResponse = await authenticateWithBackend(
-            accessToken,
-            providerType,
-            providerType === 'apple' ? { email: result.user.email || undefined, fullName: result.user.displayName || undefined } : undefined
-          );
-        }
-      } finally {
-        backendAuthInProgressRef.current = false;
-      }
-
-      if (backendResponse.success && backendResponse.sessionToken) {
-        storeSessionToken(backendResponse.sessionToken);
-        setSubscription(backendResponse.subscription || null);
-
-        setIsAuthenticating(false);
-
-        // Check if this is from ASWebAuthenticationSession (macOS desktop app)
-        if (isASWebSession()) {
-          if (window.location.pathname !== '/account') {
-            console.info('🔐 ASWebAuthenticationSession - redirecting to /account for manual deeplink');
-            window.location.href = '/account?asweb=1';
-          }
-          return { success: true, shouldRedirect: undefined };
-        } else {
-          // Normal web/mobile user - redirect based on subscription status
-          const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
-
-          if (hasActiveSubscription) {
-            // User has active subscription - redirect to account page
-            if (window.location.pathname !== '/account') {
-              window.location.href = '/account';
+            let backendResponse: Awaited<ReturnType<typeof authenticateWithBackend>>;
+            try {
+              if (providerType === 'apple' && !result.appleIdentityToken) {
+                // We only have Firebase ID token; /auth/apple/signin expects Apple JWT. Use /auth/login instead.
+                backendResponse = await loginWithFirebaseToken(accessToken);
+              } else if (providerType === 'apple' && result.appleIdentityToken) {
+                backendResponse = await authenticateWithBackend(
+                  result.appleIdentityToken,
+                  'apple',
+                  { email: result.user.email || undefined, fullName: result.user.displayName || undefined }
+                );
+              } else {
+                backendResponse = await authenticateWithBackend(
+                  accessToken,
+                  providerType,
+                  undefined
+                );
+              }
+            } finally {
+              backendAuthInProgressRef.current = false;
             }
-          } else {
-            // User doesn't have active subscription - redirect to subscribe
-            if (window.location.pathname !== '/subscribe') {
-              window.location.href = '/subscribe';
+
+            if (backendResponse.success && backendResponse.sessionToken) {
+              storeSessionToken(backendResponse.sessionToken);
+              setSubscription(backendResponse.subscription || null);
+
+              setIsAuthenticating(false);
+
+              // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+              if (isASWebSession()) {
+                if (window.location.pathname !== '/account') {
+                  console.info('🔐 ASWebAuthenticationSession - redirecting to /account for manual deeplink');
+                  window.location.href = '/account?asweb=1';
+                }
+                return { success: true, shouldRedirect: undefined };
+              } else {
+                // Normal web/mobile user - redirect based on subscription status
+                const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
+
+                if (hasActiveSubscription) {
+                  // User has active subscription - redirect to account page
+                  if (window.location.pathname !== '/account') {
+                    window.location.href = '/account';
+                  }
+                } else {
+                  // User doesn't have active subscription - redirect to subscribe
+                  if (window.location.pathname !== '/subscribe') {
+                    window.location.href = '/subscribe';
+                  }
+                }
+              }
+
+              return { success: true, shouldRedirect: undefined };
+            } else if (backendResponse.error?.includes('recently deleted')) {
+              // Handle case where user account was deleted but Firebase auth is still active
+              console.info('🚨 Account was recently deleted during popup sign-in, clearing Firebase auth');
+
+              // Clear Firebase auth
+              import('@/auth').then(({ signOut }) => signOut()).catch(console.error);
+
+              // Clear session token
+              clearSessionToken();
+
+              // Clear user state
+              setUser(null);
+              setSubscription(null);
+
+              setIsAuthenticating(false);
+
+              toast({
+                title: "Account Recently Deleted",
+                description: backendResponse.error,
+                variant: "destructive",
+                duration: 10000, // Show for 10 seconds so user can read the exact time
+              });
+
+              return { success: false };
             }
-          }
-        }
 
-        return { success: true, shouldRedirect: undefined };
-      } else if (backendResponse.error?.includes('recently deleted')) {
-        // Handle case where user account was deleted but Firebase auth is still active
-        console.info('🚨 Account was recently deleted during popup sign-in, clearing Firebase auth');
-
-        // Clear Firebase auth
-        import('@/auth').then(({ signOut }) => signOut()).catch(console.error);
-
-        // Clear session token
-        clearSessionToken();
-
-        // Clear user state
-        setUser(null);
-        setSubscription(null);
-
-        setIsAuthenticating(false);
-
-        toast({
-          title: "Account Recently Deleted",
-          description: backendResponse.error,
-          variant: "destructive",
-          duration: 10000, // Show for 10 seconds so user can read the exact time
-        });
-
-        return { success: false };
-      }
-
-      setIsAuthenticating(false);
-      return { success: false };
+            setIsAuthenticating(false);
+            return { success: false };
     } catch (error: unknown) {
       const mappedError = mapFirebaseError(error);
 
