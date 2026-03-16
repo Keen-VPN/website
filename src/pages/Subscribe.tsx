@@ -28,10 +28,26 @@ const Subscribe = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, signIn, subscription } = useAuth();
+  const { user, loading, signIn, logout, subscription } = useAuth();
+  const [sessionInvalidHandled, setSessionInvalidHandled] = useState(false);
 
   // Get URL parameters
   const planIdParam = searchParams.get("planId");
+
+  // If user is signed in (Firebase) but has no backend session token, sign them out
+  // so the sign-in card is shown and they can re-authenticate to get a fresh session.
+  useEffect(() => {
+    if (loading || !user || sessionInvalidHandled) return;
+    if (!getSessionToken()) {
+      setSessionInvalidHandled(true);
+      toast({
+        title: "Session expired",
+        description: "Please sign in again to continue to checkout.",
+        variant: "destructive",
+      });
+      logout();
+    }
+  }, [user, loading, sessionInvalidHandled, logout, toast]);
 
   // Fetch the specific plan by ID
   useEffect(() => {
@@ -115,7 +131,14 @@ const Subscribe = () => {
       const sessionToken = getSessionToken();
 
       if (!sessionToken) {
-        throw new Error("Please sign in again to continue");
+        toast({
+          title: "Session expired",
+          description: "Please sign in again to continue to checkout.",
+          variant: "destructive",
+        });
+        await logout();
+        setCheckoutLoading(false);
+        return;
       }
 
       const successUrl = `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}`;
@@ -140,12 +163,22 @@ const Subscribe = () => {
       }
     } catch (error) {
       console.error("Checkout error:", error);
-      toast({
-        title: "Checkout failed",
-        description:
-          error instanceof Error ? error.message : "Please try again",
-        variant: "destructive",
-      });
+      const message = error instanceof Error ? error.message : "Please try again";
+      const isSessionMissing = message.toLowerCase().includes("sign in again");
+      if (isSessionMissing) {
+        toast({
+          title: "Session expired",
+          description: "Please sign in again to continue to checkout.",
+          variant: "destructive",
+        });
+        await logout();
+      } else {
+        toast({
+          title: "Checkout failed",
+          description: message,
+          variant: "destructive",
+        });
+      }
       setCheckoutLoading(false);
     }
   };
