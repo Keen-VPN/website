@@ -29,7 +29,7 @@ const Subscribe = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, signIn, logout, subscription } = useAuth();
+  const { user, loading, isAuthenticating, signIn, logout, subscription } = useAuth();
   const [sessionInvalidHandled, setSessionInvalidHandled] = useState(false);
 
   // Get URL parameters
@@ -56,16 +56,24 @@ const Subscribe = () => {
 
   // If user is signed in (Firebase) but has no backend session token, sign them out
   // so the sign-in card is shown and they can re-authenticate to get a fresh session.
+  // Skip while sign-in is in progress (isAuthenticating). After redirect (Apple/Google),
+  // onAuthStateChanged may still be calling the backend to get a session token, so we
+  // wait briefly before treating "no token" as expired; otherwise we'd flash "signed out".
   useEffect(() => {
-    if (loading || !user || sessionInvalidHandled) return;
+    if (loading || isAuthenticating || !user || sessionInvalidHandled) return;
     if (!getSessionToken()) {
-      const runLogout = async () => {
-        await handleSessionExpiredAndLogout();
-        setSessionInvalidHandled(true);
-      };
-      runLogout();
+      const timeoutId = window.setTimeout(() => {
+        if (!getSessionToken()) {
+          const runLogout = async () => {
+            await handleSessionExpiredAndLogout();
+            setSessionInvalidHandled(true);
+          };
+          runLogout();
+        }
+      }, 2000);
+      return () => clearTimeout(timeoutId);
     }
-  }, [user, loading, sessionInvalidHandled, logout, toast]);
+  }, [user, loading, isAuthenticating, sessionInvalidHandled, logout, toast]);
 
   // Reset so we can run the invalid-session flow again if they later end up without a token.
   useEffect(() => {

@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -10,6 +10,7 @@ import {
   onAuthStateChanged,
   mapFirebaseError,
   authenticateWithBackend,
+  loginWithFirebaseToken,
   verifySessionToken,
   storeSessionToken,
   getSessionToken,
@@ -26,6 +27,7 @@ interface AuthContextType {
   user: FirebaseUser | null;
   subscription: SubscriptionData | null;
   loading: boolean;
+  isAuthenticating: boolean;
   signIn: (provider?: 'google' | 'apple') => Promise<{ success: boolean; shouldRedirect?: string }>;
   logout: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
@@ -42,6 +44,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  /** Guards against duplicate authenticateWithBackend calls (signIn + onAuthStateChanged or double-click). */
+  const backendAuthInProgressRef = useRef(false);
   const { toast } = useToast();
 
   // Check if user came from ASWebAuthenticationSession (macOS desktop app)
@@ -170,18 +174,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
           }
 
-          // Authenticate with backend
-          const backendResponse = await authenticateWithBackend(
-            accessToken,
-            providerType,
-            providerType === 'apple' ? {
-              userIdentifier: appleUserId,
-              email: redirectResult.user.email || undefined,
-              fullName: redirectResult.user.displayName || undefined
-            } : undefined
-          );
+          // Authenticate with backend (guard against duplicate call from onAuthStateChanged)
+          if (backendAuthInProgressRef.current) return;
+          backendAuthInProgressRef.current = true;
+          let backendResponse: Awaited<ReturnType<typeof authenticateWithBackend>>;
+          try {
+            backendResponse = await authenticateWithBackend(
+              accessToken,
+              providerType,
+              providerType === 'apple' ? {
+                userIdentifier: appleUserId,
+                email: redirectResult.user.email || undefined,
+                fullName: redirectResult.user.displayName || undefined
+              } : undefined
+            );
+          } finally {
+            backendAuthInProgressRef.current = false;
+          }
 
-          if (backendResponse.success && backendResponse.sessionToken) {
+          if (backendResponse!.success && backendResponse!.sessionToken) {
             storeSessionToken(backendResponse.sessionToken);
             setSubscription(backendResponse.subscription || null);
 
@@ -209,7 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
             return;
-          } else if (backendResponse.error?.includes('recently deleted')) {
+          } else if (backendResponse!.error?.includes('recently deleted')) {
             // Handle case where user account was deleted but Firebase auth is still active
             console.log('🚨 Account was recently deleted, clearing Firebase auth and redirecting to sign-in');
 
@@ -307,29 +318,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const sessionToken = getSessionToken();
           if (sessionToken) {
             await fetchSubscriptionFromBackend(sessionToken);
-          } else {
-            // Firebase user exists but no backend session — authenticate now.
-            // This handles redirect flows where getRedirectResult() returned null
-            // (e.g., ASWebAuthenticationSession storage isolation).
+          } else if (!backendAuthInProgressRef.current) {
+            // Firebase user exists but no backend session — get session via login (Firebase token).
+            // Use /auth/login, not provider signin: we have a Firebase ID token here, and
+            // /auth/apple/signin expects an Apple identity token, so sending Firebase token there is wrong.
+            backendAuthInProgressRef.current = true;
             try {
               const idToken = await firebaseUser.getIdToken();
-              const providerData = firebaseUser.providerData?.[0];
-              const providerType = providerData?.providerId?.includes('apple') ? 'apple' : 'google';
-
-              const backendResponse = await authenticateWithBackend(
-                idToken,
-                providerType,
-                providerType === 'apple' ? {
-                  email: firebaseUser.email || undefined,
-                  fullName: firebaseUser.displayName || undefined
-                } : undefined
-              );
+              const backendResponse = await loginWithFirebaseToken(idToken);
 
               if (backendResponse.success && backendResponse.sessionToken) {
                 storeSessionToken(backendResponse.sessionToken);
                 setSubscription(backendResponse.subscription || null);
 
-                // Redirect from signin page
                 if (window.location.pathname === '/signin') {
                   if (isASWebSession()) {
                     window.location.href = '/account?asweb=1';
@@ -339,10 +340,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   }
                   return;
                 }
-
               }
             } catch (err) {
               console.error('Failed to sync Firebase user with backend:', err);
+            } finally {
+              backendAuthInProgressRef.current = false;
             }
           }
         } else if (!firebaseUser) {
@@ -407,12 +409,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false };
       }
 
+      // Claim backend auth immediately so onAuthStateChanged won't also call the API
+      backendAuthInProgressRef.current = true;
+
       // Set user immediately for UI update
       setUser(result.user);
 
       // Get access token for backend
       const accessToken = result.accessToken;
       if (!accessToken) {
+        backendAuthInProgressRef.current = false;
         toast({
           title: "Authentication Error",
           description: "No access token received. Please try again.",
@@ -483,17 +489,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Checking subscription status...",
       });
 
-      // Authenticate with backend (WAIT for response to check subscription)
-      const backendResponse = await authenticateWithBackend(
-        accessToken,
-        providerType,
-        providerType === 'apple' ? {
-          // Additional Apple data logic is handled inside authenticateWithBackend helper or requires complex extraction here
-          // For simplicity in this callback wrap, passing undefined for optional fields if not readily available
-          email: result.user.email || undefined,
-          fullName: result.user.displayName || undefined
-        } : undefined
-      );
+      // If ref is false here, onAuthStateChanged already ran and completed (set ref, called API, cleared in finally).
+      // Skip our call to avoid duplicate request; sync subscription and redirect like the listener would.
+      if (!backendAuthInProgressRef.current) {
+        const token = getSessionToken();
+        if (token) {
+          try {
+            const response = await verifySessionToken(token);
+            if (response.success && response.subscription) setSubscription(response.subscription);
+            if (response.success && window.location.pathname === '/signin') {
+              const hasActive = response.subscription?.status === 'active';
+              window.location.href = hasActive ? '/account' : '/subscribe';
+              setIsAuthenticating(false);
+              return { success: true };
+            }
+          } catch {
+            // ignore
+          }
+        }
+        setIsAuthenticating(false);
+        return { success: true };
+      }
+
+      let backendResponse: Awaited<ReturnType<typeof authenticateWithBackend>>;
+      try {
+        backendResponse = await authenticateWithBackend(
+          accessToken,
+          providerType,
+          providerType === 'apple' ? {
+            email: result.user.email || undefined,
+            fullName: result.user.displayName || undefined
+          } : undefined
+        );
+      } finally {
+        backendAuthInProgressRef.current = false;
+      }
 
       if (backendResponse.success && backendResponse.sessionToken) {
         storeSessionToken(backendResponse.sessionToken);
@@ -615,10 +645,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     subscription,
     loading,
+    isAuthenticating,
     signIn,
     logout,
     refreshSubscription,
-  }), [user, subscription, loading, signIn, logout, refreshSubscription]);
+  }), [user, subscription, loading, isAuthenticating, signIn, logout, refreshSubscription]);
 
   return (
     <AuthContext.Provider value={value}>

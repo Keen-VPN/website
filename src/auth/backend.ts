@@ -2,15 +2,43 @@ import { BackendAuthResponse } from "./types";
 
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
-// export const BACKEND_URL = 'http://localhost:3003/api';
 
 // ============================================================================
 // Backend Authentication
 // ============================================================================
 
 /**
- * Authenticate with backend using Google OAuth access token
- * Backend will verify token, create/update user, and return session token
+ * Login with Firebase ID token. Use this when you have a Firebase user and need
+ * a backend session (e.g. from onAuthStateChanged). Works for any provider (Google/Apple).
+ * Do not send Firebase token to /auth/apple/signin — that endpoint expects an Apple identity token.
+ */
+export async function loginWithFirebaseToken(
+  idToken: string,
+): Promise<BackendAuthResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Login failed");
+    }
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to authenticate",
+    };
+  }
+}
+
+/**
+ * Authenticate with backend using provider-specific token:
+ * - Google: pass Firebase ID token (backend /auth/google/signin).
+ * - Apple: pass Apple identity token (backend /auth/apple/signin). Do not pass Firebase token.
  */
 export async function authenticateWithBackend(
   accessToken: string,
