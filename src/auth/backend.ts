@@ -132,10 +132,11 @@ export async function cancelSubscription(
 }
 
 /**
- * Create Stripe checkout session
+ * Create Stripe checkout session.
+ * Uses the backend session token (from login/Apple sign-in), not the Firebase ID token.
  */
 export async function createCheckoutSession(
-  idToken: string,
+  sessionToken: string,
   planId: string,
   successUrl?: string,
   cancelUrl?: string,
@@ -145,7 +146,7 @@ export async function createCheckoutSession(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${idToken}`,
+        "Authorization": `Bearer ${sessionToken}`,
       },
       body: JSON.stringify({
         planId,
