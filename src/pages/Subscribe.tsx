@@ -17,6 +17,8 @@ import Footer from "@/components/Footer";
 import {
   fetchSubscriptionPlanById,
   createCheckoutSession,
+  getSessionToken,
+  CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
 import { enterprisePlan } from "@/constants/pricing";
 
@@ -27,10 +29,50 @@ const Subscribe = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, signIn, subscription } = useAuth();
+  const { user, loading, signIn, logout, subscription } = useAuth();
+  const [sessionInvalidHandled, setSessionInvalidHandled] = useState(false);
 
   // Get URL parameters
   const planIdParam = searchParams.get("planId");
+
+  // Single place for "session expired" flow: show one toast and attempt logout without rethrowing,
+  // so the outer catch never runs and we avoid double toasts.
+  const handleSessionExpiredAndLogout = async (): Promise<void> => {
+    toast({
+      title: "Session expired",
+      description: "Please sign in again to continue to checkout.",
+      variant: "destructive",
+    });
+    try {
+      await logout();
+    } catch {
+      toast({
+        title: "Sign out failed",
+        description: "Please try again or refresh the page.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // If user is signed in (Firebase) but has no backend session token, sign them out
+  // so the sign-in card is shown and they can re-authenticate to get a fresh session.
+  useEffect(() => {
+    if (loading || !user || sessionInvalidHandled) return;
+    if (!getSessionToken()) {
+      const runLogout = async () => {
+        await handleSessionExpiredAndLogout();
+        setSessionInvalidHandled(true);
+      };
+      runLogout();
+    }
+  }, [user, loading, sessionInvalidHandled, logout, toast]);
+
+  // Reset so we can run the invalid-session flow again if they later end up without a token.
+  useEffect(() => {
+    if (user && getSessionToken()) {
+      setSessionInvalidHandled(false);
+    }
+  }, [user]);
 
   // Fetch the specific plan by ID
   useEffect(() => {
@@ -111,29 +153,35 @@ const Subscribe = () => {
         throw new Error("Plan ID is required");
       }
 
-      const idToken = await user.getIdToken();
+      const sessionToken = getSessionToken();
 
-      if (!idToken) {
-        throw new Error("No ID token found");
+      if (!sessionToken) {
+        await handleSessionExpiredAndLogout();
+        setCheckoutLoading(false);
+        return;
       }
 
       const successUrl = `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}`;
       const cancelUrl = `${window.location.origin}/pricing`;
 
-      const { success, url, error } = await createCheckoutSession(
-        idToken,
+      const result = await createCheckoutSession(
+        sessionToken,
         planId,
         successUrl,
         cancelUrl
       );
 
-      if (!success) {
-        throw new Error(error || "Failed to create checkout session");
+      if (!result.success) {
+        if (result.errorCode === CHECKOUT_ERROR_SESSION_EXPIRED) {
+          await handleSessionExpiredAndLogout();
+          setCheckoutLoading(false);
+          return;
+        }
+        throw new Error(result.error || "Failed to create checkout session");
       }
 
-      if (url) {
-        // Redirect to Stripe Checkout
-        window.location.href = url;
+      if (result.url) {
+        window.location.href = result.url;
       } else {
         throw new Error("No checkout URL received");
       }
