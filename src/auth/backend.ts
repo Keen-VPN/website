@@ -131,16 +131,28 @@ export async function cancelSubscription(
   }
 }
 
+/** Sentinel error code when checkout fails due to expired/invalid session (e.g. 401). */
+export const CHECKOUT_ERROR_SESSION_EXPIRED = "SESSION_EXPIRED" as const;
+
+export type CreateCheckoutResult =
+  | { success: true; url: string }
+  | {
+      success: false;
+      error: string;
+      errorCode?: typeof CHECKOUT_ERROR_SESSION_EXPIRED;
+    };
+
 /**
  * Create Stripe checkout session.
  * Uses the backend session token (from login/Apple sign-in), not the Firebase ID token.
+ * Returns errorCode CHECKOUT_ERROR_SESSION_EXPIRED when the backend returns 401.
  */
 export async function createCheckoutSession(
   sessionToken: string,
   planId: string,
   successUrl?: string,
   cancelUrl?: string,
-): Promise<{ success: boolean; url?: string; error?: string }> {
+): Promise<CreateCheckoutResult> {
   try {
     const response = await fetch(`${BACKEND_URL}/payment/stripe/checkout`, {
       method: "POST",
@@ -155,13 +167,29 @@ export async function createCheckoutSession(
       }),
     });
 
-    const data = await response.json();
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      url?: string;
+      error?: string;
+    };
 
     if (!response.ok) {
-      throw new Error(data.error || "Failed to create checkout session");
+      const errorMessage = data?.error || "Failed to create checkout session";
+      const isUnauthorized = response.status === 401;
+      return {
+        success: false,
+        error: errorMessage,
+        ...(isUnauthorized && { errorCode: CHECKOUT_ERROR_SESSION_EXPIRED }),
+      };
     }
 
-    return data;
+    if (data?.success && data?.url) {
+      return { success: true, url: data.url };
+    }
+    return {
+      success: false,
+      error: data?.error || "No checkout URL received",
+    };
   } catch (error) {
     return {
       success: false,

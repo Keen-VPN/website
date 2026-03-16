@@ -18,6 +18,7 @@ import {
   fetchSubscriptionPlanById,
   createCheckoutSession,
   getSessionToken,
+  CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
 import { enterprisePlan } from "@/constants/pricing";
 
@@ -39,13 +40,25 @@ const Subscribe = () => {
   useEffect(() => {
     if (loading || !user || sessionInvalidHandled) return;
     if (!getSessionToken()) {
-      setSessionInvalidHandled(true);
-      toast({
-        title: "Session expired",
-        description: "Please sign in again to continue to checkout.",
-        variant: "destructive",
-      });
-      logout();
+      const runLogout = async () => {
+        toast({
+          title: "Session expired",
+          description: "Please sign in again to continue to checkout.",
+          variant: "destructive",
+        });
+        try {
+          await logout();
+        } catch {
+          toast({
+            title: "Sign out failed",
+            description: "Please try again or refresh the page.",
+            variant: "destructive",
+          });
+        } finally {
+          setSessionInvalidHandled(true);
+        }
+      };
+      runLogout();
     }
   }, [user, loading, sessionInvalidHandled, logout, toast]);
 
@@ -144,41 +157,40 @@ const Subscribe = () => {
       const successUrl = `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}`;
       const cancelUrl = `${window.location.origin}/pricing`;
 
-      const { success, url, error } = await createCheckoutSession(
+      const result = await createCheckoutSession(
         sessionToken,
         planId,
         successUrl,
         cancelUrl
       );
 
-      if (!success) {
-        throw new Error(error || "Failed to create checkout session");
+      if (!result.success) {
+        if (result.errorCode === CHECKOUT_ERROR_SESSION_EXPIRED) {
+          toast({
+            title: "Session expired",
+            description: "Please sign in again to continue to checkout.",
+            variant: "destructive",
+          });
+          await logout();
+          setCheckoutLoading(false);
+          return;
+        }
+        throw new Error(result.error || "Failed to create checkout session");
       }
 
-      if (url) {
-        // Redirect to Stripe Checkout
-        window.location.href = url;
+      if (result.url) {
+        window.location.href = result.url;
       } else {
         throw new Error("No checkout URL received");
       }
     } catch (error) {
       console.error("Checkout error:", error);
-      const message = error instanceof Error ? error.message : "Please try again";
-      const isSessionMissing = message.toLowerCase().includes("sign in again");
-      if (isSessionMissing) {
-        toast({
-          title: "Session expired",
-          description: "Please sign in again to continue to checkout.",
-          variant: "destructive",
-        });
-        await logout();
-      } else {
-        toast({
-          title: "Checkout failed",
-          description: message,
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Checkout failed",
+        description:
+          error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
       setCheckoutLoading(false);
     }
   };
