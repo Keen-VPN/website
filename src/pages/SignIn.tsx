@@ -82,6 +82,7 @@ const SignIn = () => {
         title="Sign In — KeenVPN"
         description="Sign in to your KeenVPN account to manage your subscription and settings."
         canonical="https://vpnkeen.com/signin"
+        noIndex
       />
       <Header />
       <main className="flex-1 py-20 bg-gradient-hero">
