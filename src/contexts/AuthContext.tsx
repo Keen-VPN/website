@@ -511,6 +511,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const response = await verifySessionToken(token);
             if (!response.success) {
               clearSessionToken();
+              setSubscription(null);
               setIsAuthenticating(false);
               return { success: false };
             }
@@ -525,6 +526,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return { success: true };
           } catch {
             clearSessionToken();
+            setSubscription(null);
             setIsAuthenticating(false);
             return { success: false };
           }
