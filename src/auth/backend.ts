@@ -95,9 +95,8 @@ export async function authenticateWithBackend(
 
 /**
  * Verify session token with backend.
- * Returns unauthorized: true only when the backend returns HTTP 401.
- * A 200 response is returned as-is (callers should check success when applicable).
- * On network errors we return success: false without unauthorized so the client does not clear the session.
+ * Returns unauthorized: true when the backend rejects the token (HTTP 401 or 200 with success: false),
+ * so callers can clear the session. On network errors we return success: false without unauthorized.
  */
 export async function verifySessionToken(
   sessionToken: string,
@@ -116,6 +115,14 @@ export async function verifySessionToken(
     const data = await response.json().catch(() => ({}));
 
     if (response.ok) {
+      if (data?.success === false) {
+        return {
+          ...data,
+          success: false,
+          unauthorized: true,
+          error: data?.error ?? "Session verification failed",
+        };
+      }
       return data;
     }
     return {

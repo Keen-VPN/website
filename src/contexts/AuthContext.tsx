@@ -122,17 +122,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const accessToken = redirectResult.accessToken;
         if (accessToken) {
-          // Determine provider from user's provider data
-          const providerData = redirectResult.user.providerData?.[0];
-          const providerId = providerData?.providerId || '';
-          const providerType = providerId.includes('apple') ? 'apple' : 'google';
+          // Use provider from redirect result (derived from credential in firebase), not providerData[0] (wrong for linked accounts)
+          const providerType = redirectResult.providerUsed ?? (redirectResult.appleIdentityToken ? 'apple' : 'google');
+          const appleProviderData = providerType === 'apple' ? redirectResult.user.providerData?.find((p) => p?.providerId?.includes('apple')) : undefined;
 
-          // For Apple, extract the actual Apple user identifier from providerData
-          // Debug: Log all providerData to understand the structure
+          // For Apple, extract the actual Apple user identifier from the Apple provider entry
           if (providerType === 'apple') {
             console.log('🍎 Apple Sign-In - Full Provider Data:', {
               allProviderData: redirectResult.user.providerData,
-              firstProvider: redirectResult.user.providerData?.[0],
+              appleProvider: appleProviderData,
               firebaseUid: redirectResult.user.uid,
               email: redirectResult.user.email
             });
@@ -140,19 +138,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           // Extract Apple user ID - try multiple approaches
           let appleUserId = redirectResult.user.uid; // fallback
-          if (providerType === 'apple') {
-            if (providerData?.uid && providerData.uid !== redirectResult.user.uid) {
-              // providerData.uid is different from Firebase UID - this is likely the Apple user ID
-              appleUserId = providerData.uid;
-            } else if (providerData?.uid === redirectResult.user.uid) {
-              // providerData.uid is same as Firebase UID - this might not be the real Apple user ID
-              // Try to get it from the Firebase ID token instead
+          if (providerType === 'apple' && appleProviderData) {
+            if (appleProviderData.uid && appleProviderData.uid !== redirectResult.user.uid) {
+              appleUserId = appleProviderData.uid;
+            } else if (appleProviderData.uid === redirectResult.user.uid) {
               try {
                 const idTokenResult = await redirectResult.user.getIdTokenResult();
                 const customClaims = idTokenResult.claims;
                 console.log('🍎 Firebase ID Token Claims:', customClaims);
-
-                // Apple user ID might be in custom claims or we need to decode the token
                 if (customClaims.sub && customClaims.sub !== redirectResult.user.uid) {
                   appleUserId = customClaims.sub;
                 }
@@ -162,14 +155,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
 
-          // Log for debugging cross-platform matching
           if (providerType === 'apple') {
             console.log('🍎 Apple Sign-In - Final User Identifiers:', {
               firebaseUid: redirectResult.user.uid,
-              providerDataUid: providerData?.uid,
+              providerDataUid: appleProviderData?.uid,
               extractedAppleUserId: appleUserId,
               email: redirectResult.user.email,
-              providerId: providerId,
               isAppleUserIdExtracted: appleUserId !== redirectResult.user.uid
             });
           }
@@ -443,40 +434,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false };
       }
 
-      // Determine provider type - use parameter first, then detect from user data
-      const providerData = result.user.providerData?.[0];
-      const providerId = providerData?.providerId || '';
-      const detectedProvider = providerId.includes('apple') ? 'apple' : 'google';
+      // Use the sign-in provider parameter; do not infer from providerData[0] (wrong for linked accounts)
+      const providerType = provider;
+      const appleProviderData = providerType === 'apple' ? result.user.providerData?.find((p) => p?.providerId?.includes('apple')) : undefined;
 
-      // Use the provider parameter if it matches, otherwise use detected
-      const providerType = provider === detectedProvider ? provider : detectedProvider;
-
-      // For Apple, extract the actual Apple user identifier from providerData
-      // Debug: Log all providerData to understand the structure
       if (providerType === 'apple') {
         console.log('🍎 Apple Sign-In - Full Provider Data:', {
           allProviderData: result.user.providerData,
-          firstProvider: result.user.providerData?.[0],
+          appleProvider: appleProviderData,
           firebaseUid: result.user.uid,
           email: result.user.email
         });
       }
 
-      // Extract Apple user ID - try multiple approaches
+      // Extract Apple user ID from the Apple provider entry only
       let appleUserId = result.user.uid; // fallback
-      if (providerType === 'apple') {
-        if (providerData?.uid && providerData.uid !== result.user.uid) {
-          // providerData.uid is different from Firebase UID - this is likely the Apple user ID
-          appleUserId = providerData.uid;
-        } else if (providerData?.uid === result.user.uid) {
-          // providerData.uid is same as Firebase UID - this might not be the real Apple user ID
-          // Try to get it from the Firebase ID token instead
+      if (providerType === 'apple' && appleProviderData) {
+        if (appleProviderData.uid && appleProviderData.uid !== result.user.uid) {
+          appleUserId = appleProviderData.uid;
+        } else if (appleProviderData.uid === result.user.uid) {
           try {
             const idTokenResult = await result.user.getIdTokenResult();
             const customClaims = idTokenResult.claims;
             console.log('🍎 Firebase ID Token Claims:', customClaims);
-
-            // Apple user ID might be in custom claims or we need to decode the token
             if (customClaims.sub && customClaims.sub !== result.user.uid) {
               appleUserId = customClaims.sub;
             }
@@ -486,14 +466,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Log for debugging cross-platform matching
       if (providerType === 'apple') {
         console.log('🍎 Apple Sign-In - Final User Identifiers:', {
           firebaseUid: result.user.uid,
-          providerDataUid: providerData?.uid,
+          providerDataUid: appleProviderData?.uid,
           extractedAppleUserId: appleUserId,
           email: result.user.email,
-          providerId: providerId,
           isAppleUserIdExtracted: appleUserId !== result.user.uid
         });
       }

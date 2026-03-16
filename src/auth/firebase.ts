@@ -114,17 +114,16 @@ export async function checkRedirectResult(): Promise<SignInResult | null> {
     const result = await getRedirectResult(authInstance);
 
     if (result) {
-      // Try to get credential from either Google or Apple
-      let credential = GoogleAuthProvider.credentialFromResult(result);
-      if (!credential) {
-        credential = OAuthProvider.credentialFromResult(result);
-      }
+      // Determine provider from credential source, not providerData[0] (wrong for linked accounts)
+      const googleCred = GoogleAuthProvider.credentialFromResult(result);
+      const oauthCred = OAuthProvider.credentialFromResult(result);
+      const credential = googleCred ?? oauthCred;
+      const isApple = !!oauthCred;
 
       let accessToken = credential?.accessToken || credential?.idToken;
       if (!accessToken && result.user) {
         accessToken = await result.user.getIdToken();
       }
-      const isApple = result.user.providerData?.[0]?.providerId?.includes('apple');
       const appleIdentityToken = isApple ? (credential as { idToken?: string } | null)?.idToken : undefined;
 
       return {
@@ -133,6 +132,7 @@ export async function checkRedirectResult(): Promise<SignInResult | null> {
         credential,
         accessToken,
         appleIdentityToken,
+        providerUsed: isApple ? 'apple' : 'google',
         usedRedirect: true
       };
     }
@@ -280,6 +280,8 @@ export interface SignInResult {
   accessToken?: string;
   /** When signing in with Apple: the raw Apple identity token (JWT). If missing, accessToken is a Firebase ID token — use /auth/login, not /auth/apple/signin. */
   appleIdentityToken?: string;
+  /** Set on redirect result: which provider was used. Do not rely on providerData[0] for linked accounts. */
+  providerUsed?: 'apple' | 'google';
   error?: AuthError;
   usedRedirect?: boolean;
 }
