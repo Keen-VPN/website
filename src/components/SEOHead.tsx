@@ -12,7 +12,7 @@ interface SEOHeadProps {
 const SEOHead = ({ title, description, canonical, ogTitle, ogDescription, noIndex }: SEOHeadProps) => {
   return (
     <Helmet>
-      {noIndex && <meta name="robots" content="noindex, nofollow" />}
+      {noIndex && <meta name="robots" content="noindex" />}
       <title>{title}</title>
       <meta name="description" content={description} />
       <link rel="canonical" href={canonical} />

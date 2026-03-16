@@ -19,6 +19,12 @@ import { PricingPlan } from "@/lib/pricing";
 import SEOHead from "@/components/SEOHead";
 
 const Pricing = () => {
+  const pricingSEOProps = {
+    title: "KeenVPN Pricing — Affordable VPN Plans for iOS & macOS",
+    description: "Choose a KeenVPN plan that fits your needs. Simple, transparent pricing with monthly and annual options. Start with a free trial today.",
+    canonical: "https://vpnkeen.com/pricing",
+  } as const;
+
   const navigate = useNavigate();
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
     "annual",
@@ -54,11 +60,7 @@ const Pricing = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <SEOHead
-        title="KeenVPN Pricing — Affordable VPN Plans for iOS & macOS"
-        description="Choose a KeenVPN plan that fits your needs. Simple, transparent pricing with monthly and annual options. Start with a free trial today."
-        canonical="https://vpnkeen.com/pricing"
-      />
+        <SEOHead {...pricingSEOProps} />
         <Header />
         <main className="pt-24 pb-20">
           <div className="container mx-auto px-4 text-center">
@@ -74,11 +76,7 @@ const Pricing = () => {
 
   return (
     <div className="min-h-screen bg-background">
-        <SEOHead
-          title="KeenVPN Pricing — Affordable VPN Plans for iOS & macOS"
-          description="Choose a KeenVPN plan that fits your needs. Simple, transparent pricing with monthly and annual options. Start with a free trial today."
-          canonical="https://vpnkeen.com/pricing"
-        />
+      <SEOHead {...pricingSEOProps} />
       <Header />
 
       <main className="pt-24 pb-20">
