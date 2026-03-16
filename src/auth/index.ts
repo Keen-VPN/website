@@ -21,6 +21,7 @@ export {
 
 export {
   authenticateWithBackend,
+  loginWithFirebaseToken,
   verifySessionToken,
   cancelSubscription,
   createCheckoutSession,

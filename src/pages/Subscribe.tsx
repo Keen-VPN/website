@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +29,7 @@ const Subscribe = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, signIn, logout, subscription } = useAuth();
+  const { user, loading, isAuthenticating, signIn, logout, subscription } = useAuth();
   const [sessionInvalidHandled, setSessionInvalidHandled] = useState(false);
 
   // Get URL parameters
@@ -37,7 +37,7 @@ const Subscribe = () => {
 
   // Single place for "session expired" flow: show one toast and attempt logout without rethrowing,
   // so the outer catch never runs and we avoid double toasts.
-  const handleSessionExpiredAndLogout = async (): Promise<void> => {
+  const handleSessionExpiredAndLogout = useCallback(async (): Promise<void> => {
     toast({
       title: "Session expired",
       description: "Please sign in again to continue to checkout.",
@@ -52,20 +52,29 @@ const Subscribe = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [toast, logout]);
 
   // If user is signed in (Firebase) but has no backend session token, sign them out
   // so the sign-in card is shown and they can re-authenticate to get a fresh session.
+  // Skip while sign-in is in progress (isAuthenticating). After redirect (Apple/Google),
+  // the backend call (apple/signin or login) can take several seconds (e.g. Apple key fetch),
+  // so we wait long enough before treating "no token" as expired to avoid logging out mid-sign-in.
+  const SESSION_EXPIRED_CHECK_DELAY_MS = 10_000;
   useEffect(() => {
-    if (loading || !user || sessionInvalidHandled) return;
+    if (loading || isAuthenticating || !user || sessionInvalidHandled) return;
     if (!getSessionToken()) {
-      const runLogout = async () => {
-        await handleSessionExpiredAndLogout();
-        setSessionInvalidHandled(true);
-      };
-      runLogout();
+      const timeoutId = window.setTimeout(() => {
+        if (!getSessionToken()) {
+          const runLogout = async () => {
+            await handleSessionExpiredAndLogout();
+            setSessionInvalidHandled(true);
+          };
+          runLogout();
+        }
+      }, SESSION_EXPIRED_CHECK_DELAY_MS);
+      return () => clearTimeout(timeoutId);
     }
-  }, [user, loading, sessionInvalidHandled, logout, toast]);
+  }, [user, loading, isAuthenticating, sessionInvalidHandled, handleSessionExpiredAndLogout]);
 
   // Reset so we can run the invalid-session flow again if they later end up without a token.
   useEffect(() => {
