@@ -170,6 +170,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
           }
 
+          // Get Firebase ID token for linking (Apple users need this to set firebaseUid)
+          let firebaseToken: string | undefined;
+          if (providerType === 'apple' && redirectResult.user) {
+            try {
+              firebaseToken = await redirectResult.user.getIdToken();
+            } catch {
+              // Firebase token linking is optional — don't block sign-in
+            }
+          }
+
           // Authenticate with backend
           const backendResponse = await authenticateWithBackend(
             accessToken,
@@ -177,7 +187,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             providerType === 'apple' ? {
               userIdentifier: appleUserId,
               email: redirectResult.user.email || undefined,
-              fullName: redirectResult.user.displayName || undefined
+              fullName: redirectResult.user.displayName || undefined,
+              firebaseToken,
             } : undefined
           );
 
@@ -316,12 +327,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const providerData = firebaseUser.providerData?.[0];
               const providerType = providerData?.providerId?.includes('apple') ? 'apple' : 'google';
 
+              // Extract Apple user ID from provider data
+              let appleUserIdentifier: string | undefined;
+              if (providerType === 'apple' && providerData?.uid) {
+                appleUserIdentifier = providerData.uid;
+              }
+
               const backendResponse = await authenticateWithBackend(
                 idToken,
                 providerType,
                 providerType === 'apple' ? {
+                  userIdentifier: appleUserIdentifier,
                   email: firebaseUser.email || undefined,
-                  fullName: firebaseUser.displayName || undefined
+                  fullName: firebaseUser.displayName || undefined,
+                  firebaseToken: idToken,
                 } : undefined
               );
 
@@ -483,15 +502,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Checking subscription status...",
       });
 
+      // Get Firebase ID token for linking (Apple users need this to set firebaseUid)
+      let firebaseToken: string | undefined;
+      if (providerType === 'apple' && result.user) {
+        try {
+          firebaseToken = await result.user.getIdToken();
+        } catch {
+          // Firebase token linking is optional — don't block sign-in
+        }
+      }
+
       // Authenticate with backend (WAIT for response to check subscription)
       const backendResponse = await authenticateWithBackend(
         accessToken,
         providerType,
         providerType === 'apple' ? {
-          // Additional Apple data logic is handled inside authenticateWithBackend helper or requires complex extraction here
-          // For simplicity in this callback wrap, passing undefined for optional fields if not readily available
+          userIdentifier: appleUserId,
           email: result.user.email || undefined,
-          fullName: result.user.displayName || undefined
+          fullName: result.user.displayName || undefined,
+          firebaseToken,
         } : undefined
       );
 

@@ -19,6 +19,7 @@ export async function authenticateWithBackend(
     userIdentifier?: string;
     email?: string;
     fullName?: string;
+    firebaseToken?: string;
   },
 ): Promise<BackendAuthResponse> {
   try {
@@ -32,6 +33,9 @@ export async function authenticateWithBackend(
               additionalData?.userIdentifier || accessToken.substring(0, 20),
             email: additionalData?.email,
             fullName: additionalData?.fullName,
+            ...(additionalData?.firebaseToken && {
+              firebaseToken: additionalData.firebaseToken,
+            }),
           }
         : {
             idToken: accessToken, // Backend expects 'idToken' parameter for Google
@@ -135,7 +139,7 @@ export async function cancelSubscription(
  * Create Stripe checkout session
  */
 export async function createCheckoutSession(
-  idToken: string,
+  sessionToken: string,
   planId: string,
   successUrl?: string,
   cancelUrl?: string,
@@ -145,7 +149,7 @@ export async function createCheckoutSession(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${idToken}`,
+        "Authorization": `Bearer ${sessionToken}`,
       },
       body: JSON.stringify({
         planId,
