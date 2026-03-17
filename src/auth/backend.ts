@@ -94,7 +94,8 @@ export async function authenticateWithBackend(
 
 /**
  * Verify session token with backend.
- * Returns unauthorized: true when the backend rejects the token (HTTP 401 or 200 with success: false),
+ * Returns unauthorized: true when the backend explicitly rejects the token
+ * (HTTP 401, or 200 with { success: false, unauthorized: true } in the body),
  * so callers can clear the session. On network errors we return success: false without unauthorized.
  */
 export async function verifySessionToken(
@@ -118,7 +119,7 @@ export async function verifySessionToken(
         return {
           ...data,
           success: false,
-          unauthorized: true,
+          unauthorized: data?.unauthorized === true,
           error: data?.error ?? "Session verification failed",
         };
       }
