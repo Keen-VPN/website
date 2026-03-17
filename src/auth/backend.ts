@@ -25,7 +25,9 @@ export async function loginWithFirebaseToken(
     if (!response.ok) {
       throw new Error(data.error || "Login failed");
     }
-    return data;
+    // Backend /auth/login doesn't currently include `success` (unlike /auth/apple/signin).
+    // Default to true only when absent so a future explicit `success: false` is respected.
+    return { ...data, success: data.success ?? true };
   } catch (error) {
     return {
       success: false,
@@ -56,8 +58,7 @@ export async function authenticateWithBackend(
       provider === "apple"
         ? {
             identityToken: accessToken,
-            userIdentifier:
-              additionalData?.userIdentifier || accessToken.substring(0, 20),
+            userIdentifier: additionalData?.userIdentifier,
             email: additionalData?.email,
             fullName: additionalData?.fullName,
           }
@@ -92,7 +93,10 @@ export async function authenticateWithBackend(
 }
 
 /**
- * Verify session token with backend
+ * Verify session token with backend.
+ * Returns unauthorized: true when the backend explicitly rejects the token
+ * (HTTP 401, or 200 with { success: false, unauthorized: true } in the body),
+ * so callers can clear the session. On network errors we return success: false without unauthorized.
  */
 export async function verifySessionToken(
   sessionToken: string,
@@ -108,18 +112,30 @@ export async function verifySessionToken(
       }),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
-    if (!response.ok) {
-      throw new Error(data.error || "Session verification failed");
+    if (response.ok) {
+      if (data?.success === false) {
+        return {
+          ...data,
+          success: false,
+          unauthorized: data?.unauthorized === true,
+          error: data?.error ?? "Session verification failed",
+        };
+      }
+      return { ...data, success: data.success ?? true };
     }
-
-    return data;
+    return {
+      success: false,
+      error: data?.error || "Session verification failed",
+      unauthorized: response.status === 401,
+    };
   } catch (error) {
     return {
       success: false,
       error:
         error instanceof Error ? error.message : "Failed to verify session",
+      unauthorized: false,
     };
   }
 }

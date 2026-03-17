@@ -59,12 +59,14 @@ const Subscribe = () => {
   // Skip while sign-in is in progress (isAuthenticating). After redirect (Apple/Google),
   // the backend call (apple/signin or login) can take several seconds (e.g. Apple key fetch),
   // so we wait long enough before treating "no token" as expired to avoid logging out mid-sign-in.
+  // Also skip when we have subscription: we just got a valid session (login/verify), so token
+  // may not be visible yet due to timing; never log out in that case.
   const SESSION_EXPIRED_CHECK_DELAY_MS = 10_000;
   useEffect(() => {
-    if (loading || isAuthenticating || !user || sessionInvalidHandled) return;
+    if (loading || isAuthenticating || !user || sessionInvalidHandled || subscription) return;
     if (!getSessionToken()) {
       const timeoutId = window.setTimeout(() => {
-        if (!getSessionToken()) {
+        if (!getSessionToken() && !subscription) {
           const runLogout = async () => {
             await handleSessionExpiredAndLogout();
             setSessionInvalidHandled(true);
@@ -74,7 +76,7 @@ const Subscribe = () => {
       }, SESSION_EXPIRED_CHECK_DELAY_MS);
       return () => clearTimeout(timeoutId);
     }
-  }, [user, loading, isAuthenticating, sessionInvalidHandled, handleSessionExpiredAndLogout]);
+  }, [user, loading, isAuthenticating, sessionInvalidHandled, subscription, handleSessionExpiredAndLogout]);
 
   // Reset so we can run the invalid-session flow again if they later end up without a token.
   useEffect(() => {
