@@ -525,7 +525,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           backendResponse = await authenticateWithBackend(
             result.appleIdentityToken,
             'apple',
-            { email: result.user.email || undefined, fullName: result.user.displayName || undefined }
+            { userIdentifier: appleUserId, email: result.user.email || undefined, fullName: result.user.displayName || undefined }
           );
         } else {
           backendResponse = await authenticateWithBackend(
