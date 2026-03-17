@@ -25,9 +25,9 @@ export async function loginWithFirebaseToken(
     if (!response.ok) {
       throw new Error(data.error || "Login failed");
     }
-    // Backend /auth/login doesn't include `success` in its response (unlike /auth/apple/signin).
-    // Callers check `backendResponse.success && backendResponse.sessionToken` before storing.
-    return { success: true, ...data };
+    // Backend /auth/login doesn't currently include `success` (unlike /auth/apple/signin).
+    // Default to true only when absent so a future explicit `success: false` is respected.
+    return { ...data, success: data.success ?? true };
   } catch (error) {
     return {
       success: false,
