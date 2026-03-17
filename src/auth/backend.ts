@@ -123,7 +123,7 @@ export async function verifySessionToken(
           error: data?.error ?? "Session verification failed",
         };
       }
-      return data;
+      return { ...data, success: data.success ?? true };
     }
     return {
       success: false,
