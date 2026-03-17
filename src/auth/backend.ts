@@ -58,8 +58,7 @@ export async function authenticateWithBackend(
       provider === "apple"
         ? {
             identityToken: accessToken,
-            userIdentifier:
-              additionalData?.userIdentifier || accessToken.substring(0, 20),
+            userIdentifier: additionalData?.userIdentifier,
             email: additionalData?.email,
             fullName: additionalData?.fullName,
           }

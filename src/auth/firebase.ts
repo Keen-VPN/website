@@ -118,7 +118,7 @@ export async function checkRedirectResult(): Promise<SignInResult | null> {
       const googleCred = GoogleAuthProvider.credentialFromResult(result);
       const oauthCred = OAuthProvider.credentialFromResult(result);
       const credential = googleCred ?? oauthCred;
-      const isApple = !!oauthCred;
+      const isApple = credential?.providerId === 'apple.com';
 
       let accessToken = credential?.accessToken || credential?.idToken;
       if (!accessToken && result.user) {
