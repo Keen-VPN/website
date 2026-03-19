@@ -48,7 +48,7 @@ const Account = () => {
   const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, logout, subscription, refreshSubscription, backendProvider } =
+  const { user, loading, logout, subscription, refreshSubscription } =
     useAuth();
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
