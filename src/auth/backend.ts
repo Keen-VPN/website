@@ -14,12 +14,13 @@ export const BACKEND_URL =
  */
 export async function loginWithFirebaseToken(
   idToken: string,
+  provider?: 'google' | 'apple',
 ): Promise<BackendAuthResponse> {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken }),
+      body: JSON.stringify({ idToken, ...(provider ? { provider } : {}) }),
     });
     const data = await response.json();
     if (!response.ok) {

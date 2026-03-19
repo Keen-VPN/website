@@ -48,7 +48,7 @@ const Account = () => {
   const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, logout, subscription, refreshSubscription } =
+  const { user, loading, logout, subscription, refreshSubscription, backendProvider } =
     useAuth();
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
@@ -311,7 +311,9 @@ const Account = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Provider</p>
-                  <p className="font-medium">Google</p>
+                  <p className="font-medium">
+                    {user.providerData?.[0]?.providerId}
+                  </p>
                 </div>
                 <Button onClick={logout} variant="outline" className="w-full">
                   <LogOut className="h-4 w-4 mr-2" />
