@@ -1,17 +1,8 @@
 /* eslint-disable no-console */
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+
 import {
   signInWithGoogle,
   signInWithApple,
@@ -19,6 +10,7 @@ import {
   onAuthStateChanged,
   mapFirebaseError,
   authenticateWithBackend,
+  loginWithFirebaseToken,
   verifySessionToken,
   storeSessionToken,
   getSessionToken,
@@ -33,8 +25,10 @@ import {
 
 interface AuthContextType {
   user: FirebaseUser | null;
+  backendProvider: string | null;
   subscription: SubscriptionData | null;
   loading: boolean;
+  isAuthenticating: boolean;
   signIn: (provider?: 'google' | 'apple') => Promise<{ success: boolean; shouldRedirect?: string }>;
   logout: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
@@ -48,14 +42,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [backendProvider, setBackendProvider] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  /** Guards against duplicate authenticateWithBackend calls (signIn + onAuthStateChanged or double-click). */
+  const backendAuthInProgressRef = useRef(false);
+  /** Avoid repeated /auth/login calls when backend provider is missing/invalid. */
+  const providerSyncAttemptedForUidRef = useRef<string | null>(null);
   const { toast } = useToast();
-
-  // State for ASWebAuthenticationSession deeplink prompt
-  const [showDeeplinkPrompt, setShowDeeplinkPrompt] = useState(false);
-  const [pendingDeeplinkToken, setPendingDeeplinkToken] = useState<string | null>(null);
 
   // Check if user came from ASWebAuthenticationSession (macOS desktop app)
   const isASWebSession = () => {
@@ -71,37 +66,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
-  // Trigger deeplink after user confirms
-  const handleConfirmDeeplink = () => {
-    if (pendingDeeplinkToken) {
-      console.info('🔐 User confirmed - triggering deeplink');
-      window.location.href = `vpnkeen://auth?token=${pendingDeeplinkToken}`;
-      setShowDeeplinkPrompt(false);
-      setPendingDeeplinkToken(null);
-      sessionStorage.removeItem('asweb_session');
-    }
-  };
-
-  // Cancel deeplink prompt
-  const handleCancelDeeplink = () => {
-    console.info('🚫 User cancelled deeplink prompt');
-    setShowDeeplinkPrompt(false);
-    setPendingDeeplinkToken(null);
-    sessionStorage.removeItem('asweb_session');
-
-    // Redirect based on subscription status
-    const hasActiveSubscription = subscription && subscription.status === 'active';
-    if (hasActiveSubscription) {
-      if (window.location.pathname !== '/account') {
-        window.location.href = '/account';
-      }
-    } else {
-      if (window.location.pathname !== '/subscribe') {
-        window.location.href = '/subscribe';
-      }
-    }
-  };
-
   // ============================================================================
   // Subscription Management
   // ============================================================================
@@ -112,15 +76,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (response.success && response.subscription) {
         setSubscription(response.subscription);
-        return response.subscription;
+        setBackendProvider(response.user?.provider ?? null);
+        return response.user?.provider ?? null;
       } else {
         setSubscription(null);
-        return null;
+        setBackendProvider(response.user?.provider ?? null);
+        return response.user?.provider ?? null;
       }
     } catch {
       setSubscription(null);
+      setBackendProvider(null);
       return null;
     }
+  };
+
+  const inferProviderFromFirebase = (firebaseUser: FirebaseUser): 'google' | 'apple' => {
+    return firebaseUser.providerData?.some((p) => p?.providerId?.toLowerCase().includes('apple'))
+      ? 'apple'
+      : 'google';
   };
 
   // ============================================================================
@@ -137,6 +110,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Store flag in sessionStorage for later use (persists through redirects)
         sessionStorage.setItem('asweb_session', '1');
         console.info('🔐 ASWebAuthenticationSession detected - will auto-trigger deeplink after login');
+      } else if (window.location.pathname === '/signin' && !sessionStorage.getItem('auth_redirect_pending')) {
+        // Clear stale asweb_session when visiting /signin without ?asweb=1
+        // and no redirect is in progress. Prevents normal signin from
+        // incorrectly using the redirect flow.
+        sessionStorage.removeItem('asweb_session');
       }
 
       // Also check if we already have the flag in sessionStorage (in case URL param was lost during redirect)
@@ -157,17 +135,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const accessToken = redirectResult.accessToken;
         if (accessToken) {
-          // Determine provider from user's provider data
-          const providerData = redirectResult.user.providerData?.[0];
-          const providerId = providerData?.providerId || '';
-          const providerType = providerId.includes('apple') ? 'apple' : 'google';
+          // Use provider from redirect result (derived from credential in firebase), not providerData[0] (wrong for linked accounts)
+          const providerType = redirectResult.providerUsed ?? (redirectResult.appleIdentityToken ? 'apple' : 'google');
+          const appleProviderData = providerType === 'apple' ? redirectResult.user.providerData?.find((p) => p?.providerId?.includes('apple')) : undefined;
 
-          // For Apple, extract the actual Apple user identifier from providerData
-          // Debug: Log all providerData to understand the structure
+          // For Apple, extract the actual Apple user identifier from the Apple provider entry
           if (providerType === 'apple') {
             console.log('🍎 Apple Sign-In - Full Provider Data:', {
               allProviderData: redirectResult.user.providerData,
-              firstProvider: redirectResult.user.providerData?.[0],
+              appleProvider: appleProviderData,
               firebaseUid: redirectResult.user.uid,
               email: redirectResult.user.email
             });
@@ -175,19 +151,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           // Extract Apple user ID - try multiple approaches
           let appleUserId = redirectResult.user.uid; // fallback
-          if (providerType === 'apple') {
-            if (providerData?.uid && providerData.uid !== redirectResult.user.uid) {
-              // providerData.uid is different from Firebase UID - this is likely the Apple user ID
-              appleUserId = providerData.uid;
-            } else if (providerData?.uid === redirectResult.user.uid) {
-              // providerData.uid is same as Firebase UID - this might not be the real Apple user ID
-              // Try to get it from the Firebase ID token instead
+          if (providerType === 'apple' && appleProviderData) {
+            if (appleProviderData.uid && appleProviderData.uid !== redirectResult.user.uid) {
+              appleUserId = appleProviderData.uid;
+            } else if (appleProviderData.uid === redirectResult.user.uid) {
               try {
                 const idTokenResult = await redirectResult.user.getIdTokenResult();
                 const customClaims = idTokenResult.claims;
                 console.log('🍎 Firebase ID Token Claims:', customClaims);
-
-                // Apple user ID might be in custom claims or we need to decode the token
                 if (customClaims.sub && customClaims.sub !== redirectResult.user.uid) {
                   appleUserId = customClaims.sub;
                 }
@@ -197,83 +168,96 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
 
-          // Log for debugging cross-platform matching
           if (providerType === 'apple') {
             console.log('🍎 Apple Sign-In - Final User Identifiers:', {
               firebaseUid: redirectResult.user.uid,
-              providerDataUid: providerData?.uid,
+              providerDataUid: appleProviderData?.uid,
               extractedAppleUserId: appleUserId,
               email: redirectResult.user.email,
-              providerId: providerId,
               isAppleUserIdExtracted: appleUserId !== redirectResult.user.uid
             });
           }
 
-          // Authenticate with backend
-          const backendResponse = await authenticateWithBackend(
-            accessToken,
-            providerType,
-            providerType === 'apple' ? {
-              userIdentifier: appleUserId,
-              email: redirectResult.user.email || undefined,
-              fullName: redirectResult.user.displayName || undefined
-            } : undefined
-          );
+          // Authenticate with backend (guard against duplicate call from onAuthStateChanged).
+          // Only skip the backend call when ref is already true; never skip Steps 2/3 (listener setup).
+          if (!backendAuthInProgressRef.current) {
+            backendAuthInProgressRef.current = true;
+            let backendResponse: Awaited<ReturnType<typeof authenticateWithBackend>>;
+            try {
+              if (providerType === 'apple' && !redirectResult.appleIdentityToken) {
+                // Firebase token only — backend expects Apple JWT at /auth/apple/signin; use /auth/login instead.
+                backendResponse = await loginWithFirebaseToken(accessToken, providerType);
+              } else if (providerType === 'apple' && redirectResult.appleIdentityToken) {
+                backendResponse = await authenticateWithBackend(
+                  redirectResult.appleIdentityToken,
+                  'apple',
+                  { userIdentifier: appleUserId, email: redirectResult.user.email || undefined, fullName: redirectResult.user.displayName || undefined }
+                );
+              } else {
+                backendResponse = await authenticateWithBackend(
+                  accessToken,
+                  providerType,
+                  undefined
+                );
+              }
+            } finally {
+              backendAuthInProgressRef.current = false;
+            }
 
-          if (backendResponse.success && backendResponse.sessionToken) {
-            storeSessionToken(backendResponse.sessionToken);
-            setSubscription(backendResponse.subscription || null);
+            if (backendResponse?.success && backendResponse?.sessionToken) {
+              storeSessionToken(backendResponse.sessionToken);
+              setSubscription(backendResponse.subscription || null);
+              setBackendProvider(backendResponse.user?.provider ?? null);
 
-            // Check if this is from ASWebAuthenticationSession (macOS desktop app)
-            if (isASWebSession()) {
-              // Show prompt immediately - don't wait for other operations
-              console.log('🔐 ASWebAuthenticationSession (redirect) - showing deeplink prompt immediately');
-              setPendingDeeplinkToken(backendResponse.sessionToken);
-              // Use setTimeout to ensure modal appears in next tick for better UX
-              setTimeout(() => {
-                setShowDeeplinkPrompt(true);
-              }, 0);
+              // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+              if (isASWebSession()) {
+                if (window.location.pathname !== '/account') {
+                  console.log('🔐 ASWebAuthenticationSession (redirect) - redirecting to /account for manual deeplink');
+                  window.location.href = '/account?asweb=1';
+                }
+                return;
+              }
 
-              // Don't redirect - wait for user to confirm
+              // Normal web flow - redirect based on subscription status
+              const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
+
+              if (hasActiveSubscription) {
+                // User has active subscription - redirect to account page
+                if (window.location.pathname !== '/account') {
+                  window.location.href = '/account';
+                }
+              } else {
+                // User doesn't have active subscription - redirect to subscribe
+                if (window.location.pathname !== '/subscribe') {
+                  window.location.href = '/subscribe';
+                }
+              }
+              return;
+            } else if (backendResponse?.error?.includes('recently deleted')) {
+              // Handle case where user account was deleted but Firebase auth is still active
+              console.log('🚨 Account was recently deleted, clearing Firebase auth and redirecting to sign-in');
+
+              // Clear Firebase auth
+              const { signOut } = await import('@/auth');
+              await signOut();
+
+              // Clear session token
+              clearSessionToken();
+
+              // Clear user state
+              setUser(null);
+              setSubscription(null);
+              setBackendProvider(null);
+
+              // Show user-friendly message with exact time
+              alert(backendResponse.error);
+
+              // Redirect to sign-in page
+              window.location.href = '/signin';
               return;
             }
-
-            // Normal web flow - redirect based on subscription status
-            const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
-
-            if (hasActiveSubscription) {
-              // User has active subscription - redirect to account page
-              if (window.location.pathname !== '/account') {
-                window.location.href = '/account';
-              }
-            } else {
-              // User doesn't have active subscription - redirect to subscribe
-              if (window.location.pathname !== '/subscribe') {
-                window.location.href = '/subscribe';
-              }
-            }
-            return;
-          } else if (backendResponse.error?.includes('recently deleted')) {
-            // Handle case where user account was deleted but Firebase auth is still active
-            console.log('🚨 Account was recently deleted, clearing Firebase auth and redirecting to sign-in');
-
-            // Clear Firebase auth
-            const { signOut } = await import('@/auth');
-            await signOut();
-
-            // Clear session token
-            clearSessionToken();
-
-            // Clear user state
-            setUser(null);
-            setSubscription(null);
-
-            // Show user-friendly message with exact time
-            alert(backendResponse.error);
-
-            // Redirect to sign-in page
-            window.location.href = '/signin';
-            return;
+          } else {
+            setLoading(false);
           }
         }
       }
@@ -294,31 +278,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               displayName: response.user.name,
             } as FirebaseUser);
 
+            setBackendProvider(response.user.provider ?? null);
+
             if (response.subscription) {
               setSubscription(response.subscription);
             }
 
             // Check if this is from ASWebAuthenticationSession (macOS desktop app)
-            if (isASWebSession()) {
-              // If on account page, show deeplink modal immediately
-              if (window.location.pathname === '/account') {
-                console.log('🔐 ASWebSession detected - user on account page, showing deeplink prompt');
-                setPendingDeeplinkToken(sessionToken);
-                setTimeout(() => {
-                  setShowDeeplinkPrompt(true);
-                }, 0);
-                // Don't do anything else - let modal show
-                setLoading(false);
-                return;
-              }
-
-              // If on signin page and already logged in, redirect to account (which will show modal)
-              if (window.location.pathname === '/signin') {
-                console.log('🔐 ASWebSession detected - user already logged in on signin, redirecting to account');
-                window.location.href = '/account?asweb=1';
-                setLoading(false);
-                return;
-              }
+            if (isASWebSession() && window.location.pathname === '/signin') {
+              console.log('🔐 ASWebSession detected - user already logged in on signin, redirecting to account');
+              window.location.href = '/account?asweb=1';
+              setLoading(false);
+              return;
             }
 
             // Immediately redirect if on signin page (normal web flow)
@@ -333,13 +304,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             setLoading(false);
             return;
-          } else {
-            // Session token is invalid - clear it
+          }
+          if (response.unauthorized) {
+            // Backend explicitly rejected the token (401 or invalid) — clear session
             console.log('🚨 Invalid session token, clearing auth state');
             clearSessionToken();
+            setBackendProvider(null);
 
             // Also clear Firebase auth if user is still authenticated
-            // This handles the case where user was deleted from desktop but still has Firebase auth
             try {
               const { signOut } = await import('@/auth');
               await signOut();
@@ -347,9 +319,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } catch {
               // Ignore errors when clearing persistence
             }
-
-            setLoading(false);
           }
+          // On network error (success: false, unauthorized: false) we do not clear — keep session and let Firebase listener run
+          setLoading(false);
         } catch (error) {
           console.warn('⚠️ Failed to verify session token, falling back to Firebase auth listener:', error);
           setLoading(false);
@@ -363,10 +335,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(firebaseUser);
 
         if (firebaseUser && !isAuthenticating) {
-          // User is authenticated, fetch subscription
           const sessionToken = getSessionToken();
           if (sessionToken) {
-            await fetchSubscriptionFromBackend(sessionToken);
+            const providerFromTable = await fetchSubscriptionFromBackend(sessionToken);
+
+            // If the backend user table has an invalid/missing provider (e.g. '-'),
+            // re-sync it from the Firebase auth provider so Account displays correctly.
+            if (
+              (providerFromTable === null || providerFromTable === '-' || providerFromTable === 'unknown') &&
+              providerSyncAttemptedForUidRef.current !== firebaseUser.uid
+            ) {
+              providerSyncAttemptedForUidRef.current = firebaseUser.uid;
+              try {
+                const idToken = await firebaseUser.getIdToken();
+                const inferredProvider = inferProviderFromFirebase(firebaseUser);
+                const backendResponse = await loginWithFirebaseToken(idToken, inferredProvider);
+                if (backendResponse.success && backendResponse.sessionToken) {
+                  storeSessionToken(backendResponse.sessionToken);
+                  setSubscription(backendResponse.subscription || null);
+                  setBackendProvider(backendResponse.user?.provider ?? inferredProvider);
+                }
+              } catch {
+                // Best-effort: leave the UI showing whatever backend returned.
+              }
+            }
+          } else if (!backendAuthInProgressRef.current) {
+            // Firebase user exists but no backend session — get session via login (Firebase token).
+            // Use /auth/login, not provider signin: we have a Firebase ID token here, and
+            // /auth/apple/signin expects an Apple identity token, so sending Firebase token there is wrong.
+            backendAuthInProgressRef.current = true;
+            try {
+              const idToken = await firebaseUser.getIdToken();
+              const inferredProvider: 'google' | 'apple' =
+                firebaseUser.providerData?.some((p) =>
+                  p?.providerId?.toLowerCase().includes('apple'),
+                )
+                  ? 'apple'
+                  : 'google';
+              const backendResponse = await loginWithFirebaseToken(
+                idToken,
+                inferredProvider,
+              );
+
+              if (backendResponse.success && backendResponse.sessionToken) {
+                storeSessionToken(backendResponse.sessionToken);
+                setSubscription(backendResponse.subscription || null);
+                setBackendProvider(backendResponse.user?.provider ?? null);
+
+                if (window.location.pathname === '/signin') {
+                  if (isASWebSession()) {
+                    window.location.href = '/account?asweb=1';
+                  } else {
+                    const hasActive = backendResponse.subscription?.status === 'active';
+                    window.location.href = hasActive ? '/account' : '/subscribe';
+                  }
+                  return;
+                }
+              }
+            } catch (err) {
+              console.error('Failed to sync Firebase user with backend:', err);
+            } finally {
+              backendAuthInProgressRef.current = false;
+            }
           }
         } else if (!firebaseUser) {
           setSubscription(null);
@@ -430,12 +460,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false };
       }
 
+      // Claim backend auth so we don't duplicate the API call. Only set if not already
+      // claimed by onAuthStateChanged (which can fire before signInWith* Promise resolves).
+      const refAlreadyClaimed = backendAuthInProgressRef.current;
+      if (!refAlreadyClaimed) {
+        backendAuthInProgressRef.current = true;
+      }
+
       // Set user immediately for UI update
       setUser(result.user);
 
       // Get access token for backend
       const accessToken = result.accessToken;
       if (!accessToken) {
+        backendAuthInProgressRef.current = false;
         toast({
           title: "Authentication Error",
           description: "No access token received. Please try again.",
@@ -445,40 +483,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false };
       }
 
-      // Determine provider type - use parameter first, then detect from user data
-      const providerData = result.user.providerData?.[0];
-      const providerId = providerData?.providerId || '';
-      const detectedProvider = providerId.includes('apple') ? 'apple' : 'google';
+      // Use the sign-in provider parameter; do not infer from providerData[0] (wrong for linked accounts)
+      const providerType = provider;
+      const appleProviderData = providerType === 'apple' ? result.user.providerData?.find((p) => p?.providerId?.includes('apple')) : undefined;
 
-      // Use the provider parameter if it matches, otherwise use detected
-      const providerType = provider === detectedProvider ? provider : detectedProvider;
-
-      // For Apple, extract the actual Apple user identifier from providerData
-      // Debug: Log all providerData to understand the structure
       if (providerType === 'apple') {
         console.log('🍎 Apple Sign-In - Full Provider Data:', {
           allProviderData: result.user.providerData,
-          firstProvider: result.user.providerData?.[0],
+          appleProvider: appleProviderData,
           firebaseUid: result.user.uid,
           email: result.user.email
         });
       }
 
-      // Extract Apple user ID - try multiple approaches
+      // Extract Apple user ID from the Apple provider entry only
       let appleUserId = result.user.uid; // fallback
-      if (providerType === 'apple') {
-        if (providerData?.uid && providerData.uid !== result.user.uid) {
-          // providerData.uid is different from Firebase UID - this is likely the Apple user ID
-          appleUserId = providerData.uid;
-        } else if (providerData?.uid === result.user.uid) {
-          // providerData.uid is same as Firebase UID - this might not be the real Apple user ID
-          // Try to get it from the Firebase ID token instead
+      if (providerType === 'apple' && appleProviderData) {
+        if (appleProviderData.uid && appleProviderData.uid !== result.user.uid) {
+          appleUserId = appleProviderData.uid;
+        } else if (appleProviderData.uid === result.user.uid) {
           try {
             const idTokenResult = await result.user.getIdTokenResult();
             const customClaims = idTokenResult.claims;
             console.log('🍎 Firebase ID Token Claims:', customClaims);
-
-            // Apple user ID might be in custom claims or we need to decode the token
             if (customClaims.sub && customClaims.sub !== result.user.uid) {
               appleUserId = customClaims.sub;
             }
@@ -488,14 +515,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Log for debugging cross-platform matching
       if (providerType === 'apple') {
         console.log('🍎 Apple Sign-In - Final User Identifiers:', {
           firebaseUid: result.user.uid,
-          providerDataUid: providerData?.uid,
+          providerDataUid: appleProviderData?.uid,
           extractedAppleUserId: appleUserId,
           email: result.user.email,
-          providerId: providerId,
           isAppleUserIdExtracted: appleUserId !== result.user.uid
         });
       }
@@ -506,35 +531,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Checking subscription status...",
       });
 
-      // Authenticate with backend (WAIT for response to check subscription)
-      const backendResponse = await authenticateWithBackend(
-        accessToken,
-        providerType,
-        providerType === 'apple' ? {
-          // Additional Apple data logic is handled inside authenticateWithBackend helper or requires complex extraction here
-          // For simplicity in this callback wrap, passing undefined for optional fields if not readily available
-          email: result.user.email || undefined,
-          fullName: result.user.displayName || undefined
-        } : undefined
-      );
+      // If ref was already claimed by onAuthStateChanged, or it's now false (listener finished),
+      // skip our backend call to avoid duplicate request.
+      if (refAlreadyClaimed || !backendAuthInProgressRef.current) {
+        if (refAlreadyClaimed) {
+          // Listener owns the backend call; let it store token and redirect.
+          setIsAuthenticating(false);
+          return { success: true };
+        }
+        const token = getSessionToken();
+        if (token) {
+          const response = await verifySessionToken(token);
+          if (!response.success) {
+            if (response.unauthorized) {
+              clearSessionToken();
+              setSubscription(null);
+            }
+            setIsAuthenticating(false);
+            return { success: false };
+          }
+          if (response.subscription) setSubscription(response.subscription);
+          if (window.location.pathname === '/signin') {
+            const hasActive = response.subscription?.status === 'active';
+            window.location.href = hasActive ? '/account' : '/subscribe';
+            setIsAuthenticating(false);
+            return { success: true };
+          }
+          setIsAuthenticating(false);
+          return { success: true };
+        }
+        // onAuthStateChanged ran but left no session token (backend auth failed)
+        setIsAuthenticating(false);
+        return { success: false };
+      }
+
+      let backendResponse: Awaited<ReturnType<typeof authenticateWithBackend>>;
+      try {
+        if (providerType === 'apple' && !result.appleIdentityToken) {
+          // We only have Firebase ID token; /auth/apple/signin expects Apple JWT. Use /auth/login instead.
+            backendResponse = await loginWithFirebaseToken(accessToken, 'apple');
+        } else if (providerType === 'apple' && result.appleIdentityToken) {
+          backendResponse = await authenticateWithBackend(
+            result.appleIdentityToken,
+            'apple',
+            { userIdentifier: appleUserId, email: result.user.email || undefined, fullName: result.user.displayName || undefined }
+          );
+        } else {
+          backendResponse = await authenticateWithBackend(
+            accessToken,
+            providerType,
+            undefined
+          );
+        }
+      } finally {
+        backendAuthInProgressRef.current = false;
+      }
 
       if (backendResponse.success && backendResponse.sessionToken) {
         storeSessionToken(backendResponse.sessionToken);
         setSubscription(backendResponse.subscription || null);
+        setBackendProvider(backendResponse.user?.provider ?? null);
 
         setIsAuthenticating(false);
 
         // Check if this is from ASWebAuthenticationSession (macOS desktop app)
         if (isASWebSession()) {
-          // Show prompt immediately - don't wait for other operations
-          console.info('🔐 ASWebAuthenticationSession - showing deeplink prompt immediately');
-          setPendingDeeplinkToken(backendResponse.sessionToken);
-          // Use setTimeout to ensure modal appears in next tick for better UX
-          setTimeout(() => {
-            setShowDeeplinkPrompt(true);
-          }, 0);
-
-          // Don't redirect - wait for user to confirm
+          if (window.location.pathname !== '/account') {
+            console.info('🔐 ASWebAuthenticationSession - redirecting to /account for manual deeplink');
+            window.location.href = '/account?asweb=1';
+          }
           return { success: true, shouldRedirect: undefined };
         } else {
           // Normal web/mobile user - redirect based on subscription status
@@ -567,6 +632,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Clear user state
         setUser(null);
         setSubscription(null);
+        setBackendProvider(null);
 
         setIsAuthenticating(false);
 
@@ -606,6 +672,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearSessionToken();
       setUser(null);
       setSubscription(null);
+      setBackendProvider(null);
 
       toast({
         title: 'Signed out successfully',
@@ -641,46 +708,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value = React.useMemo<AuthContextType>(() => ({
     user,
+    backendProvider,
     subscription,
     loading,
+    isAuthenticating,
     signIn,
     logout,
     refreshSubscription,
-  }), [user, subscription, loading, signIn, logout, refreshSubscription]);
+  }), [user, backendProvider, subscription, loading, isAuthenticating, signIn, logout, refreshSubscription]);
 
   return (
     <AuthContext.Provider value={value}>
       {children}
 
-      {/* Deeplink Prompt Dialog for ASWebAuthenticationSession */}
-      <AlertDialog open={showDeeplinkPrompt} onOpenChange={setShowDeeplinkPrompt}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Open KeenVPN App</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your authentication was successful! Would you like to open the KeenVPN desktop app now?
-              <br /><br />
-              Click "Open App" to return to the desktop app, or "Cancel" to stay on the web.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelDeeplink}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDeeplink}>
-              Open App
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </AuthContext.Provider>
   );
 };
 
 // ============================================================================
-// Hook
+// Hook (exported from same file as provider for ergonomics; refresh warning acceptable)
 // ============================================================================
 
+// eslint-disable-next-line react-refresh/only-export-components -- useAuth is the standard hook for AuthContext
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

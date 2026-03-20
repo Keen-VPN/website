@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { deleteAccount, getSessionToken } from "@/auth";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
 
 const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
@@ -53,18 +54,37 @@ const Account = () => {
   const { user, loading, logout, subscription, refreshSubscription } =
     useAuth();
 
-  useEffect(() => {
-    if (!loading && user) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const isASWebSession =
-        urlParams.get("asweb") === "1" ||
-        sessionStorage.getItem("asweb_session") === "1";
+  const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
+  const unsupportedDeviceName = useMemo(() => getUnsupportedDeviceName(), []);
 
-      if (isASWebSession && urlParams.get("asweb") === "1") {
-        sessionStorage.setItem("asweb_session", "1");
-      }
+  // ASWebAuthenticationSession detection
+  const isASWeb = useMemo(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const detected =
+      urlParams.get("asweb") === "1" ||
+      sessionStorage.getItem("asweb_session") === "1";
+    if (detected && urlParams.get("asweb") === "1") {
+      sessionStorage.setItem("asweb_session", "1");
     }
-  }, [user, loading]);
+    return detected;
+  }, []);
+
+  // The session token may not be in localStorage yet when Account first mounts
+  // (AuthContext is still verifying with the backend). Poll until it arrives.
+  const [sessionToken, setSessionToken] = useState<string | null>(() =>
+    isASWeb ? getSessionToken() : null,
+  );
+  useEffect(() => {
+    if (!isASWeb || sessionToken) return;
+    const id = setInterval(() => {
+      const token = getSessionToken();
+      if (token) {
+        setSessionToken(token);
+        clearInterval(id);
+      }
+    }, 200);
+    return () => clearInterval(id);
+  }, [isASWeb, sessionToken]);
 
   const handleRefreshSubscription = async () => {
     setSubscriptionLoading(true);
@@ -174,6 +194,61 @@ const Account = () => {
             </div>
           </div>
 
+          {/* ASWebAuthenticationSession fallback — visible "Return to App" button */}
+          {isASWeb && (
+            <Card className="mb-12 border-secondary/50 bg-secondary/5 backdrop-blur-xl rounded-[2.5rem] overflow-hidden shadow-glow">
+              <CardContent className="flex flex-col items-center gap-6 py-10">
+                {isDeepLinkSupported ? (
+                  sessionToken ? (
+                    <>
+                      <div className="text-center">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/20 border border-secondary/30 mb-4">
+                          <CheckCircle className="h-3 w-3 text-secondary" />
+                          <span className="text-[10px] font-black text-secondary uppercase tracking-widest">Authorization Complete</span>
+                        </div>
+                        <h3 className="text-2xl font-black text-foreground uppercase tracking-tight">
+                          Session Synchronized
+                        </h3>
+                        <p className="text-sm font-medium text-muted-foreground mt-2 italic">
+                          Your identity has been verified. Return to the terminal.
+                        </p>
+                      </div>
+                      <Button
+                        asChild
+                        className="h-14 px-10 rounded-2xl font-black text-lg shadow-xl shadow-secondary/20 hover:shadow-secondary/40 transition-all hover:scale-[1.02]"
+                        variant="emerald"
+                      >
+                        <a href={`vpnkeen://auth?token=${sessionToken}`}>
+                          Return to KeenVPN App
+                        </a>
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-4">
+                      <Loader2 className="h-10 w-10 animate-spin text-secondary" />
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-secondary">
+                        Finalizing Cryptographic Handshake...
+                      </p>
+                    </div>
+                  )
+                ) : (
+                  <div className="text-center p-6">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 mb-4 text-rose-500">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Compatibility Error</span>
+                    </div>
+                    <h3 className="text-xl font-black text-foreground uppercase tracking-tight">
+                      {unsupportedDeviceName} Protocol Not Supported
+                    </h3>
+                    <p className="text-sm font-medium text-slate-500 mt-2">
+                      Identity synchronization is only available via the native iOS or macOS application.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Left Column: Primary Stats & Subscription */}
             <div className="lg:col-span-8 space-y-8">
@@ -257,6 +332,13 @@ const Account = () => {
                             </AlertDialogContent>
                           </AlertDialog>
                         )}
+                      </div>
+
+                      <div className="pt-8 mt-8 border-t border-border/50 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-slate-400" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                          For refund requests, contact intelligence at <a href="mailto:support@vpnkeen.com" className="text-primary hover:underline">support@vpnkeen.com</a>
+                        </p>
                       </div>
                     </div>
                   ) : (

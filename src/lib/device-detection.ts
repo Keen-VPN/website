@@ -26,3 +26,16 @@ export function detectDevice(): DeviceType {
 
   return "other";
 }
+
+export function isAppDeepLinkSupported(): boolean {
+  const device = detectDevice();
+  return device === "macos" || device === "ios";
+}
+
+export function getUnsupportedDeviceName(): string {
+  const ua = typeof window !== "undefined" ? window.navigator.userAgent.toLowerCase() : "";
+  if (/android/.test(ua)) return "Android device";
+  if (/windows/.test(ua)) return "Windows device";
+  if (/linux/.test(ua)) return "Linux device";
+  return "device";
+}

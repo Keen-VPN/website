@@ -6,12 +6,18 @@ import Footer from "@/components/Footer";
 import { TrendingDown, Shield, Zap, Plane, Check, X, ArrowRight, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import SEOHead from "@/components/SEOHead";
 
 const Index = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-300 noise font-sans">
+      <SEOHead
+        title="KeenVPN — Fast, Secure & Private VPN for iOS and macOS"
+        description="KeenVPN is a fast, secure VPN for iOS and macOS. Protect your privacy, bypass restrictions, and browse anonymously with military-grade encryption."
+        canonical="https://vpnkeen.com"
+      />
       <Header />
       <Hero />
       

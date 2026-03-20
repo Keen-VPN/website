@@ -2,15 +2,46 @@ import { BackendAuthResponse } from "./types";
 
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
-// export const BACKEND_URL = 'http://localhost:3003/api';
 
 // ============================================================================
 // Backend Authentication
 // ============================================================================
 
 /**
- * Authenticate with backend using Google OAuth access token
- * Backend will verify token, create/update user, and return session token
+ * Login with Firebase ID token. Use this when you have a Firebase user and need
+ * a backend session (e.g. from onAuthStateChanged). Works for any provider (Google/Apple).
+ * Do not send Firebase token to /auth/apple/signin — that endpoint expects an Apple identity token.
+ */
+export async function loginWithFirebaseToken(
+  idToken: string,
+  provider?: 'google' | 'apple',
+): Promise<BackendAuthResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken, ...(provider ? { provider } : {}) }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Login failed");
+    }
+    // Backend /auth/login doesn't currently include `success` (unlike /auth/apple/signin).
+    // Default to true only when absent so a future explicit `success: false` is respected.
+    return { ...data, success: data.success ?? true };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to authenticate",
+    };
+  }
+}
+
+/**
+ * Authenticate with backend using provider-specific token:
+ * - Google: pass Firebase ID token (backend /auth/google/signin).
+ * - Apple: pass Apple identity token (backend /auth/apple/signin). Do not pass Firebase token.
  */
 export async function authenticateWithBackend(
   accessToken: string,
@@ -19,7 +50,7 @@ export async function authenticateWithBackend(
     userIdentifier?: string;
     email?: string;
     fullName?: string;
-  }
+  },
 ): Promise<BackendAuthResponse> {
   try {
     const endpoint =
@@ -27,15 +58,14 @@ export async function authenticateWithBackend(
     const body =
       provider === "apple"
         ? {
-          identityToken: accessToken,
-          userIdentifier:
-            additionalData?.userIdentifier || accessToken.substring(0, 20),
-          email: additionalData?.email,
-          fullName: additionalData?.fullName,
-        }
+            identityToken: accessToken,
+            userIdentifier: additionalData?.userIdentifier,
+            email: additionalData?.email,
+            fullName: additionalData?.fullName,
+          }
         : {
-          idToken: accessToken, // Backend expects 'idToken' parameter for Google
-        };
+            idToken: accessToken, // Backend expects 'idToken' parameter for Google
+          };
 
     const response = await fetch(`${BACKEND_URL}${endpoint}`, {
       method: "POST",
@@ -64,10 +94,13 @@ export async function authenticateWithBackend(
 }
 
 /**
- * Verify session token with backend
+ * Verify session token with backend.
+ * Returns unauthorized: true when the backend explicitly rejects the token
+ * (HTTP 401, or 200 with { success: false, unauthorized: true } in the body),
+ * so callers can clear the session. On network errors we return success: false without unauthorized.
  */
 export async function verifySessionToken(
-  sessionToken: string
+  sessionToken: string,
 ): Promise<BackendAuthResponse> {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/verify`, {
@@ -80,18 +113,30 @@ export async function verifySessionToken(
       }),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
-    if (!response.ok) {
-      throw new Error(data.error || "Session verification failed");
+    if (response.ok) {
+      if (data?.success === false) {
+        return {
+          ...data,
+          success: false,
+          unauthorized: data?.unauthorized === true,
+          error: data?.error ?? "Session verification failed",
+        };
+      }
+      return { ...data, success: data.success ?? true };
     }
-
-    return data;
+    return {
+      success: false,
+      error: data?.error || "Session verification failed",
+      unauthorized: response.status === 401,
+    };
   } catch (error) {
     return {
       success: false,
       error:
         error instanceof Error ? error.message : "Failed to verify session",
+      unauthorized: false,
     };
   }
 }
@@ -100,7 +145,7 @@ export async function verifySessionToken(
  * Cancel subscription
  */
 export async function cancelSubscription(
-  sessionToken: string
+  sessionToken: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/subscription/cancel`, {
@@ -131,37 +176,65 @@ export async function cancelSubscription(
   }
 }
 
+/** Sentinel error code when checkout fails due to expired/invalid session (e.g. 401). */
+export const CHECKOUT_ERROR_SESSION_EXPIRED = "SESSION_EXPIRED" as const;
+
+export type CreateCheckoutResult =
+  | { success: true; url: string }
+  | {
+      success: false;
+      error: string;
+      errorCode?: typeof CHECKOUT_ERROR_SESSION_EXPIRED;
+    };
+
 /**
- * Create Stripe checkout session
+ * Create Stripe checkout session.
+ * Uses the backend session token (from login/Apple sign-in), not the Firebase ID token.
+ * Returns errorCode CHECKOUT_ERROR_SESSION_EXPIRED when the backend returns 401.
  */
 export async function createCheckoutSession(
   sessionToken: string,
-  email: string,
-  priceId?: string
-): Promise<{ success: boolean; url?: string; error?: string }> {
+  planId: string,
+  successUrl?: string,
+  cancelUrl?: string,
+): Promise<CreateCheckoutResult> {
   try {
-    const response = await fetch(
-      `${BACKEND_URL}/subscription/create-checkout`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sessionToken,
-          email,
-          priceId,
-        }),
-      }
-    );
+    const response = await fetch(`${BACKEND_URL}/payment/stripe/checkout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({
+        planId,
+        successUrl,
+        cancelUrl,
+      }),
+    });
 
-    const data = await response.json();
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      url?: string;
+      error?: string;
+    };
 
     if (!response.ok) {
-      throw new Error(data.error || "Failed to create checkout session");
+      const errorMessage = data?.error || "Failed to create checkout session";
+      const isUnauthorized = response.status === 401;
+      return {
+        success: false,
+        error: errorMessage,
+        ...(isUnauthorized && { errorCode: CHECKOUT_ERROR_SESSION_EXPIRED }),
+      };
     }
 
-    return data;
+    if (data?.success && data?.url) {
+      return { success: true, url: data.url };
+    }
+    return {
+      success: false,
+      error: data?.error || "No checkout URL received",
+    };
   } catch (error) {
     return {
       success: false,
@@ -201,7 +274,7 @@ export function clearSessionToken(): void {
  */
 export async function deleteAccount(
   email: string,
-  userId: string
+  userId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/delete-account`, {
