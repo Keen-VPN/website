@@ -74,12 +74,28 @@ export default {
       },
       boxShadow: {
         glow: "var(--shadow-glow)",
+        "glow-secondary": "0 0 20px hsla(24, 100%, 52%, 0.3)",
         card: "var(--shadow-card)",
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      transitionDuration: {
+        '300': '300ms',
+        '500': '500ms',
+        '700': '700ms',
+        '1000': '1000ms',
+      },
+      transitionTimingFunction: {
+        'ease-in-out': 'cubic-bezier(0.4, 0, 0.2, 1)',
+        'ease-out': 'cubic-bezier(0, 0, 0.2, 1)',
+        'ease-in': 'cubic-bezier(0.4, 0, 1, 1)',
+      },
+      fontFamily: {
+        sans: ["Plus Jakarta Sans", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"],
       },
       keyframes: {
         "accordion-down": {
@@ -98,10 +114,20 @@ export default {
             height: "0",
           },
         },
+        "fade-in-up": {
+          "0%": { opacity: "0", transform: "translateY(20px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in-up": "fade-in-up 0.7s ease-out forwards",
+        "fade-in": "fade-in 0.7s ease-out forwards",
       },
     },
   },

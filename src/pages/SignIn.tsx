@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, Apple } from "lucide-react";
+import { Loader2, Apple, ShieldCheck, Zap, Globe } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDebounce } from "@/auth";
 import GoogleIcon from "@/components/ui/google-icon";
@@ -30,16 +30,10 @@ const SignIn = () => {
       const currentPath = window.location.pathname;
       if (currentPath === "/signin") {
         if (isASWebSession) {
-          // If user is already logged in and visited signin via macOS app, redirect to account
-          // The account page will show the deeplink modal
-          console.warn(
-            "🔐 ASWebSession detected - redirecting logged-in user to account page"
-          );
           window.location.href = "/account?asweb=1";
           return;
         }
 
-        // Normal web flow - redirect based on subscription
         const hasActiveSubscription =
           subscription && subscription.status === "active";
         if (hasActiveSubscription) {
@@ -51,120 +45,123 @@ const SignIn = () => {
     }
   }, [user, authLoading, subscription]);
 
-  // Debounce sign-in to prevent double-clicks
   const [handleGoogleSignIn, isGoogleDebouncing] = useDebounce(async () => {
     setIsProcessing(true);
     const result = await signIn("google");
-    // Don't navigate here - AuthContext will handle redirect based on subscription status
     if (!result.success) {
       setIsProcessing(false);
     }
-    // Keep processing state true to prevent UI flicker during redirect
   }, 2000);
 
   const [handleAppleSignIn, isAppleDebouncing] = useDebounce(async () => {
     setIsProcessing(true);
     const result = await signIn("apple");
-    // Don't navigate here - AuthContext will handle redirect based on subscription status
     if (!result.success) {
       setIsProcessing(false);
     }
-    // Keep processing state true to prevent UI flicker during redirect
   }, 2000);
 
   const isLoading =
     authLoading || isGoogleDebouncing || isAppleDebouncing || isProcessing;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 py-20 bg-gradient-hero">
-        <div className="container mx-auto px-4 max-w-md">
-          <div className="text-center mb-8">
-            <div className="mx-auto flex items-center justify-center my-4 ">
-              <img
-                src="/logo-white.png"
-                alt="KeenVPN"
-                className="h-14 w-14 transition-transform group-hover:scale-105"
-              />
+      <main className="flex-1 flex flex-col lg:flex-row">
+        {/* Left Side: Brand Visuals (Desktop) */}
+        <div className="hidden lg:flex flex-1 bg-slate-950 items-center justify-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-40 bg-primary/5 blur-[120px] rounded-full"></div>
+          <div className="absolute bottom-0 left-0 p-40 bg-secondary/5 blur-[120px] rounded-full"></div>
+          
+          <div className="relative z-10 max-w-lg p-12">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-primary/10 border border-primary/20 mb-8">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <span className="text-xs font-black text-primary uppercase tracking-widest">Sovereignty Access</span>
             </div>
-            <h1 className="text-4xl font-bold text-foreground mb-4">
-              Welcome to <span className="text-primary">KeenVPN</span>
-            </h1>
-            <p className="text-xl text-muted-foreground">
-              Get started with secure VPN access
-            </p>
+            <h2 className="text-6xl font-black text-white mb-8 tracking-tighter italic">Enter the <br/><span className="text-primary">Tunnel.</span></h2>
+            
+            <div className="space-y-8 mt-12">
+              {[
+                { icon: Zap, text: "Instant 10Gbps Connectivity", sub: "WireGuard® Protocol" },
+                { icon: Globe, text: "Unlock Global Markets", sub: "Regional Price Parity" },
+                { icon: ShieldCheck, text: "Zero-Knowledge Logging", sub: "Church & State Privacy" }
+              ].map((item, i) => (
+                <div key={i} className="flex gap-4 items-start">
+                  <div className="p-2 rounded-xl bg-white/5 border border-white/5">
+                    <item.icon className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-slate-200">{item.text}</div>
+                    <div className="text-xs font-black uppercase tracking-widest text-slate-500">{item.sub}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
+        </div>
 
-          <Card className="border-accent/50 shadow-glow">
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl">Continue with</CardTitle>
-              <CardDescription>
-                Choose your preferred sign-in method
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button
-                onClick={handleGoogleSignIn}
-                disabled={isLoading}
-                className="w-full bg-white text-gray-900 hover:bg-gray-50 border border-gray-300"
-                size="lg"
-              >
-                {isGoogleDebouncing || (isLoading && !isAppleDebouncing) ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    {isGoogleDebouncing
-                      ? "Please wait..."
-                      : "Authenticating..."}
-                  </>
-                ) : (
-                  <>
-                    <GoogleIcon className="mr-2 h-5 w-5" />
-                    Continue with Google
-                  </>
-                )}
-              </Button>
+        {/* Right Side: Auth Form */}
+        <div className="flex-1 flex items-center justify-center p-6 md:p-12 pt-32 lg:pt-12">
+          <div className="w-full max-w-[440px] space-y-8">
+            <div className="text-center lg:text-left">
+              <h1 className="text-4xl font-black tracking-tight text-foreground mb-2">Welcome Back</h1>
+              <p className="text-muted-foreground font-medium italic">Secure your session to continue.</p>
+            </div>
 
-              <Button
-                onClick={handleAppleSignIn}
-                disabled={isLoading}
-                className="w-full bg-black text-white hover:bg-gray-800"
-                size="lg"
-              >
-                {isAppleDebouncing ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    {isAppleDebouncing ? "Please wait..." : "Authenticating..."}
-                  </>
-                ) : (
-                  <>
-                    <Apple className="mr-2 h-5 w-5" />
-                    Continue with Apple
-                  </>
-                )}
-              </Button>
+            <Card className="border-border/50 bg-card/30 backdrop-blur-xl rounded-[2.5rem] p-4 md:p-8 overflow-hidden shadow-2xl">
+              <CardHeader className="text-center pb-8">
+                <CardTitle className="text-xl font-black uppercase tracking-tight">Identity Verification</CardTitle>
+                <CardDescription className="font-bold text-xs uppercase tracking-widest text-slate-500">Choose an encrypted provider</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button
+                  onClick={handleGoogleSignIn}
+                  disabled={isLoading}
+                  className="w-full h-14 bg-white text-slate-900 hover:bg-slate-50 border border-slate-200 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all hover:scale-[1.02]"
+                  size="lg"
+                >
+                  {isGoogleDebouncing || (isLoading && !isAppleDebouncing) ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <>
+                      <GoogleIcon className="h-5 w-5" />
+                      Continue with Google
+                    </>
+                  )}
+                </Button>
 
-              <div className="text-center pt-4">
-                <p className="text-sm text-muted-foreground">
-                  By signing in, you agree to our{" "}
-                  <a href="/terms" className="text-primary hover:underline">
-                    Terms of Service
-                  </a>{" "}
-                  and{" "}
-                  <a href="/privacy" className="text-primary hover:underline">
-                    Privacy Policy
-                  </a>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+                <Button
+                  onClick={handleAppleSignIn}
+                  disabled={isLoading}
+                  className="w-full h-14 bg-black text-white hover:bg-slate-900 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all hover:scale-[1.02] border border-white/10"
+                  size="lg"
+                >
+                  {isAppleDebouncing ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <>
+                      <Apple className="h-5 w-5" />
+                      Continue with Apple
+                    </>
+                  )}
+                </Button>
 
-          <div className="text-center mt-8">
-            <p className="text-sm text-muted-foreground">
-              Existing users will be signed in automatically.
-              <br />
-              New users will have an account created instantly.
-            </p>
+                <div className="text-center pt-8">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 leading-relaxed">
+                    By entering, you confirm agreement to our<br/>
+                    <a href="/terms" className="text-primary hover:underline">Terms of Service</a>
+                    <span className="mx-2">/</span>
+                    <a href="/privacy" className="text-primary hover:underline">Privacy Protocol</a>
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="p-6 rounded-2xl bg-muted/30 border border-border/50 text-center">
+              <p className="text-xs font-bold text-muted-foreground italic">
+                "Digital sovereignty is not an option. It is a fundamental right."
+              </p>
+            </div>
           </div>
         </div>
       </main>

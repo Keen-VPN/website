@@ -31,6 +31,9 @@ import {
   XCircle,
   Trash2,
   History,
+  RefreshCw,
+  Mail,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -50,30 +53,15 @@ const Account = () => {
   const { user, loading, logout, subscription, refreshSubscription } =
     useAuth();
 
-  // Check for ASWebSession when account page loads and show deeplink modal if needed
   useEffect(() => {
     if (!loading && user) {
-      // Check if this is from ASWebAuthenticationSession (macOS desktop app)
       const urlParams = new URLSearchParams(window.location.search);
       const isASWebSession =
         urlParams.get("asweb") === "1" ||
         sessionStorage.getItem("asweb_session") === "1";
 
-      if (isASWebSession) {
-        // Store flag in sessionStorage if from URL param
-        if (urlParams.get("asweb") === "1") {
-          sessionStorage.setItem("asweb_session", "1");
-        }
-
-        // Get session token and trigger deeplink modal
-        const sessionToken = getSessionToken();
-        if (sessionToken) {
-          // eslint-disable-next-line no-console
-          console.info(
-            "🔐 Account page: ASWebSession detected, deeplink modal should show via AuthContext"
-          );
-          // The modal will be shown by AuthContext's initializeAuth, but we ensure flag is set
-        }
+      if (isASWebSession && urlParams.get("asweb") === "1") {
+        sessionStorage.setItem("asweb_session", "1");
       }
     }
   }, [user, loading]);
@@ -86,32 +74,20 @@ const Account = () => {
 
   const handleCancelSubscription = async () => {
     if (!user) return;
-
     try {
       setCancelling(true);
-
-      // Get Firebase ID token
       const idToken = await user.getIdToken();
-
       const response = await fetch(`${BACKEND_URL}/subscription/cancel`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          idToken,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
       });
-
       const data = await response.json();
-
       if (response.ok && data.success) {
         toast({
           title: "Subscription Cancelled",
-          description:
-            "Your subscription will remain active until the end of your billing period.",
+          description: "Your session will remain active until the end of your billing period.",
         });
-        // Refresh subscription status
         await refreshSubscription();
       } else {
         throw new Error(data.error || "Failed to cancel subscription");
@@ -119,8 +95,7 @@ const Account = () => {
     } catch (error) {
       toast({
         title: "Cancellation Failed",
-        description:
-          error instanceof Error ? error.message : "Please try again",
+        description: error instanceof Error ? error.message : "Please try again",
         variant: "destructive",
       });
     } finally {
@@ -129,21 +104,12 @@ const Account = () => {
   };
 
   const handleDeleteAccount = async () => {
-    if (!user || !user.email || !user.uid) return;
-
+    if (!user?.email || !user?.uid) return;
     try {
       setDeleting(true);
-
       const result = await deleteAccount(user.email, user.uid);
-
       if (result.success) {
-        toast({
-          title: "Account Deleted",
-          description:
-            "Your account and all associated data have been permanently deleted.",
-        });
-
-        // Sign out and redirect to home
+        toast({ title: "Account Deleted", description: "All data has been wiped." });
         await logout();
         navigate("/");
       } else {
@@ -152,8 +118,7 @@ const Account = () => {
     } catch (error) {
       toast({
         title: "Deletion Failed",
-        description:
-          error instanceof Error ? error.message : "Please try again",
+        description: error instanceof Error ? error.message : "Please try again",
         variant: "destructive",
       });
     } finally {
@@ -165,470 +130,220 @@ const Account = () => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
-      month: "long",
+      month: "short",
       day: "numeric",
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-500";
-      case "inactive":
-        return "bg-gray-500";
-      case "past_due":
-        return "bg-yellow-500";
-      case "cancelled":
-        return "bg-red-500";
-      default:
-        return "bg-gray-500";
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "active":
-        return "Active";
-      case "inactive":
-        return "Inactive";
-      case "past_due":
-        return "Past Due";
-      case "cancelled":
-        return "Cancelled";
-      default:
-        return status;
-    }
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <Zap className="h-10 w-10 text-primary animate-pulse mb-4" />
+        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Authorizing Session...</p>
       </div>
     );
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 py-20 bg-gradient-hero flex items-center justify-center">
-          <Card className="max-w-md w-full text-center border-accent/50 shadow-glow">
-            <CardHeader>
-              <CardTitle>Sign In Required</CardTitle>
-              <CardDescription>
-                You need to sign in to view your account
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => navigate("/subscribe")} className="w-full">
-                Sign In
-              </Button>
-            </CardContent>
-          </Card>
-        </main>
-        <Footer />
-      </div>
-    );
+    navigate("/signin");
+    return null;
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen bg-background">
       <Header />
-      <main className="flex-1 py-20 bg-gradient-hero">
-        <div className="container mx-auto px-4 max-w-4xl">
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-foreground mb-4">
-              My <span className="text-primary">Account</span>
-            </h1>
-            <p className="text-xl text-muted-foreground">
-              Manage your KeenVPN subscription and account settings
-            </p>
+      <main className="pt-32 pb-24">
+        <div className="container mx-auto px-4 max-w-5xl">
+          {/* Dashboard Header */}
+          <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <div className="inline-flex items-center gap-2 px-2 py-1 rounded bg-secondary/10 border border-secondary/20 mb-4">
+                <Shield className="h-3 w-3 text-secondary" />
+                <span className="text-[10px] font-black text-secondary uppercase tracking-widest">Command Center</span>
+              </div>
+              <h1 className="text-4xl md:text-6xl font-black text-foreground tracking-tighter">My <span className="text-primary italic">Account.</span></h1>
+            </div>
+            <div className="flex items-center gap-3 p-4 rounded-2xl bg-card/30 border border-border/50">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <span className="text-primary font-black uppercase">{user.email?.charAt(0)}</span>
+              </div>
+              <div>
+                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Active Session</p>
+                <p className="text-sm font-bold truncate max-w-[200px]">{user.email}</p>
+              </div>
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Account Info */}
-            <Card className="border-accent/50 shadow-glow">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Shield className="h-5 w-5 mr-2" />
-                  Account Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
-                  <p className="font-medium">{user.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Provider</p>
-                  <p className="font-medium">Google</p>
-                </div>
-                <Button onClick={logout} variant="outline" className="w-full">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign Out
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Subscription Status */}
-            <Card className="border-accent/50 shadow-glow">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <CreditCard className="h-5 w-5 mr-2" />
-                  Subscription Status
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {subscriptionLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  </div>
-                ) : subscription ? (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        Status
-                      </span>
-                      <Badge
-                        className={`${getStatusColor(
-                          subscription.status
-                        )} text-white`}
-                      >
-                        {getStatusText(subscription.status)}
-                      </Badge>
-                    </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Left Column: Primary Stats & Subscription */}
+            <div className="lg:col-span-8 space-y-8">
+              <Card className="border-border/50 bg-card/30 backdrop-blur-md rounded-[2rem] overflow-hidden">
+                <CardHeader className="border-b border-border/50 p-8">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Plan</p>
-                      <p className="font-medium">
-                        {subscription.plan || "KeenVPN Premium"}
-                      </p>
+                      <CardTitle className="text-xl font-black uppercase tracking-tight">Subscription</CardTitle>
+                      <CardDescription className="text-xs font-bold uppercase tracking-widest text-slate-500 mt-1">Status and management</CardDescription>
                     </div>
-
-                    {/* Auto-Renewal Status */}
-                    <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <div>
-                        <p className="text-sm font-medium">Auto-Renewal</p>
-                        <p className="text-xs text-muted-foreground">
-                          {subscription.cancelAtPeriodEnd
-                            ? "Cancelled - subscription ends on billing date"
-                            : "Active - automatically renews each period"}
-                        </p>
-                      </div>
-                      {subscription.cancelAtPeriodEnd ? (
-                        <Badge variant="destructive">
-                          <XCircle className="w-3 h-3 mr-1" />
-                          Off
-                        </Badge>
-                      ) : (
-                        <Badge variant="default" className="bg-green-500">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          On
-                        </Badge>
-                      )}
-                    </div>
-
-                    {subscription.endDate && (
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            {subscription.cancelAtPeriodEnd
-                              ? "Subscription Ends"
-                              : "Next Billing"}
-                          </p>
-                          <p className="font-medium">
-                            {formatDate(subscription.endDate)}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    <div className="space-y-3">
-                      <Button
-                        onClick={() => navigate("/account/subscription-history")}
-                        variant="outline"
-                        className="w-full"
-                      >
-                        <History className="h-4 w-4 mr-2" />
-                        View Billing History
-                      </Button>
-
-                      <Button
-                        onClick={handleRefreshSubscription}
-                        variant="ghost"
-                        size="sm"
-                        className="w-full"
-                        disabled={subscriptionLoading}
-                      >
-                        {subscriptionLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Refreshing...
-                          </>
-                        ) : (
-                          "Refresh Status"
-                        )}
-                      </Button>
-
-                      {subscription.status === "active" ? (
-                        <>
-                          {!subscription.cancelAtPeriodEnd ? (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="destructive"
-                                  className="w-full"
-                                >
-                                  <XCircle className="h-4 w-4 mr-2" />
-                                  Turn Off Auto-Renewal
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle className="flex items-center">
-                                    <AlertTriangle className="h-5 w-5 mr-2 text-yellow-500" />
-                                    Turn Off Auto-Renewal
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to turn off
-                                    auto-renewal?
-                                    <br />
-                                    <br />
-                                    <strong>What happens:</strong>
-                                    <ul className="list-disc list-inside mt-2 space-y-1">
-                                      <li>
-                                        Your subscription will remain active
-                                        until{" "}
-                                        <strong>
-                                          {formatDate(subscription.endDate)}
-                                        </strong>
-                                      </li>
-                                      <li>You will NOT be charged again</li>
-                                      <li>
-                                        You can re-enable auto-renewal anytime
-                                        before this date
-                                      </li>
-                                      <li>
-                                        After this date, you'll need to
-                                        subscribe again to continue using
-                                        KeenVPN
-                                      </li>
-                                    </ul>
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>
-                                    Keep Auto-Renewal
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={handleCancelSubscription}
-                                    disabled={cancelling}
-                                    className="bg-red-600 hover:bg-red-700"
-                                  >
-                                    {cancelling ? (
-                                      <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Processing...
-                                      </>
-                                    ) : (
-                                      "Yes, Turn Off Auto-Renewal"
-                                    )}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          ) : (
-                            <>
-                              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg space-y-2">
-                                <div className="flex items-start">
-                                  <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2 mt-0.5" />
-                                  <div className="flex-1">
-                                    <p className="text-sm font-medium text-yellow-800">
-                                      Auto-Renewal Cancelled
-                                    </p>
-                                    <p className="text-xs text-yellow-700 mt-1">
-                                      Your subscription will end on{" "}
-                                      <strong>
-                                        {formatDate(subscription.endDate)}
-                                      </strong>
-                                      <br />
-                                      You will not be charged again unless you
-                                      re-enable auto-renewal.
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <Button
-                                onClick={() => {
-                                  toast({
-                                    title: "Re-enable Auto-Renewal",
-                                    description:
-                                      "Please contact support to re-enable auto-renewal, or subscribe again after your current period ends.",
-                                  });
-                                }}
-                                variant="outline"
-                                className="w-full border-green-500 text-green-600 hover:bg-green-50"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Re-enable Auto-Renewal
-                              </Button>
-                            </>
-                          )}
-                        </>
-                      ) : (
-                        <Button
-                          onClick={() =>
-                            navigate(subscription ? "/account" : "/subscribe")
-                          }
-                          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
-                        >
-                          {subscription
-                            ? "Manage Subscription"
-                            : "Subscribe Now"}
-                        </Button>
-                      )}
-                    </div>
-                    <div className="pt-4 mt-4 border-t border-border">
-                      <p className="text-sm text-muted-foreground">
-                        For refund request, please send an email to our support
-                        team via{" "}
-                        <a
-                          href="mailto:support@vpnkeen.com"
-                          className="text-primary hover:underline"
-                        >
-                          support@vpnkeen.com
-                        </a>
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-muted-foreground text-center py-4">
-                      No active subscription found
-                    </p>
-                    <Button
-                      onClick={() => navigate("/subscribe")}
-                      className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
-                    >
-                      Subscribe Now
-                    </Button>
-                    <div className="pt-4 mt-4 border-t border-border">
-                      <p className="text-sm text-muted-foreground">
-                        For refund request, please send an email to our support
-                        team via{" "}
-                        <a
-                          href="mailto:support@vpnkeen.com"
-                          className="text-primary hover:underline"
-                        >
-                          support@vpnkeen.com
-                        </a>
-                      </p>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Support Section */}
-          <Card className="mt-8 border-accent/50 shadow-glow">
-            <CardHeader>
-              <CardTitle>Need Help?</CardTitle>
-              <CardDescription>
-                Contact our support team for assistance with your account
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <a
-                href="mailto:support@vpnkeen.com?subject=Support Request&body=Hello KeenVPN Support Team,%0D%0A%0D%0AI need assistance with:%0D%0A%0D%0A[Please describe your issue here]%0D%0A%0D%0AThank you!"
-                className="w-full inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
-              >
-                Contact Support
-              </a>
-            </CardContent>
-          </Card>
-
-          {/* Danger Zone */}
-          <Card className="mt-8 border-destructive/50">
-            <CardHeader>
-              <CardTitle className="text-destructive flex items-center">
-                <AlertTriangle className="h-5 w-5 mr-2" />
-                Danger Zone
-              </CardTitle>
-              <CardDescription>
-                Irreversible and destructive actions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="destructive"
-                    className="w-full"
-                    disabled={deleting}
-                  >
-                    {deleting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Deleting Account...
-                      </>
+                    {subscription?.status === "active" ? (
+                      <Badge className="bg-secondary text-secondary-foreground font-black px-4 py-1.5 rounded-lg uppercase tracking-tighter">Premium Active</Badge>
                     ) : (
-                      <>
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Account
-                      </>
+                      <Badge variant="outline" className="font-black px-4 py-1.5 rounded-lg uppercase tracking-tighter">No Active Plan</Badge>
                     )}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center text-destructive">
-                      <AlertTriangle className="h-5 w-5 mr-2" />
-                      Are you absolutely sure?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription className="space-y-3">
-                      <p>
-                        This action <strong>cannot be undone</strong>. This will
-                        permanently delete your account and remove all your data
-                        from our servers.
-                      </p>
-                      <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/20">
-                        <p className="text-sm font-medium text-destructive">
-                          This will delete:
-                        </p>
-                        <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
-                          <li>Your account and profile information</li>
-                          <li>All subscription data</li>
-                          <li>All associated preferences and settings</li>
-                        </ul>
-                      </div>
-                      {subscription && subscription.status === "active" && (
-                        <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                          <p className="text-sm font-medium text-yellow-800">
-                            ⚠️ You have an active subscription
-                          </p>
-                          <p className="text-xs text-yellow-700 mt-1">
-                            Please cancel your subscription before deleting your
-                            account to avoid future charges.
+                  </div>
+                </CardHeader>
+                <CardContent className="p-8">
+                  {subscriptionLoading ? (
+                    <div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                  ) : subscription ? (
+                    <div className="space-y-8">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="p-6 rounded-2xl bg-muted/30 border border-border/50">
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Current Tier</p>
+                          <p className="text-xl font-black text-foreground">{subscription.plan || "Individual"}</p>
+                        </div>
+                        <div className="p-6 rounded-2xl bg-muted/30 border border-border/50">
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Next Invoice</p>
+                          <p className="text-xl font-black text-foreground">{formatDate(subscription.endDate)}</p>
+                        </div>
+                        <div className="p-6 rounded-2xl bg-muted/30 border border-border/50">
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Auto-Renew</p>
+                          <p className={`text-xl font-black ${subscription.cancelAtPeriodEnd ? "text-rose-500" : "text-secondary"}`}>
+                            {subscription.cancelAtPeriodEnd ? "Disabled" : "Active"}
                           </p>
                         </div>
-                      )}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDeleteAccount}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Delete Account Permanently
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </CardContent>
-          </Card>
+                      </div>
+
+                      <div className="flex flex-wrap gap-4 pt-4">
+                        <Button
+                          onClick={() => navigate("/account/subscription-history")}
+                          variant="outline"
+                          className="h-12 px-6 rounded-xl border-2 font-black text-xs uppercase tracking-widest"
+                        >
+                          <History className="h-4 w-4 mr-2" />
+                          Billing History
+                        </Button>
+                        <Button
+                          onClick={handleRefreshSubscription}
+                          variant="ghost"
+                          className="h-12 px-6 rounded-xl font-black text-xs uppercase tracking-widest text-slate-500 hover:text-primary"
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-2 ${subscriptionLoading ? 'animate-spin' : ''}`} />
+                          Refresh Sync
+                        </Button>
+                        
+                        {subscription.status === "active" && !subscription.cancelAtPeriodEnd && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" className="h-12 px-6 rounded-xl font-black text-xs uppercase tracking-widest text-rose-500 hover:text-rose-600 hover:bg-rose-500/5">
+                                Cancel Plan
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="rounded-[2rem] border-border/50 p-8">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle className="text-2xl font-black tracking-tight uppercase">Wait. You'll lose access to:</AlertDialogTitle>
+                                <AlertDialogDescription className="pt-4">
+                                  <ul className="space-y-3">
+                                    <li className="flex items-center gap-2 text-foreground font-bold"><XCircle className="h-4 w-4 text-rose-500" /> 10Gbps Dedicated Deal Nodes</li>
+                                    <li className="flex items-center gap-2 text-foreground font-bold"><XCircle className="h-4 w-4 text-rose-500" /> DNS-Level Ad & Tracker Blocking</li>
+                                    <li className="flex items-center gap-2 text-foreground font-bold"><XCircle className="h-4 w-4 text-rose-500" /> Regional Price Discovery Engine</li>
+                                  </ul>
+                                  <p className="mt-6 font-medium text-slate-500">Your plan will remain active until {formatDate(subscription.endDate)} if you proceed.</p>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter className="pt-8">
+                                <AlertDialogCancel className="rounded-xl font-bold h-12">Keep Sovereignty</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleCancelSubscription} className="bg-rose-500 text-white rounded-xl font-black h-12 px-8">Confirm Cancellation</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                      <div className="text-center py-12 space-y-6">
+                        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No active sovereignty detected.</p>
+                        <Button onClick={() => navigate("/pricing")} variant="glow" size="lg">
+                          Get Premium Protection
+                        </Button>
+                      </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Security Insights Card */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="border-border/50 bg-card/30 backdrop-blur-md rounded-[2rem]">
+                  <CardHeader className="p-8 pb-4">
+                    <CardTitle className="text-sm font-black uppercase tracking-[0.2em] text-slate-500">System Logs</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-8 pt-0 space-y-4">
+                    <div className="font-mono text-[10px] space-y-1 text-slate-500">
+                      <p>[SYSTEM] Session established via {user.providerId || "google.com"}</p>
+                      <p>[SECURITY] Blind-signatures active</p>
+                      <p>[ACCOUNT] ID: {user.uid.substring(0, 12)}...</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-border/50 bg-card/30 backdrop-blur-md rounded-[2rem]">
+                  <CardHeader className="p-8 pb-4">
+                    <CardTitle className="text-sm font-black uppercase tracking-[0.2em] text-slate-500">Support Access</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-8 pt-0">
+                    <Button variant="outline" className="w-full h-12 rounded-xl border-2 font-black text-xs uppercase tracking-widest" onClick={() => window.location.href = "mailto:support@vpnkeen.com"}>
+                      <Mail className="h-4 w-4 mr-2" />
+                      Contact Intelligence
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Right Column: Danger Zone & Actions */}
+            <div className="lg:col-span-4 space-y-8">
+              <div className="p-8 rounded-[2.5rem] bg-slate-900 border border-white/5 space-y-6">
+                <h3 className="text-xs font-black uppercase tracking-widest text-primary">Sovereignty Controls</h3>
+                <Button onClick={logout} variant="outline" className="w-full h-12 rounded-xl border-white/10 hover:bg-white/5 font-black text-xs uppercase tracking-widest">
+                  <LogOut className="h-4 w-4 mr-2" /> Terminate Session
+                </Button>
+                
+                <div className="pt-6 border-t border-white/5">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-rose-500 mb-4">Danger Zone</h4>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" className="w-full h-12 rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-500/5 font-black text-xs uppercase tracking-widest text-left justify-start px-0">
+                        <Trash2 className="h-4 w-4 mr-2" /> Wipe Account Data
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="rounded-[2rem] border-rose-500/20 p-8">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="text-2xl font-black tracking-tight text-rose-500 uppercase">Irreversible Data Wipe</AlertDialogTitle>
+                        <AlertDialogDescription className="pt-4 space-y-4">
+                          <p className="font-bold text-foreground">This will permanently delete your identity and all associated sovereignty records.</p>
+                          <div className="p-4 bg-rose-500/5 rounded-xl border border-rose-500/20 text-rose-200 text-xs leading-relaxed">
+                            Once confirmed, your email, billing references, and preferences will be purged from our zero-knowledge database.
+                          </div>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter className="pt-8">
+                        <AlertDialogCancel className="rounded-xl font-bold h-12">Abort</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteAccount} className="bg-rose-500 text-white rounded-xl font-black h-12 px-8">Confirm Deletion</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+
+              <div className="p-8 rounded-[2.5rem] bg-primary/5 border border-primary/10">
+                <div className="flex items-center gap-2 mb-4">
+                  <Zap className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-black uppercase tracking-widest text-primary">Pro Tip</span>
+                </div>
+                <p className="text-xs font-bold text-slate-400 leading-relaxed uppercase tracking-tighter">
+                  Use the browser extension to automatically detect regional price drops while you browse.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
       <Footer />

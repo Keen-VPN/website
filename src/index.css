@@ -1,125 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,800;1,400;1,800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    /* Brand Colors  */
-    /* Oxford Blue: #0F2040 - primary background */
-    /* Persimmon: #E85C04 - CTAs and highlights (max 15% usage) */
-    /* Cerulean: #3A7CA5 - accents */
-    /* Anti-flash White: #F5F6FA - text/foreground */
-    /* Rich Black: #081020 - deep contrasts, overlays, gradients */
+    /* Smart Sovereignty Light Mode - Synced with Logo */
+    --background: 210 40% 98%;
+    --foreground: 233 100% 8%; /* Dark Navy #000427 */
 
-    --background: 217 62% 15%;
-    --foreground: 225 33% 97%;
+    --card: 0 0% 100%;
+    --card-foreground: 233 100% 8%;
 
-    --card: 220 22% 20%;
-    --card-foreground: 225 33% 97%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 233 100% 8%;
 
-    --popover: 220 22% 20%;
-    --popover-foreground: 225 33% 97%;
+    --primary: 203 48% 50%; /* Medium Blue #428CBB */
+    --primary-foreground: 210 40% 98%;
 
-    --primary: 21 90% 46%;
-    --primary-foreground: 225 33% 97%;
+    --secondary: 24 100% 52%; /* Vibrant Orange #FF6D0B */
+    --secondary-foreground: 210 40% 98%;
 
-    --secondary: 203 47% 44%;
-    --secondary-foreground: 225 33% 97%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
 
-    --muted: 220 22% 32%;
-    --muted-foreground: 220 15% 70%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 233 100% 8%;
 
-    --accent: 203 47% 44%;
-    --accent-foreground: 225 33% 97%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 225 33% 97%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 203 48% 50%;
 
-    --border: 220 22% 25%;
-    --input: 220 22% 25%;
-    --ring: 21 90% 46%;
+    --radius: 0.75rem;
 
-    /* VPN-specific design tokens with brand colors */
-    --primary-glow: 21 90% 46%;
-    --primary-dark: 217 62% 10%;
-    --rich-black: 217 60% 8%;
-    --gradient-primary: linear-gradient(
-      135deg,
-      hsl(21 90% 46%),
-      hsl(21 90% 56%)
-    );
-    --gradient-hero: linear-gradient(
-      180deg,
-      hsl(217 62% 15%) 0%,
-      hsl(217 60% 8%) 100%
-    );
-    --gradient-card: linear-gradient(
-      145deg,
-      hsl(220 22% 20%) 0%,
-      hsl(220 22% 25%) 100%
-    );
-    --shadow-glow: 0 0 30px hsl(21 90% 46% / 0.4);
-    --shadow-card: 0 10px 40px hsl(217 60% 8% / 0.5);
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Custom Tokens */
+    --gradient-hero: linear-gradient(180deg, hsl(210 40% 98%) 0%, hsl(210 40% 94%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(210 40% 98%) 100%);
+    --shadow-glow: 0 0 30px hsla(203, 48%, 50%, 0.2);
+    --shadow-card: 0 10px 40px hsla(233, 100%, 8%, 0.05);
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    /* Smart Sovereignty Dark Mode - Synced with Logo */
+    --background: 233 100% 8%; /* Dark Navy #000427 */
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 233 100% 12%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 233 100% 12%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 203 48% 50%; /* Medium Blue #428CBB */
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 24 100% 52%; /* Vibrant Orange #FF6D0B */
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
+    --muted: 233 100% 15%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 233 100% 8%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 233 100% 20%;
+    --input: 233 100% 20%;
+    --ring: 203 48% 50%;
+
+    /* Custom Tokens Dark */
+    --gradient-hero: linear-gradient(180deg, hsl(233 100% 8%) 0%, hsl(233 100% 4%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(233 100% 12%) 0%, hsl(233 100% 15%) 100%);
+    --shadow-glow: 0 0 30px hsla(203, 48%, 50%, 0.4);
+    --shadow-card: 0 10px 40px hsla(0, 0%, 0%, 0.5);
   }
 }
 
@@ -132,5 +91,46 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
     font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
       "Segoe UI", sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tighter text-foreground;
+  }
+}
+
+/* Custom Utilities */
+@layer utilities {
+  .noise {
+    position: relative;
+  }
+  
+  .noise::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.03;
+    z-index: 1;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+
+  .glass {
+    @apply bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 shadow-sm;
+  }
+  
+  .glass-dark {
+    @apply bg-slate-950/40 backdrop-blur-2xl border border-white/5 shadow-2xl;
+  }
+
+  .text-glow-blue {
+    text-shadow: 0 0 10px hsla(203, 48%, 50%, 0.5);
+  }
+
+  .text-glow-orange {
+    text-shadow: 0 0 10px hsla(24, 100%, 52%, 0.5);
   }
 }

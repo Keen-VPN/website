@@ -8,6 +8,9 @@ import {
   Lock,
   Settings,
   CreditCard,
+  Banknote,
+  Globe,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,21 +23,38 @@ import {
 const Support = () => {
   const faqCategories = [
     {
+      id: "savings",
+      title: "Deals & Savings",
+      icon: <Banknote className="h-5 w-5" />,
+      color: "text-secondary",
+      questions: [
+        {
+          q: "How do I find cheaper flight deals?",
+          a: "Connect to KeenVPN servers in regions like India, Turkey, or Argentina before searching. Clear your browser cookies or use an incognito window for the best results.",
+        },
+        {
+          q: "Can I use KeenVPN for streaming subscriptions?",
+          a: "Yes! Many streaming services offer lower rates in specific global regions. Use KeenVPN to access these regional storefronts and secure significant monthly savings.",
+        },
+        {
+          q: "Does the adblocker save me money?",
+          a: "Directly, yes! By blocking data-heavy ads and trackers, you reduce bandwidth consumption on limited mobile plans and speed up your browsing experience.",
+        },
+      ],
+    },
+    {
       id: "setup",
       title: "Setup & Installation",
       icon: <Smartphone className="h-5 w-5" />,
+      color: "text-primary",
       questions: [
         {
           q: "How do I download and install KeenVPN?",
-          a: "You can download KeenVPN from the App Store (iOS/macOS), Google Play Store (Android), Microsoft Store (Windows), or our website. Each platform has specific installation instructions, but all apps will guide you through the setup process.",
+          a: "Download for iOS and macOS directly from the Apple App Store. Our setup wizard will guide you through the 30-second installation process.",
         },
         {
           q: "What are the system requirements?",
-          a: "KeenVPN supports multiple platforms: macOS 11.0+, iOS 14.0+, Windows 10+, and Android 8.0+. The app is optimized for all device types and requires about 50MB of free storage space for installation.",
-        },
-        {
-          q: "How do I activate my subscription?",
-          a: "After completing your purchase through Stripe, your subscription will be automatically activated in your KeenVPN account. If you're having issues with activation, contact support with your purchase details.",
+          a: "KeenVPN is optimized for macOS 13.0+ and iOS 15.0+. We support Intel and Apple Silicon (M1/M2/M3) chips natively.",
         },
       ],
     },
@@ -42,18 +62,15 @@ const Support = () => {
       id: "connection",
       title: "Connection Issues",
       icon: <Wifi className="h-5 w-5" />,
+      color: "text-primary",
       questions: [
         {
-          q: "Why can't I connect to the VPN?",
-          a: "First, check your internet connection. If that's working, try switching to a different server location. Restart the app and your network connection. If issues persist, contact our support team.",
-        },
-        {
-          q: "The VPN connects but I have no internet access",
-          a: "This can happen due to DNS issues or firewall conflicts. Try disconnecting and reconnecting, or switch to a different server location. Check that no other VPN software is running simultaneously.",
+          q: "Why is my connection speed slow?",
+          a: "While our nodes are 10Gbps, your speed depends on the physical distance to the server. Use our 'Smart Connect' feature to automatically find the lowest latency node for your region.",
         },
         {
           q: "How do I switch server locations?",
-          a: "In the KeenVPN app, click on your current location in the sidebar. You can instantly switch between available servers (US and Nigeria) even while connected.",
+          a: "In the app dashboard, tap the location name to open the Server Selection HUD. You can filter by 'Deals' or 'Streaming' to find the best node for your task.",
         },
       ],
     },
@@ -61,56 +78,15 @@ const Support = () => {
       id: "security",
       title: "Security & Privacy",
       icon: <Lock className="h-5 w-5" />,
+      color: "text-primary",
       questions: [
         {
           q: "What encryption does KeenVPN use?",
-          a: "KeenVPN uses military-grade IKEv2/IPSec protocol with AES-256 encryption. This is the same level of security used by governments and financial institutions worldwide.",
+          a: "We use the industry-standard WireGuard protocol combined with AES-256-GCM encryption, providing the fastest and most secure tunnel available today.",
         },
         {
           q: "Do you keep logs of my activity?",
-          a: "No. KeenVPN has a strict zero-logs policy. We don't track, collect, or store any information about your online activities, browsing history, or connection logs.",
-        },
-        {
-          q: "Is my data safe on public WiFi?",
-          a: "Yes! When connected to KeenVPN, all your internet traffic is encrypted and secure, even on public WiFi networks. Your data is protected from hackers and eavesdroppers.",
-        },
-      ],
-    },
-    {
-      id: "account",
-      title: "Account & Billing",
-      icon: <CreditCard className="h-5 w-5" />,
-      questions: [
-        {
-          q: "How do I manage my subscription?",
-          a: "Your subscription is managed through Stripe, our secure payment processor. You can view and modify your subscription by logging into your KeenVPN account or contacting our support team for assistance.",
-        },
-        {
-          q: "Can I get a refund?",
-          a: "For refund request, please send an email to our support team via support@vpnkeen.com. Our support team will assist you with your refund request.",
-        },
-        {
-          q: "How many devices can I use with one account?",
-          a: "KeenVPN supports multiple devices per account. You can use your subscription on up to 5 devices simultaneously, including macOS, iOS, Windows, and Android devices.",
-        },
-      ],
-    },
-    {
-      id: "technical",
-      title: "Technical Support",
-      icon: <Settings className="h-5 w-5" />,
-      questions: [
-        {
-          q: "The app crashes or won't start",
-          a: "Try restarting your Mac and launching the app again. If the issue persists, uninstall and reinstall KeenVPN. Make sure you're running the latest version of macOS.",
-        },
-        {
-          q: "How do I enable VPN permissions on macOS?",
-          a: "Go to System Preferences > Security & Privacy > Privacy > VPN. Make sure KeenVPN is listed and enabled. You may need to click the lock icon and enter your password to make changes.",
-        },
-        {
-          q: "Can I use KeenVPN with other security software?",
-          a: "KeenVPN is compatible with most antivirus and firewall software. However, other VPN applications may conflict. Make sure to disconnect from other VPNs before using KeenVPN.",
+          a: "Never. Our 'Church and State' privacy model mathematically ensures that your identity and your traffic can never be correlated. We are based in the USA but operate a strict zero-knowledge infrastructure.",
         },
       ],
     },
@@ -120,109 +96,92 @@ const Support = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="pt-24 pb-16">
+      <main className="pt-32 pb-24">
         <div className="container mx-auto px-4 max-w-6xl">
           {/* Header */}
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center bg-card/50 backdrop-blur-sm border border-accent/30 rounded-full px-4 py-2 mb-6 shadow-lg">
-              <HelpCircle className="h-4 w-4 text-primary mr-2" />
-              <span className="text-sm text-muted-foreground font-medium">
-                We're here to help
-              </span>
+          <div className="mb-20">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-primary/10 border border-primary/20 mb-6">
+              <HelpCircle className="h-4 w-4 text-primary" />
+              <span className="text-xs font-black text-primary uppercase tracking-widest text-glow-blue">Technical Intelligence</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
-              <span className="text-primary">Support</span> Center
+            <h1 className="text-5xl md:text-7xl font-black text-foreground mb-6 tracking-tighter">
+              How can we <br/>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-600">Empower</span> you?
             </h1>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Find answers to common questions, get technical support, or
-              contact our team directly. We're committed to providing the best
-              VPN experience possible.
+            <p className="text-xl text-muted-foreground max-w-2xl leading-relaxed">
+              Access the KeenVPN knowledge base. From protocol deep-dives to advanced deal-hunting strategies, find everything you need to master your digital sovereignty.
             </p>
           </div>
 
+          {/* Quick Links / Categories */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-20">
+            {[
+              { label: "Check Status", icon: Globe, sub: "Network is operational" },
+              { label: "Account", icon: CreditCard, sub: "Manage subscription" },
+              { label: "Deals Guide", icon: Banknote, sub: "Save on flights & more" },
+              { label: "API Docs", icon: Settings, sub: "For power users" },
+            ].map((link, i) => (
+              <button key={i} className="group p-6 rounded-2xl bg-card/30 border border-border/50 hover:border-primary/30 text-left transition-all duration-300 hover:bg-card">
+                <div className="p-3 rounded-xl bg-muted/50 w-fit mb-4 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                  <link.icon className="h-6 w-6" />
+                </div>
+                <div className="font-black text-foreground mb-1 flex items-center gap-2">
+                  {link.label}
+                  <ArrowRight className="h-3 w-3 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                </div>
+                <div className="text-xs text-muted-foreground font-bold uppercase tracking-tighter">{link.sub}</div>
+              </button>
+            ))}
+          </div>
+
           {/* FAQ Section */}
-          <section>
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-foreground mb-4">
-                Frequently Asked Questions
-              </h2>
-              <p className="text-muted-foreground">
-                Find quick answers to the most common questions about KeenVPN
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            <div className="lg:col-span-1">
+              <h2 className="text-3xl font-black mb-6 tracking-tight">Technical FAQ</h2>
+              <p className="text-muted-foreground leading-relaxed mb-8">
+                Detailed answers to the most common questions about our infrastructure, privacy model, and global savings engine.
               </p>
+              <div className="p-8 rounded-3xl bg-slate-900 border border-white/5 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-12 bg-secondary/10 blur-3xl"></div>
+                <h3 className="text-xl font-black mb-4 relative z-10">Real-time Support</h3>
+                <p className="text-sm text-slate-400 mb-6 relative z-10">Average response time is currently <span className="text-secondary font-bold">14 minutes</span>.</p>
+                <Button 
+                  onClick={() => window.location.href = "mailto:support@vpnkeen.com"}
+                  className="w-full bg-secondary text-white font-black rounded-xl h-12 relative z-10"
+                >
+                  Contact Humans
+                </Button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="lg:col-span-2 space-y-12">
               {faqCategories.map((category) => (
-                <div
-                  key={category.id}
-                  className="bg-gradient-card rounded-xl p-6 border border-accent/30 shadow-card hover:border-accent/50 transition-all"
-                >
-                  <div className="flex items-center mb-6">
-                    <div className="text-primary mr-3">{category.icon}</div>
-                    <h3 className="text-xl font-semibold text-foreground">
-                      {category.title}
-                    </h3>
+                <div key={category.id} className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg bg-muted/50 ${category.color}`}>
+                      {category.icon}
+                    </div>
+                    <h3 className="text-lg font-black uppercase tracking-widest">{category.title}</h3>
                   </div>
 
-                  <Accordion type="single" collapsible className="space-y-2">
+                  <Accordion type="single" collapsible className="w-full space-y-3">
                     {category.questions.map((item, index) => (
                       <AccordionItem
                         key={index}
                         value={`${category.id}-${index}`}
-                        className="border-border/50"
+                        className="border-none"
                       >
-                        <AccordionTrigger className="text-left text-foreground hover:text-primary">
+                        <AccordionTrigger className="flex p-6 rounded-2xl bg-card/30 border border-border/50 hover:border-primary/30 hover:bg-card text-left font-bold text-foreground hover:no-underline transition-all">
                           {item.q}
                         </AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground">
-                          {item.a
-                            .split(/(support@vpnkeen\.com)/)
-                            .map((part, i) =>
-                              part === "support@vpnkeen.com" ? (
-                                <a
-                                  key={i}
-                                  href="mailto:support@vpnkeen.com"
-                                  className="text-primary hover:underline"
-                                >
-                                  {part}
-                                </a>
-                              ) : (
-                                <span key={i}>{part}</span>
-                              )
-                            )}
+                        <AccordionContent className="p-6 text-muted-foreground leading-relaxed bg-muted/20 rounded-b-2xl -mt-4 border-x border-b border-border/50">
+                          {item.a}
                         </AccordionContent>
                       </AccordionItem>
                     ))}
                   </Accordion>
                 </div>
               ))}
-            </div>
-          </section>
-
-          {/* Additional Resources */}
-          <section className="mt-16">
-            <div className="bg-gradient-card rounded-xl p-8 border border-accent/30 shadow-glow text-center">
-              <h3 className="text-2xl font-bold text-foreground mb-4">
-                Still Need Help?
-              </h3>
-              <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-                Can't find what you're looking for? Our support team is standing
-                by to help you resolve any issues and answer your questions
-                about KeenVPN.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button
-                  variant="outline"
-                  className="border-accent/50 hover:bg-accent/10 hover:border-accent"
-                  onClick={() =>
-                  (window.location.href =
-                    "mailto:support@vpnkeen.com?subject=KeenVPN Support Request")
-                  }
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  support@vpnkeen.com
-                </Button>
-              </div>
             </div>
           </section>
         </div>

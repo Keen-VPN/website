@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Check, X, HelpCircle } from "lucide-react";
+import { Check, X, HelpCircle, Shield, Zap, Globe, Lock, Banknote } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -14,7 +14,6 @@ import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import { enterprisePlan, featureComparison, faqs } from "@/constants/pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { transformApiPlans } from "@/lib/pricing";
-
 import { PricingPlan } from "@/lib/pricing";
 
 const Pricing = () => {
@@ -52,13 +51,12 @@ const Pricing = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <main className="pt-24 pb-20">
-          <div className="container mx-auto px-4 text-center">
-            <div className="text-xl text-muted-foreground">
-              Loading plans...
-            </div>
+        <main className="flex-grow flex items-center justify-center pt-24">
+          <div className="text-center">
+            <Zap className="h-12 w-12 text-primary animate-pulse mx-auto mb-4" />
+            <p className="text-muted-foreground font-medium">Securing the best deals for you...</p>
           </div>
         </main>
         <Footer />
@@ -70,24 +68,28 @@ const Pricing = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="pt-24 pb-20">
-        {/* Hero Section */}
-        <section className="container mx-auto px-4 text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
-            Choose Your Protection Plan
+      <main className="pt-32 pb-24">
+        {/* Luxury Minimal Hero */}
+        <section className="container mx-auto px-4 text-center mb-20">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <Banknote className="h-4 w-4 text-primary" />
+            <span className="text-xs font-bold text-primary uppercase tracking-widest">Pricing that pays for itself</span>
+          </div>
+          
+          <h1 className="text-5xl md:text-7xl font-extrabold text-foreground mb-6 tracking-tighter animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
+            Choose Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/60">Protection</span>
           </h1>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-            Get complete online privacy and security with KeenVPN. All plans
-            include a 1 month free trial, unlimited bandwidth, and our no-log
-            guarantee.
+          
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-200">
+            Premium security with built-in savings. Access global markets, block intrusive ads, and reclaim your digital sovereignty.
           </p>
 
-          {/* Billing Toggle */}
-          <div className="inline-flex items-center gap-4 bg-gradient-card p-2 rounded-full border border-border">
+          {/* Industrial Utilitarian Toggle */}
+          <div className="inline-flex p-1.5 bg-muted/50 rounded-2xl border border-border/50 backdrop-blur-xl shadow-inner mb-8">
             <button
               onClick={() => setBillingPeriod("monthly")}
-              className={`px-6 py-2 rounded-full transition-all ${billingPeriod === "monthly"
-                ? "bg-gradient-primary text-primary-foreground shadow-glow"
+              className={`px-8 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${billingPeriod === "monthly"
+                ? "bg-background text-foreground shadow-lg scale-[1.02]"
                 : "text-muted-foreground hover:text-foreground"
                 }`}
             >
@@ -95,100 +97,82 @@ const Pricing = () => {
             </button>
             <button
               onClick={() => setBillingPeriod("annual")}
-              className={`px-6 py-2 rounded-full transition-all relative ${billingPeriod === "annual"
-                ? "bg-gradient-primary text-primary-foreground shadow-glow"
+              className={`px-8 py-3 rounded-xl text-sm font-bold transition-all duration-300 relative ${billingPeriod === "annual"
+                ? "bg-primary text-primary-foreground shadow-glow scale-[1.02]"
                 : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               Annual
-              <span className="ml-2 text-sm">(Save 17%)</span>
+              <span className="absolute -top-3 -right-3 bg-secondary text-secondary-foreground text-[10px] font-black px-2 py-1 rounded-lg shadow-lg rotate-12">
+                -60%
+              </span>
             </button>
           </div>
         </section>
 
-        {/* Error Banner */}
-        {error && (
-          <section className="container mx-auto px-4 mb-8">
-            <div className="max-w-4xl mx-auto bg-destructive/10 border border-destructive/50 rounded-lg p-4 text-center">
-              <p className="text-destructive">
-                {error}. Showing available plans.
-              </p>
-            </div>
-          </section>
-        )}
-
-        {/* Pricing Cards */}
-        <section className="container mx-auto px-4 mb-20">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto items-stretch">
+        {/* Pricing Grid */}
+        <section className="container mx-auto px-4 mb-32">
+          <div className="flex flex-wrap justify-center gap-8 max-w-7xl mx-auto items-stretch">
             {plans.map((plan, index) => {
               const isAnnual = billingPeriod === "annual";
+              const isEnterprise = plan.name === "Enterprise";
+              const isValuePlan = plan.popular || plan.name === "Team";
+              
               const price = isAnnual
                 ? plan.annualPriceDisplay || plan.monthlyPriceDisplay
                 : plan.monthlyPriceDisplay;
-              const period =
-                plan.monthlyPrice === null
-                  ? ""
-                  : isAnnual
-                    ? "/month, billed annually"
-                    : "/month";
-              const monthlyEquivalent =
-                isAnnual && plan.annualMonthlyEquivalent
-                  ? plan.annualMonthlyEquivalent
-                  : null;
+              
+              const monthlyEquivalent = isAnnual && plan.annualMonthlyEquivalent
+                ? plan.annualMonthlyEquivalent
+                : price;
 
               return (
                 <div
                   key={index}
-                  className={`relative p-8 rounded-xl border transition-all duration-300 flex flex-col h-full ${plan.popular
-                    ? "bg-gradient-card border-primary shadow-glow scale-105 md:scale-110"
-                    : "bg-card border-border hover:border-primary/50"
-                    }`}
+                  className={`group relative p-10 rounded-[2rem] border transition-all duration-500 flex flex-col w-full md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.5rem)] max-w-md ${
+                    isValuePlan
+                      ? "bg-card dark:bg-slate-900 border-secondary shadow-[0_0_50px_rgba(16,185,129,0.1)] scale-105 z-10"
+                      : "bg-card/50 border-border/50 hover:border-primary/30 hover:bg-card shadow-sm"
+                  }`}
                 >
-                  {plan.popular && (
-                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                      <span className="bg-gradient-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium shadow-glow">
-                        Most Popular
+                  {isValuePlan && (
+                    <div className="absolute -top-5 left-1/2 -translate-x-1/2">
+                      <span className="bg-secondary text-secondary-foreground px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-xl">
+                        Ultimate Savings
                       </span>
                     </div>
                   )}
 
-                  <div className="mb-6">
-                    <h3 className="text-2xl font-bold text-foreground mb-2">
+                  <div className="mb-10">
+                    <h3 className={`text-2xl font-black mb-3 ${isValuePlan ? "text-secondary dark:text-secondary" : "text-foreground"}`}>
                       {plan.name}
                     </h3>
-                    <p className="text-muted-foreground text-sm">
-                      {plan.name === "Enterprise"
-                        ? plan.description
-                        : isAnnual
-                          ? "Complete VPN protection for the entire year"
-                          : "Complete VPN protection with monthly flexibility"}
+                    <p className="text-muted-foreground text-sm leading-relaxed min-h-[40px] font-medium">
+                      {plan.description}
                     </p>
                   </div>
 
-                  <div className="mb-6">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-bold text-foreground">
-                        {plan.name === "Enterprise"
-                          ? "Custom"
-                          : isAnnual
-                            ? monthlyEquivalent
-                            : price}
+                  <div className="mb-10 flex flex-col">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-6xl font-black tracking-tighter text-foreground">
+                        {isEnterprise ? "POA" : monthlyEquivalent}
                       </span>
-                      {period && (
-                        <span className="text-muted-foreground">{period}</span>
+                      {!isEnterprise && (
+                        <span className="text-muted-foreground font-bold italic">/mo</span>
                       )}
                     </div>
+                    {isAnnual && !isEnterprise && (
+                      <span className="text-secondary dark:text-secondary text-sm font-bold mt-2 flex items-center gap-1.5">
+                        <Check className="h-4 w-4" /> Pays for itself in 1 flight booking
+                      </span>
+                    )}
                   </div>
 
-                  {plan.name === "Enterprise" ? (
+                  {isEnterprise ? (
                     <ContactSalesDialog>
                       <Button
-                        className={`w-full mb-6 ${plan.popular
-                          ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                          : "border-primary/50 hover:bg-primary/10"
-                          }`}
-                        variant={plan.popular ? "default" : "outline"}
-                        size="lg"
+                        className="w-full h-14 rounded-2xl font-black text-lg mb-10 transition-all duration-300 hover:scale-[1.02]"
+                        variant="outline"
                       >
                         {plan.buttonText}
                       </Button>
@@ -196,211 +180,141 @@ const Pricing = () => {
                   ) : (
                     <Button
                       onClick={() => {
-                        const queryParams = new URLSearchParams({
-                          planId: isAnnual
-                            ? plan.annualId || ""
-                            : plan.monthlyId || "",
-                        });
-                        navigate(`/subscribe?${queryParams.toString()}`);
+                        const planId = isAnnual ? plan.annualId : plan.monthlyId;
+                        navigate(`/subscribe?planId=${planId || ""}`);
                       }}
-                      className={`w - full mb - 6 ${plan.popular
-                        ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                        : "border-primary/50 hover:bg-primary/10"
-                        }`}
-                      variant={plan.popular ? "default" : "outline"}
+                      variant={isValuePlan ? "emerald" : "glow"}
                       size="lg"
+                      className="w-full mb-10"
                     >
                       {plan.buttonText}
                     </Button>
                   )}
 
-                  <ul className="space-y-3 flex-grow mb-6">
+                  <div className="space-y-5 flex-grow">
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Features Included</div>
                     {plan.features
                       .filter((f) => f.included)
                       .map((feature, featureIndex) => (
-                        <li
-                          key={featureIndex}
-                          className="flex items-start gap-3"
-                        >
-                          <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                          <span
-                            className={`text - sm ${feature.highlighted
-                              ? "text-foreground font-medium"
-                              : "text-muted-foreground"
-                              }`}
-                          >
+                        <div key={featureIndex} className="flex items-center gap-3">
+                          <div className={`p-1 rounded-full ${isValuePlan ? "bg-secondary/10" : "bg-primary/10"}`}>
+                            <Check className={`h-3.5 w-3.5 ${isValuePlan ? "text-secondary dark:text-secondary" : "text-primary"}`} />
+                          </div>
+                          <span className={`text-sm ${feature.highlighted ? "text-foreground font-bold" : "text-muted-foreground font-medium"}`}>
                             {feature.name}
                           </span>
-                        </li>
+                        </div>
                       ))}
-                  </ul>
+                  </div>
                 </div>
               );
             })}
           </div>
         </section>
 
-        {/* Feature Comparison Table */}
-        <section className="container mx-auto px-4 mb-20">
-          <h2 className="text-2xl md:text-3xl font-bold text-foreground text-center mb-8 md:mb-12">
-            Compare Plans
-          </h2>
-
-          <div className="max-w-6xl md:mx-auto overflow-x-auto -mx-4 px-4 md:px-0">
-            <div className="min-w-[600px] bg-gradient-card rounded-xl border border-border p-4 md:p-6">
-              {/* Table Header */}
-              <div className="grid grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6 pb-4 md:pb-6 border-b border-border">
-                <div className="text-muted-foreground font-medium text-sm md:text-base">
-                  Features
-                </div>
-                {plans.map((plan, index) => (
-                  <div key={index} className="text-center">
-                    <div className="text-foreground font-bold text-sm md:text-base">
-                      {plan.name}
-                    </div>
-                    <div className="text-xs md:text-sm text-muted-foreground mt-1 hidden sm:block">
-                      {plan.monthlyPrice === null
-                        ? "Custom"
-                        : billingPeriod === "annual"
-                          ? `${plan.annualMonthlyEquivalent} / month, billed annually`
-                          : `${plan.monthlyPriceDisplay} / month`}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1 sm:hidden">
-                      {plan.monthlyPrice === null
-                        ? "Custom"
-                        : billingPeriod === "annual"
-                          ? plan.annualMonthlyEquivalent
-                          : plan.monthlyPriceDisplay}
-                    </div>
-                    {plan.name === "Enterprise" && (
-                      <ContactSalesDialog>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2 text-xs hidden md:inline-flex"
-                        >
-                          Contact Sales
-                        </Button>
-                      </ContactSalesDialog>
-                    )}
+        {/* Global Deal Grid (Bento Box) */}
+        <section className="container mx-auto px-4 mb-32">
+          <div className="text-center mb-16 max-w-2xl mx-auto">
+            <h2 className="text-3xl md:text-5xl font-black mb-4 tracking-tighter text-foreground uppercase">Real-World <span className="text-secondary dark:text-secondary">Value</span></h2>
+            <p className="text-muted-foreground font-medium max-w-xl mx-auto">See how KeenVPN pays for itself by unlocking global price parity.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            <div className="md:col-span-2 p-8 rounded-[2rem] bg-card border border-border/50 flex flex-col justify-between group hover:border-primary/30 transition-all duration-500 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-20 bg-primary/5 blur-[100px] rounded-full"></div>
+              <div className="relative z-10">
+                <div className="flex justify-between items-start mb-8">
+                  <div className="p-4 bg-primary/10 rounded-2xl">
+                    <Globe className="h-8 w-8 text-primary" />
                   </div>
-                ))}
+                  <div className="bg-secondary/10 text-secondary dark:text-secondary px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">Live Comparison</div>
+                </div>
+                <div>
+                  <h3 className="text-3xl font-black mb-4 tracking-tight uppercase">Streaming Subscriptions</h3>
+                  <p className="text-muted-foreground font-medium leading-relaxed mb-8 max-w-md">Access regional pricing for your favorite services. Secure Turkish or Indian rates from anywhere.</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-5 bg-background rounded-2xl border border-border/50 shadow-inner">
+                      <div className="text-[10px] font-black text-slate-400 mb-1 uppercase tracking-widest">USA PRICE</div>
+                      <div className="text-2xl font-black text-rose-600">$15.99/mo</div>
+                    </div>
+                    <div className="p-5 bg-secondary/5 rounded-2xl border border-secondary/20">
+                      <div className="text-[10px] font-black text-secondary dark:text-secondary mb-1 uppercase tracking-widest">KEENVPN PRICE</div>
+                      <div className="text-2xl font-black text-secondary dark:text-secondary">$3.49/mo</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-
-              {/* Table Body */}
-              {featureComparison.map((row, index) => (
-                <div
-                  key={index}
-                  className="grid grid-cols-3 gap-2 md:gap-4 py-3 md:py-4 border-b border-border/50 last:border-0"
-                >
-                  <div className="text-foreground text-xs md:text-sm lg:text-base">
-                    {row.feature}
-                  </div>
-                  <div className="text-center text-muted-foreground">
-                    {typeof row.individual === "boolean" ? (
-                      row.individual ? (
-                        <Check className="h-4 w-4 md:h-5 md:w-5 text-primary inline-block" />
-                      ) : (
-                        <X className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground/50 inline-block" />
-                      )
-                    ) : (
-                      <span className="text-xs md:text-sm">
-                        {row.individual}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="text-center text-muted-foreground">
-                    {typeof row.enterprise === "boolean" ? (
-                      row.enterprise ? (
-                        <Check className="h-4 w-4 md:h-5 md:w-5 text-primary inline-block" />
-                      ) : (
-                        <X className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground/50 inline-block" />
-                      )
-                    ) : (
-                      <span className="text-xs md:text-sm">
-                        {row.enterprise}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
+            </div>
+            
+            <div className="p-8 rounded-[2rem] bg-slate-950 dark:bg-slate-900 border border-secondary/20 flex flex-col items-center text-center justify-center group hover:-translate-y-2 transition-all duration-500 shadow-2xl">
+              <div className="p-6 bg-secondary/10 rounded-full mb-6">
+                <Shield className="h-12 w-12 text-secondary" />
+              </div>
+              <h3 className="text-2xl font-black mb-4 text-white uppercase tracking-tight">Zero-Risk</h3>
+              <p className="text-slate-400 text-sm leading-relaxed mb-8 font-medium italic">Not convinced? Use our 30-day money-back guarantee. No questions asked.</p>
+              <Button onClick={() => navigate("/subscribe")} variant="emerald" className="w-full">Try it Free</Button>
             </div>
           </div>
         </section>
 
-        {/* Trust Signals */}
-        <section className="container mx-auto px-4 mb-20">
-          <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 text-center">
-            <div className="p-6 bg-gradient-card rounded-xl border border-border">
-              <div className="text-3xl font-bold text-primary mb-2">
-                256-bit
-              </div>
-              <div className="text-foreground font-medium mb-1">
-                AES Encryption
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Military-grade security
-              </div>
-            </div>
-            <div className="p-6 bg-gradient-card rounded-xl border border-border">
-              <div className="text-3xl font-bold text-primary mb-2">Zero</div>
-              <div className="text-foreground font-medium mb-1">Logs Kept</div>
-              <div className="text-sm text-muted-foreground">
-                Complete privacy
+        {/* Feature Comparison Table - Refined */}
+        <section className="container mx-auto px-4 mb-32">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-3xl font-black text-center mb-16 tracking-tight uppercase">Technical Specifications</h2>
+            <div className="rounded-[2.5rem] border border-border/50 bg-card/50 backdrop-blur-xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-border/50 bg-muted/50">
+                      <th className="p-8 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Capabilities</th>
+                      {plans.map((plan, i) => (
+                        <th key={i} className="p-8 text-center text-[10px] font-black uppercase tracking-[0.2em] text-foreground">{plan.name}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {featureComparison.map((row, i) => (
+                      <tr key={i} className="border-b border-border/20 hover:bg-primary/5 transition-colors group">
+                        <td className="p-8 text-sm font-bold text-foreground/70 group-hover:text-foreground">{row.feature}</td>
+                        <td className="p-8 text-center">
+                          {typeof row.individual === "boolean" ? (
+                            row.individual ? <Check className="h-6 w-6 text-primary mx-auto" /> : <X className="h-6 w-6 text-muted-foreground/20 mx-auto" />
+                          ) : <span className="text-[10px] font-black text-foreground uppercase tracking-widest">{row.individual}</span>}
+                        </td>
+                        <td className="p-8 text-center">
+                          {typeof row.enterprise === "boolean" ? (
+                            row.enterprise ? <Check className="h-6 w-6 text-secondary dark:text-secondary mx-auto" /> : <X className="h-6 w-6 text-muted-foreground/20 mx-auto" />
+                          ) : <span className="text-[10px] font-black text-foreground uppercase tracking-widest">{row.enterprise}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
         </section>
 
-        {/* FAQ Section */}
-        <section className="container mx-auto px-4 mb-20">
+        {/* FAQ - Editorial Style */}
+        <section className="container mx-auto px-4 mb-32">
           <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl font-bold text-foreground text-center mb-4">
-              Frequently Asked Questions
-            </h2>
-            <p className="text-muted-foreground text-center mb-12">
-              Have questions? We've got answers.
-            </p>
+            <div className="text-center mb-16">
+              <h2 className="text-4xl font-black mb-4">Questions?</h2>
+              <p className="text-muted-foreground">Everything you need to know about KeenVPN and global savings.</p>
+            </div>
 
             <Accordion type="single" collapsible className="space-y-4">
               {faqs.map((faq, index) => (
                 <AccordionItem
                   key={index}
-                  value={`item - ${index}`}
-                  className="bg-gradient-card rounded-xl border border-border px-6"
+                  value={`item-${index}`}
+                  className="rounded-3xl border border-border/50 px-8 py-2 data-[state=open]:bg-card/50 transition-all duration-300"
                 >
-                  <AccordionTrigger className="text-left hover:text-primary">
-                    <div className="flex items-start gap-3">
-                      <HelpCircle className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                      <span className="font-medium text-foreground">
-                        {faq.question}
-                      </span>
-                    </div>
+                  <AccordionTrigger className="text-left font-black text-lg hover:no-underline hover:text-primary">
+                    {faq.question}
                   </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground pl-8">
-                    {faq.answer.split(/(support@vpnkeen\.com)/).map((part, i) =>
-                      part === "support@vpnkeen.com" ? (
-                        <a
-                          key={i}
-                          href="mailto:support@vpnkeen.com"
-                          className="text-primary hover:underline"
-                        >
-                          {part}
-                        </a>
-                      ) : (
-                        <span key={i}>{part}</span>
-                      )
-                    )}
-                    {'isEnterprise' in faq && (faq as { isEnterprise: boolean }).isEnterprise && (
-                      <div className="mt-4">
-                        <ContactSalesDialog>
-                          <Button variant="outline" size="sm">
-                            Contact Sales Team
-                          </Button>
-                        </ContactSalesDialog>
-                      </div>
-                    )}
+                  <AccordionContent className="text-muted-foreground text-base leading-relaxed pt-2 pb-6">
+                    {faq.answer}
                   </AccordionContent>
                 </AccordionItem>
               ))}
@@ -408,25 +322,39 @@ const Pricing = () => {
           </div>
         </section>
 
-        {/* Final CTA */}
+        {/* High-Impact Final CTA */}
         <section className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center bg-gradient-card rounded-xl border border-primary/50 p-12 shadow-glow">
-            <h2 className="text-3xl font-bold text-foreground mb-4">
-              Ready to protect your privacy?
-            </h2>
-            <p className="text-xl text-muted-foreground mb-8">
-              Start your 1 month free trial today. No credit card required.
-            </p>
-            <Button
-              onClick={() => navigate("/subscribe")}
-              className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-              size="lg"
-            >
-              Start Free Trial
-            </Button>
-            <p className="text-sm text-muted-foreground mt-4">
-              30-day money-back guarantee • Cancel anytime
-            </p>
+          <div className="max-w-6xl mx-auto rounded-[3rem] bg-gradient-to-br from-primary to-blue-800 p-1 bg-[length:200%_200%] animate-gradient shadow-glow">
+            <div className="bg-background rounded-[2.9rem] p-12 md:p-20 text-center relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-20 bg-primary/10 blur-[100px] rounded-full"></div>
+              <div className="absolute bottom-0 left-0 p-20 bg-secondary/10 blur-[100px] rounded-full"></div>
+              
+              <h2 className="text-4xl md:text-6xl font-black text-foreground mb-8 tracking-tighter relative z-10">
+                Stop Paying the <br/><span className="text-rose-500">"Location Tax"</span>
+              </h2>
+              <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto relative z-10">
+                Join thousands of smart users who save an average of $450/year while staying completely anonymous.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center relative z-10">
+                <Button
+                  onClick={() => navigate("/subscribe")}
+                  variant="glow"
+                  size="xl"
+                >
+                  Start Saving Today
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/support")}
+                  size="xl"
+                >
+                  Talk to Support
+                </Button>
+              </div>
+              <p className="text-sm font-bold text-muted-foreground mt-8 relative z-10 uppercase tracking-widest">
+                No credit card required for trial • Cancel anytime
+              </p>
+            </div>
           </div>
         </section>
       </main>
