@@ -3,6 +3,36 @@ import { BackendAuthResponse } from "./types";
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
 
+function normalizeBackendAuthResponse(data: BackendAuthResponse): BackendAuthResponse {
+  const rawSubscription = (data as BackendAuthResponse & {
+    subscription?: {
+      status?: string;
+      endDate?: string;
+      currentPeriodEnd?: string;
+      customerId?: string;
+      plan?: string;
+      planName?: string;
+      cancelAtPeriodEnd?: boolean;
+    } | null;
+  }).subscription;
+
+  if (!rawSubscription) {
+    return data;
+  }
+
+  const normalizedSubscription = {
+    ...rawSubscription,
+    status: (rawSubscription.status ?? "").toLowerCase(),
+    endDate: rawSubscription.endDate ?? rawSubscription.currentPeriodEnd,
+    plan: rawSubscription.plan ?? rawSubscription.planName,
+  };
+
+  return {
+    ...data,
+    subscription: normalizedSubscription,
+  };
+}
+
 // ============================================================================
 // Backend Authentication
 // ============================================================================
@@ -28,7 +58,7 @@ export async function loginWithFirebaseToken(
     }
     // Backend /auth/login doesn't currently include `success` (unlike /auth/apple/signin).
     // Default to true only when absent so a future explicit `success: false` is respected.
-    return { ...data, success: data.success ?? true };
+    return normalizeBackendAuthResponse({ ...data, success: data.success ?? true });
   } catch (error) {
     return {
       success: false,
@@ -81,7 +111,7 @@ export async function authenticateWithBackend(
       throw new Error(data.error || "Backend authentication failed");
     }
 
-    return data;
+    return normalizeBackendAuthResponse(data);
   } catch (error) {
     return {
       success: false,
@@ -124,7 +154,7 @@ export async function verifySessionToken(
           error: data?.error ?? "Session verification failed",
         };
       }
-      return { ...data, success: data.success ?? true };
+      return normalizeBackendAuthResponse({ ...data, success: data.success ?? true });
     }
     return {
       success: false,
