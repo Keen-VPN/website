@@ -209,26 +209,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setSubscription(backendResponse.subscription || null);
               setBackendProvider(backendResponse.user?.provider ?? null);
 
-              // Check if this is from ASWebAuthenticationSession (macOS desktop app)
-              if (isASWebSession()) {
-                if (window.location.pathname !== '/account') {
+              const currentPath = window.location.pathname;
+
+              // Only auto-redirect after auth redirect flow when the user is on /signin.
+              // On hard refresh of protected pages (e.g. /account/subscription-history),
+              // keep the user on the same route.
+              if (currentPath === '/signin') {
+                // Check if this is from ASWebAuthenticationSession (macOS desktop app)
+                if (isASWebSession()) {
                   console.log('🔐 ASWebAuthenticationSession (redirect) - redirecting to /account for manual deeplink');
                   window.location.href = '/account?asweb=1';
+                  return;
                 }
-                return;
-              }
 
-              // Normal web flow - redirect based on subscription status
-              const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
+                // Normal web flow - redirect based on subscription status
+                const hasActiveSubscription =
+                  backendResponse.subscription &&
+                  backendResponse.subscription.status === 'active';
 
-              if (hasActiveSubscription) {
-                // User has active subscription - redirect to account page
-                if (window.location.pathname !== '/account') {
+                if (hasActiveSubscription) {
                   window.location.href = '/account';
-                }
-              } else {
-                // User doesn't have active subscription - redirect to subscribe
-                if (window.location.pathname !== '/subscribe') {
+                } else {
                   window.location.href = '/subscribe';
                 }
               }
