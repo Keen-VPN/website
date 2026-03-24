@@ -23,7 +23,8 @@ function normalizeBackendAuthResponse(data: BackendAuthResponse): BackendAuthRes
   const normalizedSubscription = {
     ...rawSubscription,
     status: (rawSubscription.status ?? "").toLowerCase(),
-    endDate: rawSubscription.endDate ?? rawSubscription.currentPeriodEnd,
+    endDate:
+      rawSubscription.endDate ?? rawSubscription.currentPeriodEnd ?? "",
     plan: rawSubscription.plan ?? rawSubscription.planName,
   };
 
