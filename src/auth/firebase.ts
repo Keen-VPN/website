@@ -120,11 +120,22 @@ export async function checkRedirectResult(): Promise<SignInResult | null> {
       const credential = googleCred ?? oauthCred;
       const isApple = credential?.providerId === 'apple.com';
 
-      let accessToken = credential?.accessToken || credential?.idToken;
+      // Backend expects:
+      // - Google: Firebase ID token
+      // - Apple: Apple identity token (JWT) when available; otherwise Firebase ID token
+      let accessToken: string | undefined;
+      const appleIdentityToken = isApple
+        ? (credential as { idToken?: string } | null)?.idToken
+        : undefined;
+
+      if (isApple) {
+        accessToken = appleIdentityToken;
+      }
+
       if (!accessToken && result.user) {
+        // Always prefer Firebase ID token for backend session creation.
         accessToken = await result.user.getIdToken();
       }
-      const appleIdentityToken = isApple ? (credential as { idToken?: string } | null)?.idToken : undefined;
 
       return {
         success: true,

@@ -8,9 +8,12 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requireSubscription = false }: ProtectedRouteProps) => {
-  const { user, subscription, loading } = useAuth();
+  const { user, subscription, loading, hasSessionToken } = useAuth();
 
-  if (loading) {
+  // During hard refresh, auth can briefly be unresolved while a session token
+  // is still being validated. Keep the user on the current protected page,
+  // but only while initialization is in progress to avoid infinite spinners.
+  if (loading && (!user ? hasSessionToken : true)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

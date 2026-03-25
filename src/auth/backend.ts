@@ -1,7 +1,75 @@
-import { BackendAuthResponse } from "./types";
+import { BackendAuthResponse, SubscriptionData } from "./types";
 
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
+
+function extractBackendErrorMessage(
+  data: unknown,
+  fallback: string,
+): string {
+  if (!data || typeof data !== "object") return fallback;
+
+  // Common shapes:
+  // - { error: "..." }
+  // - { error: { message: "..." } }
+  // - { message: "..." }
+  const record = data as Record<string, unknown>;
+  const errorValue = record["error"];
+  if (typeof errorValue === "string" && errorValue.trim()) return errorValue;
+  if (errorValue && typeof errorValue === "object") {
+    const errorRecord = errorValue as Record<string, unknown>;
+    const message = errorRecord["message"];
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  const messageValue = record["message"];
+  if (typeof messageValue === "string" && messageValue.trim()) return messageValue;
+
+  return fallback;
+}
+
+/** Wire shape from backend before normalization (fields may be missing or named differently). */
+export interface RawSubscription {
+  status?: string;
+  endDate?: string;
+  currentPeriodEnd?: string;
+  customerId?: string;
+  plan?: string;
+  planName?: string;
+  cancelAtPeriodEnd?: boolean;
+}
+
+export interface RawBackendAuthResponse
+  extends Omit<BackendAuthResponse, "subscription"> {
+  subscription?: RawSubscription | null;
+}
+
+function normalizeBackendAuthResponse(
+  data: RawBackendAuthResponse,
+): BackendAuthResponse {
+  const rawSubscription = data.subscription;
+
+  if (!rawSubscription) {
+    return data as BackendAuthResponse;
+  }
+
+  const normalizedSubscription: SubscriptionData = {
+    status: (rawSubscription.status ?? "").toLowerCase(),
+    endDate:
+      rawSubscription.endDate ?? rawSubscription.currentPeriodEnd ?? "",
+    plan: rawSubscription.plan ?? rawSubscription.planName,
+  };
+  if (rawSubscription.customerId !== undefined) {
+    normalizedSubscription.customerId = rawSubscription.customerId;
+  }
+  if (rawSubscription.cancelAtPeriodEnd !== undefined) {
+    normalizedSubscription.cancelAtPeriodEnd = rawSubscription.cancelAtPeriodEnd;
+  }
+
+  return {
+    ...data,
+    subscription: normalizedSubscription,
+  };
+}
 
 // ============================================================================
 // Backend Authentication
@@ -22,13 +90,14 @@ export async function loginWithFirebaseToken(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idToken, ...(provider ? { provider } : {}) }),
     });
-    const data = await response.json();
+    const data: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.error || "Login failed");
+      throw new Error(extractBackendErrorMessage(data, "Login failed"));
     }
     // Backend /auth/login doesn't currently include `success` (unlike /auth/apple/signin).
     // Default to true only when absent so a future explicit `success: false` is respected.
-    return { ...data, success: data.success ?? true };
+    const normalized = normalizeBackendAuthResponse(data as RawBackendAuthResponse);
+    return { ...normalized, success: normalized.success ?? true };
   } catch (error) {
     return {
       success: false,
@@ -75,13 +144,15 @@ export async function authenticateWithBackend(
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
+    const data: unknown = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.error || "Backend authentication failed");
+      throw new Error(
+        extractBackendErrorMessage(data, "Backend authentication failed"),
+      );
     }
 
-    return data;
+    return normalizeBackendAuthResponse(data as RawBackendAuthResponse);
   } catch (error) {
     return {
       success: false,
@@ -124,7 +195,7 @@ export async function verifySessionToken(
           error: data?.error ?? "Session verification failed",
         };
       }
-      return { ...data, success: data.success ?? true };
+      return normalizeBackendAuthResponse({ ...data, success: data.success ?? true });
     }
     return {
       success: false,
