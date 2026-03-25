@@ -1,7 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from 'lucide-react';
-import { getSessionToken } from '@/auth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -9,8 +8,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requireSubscription = false }: ProtectedRouteProps) => {
-  const { user, subscription, loading } = useAuth();
-  const hasSessionToken = Boolean(getSessionToken());
+  const { user, subscription, loading, hasSessionToken } = useAuth();
 
   // During hard refresh, auth can briefly be unresolved while a session token
   // is still being validated. Keep the user on the current protected page,

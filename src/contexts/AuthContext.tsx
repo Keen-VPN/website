@@ -28,6 +28,8 @@ interface AuthContextType {
   backendProvider: string | null;
   subscription: SubscriptionData | null;
   loading: boolean;
+  /** Mirrors backend session token presence; kept in sync when AuthProvider stores or clears the token. */
+  hasSessionToken: boolean;
   isAuthenticating: boolean;
   signIn: (provider?: 'google' | 'apple') => Promise<{ success: boolean; shouldRedirect?: string }>;
   logout: () => Promise<void>;
@@ -45,12 +47,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [backendProvider, setBackendProvider] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasSessionToken, setHasSessionToken] = useState(() => Boolean(getSessionToken()));
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   /** Guards against duplicate authenticateWithBackend calls (signIn + onAuthStateChanged or double-click). */
   const backendAuthInProgressRef = useRef(false);
   /** Avoid repeated /auth/login calls when backend provider is missing/invalid. */
   const providerSyncAttemptedForUidRef = useRef<string | null>(null);
   const { toast } = useToast();
+
+  const persistSessionToken = React.useCallback((token: string) => {
+    storeSessionToken(token);
+    setHasSessionToken(true);
+  }, []);
+
+  const discardSessionToken = React.useCallback(() => {
+    clearSessionToken();
+    setHasSessionToken(false);
+  }, []);
+
+  React.useEffect(() => {
+    setHasSessionToken(Boolean(getSessionToken()));
+  }, [user, loading]);
+
+  React.useEffect(() => {
+    const SESSION_TOKEN_KEY = 'sessionToken';
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === SESSION_TOKEN_KEY || e.key === null) {
+        setHasSessionToken(Boolean(getSessionToken()));
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   // Check if user came from ASWebAuthenticationSession (macOS desktop app)
   const isASWebSession = () => {
@@ -205,7 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             if (backendResponse?.success && backendResponse?.sessionToken) {
-              storeSessionToken(backendResponse.sessionToken);
+              persistSessionToken(backendResponse.sessionToken);
               setSubscription(backendResponse.subscription || null);
               setBackendProvider(backendResponse.user?.provider ?? null);
 
@@ -222,16 +250,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   return;
                 }
 
-                // Normal web flow - redirect based on subscription status
-                const hasActiveSubscription =
-                  backendResponse.subscription &&
-                  backendResponse.subscription.status === 'active';
-
-                if (hasActiveSubscription) {
-                  window.location.href = '/account';
-                } else {
-                  window.location.href = '/subscribe';
-                }
+                // Normal web flow - always land on account after login.
+                window.location.href = '/account';
               }
               return;
             } else if (backendResponse?.error?.includes('recently deleted')) {
@@ -243,7 +263,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               await signOut();
 
               // Clear session token
-              clearSessionToken();
+              discardSessionToken();
 
               // Clear user state
               setUser(null);
@@ -295,12 +315,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Immediately redirect if on signin page (normal web flow)
             if (window.location.pathname === '/signin') {
-              const hasActiveSubscription = response.subscription && response.subscription.status === 'active';
-              if (hasActiveSubscription) {
-                window.location.href = '/account';
-              } else {
-                window.location.href = '/subscribe';
-              }
+              window.location.href = '/account';
             }
 
             setLoading(false);
@@ -309,7 +324,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (response.unauthorized) {
             // Backend explicitly rejected the token (401 or invalid) — clear session
             console.log('🚨 Invalid session token, clearing auth state');
-            clearSessionToken();
+            discardSessionToken();
             setBackendProvider(null);
 
             // Also clear Firebase auth if user is still authenticated
@@ -352,7 +367,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const inferredProvider = inferProviderFromFirebase(firebaseUser);
                 const backendResponse = await loginWithFirebaseToken(idToken, inferredProvider);
                 if (backendResponse.success && backendResponse.sessionToken) {
-                  storeSessionToken(backendResponse.sessionToken);
+                  persistSessionToken(backendResponse.sessionToken);
                   setSubscription(backendResponse.subscription || null);
                   setBackendProvider(backendResponse.user?.provider ?? inferredProvider);
                 }
@@ -379,7 +394,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               );
 
               if (backendResponse.success && backendResponse.sessionToken) {
-                storeSessionToken(backendResponse.sessionToken);
+                persistSessionToken(backendResponse.sessionToken);
                 setSubscription(backendResponse.subscription || null);
                 setBackendProvider(backendResponse.user?.provider ?? null);
 
@@ -387,8 +402,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   if (isASWebSession()) {
                     window.location.href = '/account?asweb=1';
                   } else {
-                    const hasActive = backendResponse.subscription?.status === 'active';
-                    window.location.href = hasActive ? '/account' : '/subscribe';
+                    window.location.href = '/account';
                   }
                   return;
                 }
@@ -545,7 +559,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const response = await verifySessionToken(token);
           if (!response.success) {
             if (response.unauthorized) {
-              clearSessionToken();
+              discardSessionToken();
               setSubscription(null);
             }
             setIsAuthenticating(false);
@@ -553,8 +567,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           if (response.subscription) setSubscription(response.subscription);
           if (window.location.pathname === '/signin') {
-            const hasActive = response.subscription?.status === 'active';
-            window.location.href = hasActive ? '/account' : '/subscribe';
+            window.location.href = '/account';
             setIsAuthenticating(false);
             return { success: true };
           }
@@ -589,7 +602,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (backendResponse.success && backendResponse.sessionToken) {
-        storeSessionToken(backendResponse.sessionToken);
+        persistSessionToken(backendResponse.sessionToken);
         setSubscription(backendResponse.subscription || null);
         setBackendProvider(backendResponse.user?.provider ?? null);
 
@@ -603,19 +616,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           return { success: true, shouldRedirect: undefined };
         } else {
-          // Normal web/mobile user - redirect based on subscription status
-          const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
-
-          if (hasActiveSubscription) {
-            // User has active subscription - redirect to account page
-            if (window.location.pathname !== '/account') {
-              window.location.href = '/account';
-            }
-          } else {
-            // User doesn't have active subscription - redirect to subscribe
-            if (window.location.pathname !== '/subscribe') {
-              window.location.href = '/subscribe';
-            }
+          // Normal web/mobile user - always land on account after login.
+          if (window.location.pathname !== '/account') {
+            window.location.href = '/account';
           }
         }
 
@@ -628,7 +631,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         import('@/auth').then(({ signOut }) => signOut()).catch(console.error);
 
         // Clear session token
-        clearSessionToken();
+        discardSessionToken();
 
         // Clear user state
         setUser(null);
@@ -661,7 +664,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticating(false);
       return { success: false };
     }
-  }, [isAuthenticating, toast]);
+  }, [isAuthenticating, toast, persistSessionToken, discardSessionToken]);
 
   // ============================================================================
   // Logout
@@ -670,7 +673,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = React.useCallback(async () => {
     try {
       await firebaseSignOut();
-      clearSessionToken();
+      discardSessionToken();
       setUser(null);
       setSubscription(null);
       setBackendProvider(null);
@@ -686,7 +689,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, discardSessionToken]);
 
   // ============================================================================
   // Refresh Subscription
@@ -712,11 +715,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     backendProvider,
     subscription,
     loading,
+    hasSessionToken,
     isAuthenticating,
     signIn,
     logout,
     refreshSubscription,
-  }), [user, backendProvider, subscription, loading, isAuthenticating, signIn, logout, refreshSubscription]);
+  }), [user, backendProvider, subscription, loading, hasSessionToken, isAuthenticating, signIn, logout, refreshSubscription]);
 
   return (
     <AuthContext.Provider value={value}>
