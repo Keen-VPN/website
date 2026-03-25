@@ -450,3 +450,67 @@ export function shouldUseRedirect(): boolean {
   return isWebView();
 }
 
+/**
+ * Sign in with Google using popup ONLY (no redirect fallback).
+ * Used for account linking where redirect would lose context.
+ */
+export async function signInWithGooglePopupOnly(): Promise<SignInResult> {
+  const authInstance = getFirebaseAuth();
+  const provider = createGoogleProvider();
+
+  try {
+    const result = await signInWithPopup(authInstance, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    let tokenToUse = credential?.accessToken || credential?.idToken;
+    if (!tokenToUse && result.user) {
+      tokenToUse = await result.user.getIdToken();
+    }
+
+    return {
+      success: true,
+      user: result.user,
+      credential,
+      accessToken: tokenToUse,
+      usedRedirect: false,
+    };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: mapFirebaseError(error),
+    };
+  }
+}
+
+/**
+ * Sign in with Apple using popup ONLY (no redirect fallback).
+ * Used for account linking where redirect would lose context.
+ */
+export async function signInWithApplePopupOnly(): Promise<SignInResult> {
+  const authInstance = getFirebaseAuth();
+  const provider = createAppleProvider();
+
+  try {
+    const result = await signInWithPopup(authInstance, provider);
+    const credential = OAuthProvider.credentialFromResult(result);
+    let tokenToUse = credential?.accessToken || credential?.idToken;
+    if (!tokenToUse && result.user) {
+      tokenToUse = await result.user.getIdToken();
+    }
+    const appleIdentityToken = (credential as { idToken?: string } | null)?.idToken;
+
+    return {
+      success: true,
+      user: result.user,
+      credential,
+      accessToken: tokenToUse,
+      appleIdentityToken,
+      usedRedirect: false,
+    };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: mapFirebaseError(error),
+    };
+  }
+}
+

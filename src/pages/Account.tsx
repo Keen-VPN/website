@@ -31,10 +31,18 @@ import {
   XCircle,
   Trash2,
   History,
+  Link2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { deleteAccount, getSessionToken } from "@/auth";
+import {
+  signInWithGooglePopupOnly,
+  signInWithApplePopupOnly,
+  checkLinkProvider,
+  confirmLinkProvider,
+  storeSessionToken,
+} from "@/auth";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
@@ -46,9 +54,16 @@ const Account = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<{
+    provider: 'google' | 'apple';
+    idToken: string;
+    secondaryUser: { id: string; email: string; provider: string };
+  } | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, logout, subscription, refreshSubscription } =
+  const { user, loading, logout, subscription, refreshSubscription, backendProvider } =
     useAuth();
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
@@ -163,6 +178,138 @@ const Account = () => {
       });
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleLinkProvider = async (provider: 'google' | 'apple') => {
+    if (linking) return;
+    setLinking(true);
+
+    try {
+      const result = provider === 'google'
+        ? await signInWithGooglePopupOnly()
+        : await signInWithApplePopupOnly();
+
+      if (!result.success || !result.accessToken) {
+        if (result.error?.code === 'auth/popup-closed-by-user') {
+          toast({
+            title: "Sign-in was cancelled",
+            description: "You can try again anytime.",
+          });
+        }
+        setLinking(false);
+        return;
+      }
+
+      const tokenForBackend = provider === 'apple' && result.appleIdentityToken
+        ? result.appleIdentityToken
+        : result.accessToken;
+
+      const checkResult = await checkLinkProvider(provider, tokenForBackend);
+
+      if (checkResult.error) {
+        toast({
+          title: "Link Failed",
+          description: checkResult.error,
+          variant: "destructive",
+        });
+        setLinking(false);
+        return;
+      }
+
+      switch (checkResult.action) {
+        case 'already_linked':
+          toast({
+            title: "Already Linked",
+            description: "This account is already linked.",
+          });
+          break;
+
+        case 'fresh_link': {
+          const confirmResult = await confirmLinkProvider(provider, tokenForBackend);
+          if (confirmResult.success) {
+            if (confirmResult.newSessionToken) {
+              storeSessionToken(confirmResult.newSessionToken);
+            }
+            toast({
+              title: "Account Linked",
+              description: `Your ${provider === 'google' ? 'Google' : 'Apple'} account has been linked successfully.`,
+            });
+            await refreshSubscription();
+          } else {
+            toast({
+              title: "Link Failed",
+              description: confirmResult.error || "Please try again.",
+              variant: "destructive",
+            });
+          }
+          break;
+        }
+
+        case 'merge_required':
+          setMergeTarget({
+            provider,
+            idToken: tokenForBackend,
+            secondaryUser: checkResult.secondaryUser!,
+          });
+          setMergeDialogOpen(true);
+          break;
+
+        case 'blocked':
+          toast({
+            title: "Cannot Link Accounts",
+            description: "Both accounts have active subscriptions. Please cancel one subscription before linking.",
+            variant: "destructive",
+          });
+          break;
+      }
+    } catch (error) {
+      toast({
+        title: "Link Failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const handleConfirmMerge = async () => {
+    if (!mergeTarget) return;
+    setLinking(true);
+    setMergeDialogOpen(false);
+
+    try {
+      const confirmResult = await confirmLinkProvider(
+        mergeTarget.provider,
+        mergeTarget.idToken,
+      );
+
+      if (confirmResult.success) {
+        if (confirmResult.newSessionToken) {
+          storeSessionToken(confirmResult.newSessionToken);
+        }
+        toast({
+          title: "Accounts Merged",
+          description: "Your accounts have been linked successfully.",
+        });
+        await refreshSubscription();
+      } else {
+        toast({
+          title: "Merge Failed",
+          description: confirmResult.error || "Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Merge Failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLinking(false);
+      setMergeTarget(null);
     }
   };
 
@@ -314,6 +461,47 @@ const Account = () => {
                   <p className="font-medium">
                     {user.providerData?.[0]?.providerId}
                   </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">Linked Accounts</p>
+                  <div className="space-y-2">
+                    {backendProvider?.includes('google') || user.providerData?.some(p => p?.providerId === 'google.com') ? (
+                      <Badge variant="outline" className="mr-2">Google linked</Badge>
+                    ) : (
+                      <Button
+                        onClick={() => handleLinkProvider('google')}
+                        variant="outline"
+                        size="sm"
+                        disabled={linking}
+                        className="w-full"
+                      >
+                        {linking ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Link2 className="h-4 w-4 mr-2" />
+                        )}
+                        Link Google Account
+                      </Button>
+                    )}
+                    {backendProvider?.includes('apple') || user.providerData?.some(p => p?.providerId === 'apple.com') ? (
+                      <Badge variant="outline" className="mr-2">Apple linked</Badge>
+                    ) : (
+                      <Button
+                        onClick={() => handleLinkProvider('apple')}
+                        variant="outline"
+                        size="sm"
+                        disabled={linking}
+                        className="w-full"
+                      >
+                        {linking ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Link2 className="h-4 w-4 mr-2" />
+                        )}
+                        Link Apple Account
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <Button onClick={logout} variant="outline" className="w-full">
                   <LogOut className="h-4 w-4 mr-2" />
@@ -682,6 +870,38 @@ const Account = () => {
               </AlertDialog>
             </CardContent>
           </Card>
+
+          <AlertDialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center">
+                  <AlertTriangle className="h-5 w-5 mr-2 text-yellow-500" />
+                  Merge Accounts
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {mergeTarget && (
+                    <>
+                      <p>
+                        This {mergeTarget.provider === 'google' ? 'Google' : 'Apple'} identity is already
+                        associated with another account (<strong>{mergeTarget.secondaryUser.email}</strong>).
+                      </p>
+                      <p className="mt-2">
+                        Merging will consolidate that account into this one. This action cannot be undone.
+                      </p>
+                    </>
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setMergeTarget(null)}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmMerge}>
+                  Merge Accounts
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </main>
       <Footer />

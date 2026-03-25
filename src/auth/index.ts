@@ -15,9 +15,18 @@ export {
   mapFirebaseError,
   isWebView,
   shouldUseRedirect,
+  signInWithGooglePopupOnly,
+  signInWithApplePopupOnly,
   type SignInResult,
   type AuthError
 } from './firebase';
+
+export {
+  checkLinkProvider,
+  confirmLinkProvider,
+  type LinkProviderCheckResult,
+  type LinkProviderConfirmResult,
+} from './link-provider';
 
 export {
   authenticateWithBackend,
