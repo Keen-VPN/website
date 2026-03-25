@@ -664,7 +664,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticating(false);
       return { success: false };
     }
-  }, [isAuthenticating, toast]);
+  }, [isAuthenticating, toast, persistSessionToken, discardSessionToken]);
 
   // ============================================================================
   // Logout
@@ -689,7 +689,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, discardSessionToken]);
 
   // ============================================================================
   // Refresh Subscription
