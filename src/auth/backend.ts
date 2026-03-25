@@ -1,32 +1,45 @@
-import { BackendAuthResponse } from "./types";
+import { BackendAuthResponse, SubscriptionData } from "./types";
 
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
 
-function normalizeBackendAuthResponse(data: BackendAuthResponse): BackendAuthResponse {
-  const rawSubscription = (data as BackendAuthResponse & {
-    subscription?: {
-      status?: string;
-      endDate?: string;
-      currentPeriodEnd?: string;
-      customerId?: string;
-      plan?: string;
-      planName?: string;
-      cancelAtPeriodEnd?: boolean;
-    } | null;
-  }).subscription;
+/** Wire shape from backend before normalization (fields may be missing or named differently). */
+export interface RawSubscription {
+  status?: string;
+  endDate?: string;
+  currentPeriodEnd?: string;
+  customerId?: string;
+  plan?: string;
+  planName?: string;
+  cancelAtPeriodEnd?: boolean;
+}
+
+export interface RawBackendAuthResponse
+  extends Omit<BackendAuthResponse, "subscription"> {
+  subscription?: RawSubscription | null;
+}
+
+function normalizeBackendAuthResponse(
+  data: RawBackendAuthResponse,
+): BackendAuthResponse {
+  const rawSubscription = data.subscription;
 
   if (!rawSubscription) {
-    return data;
+    return data as BackendAuthResponse;
   }
 
-  const normalizedSubscription = {
-    ...rawSubscription,
+  const normalizedSubscription: SubscriptionData = {
     status: (rawSubscription.status ?? "").toLowerCase(),
     endDate:
       rawSubscription.endDate ?? rawSubscription.currentPeriodEnd ?? "",
     plan: rawSubscription.plan ?? rawSubscription.planName,
   };
+  if (rawSubscription.customerId !== undefined) {
+    normalizedSubscription.customerId = rawSubscription.customerId;
+  }
+  if (rawSubscription.cancelAtPeriodEnd !== undefined) {
+    normalizedSubscription.cancelAtPeriodEnd = rawSubscription.cancelAtPeriodEnd;
+  }
 
   return {
     ...data,
