@@ -250,16 +250,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   return;
                 }
 
-                // Normal web flow - redirect based on subscription status
-                const hasActiveSubscription =
-                  backendResponse.subscription &&
-                  backendResponse.subscription.status === 'active';
-
-                if (hasActiveSubscription) {
-                  window.location.href = '/account';
-                } else {
-                  window.location.href = '/subscribe';
-                }
+                // Normal web flow - always land on account after login.
+                window.location.href = '/account';
               }
               return;
             } else if (backendResponse?.error?.includes('recently deleted')) {
@@ -323,12 +315,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Immediately redirect if on signin page (normal web flow)
             if (window.location.pathname === '/signin') {
-              const hasActiveSubscription = response.subscription && response.subscription.status === 'active';
-              if (hasActiveSubscription) {
-                window.location.href = '/account';
-              } else {
-                window.location.href = '/subscribe';
-              }
+              window.location.href = '/account';
             }
 
             setLoading(false);
@@ -415,8 +402,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   if (isASWebSession()) {
                     window.location.href = '/account?asweb=1';
                   } else {
-                    const hasActive = backendResponse.subscription?.status === 'active';
-                    window.location.href = hasActive ? '/account' : '/subscribe';
+                    window.location.href = '/account';
                   }
                   return;
                 }
@@ -581,8 +567,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           if (response.subscription) setSubscription(response.subscription);
           if (window.location.pathname === '/signin') {
-            const hasActive = response.subscription?.status === 'active';
-            window.location.href = hasActive ? '/account' : '/subscribe';
+            window.location.href = '/account';
             setIsAuthenticating(false);
             return { success: true };
           }
@@ -631,19 +616,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           return { success: true, shouldRedirect: undefined };
         } else {
-          // Normal web/mobile user - redirect based on subscription status
-          const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
-
-          if (hasActiveSubscription) {
-            // User has active subscription - redirect to account page
-            if (window.location.pathname !== '/account') {
-              window.location.href = '/account';
-            }
-          } else {
-            // User doesn't have active subscription - redirect to subscribe
-            if (window.location.pathname !== '/subscribe') {
-              window.location.href = '/subscribe';
-            }
+          // Normal web/mobile user - always land on account after login.
+          if (window.location.pathname !== '/account') {
+            window.location.href = '/account';
           }
         }
 

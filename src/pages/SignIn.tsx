@@ -39,15 +39,6 @@ const SignIn = () => {
           window.location.href = "/account?asweb=1";
           return;
         }
-
-        // Normal web flow - redirect based on subscription
-        const hasActiveSubscription =
-          subscription && subscription.status === "active";
-        if (hasActiveSubscription) {
-          window.location.href = "/account";
-        } else {
-          window.location.href = "/subscribe";
-        }
       }
     }
   }, [user, authLoading, subscription]);

@@ -66,9 +66,14 @@ export async function loginWithFirebaseToken(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idToken, ...(provider ? { provider } : {}) }),
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.error || "Login failed");
+      const message =
+        (data as any)?.error?.message ||
+        (data as any)?.error ||
+        (data as any)?.message ||
+        "Login failed";
+      throw new Error(String(message));
     }
     // Backend /auth/login doesn't currently include `success` (unlike /auth/apple/signin).
     // Default to true only when absent so a future explicit `success: false` is respected.
@@ -119,10 +124,15 @@ export async function authenticateWithBackend(
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.error || "Backend authentication failed");
+      const message =
+        (data as any)?.error?.message ||
+        (data as any)?.error ||
+        (data as any)?.message ||
+        "Backend authentication failed";
+      throw new Error(String(message));
     }
 
     return normalizeBackendAuthResponse(data);
