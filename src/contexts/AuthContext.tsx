@@ -81,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Check if user came from ASWebAuthenticationSession (macOS desktop app)
-  const isASWebSession = () => {
+  const isASWebSession = React.useCallback(() => {
     // Check URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('asweb') === '1') {
@@ -92,7 +92,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return true;
     }
     return false;
-  };
+  }, []);
+
+  const getAccountRedirectUrl = React.useCallback(
+    () => (isASWebSession() ? '/account?asweb=1' : '/account'),
+    [isASWebSession],
+  );
 
   // ============================================================================
   // Subscription Management
@@ -246,7 +251,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Check if this is from ASWebAuthenticationSession (macOS desktop app)
                 if (isASWebSession()) {
                   console.log('🔐 ASWebAuthenticationSession (redirect) - redirecting to /account for manual deeplink');
-                  window.location.href = '/account?asweb=1';
+                  window.location.href = getAccountRedirectUrl();
                   return;
                 }
 
@@ -308,14 +313,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Check if this is from ASWebAuthenticationSession (macOS desktop app)
             if (isASWebSession() && window.location.pathname === '/signin') {
               console.log('🔐 ASWebSession detected - user already logged in on signin, redirecting to account');
-              window.location.href = '/account?asweb=1';
+              window.location.href = getAccountRedirectUrl();
               setLoading(false);
               return;
             }
 
             // Immediately redirect if on signin page (normal web flow)
             if (window.location.pathname === '/signin') {
-              window.location.href = '/account';
+              window.location.href = getAccountRedirectUrl();
             }
 
             setLoading(false);
@@ -399,11 +404,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setBackendProvider(backendResponse.user?.provider ?? null);
 
                 if (window.location.pathname === '/signin') {
-                  if (isASWebSession()) {
-                    window.location.href = '/account?asweb=1';
-                  } else {
-                    window.location.href = '/account';
-                  }
+                  window.location.href = getAccountRedirectUrl();
                   return;
                 }
               }
@@ -567,7 +568,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           if (response.subscription) setSubscription(response.subscription);
           if (window.location.pathname === '/signin') {
-            window.location.href = '/account';
+            window.location.href = getAccountRedirectUrl();
             setIsAuthenticating(false);
             return { success: true };
           }
@@ -612,7 +613,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isASWebSession()) {
           if (window.location.pathname !== '/account') {
             console.info('🔐 ASWebAuthenticationSession - redirecting to /account for manual deeplink');
-            window.location.href = '/account?asweb=1';
+            window.location.href = getAccountRedirectUrl();
           }
           return { success: true, shouldRedirect: undefined };
         } else {
@@ -664,7 +665,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticating(false);
       return { success: false };
     }
-  }, [isAuthenticating, toast, persistSessionToken, discardSessionToken]);
+  }, [
+    isAuthenticating,
+    toast,
+    persistSessionToken,
+    discardSessionToken,
+    isASWebSession,
+    getAccountRedirectUrl,
+  ]);
 
   // ============================================================================
   // Logout

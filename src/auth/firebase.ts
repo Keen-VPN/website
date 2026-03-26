@@ -318,12 +318,20 @@ async function signInWithProvider(provider: GoogleAuthProvider | OAuthProvider, 
     }
 
 
-    // Prefer credential idToken (Apple/Google identity token); fall back to Firebase ID token (common with Apple).
-    let tokenToUse = credential?.accessToken || credential?.idToken;
-    if (!tokenToUse && result.user) {
-      tokenToUse = await result.user.getIdToken();
+    // Backend expects:
+    // - Google: Firebase ID token (NOT Google OAuth access token)
+    // - Apple: Apple identity token (JWT) when available; otherwise Firebase ID token
+    const isAppleProvider = providerName === 'Apple' || credential?.providerId === 'apple.com';
+    const appleIdentityToken = isAppleProvider
+      ? (credential as { idToken?: string } | null)?.idToken
+      : undefined;
+
+    let tokenToUse: string | undefined = undefined;
+    if (isAppleProvider) {
+      tokenToUse = appleIdentityToken || (result.user ? await result.user.getIdToken() : undefined);
+    } else {
+      tokenToUse = result.user ? await result.user.getIdToken() : undefined;
     }
-    const appleIdentityToken = providerName === 'Apple' ? (credential as { idToken?: string } | null)?.idToken : undefined;
 
     return {
       success: true,
