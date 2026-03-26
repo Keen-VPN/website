@@ -49,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   // Check if user came from ASWebAuthenticationSession (macOS desktop app)
-  const isASWebSession = () => {
+  const isASWebSession = React.useCallback(() => {
     // Check URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('asweb') === '1') {
@@ -60,7 +60,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return true;
     }
     return false;
-  };
+  }, []);
+
+  const accountUrl = React.useCallback(
+    () => (isASWebSession() ? '/account?asweb=1' : '/account'),
+    [isASWebSession],
+  );
 
   // ============================================================================
   // Subscription Management
@@ -204,19 +209,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return;
               }
 
-              // Normal web flow - redirect based on subscription status
-              const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
-
-              if (hasActiveSubscription) {
-                // User has active subscription - redirect to account page
-                if (window.location.pathname !== '/account') {
-                  window.location.href = '/account';
-                }
-              } else {
-                // User doesn't have active subscription - redirect to subscribe
-                if (window.location.pathname !== '/subscribe') {
-                  window.location.href = '/subscribe';
-                }
+              // Normal web flow - always land on account after login.
+              if (window.location.pathname !== '/account') {
+                window.location.href = accountUrl();
               }
               return;
             } else if (backendResponse?.error?.includes('recently deleted')) {
@@ -275,14 +270,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               return;
             }
 
-            // Immediately redirect if on signin page (normal web flow)
+            // Immediately redirect if on signin page
             if (window.location.pathname === '/signin') {
-              const hasActiveSubscription = response.subscription && response.subscription.status === 'active';
-              if (hasActiveSubscription) {
-                window.location.href = '/account';
-              } else {
-                window.location.href = '/subscribe';
-              }
+              window.location.href = accountUrl();
             }
 
             setLoading(false);
@@ -334,12 +324,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setSubscription(backendResponse.subscription || null);
 
                 if (window.location.pathname === '/signin') {
-                  if (isASWebSession()) {
-                    window.location.href = '/account?asweb=1';
-                  } else {
-                    const hasActive = backendResponse.subscription?.status === 'active';
-                    window.location.href = hasActive ? '/account' : '/subscribe';
-                  }
+                  window.location.href = accountUrl();
                   return;
                 }
               }
@@ -503,8 +488,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           if (response.subscription) setSubscription(response.subscription);
           if (window.location.pathname === '/signin') {
-            const hasActive = response.subscription?.status === 'active';
-            window.location.href = hasActive ? '/account' : '/subscribe';
+            window.location.href = accountUrl();
             setIsAuthenticating(false);
             return { success: true };
           }
@@ -544,28 +528,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setIsAuthenticating(false);
 
-        // Check if this is from ASWebAuthenticationSession (macOS desktop app)
-        if (isASWebSession()) {
-          if (window.location.pathname !== '/account') {
-            console.info('🔐 ASWebAuthenticationSession - redirecting to /account for manual deeplink');
-            window.location.href = '/account?asweb=1';
-          }
-          return { success: true, shouldRedirect: undefined };
-        } else {
-          // Normal web/mobile user - redirect based on subscription status
-          const hasActiveSubscription = backendResponse.subscription && backendResponse.subscription.status === 'active';
-
-          if (hasActiveSubscription) {
-            // User has active subscription - redirect to account page
-            if (window.location.pathname !== '/account') {
-              window.location.href = '/account';
-            }
-          } else {
-            // User doesn't have active subscription - redirect to subscribe
-            if (window.location.pathname !== '/subscribe') {
-              window.location.href = '/subscribe';
-            }
-          }
+        // After any successful login, always land on account.
+        if (window.location.pathname !== '/account') {
+          window.location.href = accountUrl();
         }
 
         return { success: true, shouldRedirect: undefined };
@@ -609,7 +574,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticating(false);
       return { success: false };
     }
-  }, [isAuthenticating, toast]);
+  }, [isAuthenticating, toast, accountUrl]);
 
   // ============================================================================
   // Logout
