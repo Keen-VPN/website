@@ -32,6 +32,14 @@ const Subscribe = () => {
   const { user, loading, isAuthenticating, signIn, logout, subscription } = useAuth();
   const [sessionInvalidHandled, setSessionInvalidHandled] = useState(false);
 
+  // If user already has an active subscription, don't show subscribe UI.
+  useEffect(() => {
+    if (loading) return;
+    if (user && subscription?.status === "active") {
+      navigate("/account", { replace: true });
+    }
+  }, [user, subscription, loading, navigate]);
+
   // Get URL parameters
   const planIdParam = searchParams.get("planId");
 
