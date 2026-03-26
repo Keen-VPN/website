@@ -81,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Check if user came from ASWebAuthenticationSession (macOS desktop app)
-  const isASWebSession = () => {
+  const isASWebSession = React.useCallback(() => {
     // Check URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('asweb') === '1') {
@@ -92,9 +92,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return true;
     }
     return false;
-  };
+  }, []);
 
-  const getAccountRedirectUrl = () => (isASWebSession() ? '/account?asweb=1' : '/account');
+  const getAccountRedirectUrl = React.useCallback(
+    () => (isASWebSession() ? '/account?asweb=1' : '/account'),
+    [isASWebSession],
+  );
 
   // ============================================================================
   // Subscription Management
@@ -662,7 +665,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticating(false);
       return { success: false };
     }
-  }, [isAuthenticating, toast, persistSessionToken, discardSessionToken]);
+  }, [
+    isAuthenticating,
+    toast,
+    persistSessionToken,
+    discardSessionToken,
+    isASWebSession,
+    getAccountRedirectUrl,
+  ]);
 
   // ============================================================================
   // Logout
