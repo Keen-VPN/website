@@ -28,7 +28,9 @@ export {
   deleteAccount,
   storeSessionToken,
   getSessionToken,
-  clearSessionToken
+  clearSessionToken,
+  linkProvider,
+  getLinkedProviders
 } from './backend';
 
 export {
