@@ -47,19 +47,21 @@ export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpd
       try {
         const result = await linkWithPopup(currentUser, authProvider);
         firebaseIdToken = await result.user.getIdToken(true);
-      } catch (firebaseError: any) {
-        if (firebaseError?.code === 'auth/credential-already-in-use') {
+      } catch (firebaseError: unknown) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Firebase errors have dynamic structure
+        const fbErr = firebaseError as any;
+        if (fbErr?.code === 'auth/credential-already-in-use') {
           // The other provider account already exists as a separate Firebase user.
           // We need to sign into THAT account to get its Firebase token for the backend.
           // Use a temporary Firebase app so we don't disturb the primary session.
           const pendingCredential = provider === 'google'
-            ? GoogleAuthProvider.credentialFromError(firebaseError)
-            : OAuthProvider.credentialFromError(firebaseError);
+            ? GoogleAuthProvider.credentialFromError(fbErr)
+            : OAuthProvider.credentialFromError(fbErr);
 
           if (!pendingCredential) {
             // Fallback: try to extract the OAuth credential directly from the error
-            const oauthIdToken = firebaseError?.customData?._tokenResponse?.oauthIdToken;
-            const oauthAccessToken = firebaseError?.customData?._tokenResponse?.oauthAccessToken;
+            const oauthIdToken = fbErr?.customData?._tokenResponse?.oauthIdToken;
+            const oauthAccessToken = fbErr?.customData?._tokenResponse?.oauthAccessToken;
             if (oauthIdToken && provider === 'apple') {
               // For Apple, we can construct the credential manually
               const manualCredential = new OAuthProvider('apple.com').credential({
@@ -96,9 +98,9 @@ export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpd
               return;
             }
           }
-        } else if (firebaseError?.code === 'auth/popup-closed-by-user') {
+        } else if (fbErr?.code === 'auth/popup-closed-by-user') {
           return;
-        } else if (firebaseError?.code === 'auth/provider-already-linked') {
+        } else if (fbErr?.code === 'auth/provider-already-linked') {
           toast({ title: 'Already linked', description: 'This provider is already linked to your account.' });
           return;
         } else {
@@ -111,8 +113,8 @@ export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpd
         toast({ title: 'Account linked', description: `${provider === 'google' ? 'Google' : 'Apple'} account linked successfully.` });
         onUpdate();
       }
-    } catch (error: any) {
-      const message = error?.message || 'Failed to link account';
+    } catch (error: unknown) {
+      const message = (error instanceof Error ? error.message : null) || 'Failed to link account';
       toast({ title: 'Linking failed', description: message, variant: 'destructive' });
     } finally {
       setLinking(null);

@@ -607,6 +607,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticating(false);
       return { success: false };
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshLinkedProviders is stable but declared after signIn
   }, [isAuthenticating, toast, accountUrl]);
 
   // ============================================================================

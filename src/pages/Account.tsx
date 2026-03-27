@@ -589,7 +589,7 @@ const Account = () => {
           {hasSessionToken && (
             <div className="mt-8">
               <LinkedAccounts
-                sessionToken={getSessionToken()!}
+                sessionToken={getSessionToken() ?? ''}
                 currentProvider={user?.providerData?.[0]?.providerId}
                 providers={linkedProviders}
                 onUpdate={refreshLinkedProviders}
