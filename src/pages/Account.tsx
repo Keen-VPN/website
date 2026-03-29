@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { deleteAccount, getSessionToken } from "@/auth";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { LinkedAccounts } from "@/components/LinkedAccounts";
 import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
 
 const BACKEND_URL =
@@ -48,7 +49,7 @@ const Account = () => {
   const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, logout, subscription, refreshSubscription } =
+  const { user, loading, logout, subscription, refreshSubscription, linkedProviders, refreshLinkedProviders, hasSessionToken } =
     useAuth();
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
@@ -583,6 +584,18 @@ const Account = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Linked Accounts */}
+          {hasSessionToken && (
+            <div className="mt-8">
+              <LinkedAccounts
+                sessionToken={getSessionToken() ?? ''}
+                currentProvider={user?.providerData?.[0]?.providerId}
+                providers={linkedProviders}
+                onUpdate={refreshLinkedProviders}
+              />
+            </div>
+          )}
 
           {/* Support Section */}
           <Card className="mt-8 border-accent/50 shadow-glow">

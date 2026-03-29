@@ -448,3 +448,49 @@ export async function fetchSubscriptionPlanById(planId: string): Promise<{
     };
   }
 }
+
+// ============================================================================
+// Account Linking
+// ============================================================================
+
+export async function linkProvider(
+  sessionToken: string,
+  provider: 'google' | 'apple',
+  firebaseIdToken: string,
+): Promise<{ success: boolean; linkedProviders: { google: boolean; apple: boolean } }> {
+  const response = await fetch(`${BACKEND_URL}/auth/link-provider`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${sessionToken}`,
+    },
+    body: JSON.stringify({ provider, firebaseIdToken }),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(extractBackendErrorMessage(errorData, `Failed to link provider: ${response.status}`));
+  }
+  return response.json();
+}
+
+export async function getLinkedProviders(
+  sessionToken: string,
+): Promise<{
+  success: boolean;
+  providers: {
+    google: { linked: boolean; email?: string };
+    apple: { linked: boolean; email?: string };
+  };
+}> {
+  const response = await fetch(`${BACKEND_URL}/user/linked-providers`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${sessionToken}`,
+    },
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(extractBackendErrorMessage(errorData, `Failed to get linked providers: ${response.status}`));
+  }
+  return response.json();
+}
