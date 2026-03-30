@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAccount, getSessionToken } from "@/auth";
+import { deleteAccount, getSessionToken, cancelSubscription } from "@/auth";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
@@ -96,31 +96,22 @@ const Account = () => {
     try {
       setCancelling(true);
 
-      // Get Firebase ID token
-      const idToken = await user.getIdToken();
+      const token = getSessionToken();
+      if (!token) {
+        throw new Error("Session expired. Please log in again.");
+      }
 
-      const response = await fetch(`${BACKEND_URL}/subscription/cancel`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          idToken,
-        }),
-      });
+      const result = await cancelSubscription(token);
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (result.success) {
         toast({
           title: "Subscription Cancelled",
           description:
             "Your subscription will remain active until the end of your billing period.",
         });
-        // Refresh subscription status
         await refreshSubscription();
       } else {
-        throw new Error(data.error || "Failed to cancel subscription");
+        throw new Error(result.error || "Failed to cancel subscription");
       }
     } catch (error) {
       toast({
