@@ -40,9 +40,6 @@ import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
 import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
 
-const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
-
 const Account = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
