@@ -123,12 +123,21 @@ const Account = () => {
   };
 
   const handleDeleteAccount = async () => {
-    if (!user || !user.email || !user.uid) return;
+    if (!user) return;
+    const token = getSessionToken();
+    if (!token) {
+      toast({
+        title: "Deletion Failed",
+        description: "No session token found. Please sign in again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       setDeleting(true);
 
-      const result = await deleteAccount(user.email, user.uid);
+      const result = await deleteAccount(token);
 
       if (result.success) {
         toast({
@@ -643,9 +652,7 @@ const Account = () => {
                     </AlertDialogTitle>
                     <AlertDialogDescription className="space-y-3">
                       <p>
-                        This action <strong>cannot be undone</strong>. This will
-                        permanently delete your account and remove all your data
-                        from our servers.
+                      This action <strong>cannot be undone</strong>. Your account and all associated usage data will be permanently deleted from our servers. Please note that no refunds will be issued.
                       </p>
                       <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/20">
                         <p className="text-sm font-medium text-destructive">

@@ -344,19 +344,15 @@ export function clearSessionToken(): void {
  * Delete user account
  */
 export async function deleteAccount(
-  email: string,
-  userId: string,
+  sessionToken: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/delete-account`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${sessionToken}`,
       },
-      body: JSON.stringify({
-        email,
-        userId,
-      }),
     });
 
     const data = await response.json();
