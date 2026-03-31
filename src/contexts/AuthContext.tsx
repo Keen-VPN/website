@@ -36,6 +36,8 @@ interface AuthContextType {
   isAuthenticating: boolean;
   linkedProviders: LinkedProviders | null;
   hasSessionToken: boolean;
+  /** Auth provider as stored by the backend (e.g. "google", "apple"). More reliable than Firebase providerData[0] for linked/merged accounts. */
+  authProvider: string | null;
   signIn: (provider?: 'google' | 'apple') => Promise<{ success: boolean; shouldRedirect?: string }>;
   logout: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
@@ -55,6 +57,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [linkedProviders, setLinkedProviders] = useState<LinkedProviders | null>(null);
   const [hasSessionToken, setHasSessionToken] = useState<boolean>(() => Boolean(getSessionToken()));
+  const [authProvider, _setAuthProvider] = useState<string | null>(
+    () => sessionStorage.getItem('auth_provider')
+  );
+  const setAuthProvider = React.useCallback((provider: string | null) => {
+    _setAuthProvider(provider);
+    if (provider) {
+      sessionStorage.setItem('auth_provider', provider);
+    } else {
+      sessionStorage.removeItem('auth_provider');
+    }
+  }, []);
   /** Guards against duplicate authenticateWithBackend calls (signIn + onAuthStateChanged or double-click). */
   const backendAuthInProgressRef = useRef(false);
   const { toast } = useToast();
@@ -215,6 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               storeSessionToken(backendResponse.sessionToken);
               setHasSessionToken(true);
               setSubscription(backendResponse.subscription || null);
+              setAuthProvider(providerType);
 
               // Fetch linked providers (non-blocking)
               refreshLinkedProviders(backendResponse.sessionToken);
@@ -244,6 +258,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               // Clear session token
               clearSessionToken();
               setHasSessionToken(false);
+              setAuthProvider(null);
 
               // Clear user state
               setUser(null);
@@ -280,6 +295,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               displayName: response.user.name,
             } as FirebaseUser);
 
+            // Prefer the sign-in provider already persisted in sessionStorage (set during login)
+            // over the DB registration provider, which may differ for linked accounts.
+            // Read sessionStorage directly to avoid stale closure from useEffect([]).
+            if (!sessionStorage.getItem('auth_provider')) {
+              setAuthProvider(response.user.provider || null);
+            }
+
             if (response.subscription) {
               setSubscription(response.subscription);
             }
@@ -308,6 +330,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('🚨 Invalid session token, clearing auth state');
             clearSessionToken();
             setHasSessionToken(false);
+            setAuthProvider(null);
 
             // Also clear Firebase auth if user is still authenticated
             try {
@@ -350,6 +373,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 storeSessionToken(backendResponse.sessionToken);
                 setHasSessionToken(true);
                 setSubscription(backendResponse.subscription || null);
+                // Only set if not already known from this session's sign-in flow.
+                // Read sessionStorage directly to avoid stale closure from useEffect([]).
+                if (!sessionStorage.getItem('auth_provider')) {
+                  setAuthProvider(backendResponse.user?.provider || null);
+                }
                 refreshLinkedProviders(backendResponse.sessionToken);
 
                 if (window.location.pathname === '/signin') {
@@ -365,6 +393,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } else if (!firebaseUser) {
           setSubscription(null);
+          setAuthProvider(null);
           syncHasSessionToken();
         }
 
@@ -497,6 +526,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Checking subscription status...",
       });
 
+      // We know which provider the user just authenticated with — persist it now
+      // before any early-exit paths, so onAuthStateChanged can't overwrite it.
+      setAuthProvider(provider);
+
       // If ref was already claimed by onAuthStateChanged, or it's now false (listener finished),
       // skip our backend call to avoid duplicate request.
       if (refAlreadyClaimed || !backendAuthInProgressRef.current) {
@@ -576,6 +609,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Clear session token
         clearSessionToken();
         setHasSessionToken(false);
+        setAuthProvider(null);
 
         // Clear user state
         setUser(null);
@@ -621,6 +655,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setHasSessionToken(false);
       setUser(null);
       setSubscription(null);
+      setAuthProvider(null);
 
       toast({
         title: 'Signed out successfully',
@@ -673,11 +708,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthenticating,
     linkedProviders,
     hasSessionToken,
+    authProvider,
     signIn,
     logout,
     refreshSubscription,
     refreshLinkedProviders,
-  }), [user, subscription, loading, isAuthenticating, hasSessionToken, linkedProviders, signIn, logout, refreshSubscription, refreshLinkedProviders]);
+  }), [user, subscription, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, refreshLinkedProviders]);
 
   return (
     <AuthContext.Provider value={value}>
