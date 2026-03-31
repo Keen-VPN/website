@@ -46,7 +46,7 @@ const Account = () => {
   const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, logout, subscription, refreshSubscription, linkedProviders, refreshLinkedProviders, hasSessionToken } =
+  const { user, loading, logout, subscription, refreshSubscription, linkedProviders, refreshLinkedProviders, hasSessionToken, authProvider } =
     useAuth();
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
@@ -309,8 +309,8 @@ const Account = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Provider</p>
-                  <p className="font-medium">
-                    {user.providerData?.[0]?.providerId}
+                  <p className="font-medium capitalize">
+                    {authProvider || 'Unknown'}
                   </p>
                 </div>
                 <Button onClick={logout} variant="outline" className="w-full">
@@ -583,11 +583,11 @@ const Account = () => {
           </div>
 
           {/* Linked Accounts */}
-          {hasSessionToken && (
+          {hasSessionToken && authProvider && (
             <div className="mt-8">
               <LinkedAccounts
                 sessionToken={getSessionToken() ?? ''}
-                currentProvider={user?.providerData?.[0]?.providerId}
+                currentProvider={authProvider}
                 providers={linkedProviders}
                 onUpdate={refreshLinkedProviders}
               />
