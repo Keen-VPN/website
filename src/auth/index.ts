@@ -25,6 +25,7 @@ export {
   verifySessionToken,
   cancelSubscription,
   createCheckoutSession,
+  createBillingPortalSession,
   deleteAccount,
   storeSessionToken,
   getSessionToken,
