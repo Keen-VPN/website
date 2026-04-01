@@ -31,10 +31,11 @@ import {
   XCircle,
   Trash2,
   History,
+  ArrowUpCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAccount, getSessionToken, cancelSubscription } from "@/auth";
+import { deleteAccount, getSessionToken, cancelSubscription, createBillingPortalSession } from "@/auth";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
@@ -44,6 +45,7 @@ const Account = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading, logout, subscription, refreshSubscription, linkedProviders, refreshLinkedProviders, hasSessionToken, authProvider } =
@@ -86,6 +88,49 @@ const Account = () => {
     await refreshSubscription();
     setSubscriptionLoading(false);
   };
+
+  const handleManageBilling = async () => {
+    const token = getSessionToken();
+    if (!token) {
+      toast({
+        title: "Session expired",
+        description: "Please sign in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setPortalLoading(true);
+      const result = await createBillingPortalSession(
+        token,
+        window.location.href,
+      );
+
+      if (result.success && result.url) {
+        window.location.href = result.url;
+      } else {
+        toast({
+          title: "Unable to open billing portal",
+          description: result.error || "Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({
+        title: "Something went wrong",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
+  const isMonthlyStripe =
+    subscription?.status === "active" &&
+    subscription?.subscriptionType === "stripe" &&
+    subscription?.plan?.toLowerCase().includes("monthly");
 
   const handleCancelSubscription = async () => {
     if (!user) return;
@@ -293,7 +338,7 @@ const Account = () => {
             </Card>
           )}
 
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid md:grid-cols-2 gap-8 items-start">
             {/* Account Info */}
             <Card className="border-accent/50 shadow-glow">
               <CardHeader>
@@ -353,6 +398,28 @@ const Account = () => {
                         {subscription.plan || "KeenVPN Premium"}
                       </p>
                     </div>
+
+                    {/* Upgrade to Annual */}
+                    {isMonthlyStripe && !subscription.cancelAtPeriodEnd && (
+                      <Button
+                        onClick={handleManageBilling}
+                        disabled={portalLoading}
+                        variant="outline"
+                        className="w-full border-primary text-primary hover:bg-primary/10"
+                      >
+                        {portalLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Opening billing portal...
+                          </>
+                        ) : (
+                          <>
+                            <ArrowUpCircle className="h-4 w-4 mr-2" />
+                            Upgrade to Annual (Save 17%)
+                          </>
+                        )}
+                      </Button>
+                    )}
 
                     {/* Auto-Renewal Status */}
                     <div className="flex items-center justify-between p-3 bg-muted rounded-lg">

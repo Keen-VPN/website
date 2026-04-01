@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Check, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { fetchSubscriptionPlans } from "@/auth/backend";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Plan {
   name: string;
@@ -16,6 +17,8 @@ interface Plan {
 
 const Pricing = () => {
   const navigate = useNavigate();
+  const { subscription } = useAuth();
+  const isSubscribed = subscription?.status === "active";
   const [monthlyPlan, setMonthlyPlan] = useState<Plan | null>(null);
   const [annualPlan, setAnnualPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
@@ -165,14 +168,16 @@ const Pricing = () => {
 
         <Button
           onClick={() =>
-            navigate(
-              plan.planId ? `/subscribe?planId=${plan.planId}` : "/subscribe"
-            )
+            isSubscribed
+              ? navigate("/account")
+              : navigate(
+                  plan.planId ? `/subscribe?planId=${plan.planId}` : "/subscribe"
+                )
           }
           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow font-semibold text-lg transition-all hover:scale-105"
           size="lg"
         >
-          {plan.buttonText}
+          {isSubscribed ? "Manage Subscription" : plan.buttonText}
         </Button>
       </div>
     );

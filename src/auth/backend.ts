@@ -36,6 +36,7 @@ export interface RawSubscription {
   plan?: string;
   planName?: string;
   cancelAtPeriodEnd?: boolean;
+  subscriptionType?: string;
 }
 
 export interface RawBackendAuthResponse
@@ -63,6 +64,9 @@ function normalizeBackendAuthResponse(
   }
   if (rawSubscription.cancelAtPeriodEnd !== undefined) {
     normalizedSubscription.cancelAtPeriodEnd = rawSubscription.cancelAtPeriodEnd;
+  }
+  if (rawSubscription.subscriptionType !== undefined) {
+    normalizedSubscription.subscriptionType = rawSubscription.subscriptionType;
   }
 
   return {
@@ -313,6 +317,48 @@ export async function createCheckoutSession(
         error instanceof Error
           ? error.message
           : "Failed to create checkout session",
+    };
+  }
+}
+
+/**
+ * Create a Stripe Billing Portal session for the current user.
+ * Allows managing subscription (upgrade, downgrade, update payment method, etc.)
+ */
+export async function createBillingPortalSession(
+  sessionToken: string,
+  returnUrl: string,
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/payment/stripe/portal`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({ returnUrl }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(extractBackendErrorMessage(data, "Failed to open billing portal"));
+    }
+
+    if (data?.url) {
+      return { success: true, url: data.url };
+    }
+    return {
+      success: false,
+      error: data?.error || "No portal URL received",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to create billing portal session",
     };
   }
 }
