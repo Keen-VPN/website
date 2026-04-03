@@ -58,13 +58,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [linkedProviders, setLinkedProviders] = useState<LinkedProviders | null>(null);
   const [hasSessionToken, setHasSessionToken] = useState<boolean>(() => Boolean(getSessionToken()));
   const [authProvider, _setAuthProvider] = useState<string | null>(
-    () => sessionStorage.getItem('auth_provider')
+    () => localStorage.getItem('auth_provider') ?? sessionStorage.getItem('auth_provider')
   );
   const setAuthProvider = React.useCallback((provider: string | null) => {
+    // Allow null (logout clears) and first-time set.
+    // Once a non-null provider is stored, don't let backend responses
+    // overwrite it — the backend returns the *registration* provider which
+    // differs from the *sign-in* provider for linked accounts.
+    // A fresh sign-in always goes through logout (null) first.
+    if (provider !== null) {
+      const current = localStorage.getItem('auth_provider');
+      if (current) return; // already set — keep it
+    }
     _setAuthProvider(provider);
     if (provider) {
+      localStorage.setItem('auth_provider', provider);
       sessionStorage.setItem('auth_provider', provider);
     } else {
+      localStorage.removeItem('auth_provider');
       sessionStorage.removeItem('auth_provider');
     }
   }, []);
@@ -295,10 +306,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               displayName: response.user.name,
             } as FirebaseUser);
 
-            // Prefer the sign-in provider already persisted in sessionStorage (set during login)
+            // Prefer the sign-in provider already persisted (set during login)
             // over the DB registration provider, which may differ for linked accounts.
-            // Read sessionStorage directly to avoid stale closure from useEffect([]).
-            if (!sessionStorage.getItem('auth_provider')) {
+            if (!localStorage.getItem('auth_provider') && !sessionStorage.getItem('auth_provider')) {
               setAuthProvider(response.user.provider || null);
             }
 
@@ -373,11 +383,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 storeSessionToken(backendResponse.sessionToken);
                 setHasSessionToken(true);
                 setSubscription(backendResponse.subscription || null);
-                // Only set if not already known from this session's sign-in flow.
-                // Read sessionStorage directly to avoid stale closure from useEffect([]).
-                if (!sessionStorage.getItem('auth_provider')) {
-                  setAuthProvider(backendResponse.user?.provider || null);
-                }
+                // Never overwrite auth_provider here — this path runs from the
+                // onAuthStateChanged listener which races with signIn(). The signIn
+                // flow sets the correct provider; the backend's user.provider is the
+                // *registration* provider which may differ for linked accounts.
                 refreshLinkedProviders(backendResponse.sessionToken);
 
                 if (window.location.pathname === '/signin') {

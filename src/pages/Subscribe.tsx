@@ -29,11 +29,13 @@ const Subscribe = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, isAuthenticating, signIn, logout, subscription, hasSessionToken } = useAuth();
+  const { user, loading, isAuthenticating, signIn, logout, subscription } = useAuth();
   const [sessionInvalidHandled, setSessionInvalidHandled] = useState(false);
 
-  // Subscription status is still being fetched from the backend
-  const subscriptionLoading = !!user && hasSessionToken && subscription === null;
+  // Subscription status is still being fetched from the backend.
+  // Once auth `loading` is false, the subscription fetch has completed —
+  // a null subscription means "no subscription", not "still loading".
+  const subscriptionLoading = loading || isAuthenticating;
 
   // If user already has an active subscription, don't show subscribe UI.
   useEffect(() => {
