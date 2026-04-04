@@ -1,3 +1,4 @@
+import type { ApiPlan } from "@/lib/pricing";
 import { BackendAuthResponse, SubscriptionData } from "./types";
 
 export const BACKEND_URL =
@@ -422,7 +423,7 @@ export async function deleteAccount(
  */
 export async function fetchSubscriptionPlans(): Promise<{
   success: boolean;
-  plans?: Record<string, unknown>[];
+  plans?: ApiPlan[];
   error?: string;
 }> {
   try {
@@ -433,15 +434,21 @@ export async function fetchSubscriptionPlans(): Promise<{
       },
     });
 
-    const data = await response.json();
+    const data: unknown = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || "Failed to fetch subscription plans");
+      throw new Error(
+        extractBackendErrorMessage(data, "Failed to fetch subscription plans"),
+      );
     }
+
+    const payload = data as { data?: { plans?: unknown } };
+    const rawPlans = payload.data?.plans;
+    const plans = Array.isArray(rawPlans) ? (rawPlans as ApiPlan[]) : [];
 
     return {
       success: true,
-      plans: data.data?.plans || [],
+      plans,
     };
   } catch (error) {
     return {

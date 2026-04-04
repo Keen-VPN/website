@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, X, HelpCircle, ArrowUpCircle, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Accordion,
   AccordionContent,
@@ -15,7 +16,6 @@ import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import { enterprisePlan, featureComparison, faqs } from "@/constants/pricing";
 import { fetchSubscriptionPlans, getSessionToken, createBillingPortalSession } from "@/auth/backend";
 import { transformApiPlans } from "@/lib/pricing";
-import { useAuth } from "@/contexts/AuthContext";
 
 import { PricingPlan } from "@/lib/pricing";
 import SEOHead from "@/components/SEOHead";
@@ -26,39 +26,80 @@ const pricingSEOProps = {
   canonical: "https://vpnkeen.com/pricing",
 } as const;
 
+/** Hero, plan cards, and bottom CTA: which primary action to show based on auth + subscription. */
+export type PricingCtaKind =
+  | "loading"
+  | "start_free_trial"
+  | "manage_account"
+  | "subscribe";
+
+export function getPricingCtaKind(
+  authLoading: boolean,
+  user: unknown,
+  subscriptionStatus: string | undefined,
+): PricingCtaKind {
+  if (authLoading) return "loading";
+  if (!user) return "start_free_trial";
+  const s = (subscriptionStatus ?? "").toLowerCase();
+  if (s === "active" || s === "trialing" || s === "past_due") {
+    return "manage_account";
+  }
+  return "subscribe";
+}
+
 const Pricing = () => {
 
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { subscription } = useAuth();
-  const isSubscribed = subscription?.status === "active";
-  const isMonthlyStripe =
-    isSubscribed &&
+  const { user, subscription, loading: authLoading } = useAuth();
+
+  const ctaKind = useMemo(
+    () => getPricingCtaKind(authLoading, user, subscription?.status),
+    [authLoading, user, subscription?.status],
+  );
+
+  const isMonthlyStripeUpgradeEligible =
+    subscription?.status === "active" &&
     subscription?.subscriptionType === "stripe" &&
-    subscription?.plan?.toLowerCase().includes("monthly");
+    (subscription?.plan ?? "").toLowerCase().includes("monthly");
+
   const [portalLoading, setPortalLoading] = useState(false);
 
   const handleUpgradeToAnnual = async () => {
     const token = getSessionToken();
     if (!token) {
-      toast({ title: "Session expired", description: "Please sign in again.", variant: "destructive" });
+      toast({
+        title: "Session expired",
+        description: "Please sign in again.",
+        variant: "destructive",
+      });
       return;
     }
     try {
       setPortalLoading(true);
-      const result = await createBillingPortalSession(token, window.location.href);
+      const result = await createBillingPortalSession(
+        token,
+        window.location.href,
+      );
       if (result.success && result.url) {
         window.location.href = result.url;
       } else {
-        toast({ title: "Unable to open billing portal", description: result.error || "Please try again.", variant: "destructive" });
+        toast({
+          title: "Unable to open billing portal",
+          description: result.error || "Please try again.",
+          variant: "destructive",
+        });
       }
     } catch {
-      toast({ title: "Something went wrong", description: "Please try again.", variant: "destructive" });
+      toast({
+        title: "Something went wrong",
+        description: "Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setPortalLoading(false);
     }
   };
-
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
     "annual",
   );
@@ -239,7 +280,9 @@ const Pricing = () => {
                         {plan.buttonText}
                       </Button>
                     </ContactSalesDialog>
-                  ) : isMonthlyStripe && isAnnual ? (
+                  ) : ctaKind === "manage_account" &&
+                    isMonthlyStripeUpgradeEligible &&
+                    isAnnual ? (
                     <Button
                       onClick={handleUpgradeToAnnual}
                       disabled={portalLoading}
@@ -258,7 +301,7 @@ const Pricing = () => {
                         </>
                       )}
                     </Button>
-                  ) : isSubscribed ? (
+                  ) : ctaKind === "manage_account" ? (
                     <Button
                       onClick={() => navigate("/account")}
                       className={`w-full mb-6 ${
@@ -269,11 +312,12 @@ const Pricing = () => {
                       variant={plan.popular ? "default" : "outline"}
                       size="lg"
                     >
-                      Current Plan
+                      Manage account
                     </Button>
                   ) : (
                     <Button
                       onClick={() => {
+                        if (ctaKind === "loading") return;
                         const queryParams = new URLSearchParams({
                           planId: isAnnual
                             ? plan.annualId || ""
@@ -281,7 +325,8 @@ const Pricing = () => {
                         });
                         navigate(`/subscribe?${queryParams.toString()}`);
                       }}
-                      className={`w - full mb - 6 ${
+                      disabled={ctaKind === "loading"}
+                      className={`w-full mb-6 ${
                         plan.popular
                           ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
                           : "border-primary/50 hover:bg-primary/10"
@@ -289,7 +334,16 @@ const Pricing = () => {
                       variant={plan.popular ? "default" : "outline"}
                       size="lg"
                     >
-                      {plan.buttonText}
+                      {ctaKind === "loading" ? (
+                        <span className="inline-flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading…
+                        </span>
+                      ) : ctaKind === "subscribe" ? (
+                        "Subscribe"
+                      ) : (
+                        "Start free trial"
+                      )}
                     </Button>
                   )}
 
@@ -303,7 +357,7 @@ const Pricing = () => {
                         >
                           <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                           <span
-                            className={`text - sm ${
+                            className={`text-sm ${
                               feature.highlighted
                                 ? "text-foreground font-medium"
                                 : "text-muted-foreground"
@@ -494,42 +548,49 @@ const Pricing = () => {
         {/* Final CTA */}
         <section className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center bg-gradient-card rounded-xl border border-primary/50 p-12 shadow-glow">
-            {isSubscribed ? (
-              <>
-                <h2 className="text-3xl font-bold text-foreground mb-4">
-                  You're protected with KeenVPN
-                </h2>
-                <p className="text-xl text-muted-foreground mb-8">
-                  Manage your subscription and account settings
-                </p>
-                <Button
-                  onClick={() => navigate("/account")}
-                  className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                  size="lg"
-                >
-                  Go to My Account
-                </Button>
-              </>
-            ) : (
-              <>
-                <h2 className="text-3xl font-bold text-foreground mb-4">
-                  Ready to protect your privacy?
-                </h2>
-                <p className="text-xl text-muted-foreground mb-8">
-                  Start your 1 month free trial today
-                </p>
-                <Button
-                  onClick={() => navigate("/subscribe")}
-                  className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                  size="lg"
-                >
-                  Start Free Trial
-                </Button>
-                <p className="text-sm text-muted-foreground mt-4">
-                  30-day money-back guarantee • Cancel anytime
-                </p>
-              </>
-            )}
+            <h2 className="text-3xl font-bold text-foreground mb-4">
+              {ctaKind === "manage_account"
+                ? "Your KeenVPN account"
+                : "Ready to protect your privacy?"}
+            </h2>
+            <p className="text-xl text-muted-foreground mb-8">
+              {ctaKind === "manage_account"
+                ? "Manage billing, plan details, and settings in one place."
+                : ctaKind === "subscribe"
+                  ? "Choose a plan and subscribe to get full protection."
+                  : "Start your 1 month free trial today"}
+            </p>
+            <Button
+              onClick={() => {
+                if (ctaKind === "loading") return;
+                if (ctaKind === "manage_account") {
+                  navigate("/account");
+                  return;
+                }
+                navigate("/subscribe");
+              }}
+              disabled={ctaKind === "loading"}
+              className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+              size="lg"
+            >
+              {ctaKind === "loading" ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading…
+                </span>
+              ) : ctaKind === "manage_account" ? (
+                "Manage account"
+              ) : ctaKind === "subscribe" ? (
+                "Subscribe"
+              ) : (
+                "Start free trial"
+              )}
+            </Button>
+            <p className="text-sm text-muted-foreground mt-4">
+              {ctaKind === "manage_account"
+                ? "Questions? We are here to help."
+                : "30-day money-back guarantee • Cancel anytime"}
+            </p>
           </div>
         </section>
       </main>
