@@ -31,24 +31,24 @@ import {
   XCircle,
   Trash2,
   History,
+  ArrowUpCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAccount, getSessionToken } from "@/auth";
+import { deleteAccount, getSessionToken, cancelSubscription, createBillingPortalSession } from "@/auth";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { LinkedAccounts } from "@/components/LinkedAccounts";
 import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
-
-const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
 
 const Account = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, logout, subscription, refreshSubscription } =
+  const { user, loading, logout, subscription, refreshSubscription, linkedProviders, refreshLinkedProviders, hasSessionToken, authProvider } =
     useAuth();
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
@@ -89,37 +89,71 @@ const Account = () => {
     setSubscriptionLoading(false);
   };
 
+  const handleManageBilling = async () => {
+    const token = getSessionToken();
+    if (!token) {
+      toast({
+        title: "Session expired",
+        description: "Please sign in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setPortalLoading(true);
+      const result = await createBillingPortalSession(
+        token,
+        window.location.href,
+      );
+
+      if (result.success && result.url) {
+        window.location.href = result.url;
+      } else {
+        toast({
+          title: "Unable to open billing portal",
+          description: result.error || "Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({
+        title: "Something went wrong",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
+  const isMonthlyStripe =
+    subscription?.status === "active" &&
+    subscription?.subscriptionType === "stripe" &&
+    subscription?.plan?.toLowerCase().includes("monthly");
+
   const handleCancelSubscription = async () => {
     if (!user) return;
 
     try {
       setCancelling(true);
 
-      // Get Firebase ID token
-      const idToken = await user.getIdToken();
+      const token = getSessionToken();
+      if (!token) {
+        throw new Error("Session expired. Please log in again.");
+      }
 
-      const response = await fetch(`${BACKEND_URL}/subscription/cancel`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          idToken,
-        }),
-      });
+      const result = await cancelSubscription(token);
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (result.success) {
         toast({
           title: "Subscription Cancelled",
           description:
             "Your subscription will remain active until the end of your billing period.",
         });
-        // Refresh subscription status
         await refreshSubscription();
       } else {
-        throw new Error(data.error || "Failed to cancel subscription");
+        throw new Error(result.error || "Failed to cancel subscription");
       }
     } catch (error) {
       toast({
@@ -134,12 +168,21 @@ const Account = () => {
   };
 
   const handleDeleteAccount = async () => {
-    if (!user || !user.email || !user.uid) return;
+    if (!user) return;
+    const token = getSessionToken();
+    if (!token) {
+      toast({
+        title: "Deletion Failed",
+        description: "No session token found. Please sign in again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       setDeleting(true);
 
-      const result = await deleteAccount(user.email, user.uid);
+      const result = await deleteAccount(token);
 
       if (result.success) {
         toast({
@@ -295,7 +338,7 @@ const Account = () => {
             </Card>
           )}
 
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid md:grid-cols-2 gap-8 items-start">
             {/* Account Info */}
             <Card className="border-accent/50 shadow-glow">
               <CardHeader>
@@ -311,8 +354,8 @@ const Account = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Provider</p>
-                  <p className="font-medium">
-                    {user.providerData?.[0]?.providerId}
+                  <p className="font-medium capitalize">
+                    {authProvider || 'Unknown'}
                   </p>
                 </div>
                 <Button onClick={logout} variant="outline" className="w-full">
@@ -355,6 +398,28 @@ const Account = () => {
                         {subscription.plan || "KeenVPN Premium"}
                       </p>
                     </div>
+
+                    {/* Upgrade to Annual */}
+                    {isMonthlyStripe && !subscription.cancelAtPeriodEnd && (
+                      <Button
+                        onClick={handleManageBilling}
+                        disabled={portalLoading}
+                        variant="outline"
+                        className="w-full border-primary text-primary hover:bg-primary/10"
+                      >
+                        {portalLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Opening billing portal...
+                          </>
+                        ) : (
+                          <>
+                            <ArrowUpCircle className="h-4 w-4 mr-2" />
+                            Upgrade to Annual (Save 17%)
+                          </>
+                        )}
+                      </Button>
+                    )}
 
                     {/* Auto-Renewal Status */}
                     <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
@@ -584,6 +649,18 @@ const Account = () => {
             </Card>
           </div>
 
+          {/* Linked Accounts */}
+          {hasSessionToken && authProvider && (
+            <div className="mt-8">
+              <LinkedAccounts
+                sessionToken={getSessionToken() ?? ''}
+                currentProvider={authProvider}
+                providers={linkedProviders}
+                onUpdate={refreshLinkedProviders}
+              />
+            </div>
+          )}
+
           {/* Support Section */}
           <Card className="mt-8 border-accent/50 shadow-glow">
             <CardHeader>
@@ -642,9 +719,7 @@ const Account = () => {
                     </AlertDialogTitle>
                     <AlertDialogDescription className="space-y-3">
                       <p>
-                        This action <strong>cannot be undone</strong>. This will
-                        permanently delete your account and remove all your data
-                        from our servers.
+                      This action <strong>cannot be undone</strong>. Your account and all associated usage data will be permanently deleted from our servers. Please note that no refunds will be issued.
                       </p>
                       <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/20">
                         <p className="text-sm font-medium text-destructive">

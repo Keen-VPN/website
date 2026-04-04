@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Check, X, HelpCircle, Loader2 } from "lucide-react";
+import { Check, X, HelpCircle, ArrowUpCircle, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,7 +14,7 @@ import {
 } from "@/components/ui/accordion";
 import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import { enterprisePlan, featureComparison, faqs } from "@/constants/pricing";
-import { fetchSubscriptionPlans } from "@/auth/backend";
+import { fetchSubscriptionPlans, getSessionToken, createBillingPortalSession } from "@/auth/backend";
 import { transformApiPlans } from "@/lib/pricing";
 
 import { PricingPlan } from "@/lib/pricing";
@@ -49,12 +50,56 @@ export function getPricingCtaKind(
 const Pricing = () => {
 
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { user, subscription, loading: authLoading } = useAuth();
 
   const ctaKind = useMemo(
     () => getPricingCtaKind(authLoading, user, subscription?.status),
     [authLoading, user, subscription?.status],
   );
+
+  const isMonthlyStripeUpgradeEligible =
+    subscription?.status === "active" &&
+    subscription?.subscriptionType === "stripe" &&
+    (subscription?.plan ?? "").toLowerCase().includes("monthly");
+
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  const handleUpgradeToAnnual = async () => {
+    const token = getSessionToken();
+    if (!token) {
+      toast({
+        title: "Session expired",
+        description: "Please sign in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setPortalLoading(true);
+      const result = await createBillingPortalSession(
+        token,
+        window.location.href,
+      );
+      if (result.success && result.url) {
+        window.location.href = result.url;
+      } else {
+        toast({
+          title: "Unable to open billing portal",
+          description: result.error || "Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({
+        title: "Something went wrong",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPortalLoading(false);
+    }
+  };
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
     "annual",
   );
@@ -235,14 +280,44 @@ const Pricing = () => {
                         {plan.buttonText}
                       </Button>
                     </ContactSalesDialog>
+                  ) : ctaKind === "manage_account" &&
+                    isMonthlyStripeUpgradeEligible &&
+                    isAnnual ? (
+                    <Button
+                      onClick={handleUpgradeToAnnual}
+                      disabled={portalLoading}
+                      className="w-full mb-6 bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                      size="lg"
+                    >
+                      {portalLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Opening billing portal...
+                        </>
+                      ) : (
+                        <>
+                          <ArrowUpCircle className="h-4 w-4 mr-2" />
+                          Upgrade to Annual (Save 17%)
+                        </>
+                      )}
+                    </Button>
+                  ) : ctaKind === "manage_account" ? (
+                    <Button
+                      onClick={() => navigate("/account")}
+                      className={`w-full mb-6 ${
+                        plan.popular
+                          ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                          : "border-primary/50 hover:bg-primary/10"
+                      }`}
+                      variant={plan.popular ? "default" : "outline"}
+                      size="lg"
+                    >
+                      Manage account
+                    </Button>
                   ) : (
                     <Button
                       onClick={() => {
                         if (ctaKind === "loading") return;
-                        if (ctaKind === "manage_account") {
-                          navigate("/account");
-                          return;
-                        }
                         const queryParams = new URLSearchParams({
                           planId: isAnnual
                             ? plan.annualId || ""
@@ -264,8 +339,6 @@ const Pricing = () => {
                           <Loader2 className="h-4 w-4 animate-spin" />
                           Loading…
                         </span>
-                      ) : ctaKind === "manage_account" ? (
-                        "Manage account"
                       ) : ctaKind === "subscribe" ? (
                         "Subscribe"
                       ) : (
