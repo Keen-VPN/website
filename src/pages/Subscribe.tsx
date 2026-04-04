@@ -32,6 +32,11 @@ const Subscribe = () => {
   const { user, loading, isAuthenticating, signIn, logout, subscription } = useAuth();
   const [sessionInvalidHandled, setSessionInvalidHandled] = useState(false);
 
+  // Subscription status is still being fetched from the backend.
+  // Once auth `loading` is false, the subscription fetch has completed —
+  // a null subscription means "no subscription", not "still loading".
+  const subscriptionLoading = loading || isAuthenticating;
+
   // If user already has an active subscription, don't show subscribe UI.
   useEffect(() => {
     if (loading) return;
@@ -364,7 +369,7 @@ const Subscribe = () => {
                 <div className="space-y-3">
                   <Button
                     onClick={handleSubscribe}
-                    disabled={checkoutLoading}
+                    disabled={checkoutLoading || subscriptionLoading}
                     className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
                     size="lg"
                   >
@@ -372,6 +377,11 @@ const Subscribe = () => {
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Redirecting to checkout...
+                      </>
+                    ) : subscriptionLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Checking subscription status...
                       </>
                     ) : (
                       "Subscribe Now"

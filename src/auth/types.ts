@@ -6,6 +6,7 @@ export interface SubscriptionData {
   customerId?: string;
   plan?: string;
   cancelAtPeriodEnd?: boolean;
+  subscriptionType?: string;
 }
 
 export interface AuthState {

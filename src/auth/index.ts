@@ -25,10 +25,13 @@ export {
   verifySessionToken,
   cancelSubscription,
   createCheckoutSession,
+  createBillingPortalSession,
   deleteAccount,
   storeSessionToken,
   getSessionToken,
-  clearSessionToken
+  clearSessionToken,
+  linkProvider,
+  getLinkedProviders
 } from './backend';
 
 export {

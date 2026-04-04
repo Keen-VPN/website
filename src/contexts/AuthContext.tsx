@@ -15,6 +15,7 @@ import {
   storeSessionToken,
   getSessionToken,
   clearSessionToken,
+  getLinkedProviders,
   type SubscriptionData,
   type SignInResult
 } from '@/auth';
@@ -23,15 +24,24 @@ import {
 // Context Types
 // ============================================================================
 
+interface LinkedProviders {
+  google: { linked: boolean; email?: string };
+  apple: { linked: boolean; email?: string };
+}
+
 interface AuthContextType {
   user: FirebaseUser | null;
   subscription: SubscriptionData | null;
   loading: boolean;
   isAuthenticating: boolean;
+  linkedProviders: LinkedProviders | null;
   hasSessionToken: boolean;
+  /** Auth provider as stored by the backend (e.g. "google", "apple"). More reliable than Firebase providerData[0] for linked/merged accounts. */
+  authProvider: string | null;
   signIn: (provider?: 'google' | 'apple') => Promise<{ success: boolean; shouldRedirect?: string }>;
   logout: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
+  refreshLinkedProviders: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,7 +55,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [linkedProviders, setLinkedProviders] = useState<LinkedProviders | null>(null);
   const [hasSessionToken, setHasSessionToken] = useState<boolean>(() => Boolean(getSessionToken()));
+  const [authProvider, _setAuthProvider] = useState<string | null>(
+    () => localStorage.getItem('auth_provider') ?? sessionStorage.getItem('auth_provider')
+  );
+  const setAuthProvider = React.useCallback((provider: string | null) => {
+    // Allow null (logout clears) and first-time set.
+    // Once a non-null provider is stored, don't let backend responses
+    // overwrite it — the backend returns the *registration* provider which
+    // differs from the *sign-in* provider for linked accounts.
+    // A fresh sign-in always goes through logout (null) first.
+    if (provider !== null) {
+      const current = localStorage.getItem('auth_provider');
+      if (current) return; // already set — keep it
+    }
+    _setAuthProvider(provider);
+    if (provider) {
+      localStorage.setItem('auth_provider', provider);
+      sessionStorage.setItem('auth_provider', provider);
+    } else {
+      localStorage.removeItem('auth_provider');
+      sessionStorage.removeItem('auth_provider');
+    }
+  }, []);
   /** Guards against duplicate authenticateWithBackend calls (signIn + onAuthStateChanged or double-click). */
   const backendAuthInProgressRef = useRef(false);
   const { toast } = useToast();
@@ -206,6 +239,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               storeSessionToken(backendResponse.sessionToken);
               setHasSessionToken(true);
               setSubscription(backendResponse.subscription || null);
+              setAuthProvider(providerType);
+
+              // Fetch linked providers (non-blocking)
+              refreshLinkedProviders(backendResponse.sessionToken);
 
               // Check if this is from ASWebAuthenticationSession (macOS desktop app)
               if (isASWebSession()) {
@@ -232,6 +269,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               // Clear session token
               clearSessionToken();
               setHasSessionToken(false);
+              setAuthProvider(null);
 
               // Clear user state
               setUser(null);
@@ -268,9 +306,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               displayName: response.user.name,
             } as FirebaseUser);
 
+            // Prefer the sign-in provider already persisted (set during login)
+            // over the DB registration provider, which may differ for linked accounts.
+            if (!localStorage.getItem('auth_provider') && !sessionStorage.getItem('auth_provider')) {
+              setAuthProvider(response.user.provider || null);
+            }
+
             if (response.subscription) {
               setSubscription(response.subscription);
             }
+
+            // Fetch linked providers (non-blocking, pass token directly to avoid timing issues)
+            refreshLinkedProviders(sessionToken);
 
             // Check if this is from ASWebAuthenticationSession (macOS desktop app)
             if (isASWebSession() && window.location.pathname === '/signin') {
@@ -293,6 +340,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('🚨 Invalid session token, clearing auth state');
             clearSessionToken();
             setHasSessionToken(false);
+            setAuthProvider(null);
 
             // Also clear Firebase auth if user is still authenticated
             try {
@@ -335,6 +383,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 storeSessionToken(backendResponse.sessionToken);
                 setHasSessionToken(true);
                 setSubscription(backendResponse.subscription || null);
+                // Never overwrite auth_provider here — this path runs from the
+                // onAuthStateChanged listener which races with signIn(). The signIn
+                // flow sets the correct provider; the backend's user.provider is the
+                // *registration* provider which may differ for linked accounts.
+                refreshLinkedProviders(backendResponse.sessionToken);
 
                 if (window.location.pathname === '/signin') {
                   window.location.href = accountUrl();
@@ -349,6 +402,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } else if (!firebaseUser) {
           setSubscription(null);
+          setAuthProvider(null);
           syncHasSessionToken();
         }
 
@@ -481,6 +535,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "Checking subscription status...",
       });
 
+      // We know which provider the user just authenticated with — persist it now
+      // before any early-exit paths, so onAuthStateChanged can't overwrite it.
+      setAuthProvider(provider);
+
       // If ref was already claimed by onAuthStateChanged, or it's now false (listener finished),
       // skip our backend call to avoid duplicate request.
       if (refAlreadyClaimed || !backendAuthInProgressRef.current) {
@@ -540,6 +598,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         storeSessionToken(backendResponse.sessionToken);
         setHasSessionToken(true);
         setSubscription(backendResponse.subscription || null);
+        refreshLinkedProviders(backendResponse.sessionToken);
 
         setIsAuthenticating(false);
 
@@ -559,6 +618,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Clear session token
         clearSessionToken();
         setHasSessionToken(false);
+        setAuthProvider(null);
 
         // Clear user state
         setUser(null);
@@ -590,6 +650,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticating(false);
       return { success: false };
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshLinkedProviders is stable but declared after signIn
   }, [isAuthenticating, toast, accountUrl]);
 
   // ============================================================================
@@ -603,6 +664,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setHasSessionToken(false);
       setUser(null);
       setSubscription(null);
+      setAuthProvider(null);
 
       toast({
         title: 'Signed out successfully',
@@ -630,8 +692,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // ============================================================================
-  // Context Value
+  // Linked Providers
   // ============================================================================
+
+  const refreshLinkedProviders = React.useCallback(async (tokenOverride?: string) => {
+    const token = tokenOverride || getSessionToken();
+    if (!token) return;
+    try {
+      const result = await getLinkedProviders(token);
+      setLinkedProviders(result.providers);
+    } catch {
+      // Non-critical — silently ignore
+    }
+  }, []);
 
   // ============================================================================
   // Context Value
@@ -642,11 +715,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     subscription,
     loading,
     isAuthenticating,
+    linkedProviders,
     hasSessionToken,
+    authProvider,
     signIn,
     logout,
     refreshSubscription,
-  }), [user, subscription, loading, isAuthenticating, hasSessionToken, signIn, logout, refreshSubscription]);
+    refreshLinkedProviders,
+  }), [user, subscription, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, refreshLinkedProviders]);
 
   return (
     <AuthContext.Provider value={value}>
