@@ -15,12 +15,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import {
-  Filter,
-  X,
-  Calendar as CalendarIcon,
-  ChevronDown,
-} from "lucide-react";
+import { Filter, X, Calendar as CalendarIcon, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { HistoryFilters } from "@/lib/subscription-history-api";
@@ -34,7 +29,7 @@ interface SubscriptionHistoryFiltersProps {
 export function SubscriptionHistoryFilters({
   filters,
   onFiltersChange,
-  loading = false
+  loading = false,
 }: SubscriptionHistoryFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [dateFromOpen, setDateFromOpen] = useState(false);
@@ -84,11 +79,16 @@ export function SubscriptionHistoryFilters({
     onFiltersChange({ page: 1, limit: filters.limit || 25 });
   };
 
-  const hasActiveFilters = filters.provider || filters.dateFrom || filters.dateTo;
-  const activeFilterCount = [filters.provider, filters.dateFrom, filters.dateTo].filter(Boolean).length;
+  const hasActiveFilters =
+    filters.provider || filters.dateFrom || filters.dateTo;
+  const activeFilterCount = [
+    filters.provider,
+    filters.dateFrom,
+    filters.dateTo,
+  ].filter(Boolean).length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 mb-8">
       {/* Filter Toggle Button */}
       <div className="flex items-center justify-between">
         <Button
@@ -98,7 +98,7 @@ export function SubscriptionHistoryFilters({
           disabled={loading}
           aria-expanded={isOpen}
           aria-controls="filter-panel"
-          aria-label={`${isOpen ? 'Hide' : 'Show'} filters${activeFilterCount > 0 ? ` (${activeFilterCount} active)` : ''}`}
+          aria-label={`${isOpen ? "Hide" : "Show"} filters${activeFilterCount > 0 ? ` (${activeFilterCount} active)` : ""}`}
         >
           <Filter className="h-4 w-4 mr-2" aria-hidden="true" />
           Filters
@@ -111,11 +111,22 @@ export function SubscriptionHistoryFilters({
               {activeFilterCount}
             </Badge>
           )}
-          <ChevronDown className={cn("h-4 w-4 ml-2 transition-transform", isOpen && "rotate-180")} aria-hidden="true" />
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 ml-2 transition-transform",
+              isOpen && "rotate-180",
+            )}
+            aria-hidden="true"
+          />
         </Button>
 
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={clearFilters} disabled={loading}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            disabled={loading}
+          >
             <X className="h-4 w-4 mr-2" />
             Clear Filters
           </Button>
@@ -124,12 +135,22 @@ export function SubscriptionHistoryFilters({
 
       {/* Filter Panel */}
       {isOpen && (
-        <Card className="border-accent/50" id="filter-panel" role="region" aria-label="Filter controls">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card
+          className="border-accent/50"
+          id="filter-panel"
+          role="region"
+          aria-label="Filter controls"
+        >
+          <CardContent className="p-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-6 max-w-3xl">
               {/* Provider Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="provider-select">Provider</label>
+              <div className="space-y-3 min-w-0">
+                <label
+                  className="text-sm font-medium text-foreground"
+                  htmlFor="provider-select"
+                >
+                  Provider
+                </label>
                 <Select
                   value={filters.provider || "all"}
                   onValueChange={handleProviderChange}
@@ -147,8 +168,13 @@ export function SubscriptionHistoryFilters({
               </div>
 
               {/* Date From Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="date-from">From Date</label>
+              <div className="space-y-3 min-w-0">
+                <label
+                  className="text-sm font-medium text-foreground"
+                  htmlFor="date-from"
+                >
+                  From Date
+                </label>
                 <Popover open={dateFromOpen} onOpenChange={setDateFromOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -156,22 +182,24 @@ export function SubscriptionHistoryFilters({
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left font-normal",
-                        !filters.dateFrom && "text-muted-foreground"
+                        !filters.dateFrom && "text-muted-foreground",
                       )}
                       disabled={loading}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filters.dateFrom ? (
-                        format(new Date(filters.dateFrom), "MMM d, yyyy")
-                      ) : (
-                        "Select date"
-                      )}
+                      {filters.dateFrom
+                        ? format(new Date(filters.dateFrom), "MMM d, yyyy")
+                        : "Select date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
-                      selected={filters.dateFrom ? new Date(filters.dateFrom) : undefined}
+                      selected={
+                        filters.dateFrom
+                          ? new Date(filters.dateFrom)
+                          : undefined
+                      }
                       onSelect={handleDateFromChange}
                       initialFocus
                     />
@@ -180,8 +208,13 @@ export function SubscriptionHistoryFilters({
               </div>
 
               {/* Date To Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="date-to">To Date</label>
+              <div className="space-y-3 min-w-0">
+                <label
+                  className="text-sm font-medium text-foreground"
+                  htmlFor="date-to"
+                >
+                  To Date
+                </label>
                 <Popover open={dateToOpen} onOpenChange={setDateToOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -189,22 +222,22 @@ export function SubscriptionHistoryFilters({
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left font-normal",
-                        !filters.dateTo && "text-muted-foreground"
+                        !filters.dateTo && "text-muted-foreground",
                       )}
                       disabled={loading}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filters.dateTo ? (
-                        format(new Date(filters.dateTo), "MMM d, yyyy")
-                      ) : (
-                        "Select date"
-                      )}
+                      {filters.dateTo
+                        ? format(new Date(filters.dateTo), "MMM d, yyyy")
+                        : "Select date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
-                      selected={filters.dateTo ? new Date(filters.dateTo) : undefined}
+                      selected={
+                        filters.dateTo ? new Date(filters.dateTo) : undefined
+                      }
                       onSelect={handleDateToChange}
                       initialFocus
                     />
@@ -213,8 +246,13 @@ export function SubscriptionHistoryFilters({
               </div>
 
               {/* Items Per Page */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground" htmlFor="limit-select">Items per page</label>
+              <div className="space-y-3 min-w-0">
+                <label
+                  className="text-sm font-medium text-foreground"
+                  htmlFor="limit-select"
+                >
+                  Items per page
+                </label>
                 <Select
                   value={(filters.limit || 25).toString()}
                   onValueChange={handleLimitChange}
@@ -235,12 +273,18 @@ export function SubscriptionHistoryFilters({
 
             {/* Active Filters Display */}
             {hasActiveFilters && (
-              <div className="mt-4 pt-4 border-t border-border">
+              <div className="mt-6 pt-6 border-t border-border">
                 <div className="flex flex-wrap gap-2 items-center">
-                  <span className="text-sm font-medium text-foreground">Active filters:</span>
+                  <span className="text-sm font-medium text-foreground">
+                    Active filters:
+                  </span>
                   {filters.provider && (
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      Provider: {filters.provider === "stripe" ? "Stripe" : "App Store"}
+                    <Badge
+                      variant="secondary"
+                      className="flex items-center gap-1"
+                    >
+                      Provider:{" "}
+                      {filters.provider === "stripe" ? "Stripe" : "App Store"}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -253,7 +297,10 @@ export function SubscriptionHistoryFilters({
                     </Badge>
                   )}
                   {filters.dateFrom && (
-                    <Badge variant="secondary" className="flex items-center gap-1">
+                    <Badge
+                      variant="secondary"
+                      className="flex items-center gap-1"
+                    >
                       From: {format(new Date(filters.dateFrom), "MMM d, yyyy")}
                       <Button
                         variant="ghost"
@@ -267,7 +314,10 @@ export function SubscriptionHistoryFilters({
                     </Badge>
                   )}
                   {filters.dateTo && (
-                    <Badge variant="secondary" className="flex items-center gap-1">
+                    <Badge
+                      variant="secondary"
+                      className="flex items-center gap-1"
+                    >
                       To: {format(new Date(filters.dateTo), "MMM d, yyyy")}
                       <Button
                         variant="ghost"

@@ -522,6 +522,31 @@ export async function linkProvider(
   return response.json();
 }
 
+export async function unlinkProvider(
+  sessionToken: string,
+  provider: 'google' | 'apple',
+): Promise<{
+  success: boolean;
+  providers: {
+    google: { linked: boolean; email?: string };
+    apple: { linked: boolean; email?: string };
+  };
+}> {
+  const response = await fetch(`${BACKEND_URL}/auth/unlink-provider`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${sessionToken}`,
+    },
+    body: JSON.stringify({ provider }),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(extractBackendErrorMessage(errorData, `Failed to unlink provider: ${response.status}`));
+  }
+  return response.json();
+}
+
 export async function getLinkedProviders(
   sessionToken: string,
 ): Promise<{

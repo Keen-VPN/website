@@ -401,7 +401,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         } else if (!firebaseUser) {
-          setSubscription(null);
+          // Only clear subscription if there's no valid session token.
+          // On page reload, Firebase may fire with null before loading the
+          // persisted auth state, which would clear a subscription that
+          // verifySessionToken already resolved.
+          if (!getSessionToken()) {
+            setSubscription(null);
+          }
           setAuthProvider(null);
           syncHasSessionToken();
         }

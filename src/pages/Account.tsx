@@ -656,7 +656,7 @@ const Account = () => {
                 sessionToken={getSessionToken() ?? ''}
                 currentProvider={authProvider}
                 providers={linkedProviders}
-                onUpdate={refreshLinkedProviders}
+                onUpdate={() => { refreshLinkedProviders(); refreshSubscription(); }}
               />
             </div>
           )}
