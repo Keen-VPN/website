@@ -50,7 +50,8 @@ export function SubscriptionEventDetail({
   open,
   onOpenChange,
 }: SubscriptionEventDetailProps) {
-  const [eventDetail, setEventDetail] = useState<SubscriptionEventDetail | null>(null);
+  const [eventDetail, setEventDetail] =
+    useState<SubscriptionEventDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -116,29 +117,32 @@ export function SubscriptionEventDetail({
   };
 
   const handleContactSupport = () => {
-    const subject = encodeURIComponent(`Support Request - Event ${event?.id || 'Unknown'}`);
+    const subject = encodeURIComponent(
+      `Support Request - Event ${event?.id || "Unknown"}`,
+    );
     const body = encodeURIComponent(`Hello KeenVPN Support Team,
 
 I need assistance with my subscription event:
 
-Event ID: ${event?.id || 'Unknown'}
-Event Type: ${event ? getEventTypeLabel(event.eventType) : 'Unknown'}
-Date: ${event ? formatEventDate(event.eventDate).full : 'Unknown'}
+Event ID: ${event?.id || "Unknown"}
+Event Type: ${event ? getEventTypeLabel(event.eventType) : "Unknown"}
+Date: ${event ? formatEventDate(event.eventDate).full : "Unknown"}
 
 Please describe your issue:
 [Your message here]
 
 Thank you!`);
 
-    window.open(`mailto:support@vpnkeen.com?subject=${subject}&body=${body}`, "_blank");
+    window.open(
+      `mailto:support@vpnkeen.com?subject=${subject}&body=${body}`,
+      "_blank",
+    );
   };
 
   const redactTransactionId = (id: string): string => {
     if (!id || id.length <= 8) return id;
     return `${id.slice(0, 4)}...${id.slice(-4)}`;
   };
-
-
 
   if (!event) return null;
 
@@ -161,9 +165,7 @@ Thank you!`);
             <Badge variant="outline" className={providerInfo.className}>
               {providerInfo.label}
             </Badge>
-            <Badge className={statusInfo.className}>
-              {statusInfo.label}
-            </Badge>
+            <Badge className={statusInfo.className}>{statusInfo.label}</Badge>
           </div>
         </div>
 
@@ -206,19 +208,25 @@ Thank you!`);
               {event.amount && (
                 <div>
                   <p className="text-sm text-muted-foreground">Amount</p>
-                  <p className="font-medium">{formatCurrency(event.amount, event.currency)}</p>
+                  <p className="font-medium">
+                    {formatCurrency(event.amount, event.currency)}
+                  </p>
                 </div>
               )}
               {event.periodStart && (
                 <div>
                   <p className="text-sm text-muted-foreground">Period Start</p>
-                  <p className="font-medium">{formatEventDate(event.periodStart).date}</p>
+                  <p className="font-medium">
+                    {formatEventDate(event.periodStart).date}
+                  </p>
                 </div>
               )}
               {event.periodEnd && (
                 <div>
                   <p className="text-sm text-muted-foreground">Period End</p>
-                  <p className="font-medium">{formatEventDate(event.periodEnd).date}</p>
+                  <p className="font-medium">
+                    {formatEventDate(event.periodEnd).date}
+                  </p>
                 </div>
               )}
             </div>
@@ -233,84 +241,120 @@ Thank you!`);
               Provider Information
             </h4>
 
-            {event.provider === 'stripe' && eventDetail.additionalDetails.stripeSubscriptionId && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Subscription ID</p>
-                    <p className="font-mono text-sm">
-                      {redactTransactionId(eventDetail.additionalDetails.stripeSubscriptionId)}
-                    </p>
+            {event.provider === "stripe" &&
+              eventDetail.additionalDetails.stripeSubscriptionId && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Subscription ID
+                      </p>
+                      <p className="font-mono text-sm">
+                        {redactTransactionId(
+                          eventDetail.additionalDetails.stripeSubscriptionId,
+                        )}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        copyToClipboard(
+                          eventDetail.additionalDetails.stripeSubscriptionId ||
+                            "",
+                          "Subscription ID",
+                        )
+                      }
+                      aria-label={
+                        copiedField === "Subscription ID"
+                          ? "Copied to clipboard"
+                          : "Copy subscription ID to clipboard"
+                      }
+                    >
+                      {copiedField === "Subscription ID" ? (
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                      ) : (
+                        <Copy className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(
-                      eventDetail.additionalDetails.stripeSubscriptionId || "",
-                      "Subscription ID"
-                    )}
-                    aria-label={copiedField === "Subscription ID" ? "Copied to clipboard" : "Copy subscription ID to clipboard"}
-                  >
-                    {copiedField === "Subscription ID" ? (
-                      <Check className="h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <Copy className="h-4 w-4" aria-hidden="true" />
-                    )}
-                  </Button>
+
+                  {eventDetail.additionalDetails.cancelAtPeriodEnd !==
+                    undefined && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Auto-Renewal
+                      </p>
+                      <p className="font-medium">
+                        {eventDetail.additionalDetails.cancelAtPeriodEnd
+                          ? "Cancelled"
+                          : "Active"}
+                      </p>
+                    </div>
+                  )}
                 </div>
+              )}
 
-                {eventDetail.additionalDetails.cancelAtPeriodEnd !== undefined && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Auto-Renewal</p>
-                    <p className="font-medium">
-                      {eventDetail.additionalDetails.cancelAtPeriodEnd ? "Cancelled" : "Active"}
-                    </p>
+            {event.provider === "apple_iap" &&
+              eventDetail.additionalDetails.transactionId && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Transaction ID
+                      </p>
+                      <p className="font-mono text-sm">
+                        {redactTransactionId(
+                          eventDetail.additionalDetails.transactionId,
+                        )}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        copyToClipboard(
+                          eventDetail.additionalDetails.transactionId || "",
+                          "Transaction ID",
+                        )
+                      }
+                      aria-label={
+                        copiedField === "Transaction ID"
+                          ? "Copied to clipboard"
+                          : "Copy transaction ID to clipboard"
+                      }
+                    >
+                      {copiedField === "Transaction ID" ? (
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                      ) : (
+                        <Copy className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </Button>
                   </div>
-                )}
-              </div>
-            )}
 
-            {event.provider === 'apple_iap' && eventDetail.additionalDetails.transactionId && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Transaction ID</p>
-                    <p className="font-mono text-sm">
-                      {redactTransactionId(eventDetail.additionalDetails.transactionId)}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(
-                      eventDetail.additionalDetails.transactionId || "",
-                      "Transaction ID"
-                    )}
-                    aria-label={copiedField === "Transaction ID" ? "Copied to clipboard" : "Copy transaction ID to clipboard"}
-                  >
-                    {copiedField === "Transaction ID" ? (
-                      <Check className="h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <Copy className="h-4 w-4" aria-hidden="true" />
-                    )}
-                  </Button>
+                  {eventDetail.additionalDetails.environment && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Environment
+                      </p>
+                      <p className="font-medium">
+                        {eventDetail.additionalDetails.environment}
+                      </p>
+                    </div>
+                  )}
+
+                  {eventDetail.additionalDetails.productId && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Product ID
+                      </p>
+                      <p className="font-mono text-sm">
+                        {eventDetail.additionalDetails.productId}
+                      </p>
+                    </div>
+                  )}
                 </div>
-
-                {eventDetail.additionalDetails.environment && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Environment</p>
-                    <p className="font-medium">{eventDetail.additionalDetails.environment}</p>
-                  </div>
-                )}
-
-                {eventDetail.additionalDetails.productId && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Product ID</p>
-                    <p className="font-mono text-sm">{eventDetail.additionalDetails.productId}</p>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
           </div>
 
           <Separator />
@@ -320,12 +364,12 @@ Thank you!`);
             <h4 className="font-medium text-foreground">Actions</h4>
             <div className="flex flex-col sm:flex-row gap-3">
               {/* Provider Management */}
-              {eventDetail.providerActions.manageSubscription && (
+              {/* {eventDetail.providerActions.manageSubscription && (
                 <Button onClick={handleManageSubscription} className="flex-1">
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Open Billing Portal
                 </Button>
-              )}
+              )} */}
 
               {eventDetail.providerActions.appStoreManage && (
                 <Button onClick={handleAppStoreManage} className="flex-1">
@@ -335,7 +379,11 @@ Thank you!`);
               )}
 
               {/* Support Contact */}
-              <Button variant="outline" onClick={handleContactSupport} className="flex-1">
+              <Button
+                variant="outline"
+                onClick={handleContactSupport}
+                className="flex-1"
+              >
                 <Mail className="h-4 w-4 mr-2" />
                 Contact Support
               </Button>
@@ -343,7 +391,7 @@ Thank you!`);
           </div>
 
           {/* Download Receipt/Invoice */}
-          {event.provider === 'stripe' && (
+          {/* {event.provider === "stripe" && (
             <>
               <Separator />
               <div className="space-y-4">
@@ -353,7 +401,8 @@ Thank you!`);
                 </h4>
                 <div className="p-4 bg-muted/50 rounded-lg">
                   <p className="text-sm text-muted-foreground mb-3">
-                    Download your receipt or view detailed invoice information through the Stripe billing portal.
+                    Download your receipt or view detailed invoice information
+                    through the Stripe billing portal.
                   </p>
                   <Button variant="outline" onClick={handleManageSubscription}>
                     <Download className="h-4 w-4 mr-2" />
@@ -362,9 +411,9 @@ Thank you!`);
                 </div>
               </div>
             </>
-          )}
+          )} */}
 
-          {event.provider === 'apple_iap' && (
+          {event.provider === "apple_iap" && (
             <>
               <Separator />
               <div className="space-y-4">
@@ -374,7 +423,9 @@ Thank you!`);
                 </h4>
                 <div className="p-4 bg-muted/50 rounded-lg">
                   <p className="text-sm text-muted-foreground mb-3">
-                    Apple controls receipt distribution for App Store purchases. You can view your purchase history and download receipts through your Apple ID account.
+                    Apple controls receipt distribution for App Store purchases.
+                    You can view your purchase history and download receipts
+                    through your Apple ID account.
                   </p>
                   <Button variant="outline" onClick={handleAppStoreManage}>
                     <ExternalLink className="h-4 w-4 mr-2" />
