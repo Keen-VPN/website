@@ -88,7 +88,7 @@ export function SubscriptionHistoryFilters({
   ].filter(Boolean).length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 mb-8">
       {/* Filter Toggle Button */}
       <div className="flex items-center justify-between">
         <Button
@@ -141,10 +141,10 @@ export function SubscriptionHistoryFilters({
           role="region"
           aria-label="Filter controls"
         >
-          <CardContent className="px-6 py-6 sm:px-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-6 lg:gap-x-8">
+          <CardContent className="p-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-6 max-w-3xl">
               {/* Provider Filter */}
-              <div className="space-y-2.5 min-w-0">
+              <div className="space-y-3 min-w-0">
                 <label
                   className="text-sm font-medium text-foreground"
                   htmlFor="provider-select"
@@ -168,7 +168,7 @@ export function SubscriptionHistoryFilters({
               </div>
 
               {/* Date From Filter */}
-              <div className="space-y-2.5 min-w-0">
+              <div className="space-y-3 min-w-0">
                 <label
                   className="text-sm font-medium text-foreground"
                   htmlFor="date-from"
@@ -208,7 +208,7 @@ export function SubscriptionHistoryFilters({
               </div>
 
               {/* Date To Filter */}
-              <div className="space-y-2.5 min-w-0">
+              <div className="space-y-3 min-w-0">
                 <label
                   className="text-sm font-medium text-foreground"
                   htmlFor="date-to"
@@ -246,7 +246,7 @@ export function SubscriptionHistoryFilters({
               </div>
 
               {/* Items Per Page */}
-              <div className="space-y-2.5 min-w-0">
+              <div className="space-y-3 min-w-0">
                 <label
                   className="text-sm font-medium text-foreground"
                   htmlFor="limit-select"

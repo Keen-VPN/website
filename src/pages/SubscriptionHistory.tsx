@@ -266,58 +266,67 @@ const SubscriptionHistory = () => {
           />
 
           {/* Summary Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             <Card className="border-accent/50 shadow-glow">
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center">
-                  <History className="h-6 w-6 sm:h-8 sm:w-8 text-primary mr-2 sm:mr-3" />
-                  <div>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <History
+                      className="h-7 w-7 sm:h-8 sm:w-8 text-primary shrink-0"
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm text-muted-foreground leading-tight">
                       Total Events
                     </p>
-                    <p className="text-xl sm:text-2xl font-bold text-foreground">
-                      {pagination.total}
-                    </p>
                   </div>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums shrink-0">
+                    {pagination.total}
+                  </p>
                 </div>
               </CardContent>
             </Card>
             <Card className="border-accent/50 shadow-glow">
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center">
-                  <CreditCard className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 mr-2 sm:mr-3" />
-                  <div>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <CreditCard
+                      className="h-7 w-7 sm:h-8 sm:w-8 text-green-500 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm text-muted-foreground leading-tight">
                       Active Subscriptions
                     </p>
-                    <p className="text-xl sm:text-2xl font-bold text-foreground">
-                      {events.filter((e) => e.status === "active").length}
-                    </p>
                   </div>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums shrink-0">
+                    {events.filter((e) => e.status === "active").length}
+                  </p>
                 </div>
               </CardContent>
             </Card>
             <Card className="border-accent/50 shadow-glow sm:col-span-2 lg:col-span-1">
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center">
-                  <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500 mr-2 sm:mr-3" />
-                  <div>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Calendar
+                      className="h-7 w-7 sm:h-8 sm:w-8 text-blue-500 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm text-muted-foreground leading-tight">
                       This Month
                     </p>
-                    <p className="text-xl sm:text-2xl font-bold text-foreground">
-                      {
-                        events.filter((e) => {
-                          const eventDate = new Date(e.eventDate);
-                          const now = new Date();
-                          return (
-                            eventDate.getMonth() === now.getMonth() &&
-                            eventDate.getFullYear() === now.getFullYear()
-                          );
-                        }).length
-                      }
-                    </p>
                   </div>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums shrink-0">
+                    {
+                      events.filter((e) => {
+                        const eventDate = new Date(e.eventDate);
+                        const now = new Date();
+                        return (
+                          eventDate.getMonth() === now.getMonth() &&
+                          eventDate.getFullYear() === now.getFullYear()
+                        );
+                      }).length
+                    }
+                  </p>
                 </div>
               </CardContent>
             </Card>
