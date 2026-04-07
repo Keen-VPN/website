@@ -104,12 +104,6 @@ export function SubscriptionEventDetail({
     }
   };
 
-  const handleManageSubscription = () => {
-    if (eventDetail?.providerActions.manageSubscription) {
-      window.open(eventDetail.providerActions.manageSubscription, "_blank");
-    }
-  };
-
   const handleAppStoreManage = () => {
     // Open App Store subscription management
     const appStoreUrl = "https://apps.apple.com/account/subscriptions";
