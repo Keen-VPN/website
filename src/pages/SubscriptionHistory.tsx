@@ -42,7 +42,9 @@ const SubscriptionHistory = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const [selectedEvent, setSelectedEvent] = useState<SubscriptionEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<SubscriptionEvent | null>(
+    null,
+  );
   const [eventDetailOpen, setEventDetailOpen] = useState(false);
 
   const {
@@ -53,7 +55,7 @@ const SubscriptionHistory = () => {
     refetch,
     loadMore,
     setFilters,
-    filters
+    filters,
   } = useSubscriptionHistory();
 
   const handleRefresh = async () => {
@@ -120,7 +122,8 @@ const SubscriptionHistory = () => {
     );
   }
 
-  const hasActiveFilters = filters.provider || filters.dateFrom || filters.dateTo;
+  const hasActiveFilters =
+    filters.provider || filters.dateFrom || filters.dateTo;
 
   const clearFilters = () => {
     setFilters({ page: 1, limit: filters.limit || 25 });
@@ -228,7 +231,10 @@ const SubscriptionHistory = () => {
             </nav>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2" id="page-title">
+                <h1
+                  className="text-3xl sm:text-4xl font-bold text-foreground mb-2"
+                  id="page-title"
+                >
                   Subscription <span className="text-primary">History</span>
                 </h1>
                 <p className="text-lg sm:text-xl text-muted-foreground">
@@ -236,8 +242,15 @@ const SubscriptionHistory = () => {
                 </p>
               </div>
               <div className="flex gap-2 sm:flex-shrink-0">
-                <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
-                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+                  />
                   <span className="hidden sm:inline">Refresh</span>
                   <span className="sm:hidden">Sync</span>
                 </Button>
@@ -253,46 +266,67 @@ const SubscriptionHistory = () => {
           />
 
           {/* Summary Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             <Card className="border-accent/50 shadow-glow">
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center">
-                  <History className="h-6 w-6 sm:h-8 sm:w-8 text-primary mr-2 sm:mr-3" />
-                  <div>
-                    <p className="text-xs sm:text-sm text-muted-foreground">Total Events</p>
-                    <p className="text-xl sm:text-2xl font-bold text-foreground">{pagination.total}</p>
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <History
+                      className="h-7 w-7 sm:h-8 sm:w-8 text-primary shrink-0"
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm text-muted-foreground leading-tight">
+                      Total Events
+                    </p>
                   </div>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums shrink-0">
+                    {pagination.total}
+                  </p>
                 </div>
               </CardContent>
             </Card>
             <Card className="border-accent/50 shadow-glow">
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center">
-                  <CreditCard className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 mr-2 sm:mr-3" />
-                  <div>
-                    <p className="text-xs sm:text-sm text-muted-foreground">Active Subscriptions</p>
-                    <p className="text-xl sm:text-2xl font-bold text-foreground">
-                      {events.filter(e => e.status === 'active').length}
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <CreditCard
+                      className="h-7 w-7 sm:h-8 sm:w-8 text-green-500 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm text-muted-foreground leading-tight">
+                      Active Subscriptions
                     </p>
                   </div>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums shrink-0">
+                    {events.filter((e) => e.status === "active").length}
+                  </p>
                 </div>
               </CardContent>
             </Card>
             <Card className="border-accent/50 shadow-glow sm:col-span-2 lg:col-span-1">
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center">
-                  <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500 mr-2 sm:mr-3" />
-                  <div>
-                    <p className="text-xs sm:text-sm text-muted-foreground">This Month</p>
-                    <p className="text-xl sm:text-2xl font-bold text-foreground">
-                      {events.filter(e => {
-                        const eventDate = new Date(e.eventDate);
-                        const now = new Date();
-                        return eventDate.getMonth() === now.getMonth() &&
-                          eventDate.getFullYear() === now.getFullYear();
-                      }).length}
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Calendar
+                      className="h-7 w-7 sm:h-8 sm:w-8 text-blue-500 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm text-muted-foreground leading-tight">
+                      This Month
                     </p>
                   </div>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums shrink-0">
+                    {
+                      events.filter((e) => {
+                        const eventDate = new Date(e.eventDate);
+                        const now = new Date();
+                        return (
+                          eventDate.getMonth() === now.getMonth() &&
+                          eventDate.getFullYear() === now.getFullYear()
+                        );
+                      }).length
+                    }
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -350,7 +384,7 @@ const SubscriptionHistory = () => {
                               className="cursor-pointer hover:bg-muted/50 focus-within:bg-muted/50"
                               onClick={() => handleEventClick(event)}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
+                                if (e.key === "Enter" || e.key === " ") {
                                   e.preventDefault();
                                   handleEventClick(event);
                                 }
@@ -362,7 +396,9 @@ const SubscriptionHistory = () => {
                               <TableCell>
                                 <div>
                                   <p className="font-medium">{dateInfo.date}</p>
-                                  <p className="text-sm text-muted-foreground">{dateInfo.time}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {dateInfo.time}
+                                  </p>
                                 </div>
                               </TableCell>
                               <TableCell>
@@ -371,20 +407,30 @@ const SubscriptionHistory = () => {
                                 </span>
                               </TableCell>
                               <TableCell>
-                                <Badge variant="outline" className={providerInfo.className}>
+                                <Badge
+                                  variant="outline"
+                                  className={providerInfo.className}
+                                >
                                   {providerInfo.label}
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                <span className="font-medium">{event.planName}</span>
+                                <span className="font-medium">
+                                  {event.planName}
+                                </span>
                               </TableCell>
                               <TableCell>
                                 {event.amount ? (
                                   <span className="font-medium">
-                                    {formatCurrency(event.amount, event.currency)}
+                                    {formatCurrency(
+                                      event.amount,
+                                      event.currency,
+                                    )}
                                   </span>
                                 ) : (
-                                  <span className="text-muted-foreground">—</span>
+                                  <span className="text-muted-foreground">
+                                    —
+                                  </span>
                                 )}
                               </TableCell>
                               <TableCell>
@@ -415,7 +461,7 @@ const SubscriptionHistory = () => {
                           className="cursor-pointer hover:bg-muted/50 focus-within:bg-muted/50 transition-colors"
                           onClick={() => handleEventClick(event)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
+                            if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
                               handleEventClick(event);
                             }
@@ -437,14 +483,19 @@ const SubscriptionHistory = () => {
                               <ChevronRight className="h-4 w-4 text-muted-foreground mt-1" />
                             </div>
                             <div className="flex items-center gap-2 mb-2">
-                              <Badge variant="outline" className={providerInfo.className}>
+                              <Badge
+                                variant="outline"
+                                className={providerInfo.className}
+                              >
                                 {providerInfo.label}
                               </Badge>
                               <Badge className={statusInfo.className}>
                                 {statusInfo.label}
                               </Badge>
                             </div>
-                            <p className="text-sm text-foreground mb-1">{event.planName}</p>
+                            <p className="text-sm text-foreground mb-1">
+                              {event.planName}
+                            </p>
                             {event.amount && (
                               <p className="text-sm font-medium text-foreground">
                                 {formatCurrency(event.amount, event.currency)}
@@ -464,11 +515,18 @@ const SubscriptionHistory = () => {
                         onClick={handleLoadMore}
                         disabled={loading}
                         className="min-w-[120px]"
-                        aria-label={loading ? "Loading more events..." : `Load more events (${pagination.total - events.length} remaining)`}
+                        aria-label={
+                          loading
+                            ? "Loading more events..."
+                            : `Load more events (${pagination.total - events.length} remaining)`
+                        }
                       >
                         {loading ? (
                           <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" aria-hidden="true"></div>
+                            <div
+                              className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"
+                              aria-hidden="true"
+                            ></div>
                             Loading...
                           </>
                         ) : (
@@ -479,7 +537,11 @@ const SubscriptionHistory = () => {
                   )}
 
                   {/* Pagination Info */}
-                  <div className="mt-4 text-center text-sm text-muted-foreground" role="status" aria-live="polite">
+                  <div
+                    className="mt-4 text-center text-sm text-muted-foreground"
+                    role="status"
+                    aria-live="polite"
+                  >
                     Showing {events.length} of {pagination.total} events
                   </div>
                 </>
@@ -494,11 +556,17 @@ const SubscriptionHistory = () => {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground mb-4">
-                Have questions about your billing or need assistance with your subscription?
+                Have questions about your billing or need assistance with your
+                subscription?
               </p>
               <Button
                 variant="outline"
-                onClick={() => window.open("mailto:support@vpnkeen.com?subject=Billing Support Request", "_blank")}
+                onClick={() =>
+                  window.open(
+                    "mailto:support@vpnkeen.com?subject=Billing Support Request",
+                    "_blank",
+                  )
+                }
               >
                 Contact Support
               </Button>

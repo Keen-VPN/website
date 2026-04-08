@@ -2,8 +2,19 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { linkProvider } from '@/auth/backend';
+import { linkProvider, unlinkProvider } from '@/auth/backend';
 import { getFirebaseAuth, getFirebaseApp } from '@/auth/firebase';
 import {
   linkWithPopup,
@@ -16,7 +27,7 @@ import { initializeApp, deleteApp } from 'firebase/app';
 
 interface LinkedAccountsProps {
   sessionToken: string;
-  currentProvider?: string; // e.g. "google.com", "apple.com"
+  currentProvider?: string;
   providers: {
     google: { linked: boolean; email?: string };
     apple: { linked: boolean; email?: string };
@@ -26,6 +37,7 @@ interface LinkedAccountsProps {
 
 export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpdate }: LinkedAccountsProps) {
   const [linking, setLinking] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleLink = async (provider: 'google' | 'apple') => {
@@ -51,19 +63,14 @@ export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpd
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Firebase errors have dynamic structure
         const fbErr = firebaseError as any;
         if (fbErr?.code === 'auth/credential-already-in-use') {
-          // The other provider account already exists as a separate Firebase user.
-          // We need to sign into THAT account to get its Firebase token for the backend.
-          // Use a temporary Firebase app so we don't disturb the primary session.
           const pendingCredential = provider === 'google'
             ? GoogleAuthProvider.credentialFromError(fbErr)
             : OAuthProvider.credentialFromError(fbErr);
 
           if (!pendingCredential) {
-            // Fallback: try to extract the OAuth credential directly from the error
             const oauthIdToken = fbErr?.customData?._tokenResponse?.oauthIdToken;
             const oauthAccessToken = fbErr?.customData?._tokenResponse?.oauthAccessToken;
             if (oauthIdToken && provider === 'apple') {
-              // For Apple, we can construct the credential manually
               const manualCredential = new OAuthProvider('apple.com').credential({
                 idToken: oauthIdToken,
                 accessToken: oauthAccessToken,
@@ -101,8 +108,9 @@ export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpd
         } else if (fbErr?.code === 'auth/popup-closed-by-user') {
           return;
         } else if (fbErr?.code === 'auth/provider-already-linked') {
-          toast({ title: 'Already linked', description: 'This provider is already linked to your account.' });
-          return;
+          // Provider already linked on Firebase side (e.g. re-linking after backend unlink).
+          // Get a fresh token from the current user and proceed to sync with backend.
+          firebaseIdToken = await currentUser.getIdToken(true);
         } else {
           throw firebaseError;
         }
@@ -121,17 +129,31 @@ export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpd
     }
   };
 
+  const handleUnlink = async (provider: 'google' | 'apple') => {
+    setUnlinking(provider);
+    try {
+      await unlinkProvider(sessionToken, provider);
+      toast({
+        title: 'Account unlinked',
+        description: `${provider === 'google' ? 'Google' : 'Apple'} account unlinked successfully.`,
+      });
+      onUpdate();
+    } catch (error: unknown) {
+      const message = (error instanceof Error ? error.message : null) || 'Failed to unlink account';
+      toast({ title: 'Unlinking failed', description: message, variant: 'destructive' });
+    } finally {
+      setUnlinking(null);
+    }
+  };
+
   if (!providers) return null;
 
-  // Only show the OTHER provider — hide the one the user is currently signed in with
   const isGoogle = currentProvider === 'google.com' || currentProvider === 'google';
   const isApple = currentProvider === 'apple.com' || currentProvider === 'apple';
 
-  // If both are linked and we're hiding the current one, show just the other
   const showGoogle = !isGoogle;
   const showApple = !isApple;
 
-  // Nothing to show if we'd hide everything
   if (!showGoogle && !showApple) return null;
 
   return (
@@ -140,39 +162,95 @@ export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpd
         <CardTitle>Linked Accounts</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {showGoogle && (
+        {/* Primary provider indicator */}
         <div className="flex items-center justify-between">
-          <span className="font-medium">Google</span>
-          {providers.google.linked ? (
-              <Badge variant="secondary">Linked</Badge>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleLink('google')}
-              disabled={linking !== null}
-            >
-              {linking === 'google' ? 'Linking...' : 'Link Google Account'}
-            </Button>
-          )}
+          <span className="font-medium">{isGoogle ? 'Google' : 'Apple'}</span>
+          <Badge variant="outline">Primary</Badge>
         </div>
+
+        {showGoogle && (
+          <div className="flex items-center justify-between">
+            <span className="font-medium">Google</span>
+            {providers.google.linked ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={unlinking !== null}
+                  >
+                    {unlinking === 'google' ? 'Unlinking...' : 'Unlink'}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Unlink Google Account?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      The linked account will lose access to any shared subscription.
+                      You can re-link later if needed.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleUnlink('google')}>
+                      Unlink
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleLink('google')}
+                disabled={linking !== null}
+              >
+                {linking === 'google' ? 'Linking...' : 'Link Google Account'}
+              </Button>
+            )}
+          </div>
         )}
         {showApple && (
-        <div className="flex items-center justify-between">
-          <span className="font-medium">Apple</span>
-          {providers.apple.linked ? (
-              <Badge variant="secondary">Linked</Badge>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleLink('apple')}
-              disabled={linking !== null}
-            >
-              {linking === 'apple' ? 'Linking...' : 'Link Apple Account'}
-            </Button>
-          )}
-        </div>
+          <div className="flex items-center justify-between">
+            <span className="font-medium">Apple</span>
+            {providers.apple.linked ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={unlinking !== null}
+                  >
+                    {unlinking === 'apple' ? 'Unlinking...' : 'Unlink'}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Unlink Apple Account?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      The linked account will lose access to any shared subscription.
+                      You can re-link later if needed.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleUnlink('apple')}>
+                      Unlink
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleLink('apple')}
+                disabled={linking !== null}
+              >
+                {linking === 'apple' ? 'Linking...' : 'Link Apple Account'}
+              </Button>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
