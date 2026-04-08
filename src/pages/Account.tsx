@@ -44,6 +44,7 @@ import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-d
 
 const Account = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [initialSubscriptionChecked, setInitialSubscriptionChecked] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
@@ -83,6 +84,36 @@ const Account = () => {
     }, 200);
     return () => clearInterval(id);
   }, [isASWeb, sessionToken]);
+
+  // On first account view, ensure subscription is hydrated before rendering
+  // "No active subscription". This avoids a false empty state that required reload.
+  useEffect(() => {
+    let cancelled = false;
+
+    const ensureInitialSubscription = async () => {
+      if (loading) return;
+      if (!user || !hasSessionToken) {
+        if (!cancelled) setInitialSubscriptionChecked(true);
+        return;
+      }
+      if (subscription) {
+        if (!cancelled) setInitialSubscriptionChecked(true);
+        return;
+      }
+
+      if (!cancelled) setSubscriptionLoading(true);
+      await refreshSubscription();
+      if (!cancelled) {
+        setSubscriptionLoading(false);
+        setInitialSubscriptionChecked(true);
+      }
+    };
+
+    void ensureInitialSubscription();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, user, hasSessionToken, subscription, refreshSubscription]);
 
   const handleRefreshSubscription = async () => {
     setSubscriptionLoading(true);
@@ -449,7 +480,7 @@ const Account = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {subscriptionLoading ? (
+                {subscriptionLoading || !initialSubscriptionChecked ? (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <Skeleton className="h-4 w-16" />
