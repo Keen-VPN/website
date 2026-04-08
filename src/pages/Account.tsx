@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -281,8 +282,82 @@ const Account = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 py-20 bg-gradient-hero">
+          <div className="container mx-auto px-4 max-w-4xl">
+            <div className="mb-8">
+              <h1 className="text-4xl font-bold text-foreground mb-4">
+                My <span className="text-primary">Account</span>
+              </h1>
+              <Skeleton className="h-6 w-80" />
+            </div>
+            <div className="grid md:grid-cols-2 gap-8 items-start">
+              {/* Account Info Skeleton */}
+              <Card className="border-accent/50 shadow-glow">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Shield className="h-5 w-5 mr-2" />
+                    Account Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Skeleton className="h-3 w-10 mb-2" />
+                    <Skeleton className="h-5 w-48" />
+                  </div>
+                  <div>
+                    <Skeleton className="h-3 w-14 mb-2" />
+                    <Skeleton className="h-5 w-24" />
+                  </div>
+                  <Skeleton className="h-10 w-full rounded-md" />
+                </CardContent>
+              </Card>
+
+              {/* Subscription Status Skeleton */}
+              <Card className="border-accent/50 shadow-glow">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <CreditCard className="h-5 w-5 mr-2" />
+                    Subscription Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                  </div>
+                  <div>
+                    <Skeleton className="h-3 w-10 mb-2" />
+                    <Skeleton className="h-5 w-40" />
+                  </div>
+                  <Skeleton className="h-16 w-full rounded-lg" />
+                  <Skeleton className="h-10 w-full rounded-md" />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Linked Accounts Skeleton */}
+            <div className="mt-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Linked Accounts</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-6 w-16 rounded-full" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-9 w-32 rounded-md" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </main>
+        <Footer />
       </div>
     );
   }
@@ -406,8 +481,17 @@ const Account = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 {subscriptionLoading || !initialSubscriptionChecked ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-6 w-20 rounded-full" />
+                    </div>
+                    <div>
+                      <Skeleton className="h-3 w-10 mb-2" />
+                      <Skeleton className="h-5 w-40" />
+                    </div>
+                    <Skeleton className="h-16 w-full rounded-lg" />
+                    <Skeleton className="h-10 w-full rounded-md" />
                   </div>
                 ) : subscription ? (
                   <>
@@ -681,11 +765,11 @@ const Account = () => {
           </div>
 
           {/* Linked Accounts */}
-          {hasSessionToken && authProvider && (
+          {hasSessionToken && (
             <div className="mt-8">
               <LinkedAccounts
                 sessionToken={getSessionToken() ?? ''}
-                currentProvider={authProvider}
+                currentProvider={authProvider ?? undefined}
                 providers={linkedProviders}
                 onUpdate={() => { refreshLinkedProviders(); refreshSubscription(); }}
               />
