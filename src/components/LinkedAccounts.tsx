@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -146,7 +147,25 @@ export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpd
     }
   };
 
-  if (!providers) return null;
+  if (!providers) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Linked Accounts</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-6 w-16 rounded-full" />
+          </div>
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-5 w-20" />
+            <Skeleton className="h-9 w-32 rounded-md" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const isGoogle = currentProvider === 'google.com' || currentProvider === 'google';
   const isApple = currentProvider === 'apple.com' || currentProvider === 'apple';
