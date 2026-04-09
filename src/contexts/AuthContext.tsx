@@ -81,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
   /** Guards against duplicate authenticateWithBackend calls (signIn + onAuthStateChanged or double-click). */
   const backendAuthInProgressRef = useRef(false);
-  const { toast } = useToast();
+  const { toast, dismiss: dismissToast } = useToast();
 
   // Check if user came from ASWebAuthenticationSession (macOS desktop app)
   const isASWebSession = React.useCallback(() => {
@@ -275,10 +275,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(null);
               setSubscription(null);
 
-              // Show user-friendly message with exact time
-              alert(backendResponse.error);
+              toast({
+                title: "Account Recently Deleted",
+                description: backendResponse.error,
+                variant: "destructive",
+                duration: 10000,
+              });
 
               // Redirect to sign-in page
+              window.location.href = '/signin';
+              return;
+            } else if (backendResponse?.error) {
+              // Clear Firebase auth so user can't access protected pages
+              const { signOut: signOutAuth } = await import('@/auth');
+              await signOutAuth();
+              clearSessionToken();
+              setHasSessionToken(false);
+              setAuthProvider(null);
+              setUser(null);
+              setSubscription(null);
+
+              toast({
+                title: "Sign-In Failed",
+                description: backendResponse.error,
+                variant: "destructive",
+              });
+
               window.location.href = '/signin';
               return;
             }
@@ -393,6 +415,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   window.location.href = accountUrl();
                   return;
                 }
+              } else if (backendResponse.error) {
+                // Backend rejected — clear Firebase auth so user can't access protected pages
+                const { signOut } = await import('@/auth');
+                await signOut();
+                clearSessionToken();
+                setHasSessionToken(false);
+                setAuthProvider(null);
+                setUser(null);
+                setSubscription(null);
+
+                toast({
+                  title: "Sign-In Failed",
+                  description: backendResponse.error,
+                  variant: "destructive",
+                });
               }
             } catch (err) {
               console.error('Failed to sync Firebase user with backend:', err);
@@ -535,12 +572,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
-      // Show immediate feedback
-      toast({
-        title: "✅ Authenticated",
-        description: "Checking subscription status...",
-      });
-
       // We know which provider the user just authenticated with — persist it now
       // before any early-exit paths, so onAuthStateChanged can't overwrite it.
       setAuthProvider(provider);
@@ -596,17 +627,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             undefined
           );
         }
-      } finally {
+      } catch (e) {
+        // Only release the ref on unexpected errors (network, etc.)
         backendAuthInProgressRef.current = false;
+        throw e;
       }
+      // Keep backendAuthInProgressRef true during error handling below
+      // to prevent onAuthStateChanged from starting a competing login flow.
 
       if (backendResponse.success && backendResponse.sessionToken) {
+        backendAuthInProgressRef.current = false;
         storeSessionToken(backendResponse.sessionToken);
         setHasSessionToken(true);
         setSubscription(backendResponse.subscription || null);
         refreshLinkedProviders(backendResponse.sessionToken);
 
         setIsAuthenticating(false);
+
+        dismissToast();
+        toast({
+          title: "Welcome back!",
+          description: "Redirecting to your account...",
+        });
 
         // After any successful login, always land on account.
         if (window.location.pathname !== '/account') {
@@ -618,8 +660,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Handle case where user account was deleted but Firebase auth is still active
         console.info('🚨 Account was recently deleted during popup sign-in, clearing Firebase auth');
 
-        // Clear Firebase auth
-        import('@/auth').then(({ signOut }) => signOut()).catch(console.error);
+        // Clear Firebase auth — keep ref locked until signOut completes
+        try {
+          const { signOut: signOutAuth } = await import('@/auth');
+          await signOutAuth();
+        } catch { /* ignore */ }
+        backendAuthInProgressRef.current = false;
 
         // Clear session token
         clearSessionToken();
@@ -642,9 +688,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false };
       }
 
+      if (backendResponse.error) {
+        // Clear Firebase auth — keep ref locked until signOut completes
+        try {
+          const { signOut: signOutAuth } = await import('@/auth');
+          await signOutAuth();
+        } catch { /* ignore */ }
+        backendAuthInProgressRef.current = false;
+        clearSessionToken();
+        setHasSessionToken(false);
+        setAuthProvider(null);
+        setUser(null);
+        setSubscription(null);
+
+        toast({
+          title: "Sign-In Failed",
+          description: backendResponse.error,
+          variant: "destructive",
+        });
+
+        setIsAuthenticating(false);
+        return { success: false };
+      }
+
+      backendAuthInProgressRef.current = false;
       setIsAuthenticating(false);
       return { success: false };
     } catch (error: unknown) {
+      backendAuthInProgressRef.current = false;
       const mappedError = mapFirebaseError(error);
 
       toast({

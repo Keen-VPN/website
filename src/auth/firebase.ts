@@ -148,24 +148,28 @@ export async function checkRedirectResult(): Promise<SignInResult | null> {
       };
     }
 
-    // Check if user is authenticated but no redirect result
-    // This can happen if redirect already processed
-    if (authInstance.currentUser) {
-      console.log('⚠️ User is authenticated but no redirect result');
-      console.log('⚠️ This may mean redirect was already processed');
-      console.log('⚠️ Current user:', authInstance.currentUser.email);
+    // Check if user is authenticated but no redirect result.
+    // Only process if a redirect was actually pending — otherwise this fires
+    // on every normal page load where Firebase has a persisted user, causing
+    // the wrong provider to be sent to the backend.
+    if (redirectPending && authInstance.currentUser) {
+      console.log('⚠️ Redirect was pending but no redirect result — processing authenticated user');
 
       // Try to get a fresh ID token
       try {
         const idToken = await authInstance.currentUser.getIdToken();
-        console.log('✅ Got ID token for authenticated user');
 
-        // Return a result so we can process this user
+        // Detect provider from the Firebase user's providerData
+        const hasApple = authInstance.currentUser.providerData?.some(
+          (p) => p?.providerId === 'apple.com',
+        );
+
         return {
           success: true,
           user: authInstance.currentUser,
           credential: null,
-          accessToken: idToken, // Use ID token as fallback
+          accessToken: idToken,
+          providerUsed: hasApple ? 'apple' : 'google',
           usedRedirect: true
         };
       } catch (tokenError) {
