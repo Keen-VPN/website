@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -49,6 +49,7 @@ const Account = () => {
   const [deleting, setDeleting] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user, loading, logout, subscription, refreshSubscription, linkedProviders, refreshLinkedProviders, hasSessionToken, authProvider } =
     useAuth();
@@ -67,6 +68,15 @@ const Account = () => {
     }
     return detected;
   }, []);
+  const hasStripeSessionId = useMemo(() => {
+    const urlParams = new URLSearchParams(location.search);
+    return Boolean(urlParams.get("session_id"));
+  }, [location.search]);
+  const stripeSessionId = useMemo(() => {
+    const urlParams = new URLSearchParams(location.search);
+    return urlParams.get("session_id");
+  }, [location.search]);
+  const processedStripeSessionRef = useRef<string | null>(null);
 
   // The session token may not be in localStorage yet when Account first mounts
   // (AuthContext is still verifying with the backend). Poll until it arrives.
@@ -92,20 +102,68 @@ const Account = () => {
 
     const ensureInitialSubscription = async () => {
       if (loading) return;
-      if (!user || !hasSessionToken) {
-        if (!cancelled) setInitialSubscriptionChecked(true);
+
+      // Prevent re-entering the Stripe return refresh path on re-renders.
+      // If this session_id was already processed, finalize state and strip it.
+      if (
+        stripeSessionId &&
+        processedStripeSessionRef.current === stripeSessionId
+      ) {
+        if (!cancelled) {
+          setSubscriptionLoading(false);
+          setInitialSubscriptionChecked(true);
+          navigate(isASWeb ? "/account?asweb=1" : "/account", { replace: true });
+        }
         return;
       }
-      if (subscription) {
+
+      if (!user || !hasSessionToken) {
+        if (!cancelled) {
+          setSubscriptionLoading(false);
+          setInitialSubscriptionChecked(true);
+        }
+        return;
+      }
+      if (subscription && !hasStripeSessionId) {
         if (!cancelled) setInitialSubscriptionChecked(true);
         return;
       }
 
-      if (!cancelled) setSubscriptionLoading(true);
-      await refreshSubscription();
+      if (!cancelled) {
+        setSubscriptionLoading(true);
+      }
+
+      if (stripeSessionId) {
+        processedStripeSessionRef.current = stripeSessionId;
+      }
+
+      const attempts = hasStripeSessionId ? 3 : 1;
+      const timeoutMs = 8000;
+
+      const runRefreshWithTimeout = async () => {
+        await Promise.race([
+          refreshSubscription(),
+          new Promise<void>((resolve) => {
+            window.setTimeout(resolve, timeoutMs);
+          }),
+        ]);
+      };
+
+      for (let attempt = 0; attempt < attempts && !cancelled; attempt += 1) {
+        await runRefreshWithTimeout();
+        if (attempt < attempts - 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 1200));
+        }
+      }
+
       if (!cancelled) {
         setSubscriptionLoading(false);
         setInitialSubscriptionChecked(true);
+
+        // Remove Stripe session_id after processing so future loads use normal flow.
+        if (hasStripeSessionId) {
+          navigate(isASWeb ? "/account?asweb=1" : "/account", { replace: true });
+        }
       }
     };
 
@@ -113,7 +171,17 @@ const Account = () => {
     return () => {
       cancelled = true;
     };
-  }, [loading, user, hasSessionToken, subscription, refreshSubscription]);
+  }, [
+    loading,
+    user,
+    hasSessionToken,
+    subscription,
+    refreshSubscription,
+    hasStripeSessionId,
+    stripeSessionId,
+    navigate,
+    isASWeb,
+  ]);
 
   const handleRefreshSubscription = async () => {
     setSubscriptionLoading(true);
@@ -740,6 +808,14 @@ const Account = () => {
                     <p className="text-muted-foreground text-center py-4">
                       No active subscription found
                     </p>
+                    <Button
+                      onClick={() => navigate("/account/subscription-history")}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <History className="h-4 w-4 mr-2" />
+                      Manage Subscriptions
+                    </Button>
                     <Button
                       onClick={() => navigate("/subscribe")}
                       className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
