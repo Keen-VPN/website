@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +72,11 @@ const Account = () => {
     const urlParams = new URLSearchParams(location.search);
     return Boolean(urlParams.get("session_id"));
   }, [location.search]);
+  const stripeSessionId = useMemo(() => {
+    const urlParams = new URLSearchParams(location.search);
+    return urlParams.get("session_id");
+  }, [location.search]);
+  const processedStripeSessionRef = useRef<string | null>(null);
 
   // The session token may not be in localStorage yet when Account first mounts
   // (AuthContext is still verifying with the backend). Poll until it arrives.
@@ -97,6 +102,21 @@ const Account = () => {
 
     const ensureInitialSubscription = async () => {
       if (loading) return;
+
+      // Prevent re-entering the Stripe return refresh path on re-renders.
+      // If this session_id was already processed, finalize state and strip it.
+      if (
+        stripeSessionId &&
+        processedStripeSessionRef.current === stripeSessionId
+      ) {
+        if (!cancelled) {
+          setSubscriptionLoading(false);
+          setInitialSubscriptionChecked(true);
+          navigate(isASWeb ? "/account?asweb=1" : "/account", { replace: true });
+        }
+        return;
+      }
+
       if (!user || !hasSessionToken) {
         if (!cancelled) {
           setSubscriptionLoading(false);
@@ -111,6 +131,10 @@ const Account = () => {
 
       if (!cancelled) {
         setSubscriptionLoading(true);
+      }
+
+      if (stripeSessionId) {
+        processedStripeSessionRef.current = stripeSessionId;
       }
 
       const attempts = hasStripeSessionId ? 3 : 1;
@@ -154,6 +178,7 @@ const Account = () => {
     subscription,
     refreshSubscription,
     hasStripeSessionId,
+    stripeSessionId,
     navigate,
     isASWeb,
   ]);
@@ -783,6 +808,14 @@ const Account = () => {
                     <p className="text-muted-foreground text-center py-4">
                       No active subscription found
                     </p>
+                    <Button
+                      onClick={() => navigate("/account/subscription-history")}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <History className="h-4 w-4 mr-2" />
+                      Manage Subscriptions
+                    </Button>
                     <Button
                       onClick={() => navigate("/subscribe")}
                       className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
