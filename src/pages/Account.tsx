@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -49,6 +49,7 @@ const Account = () => {
   const [deleting, setDeleting] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user, loading, logout, subscription, refreshSubscription, linkedProviders, refreshLinkedProviders, hasSessionToken, authProvider } =
     useAuth();
@@ -67,6 +68,10 @@ const Account = () => {
     }
     return detected;
   }, []);
+  const hasStripeSessionId = useMemo(() => {
+    const urlParams = new URLSearchParams(location.search);
+    return Boolean(urlParams.get("session_id"));
+  }, [location.search]);
 
   // The session token may not be in localStorage yet when Account first mounts
   // (AuthContext is still verifying with the backend). Poll until it arrives.
@@ -93,19 +98,48 @@ const Account = () => {
     const ensureInitialSubscription = async () => {
       if (loading) return;
       if (!user || !hasSessionToken) {
-        if (!cancelled) setInitialSubscriptionChecked(true);
+        if (!cancelled) {
+          setSubscriptionLoading(false);
+          setInitialSubscriptionChecked(true);
+        }
         return;
       }
-      if (subscription) {
+      if (subscription && !hasStripeSessionId) {
         if (!cancelled) setInitialSubscriptionChecked(true);
         return;
       }
 
-      if (!cancelled) setSubscriptionLoading(true);
-      await refreshSubscription();
+      if (!cancelled) {
+        setSubscriptionLoading(true);
+      }
+
+      const attempts = hasStripeSessionId ? 3 : 1;
+      const timeoutMs = 8000;
+
+      const runRefreshWithTimeout = async () => {
+        await Promise.race([
+          refreshSubscription(),
+          new Promise<void>((resolve) => {
+            window.setTimeout(resolve, timeoutMs);
+          }),
+        ]);
+      };
+
+      for (let attempt = 0; attempt < attempts && !cancelled; attempt += 1) {
+        await runRefreshWithTimeout();
+        if (attempt < attempts - 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 1200));
+        }
+      }
+
       if (!cancelled) {
         setSubscriptionLoading(false);
         setInitialSubscriptionChecked(true);
+
+        // Remove Stripe session_id after processing so future loads use normal flow.
+        if (hasStripeSessionId) {
+          navigate(isASWeb ? "/account?asweb=1" : "/account", { replace: true });
+        }
       }
     };
 
@@ -113,7 +147,16 @@ const Account = () => {
     return () => {
       cancelled = true;
     };
-  }, [loading, user, hasSessionToken, subscription, refreshSubscription]);
+  }, [
+    loading,
+    user,
+    hasSessionToken,
+    subscription,
+    refreshSubscription,
+    hasStripeSessionId,
+    navigate,
+    isASWeb,
+  ]);
 
   const handleRefreshSubscription = async () => {
     setSubscriptionLoading(true);
