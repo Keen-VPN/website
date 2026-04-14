@@ -16,8 +16,7 @@ import Footer from "@/components/Footer";
 import SEOHead from "@/components/SEOHead";
 
 const SignIn = () => {
-  const { signIn, loading: authLoading, user, subscription } = useAuth();
-  const [isProcessing, setIsProcessing] = React.useState(false);
+  const { signIn, loading: authLoading, isAuthenticating, user, subscription } = useAuth();
 
   // Redirect logic for logged-in users
   React.useEffect(() => {
@@ -45,27 +44,15 @@ const SignIn = () => {
 
   // Debounce sign-in to prevent double-clicks
   const [handleGoogleSignIn, isGoogleDebouncing] = useDebounce(async () => {
-    setIsProcessing(true);
-    const result = await signIn("google");
-    // Don't navigate here - AuthContext will handle redirect based on subscription status
-    if (!result.success) {
-      setIsProcessing(false);
-    }
-    // Keep processing state true to prevent UI flicker during redirect
+    await signIn("google");
   }, 2000);
 
   const [handleAppleSignIn, isAppleDebouncing] = useDebounce(async () => {
-    setIsProcessing(true);
-    const result = await signIn("apple");
-    // Don't navigate here - AuthContext will handle redirect based on subscription status
-    if (!result.success) {
-      setIsProcessing(false);
-    }
-    // Keep processing state true to prevent UI flicker during redirect
+    await signIn("apple");
   }, 2000);
 
   const isLoading =
-    authLoading || isGoogleDebouncing || isAppleDebouncing || isProcessing;
+    authLoading || isGoogleDebouncing || isAppleDebouncing || isAuthenticating;
 
   return (
     <div className="min-h-screen flex flex-col">

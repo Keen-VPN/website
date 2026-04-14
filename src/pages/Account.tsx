@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -48,6 +49,7 @@ const Account = () => {
   const [deleting, setDeleting] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user, loading, logout, subscription, refreshSubscription, linkedProviders, refreshLinkedProviders, hasSessionToken, authProvider } =
     useAuth();
@@ -66,6 +68,15 @@ const Account = () => {
     }
     return detected;
   }, []);
+  const hasStripeSessionId = useMemo(() => {
+    const urlParams = new URLSearchParams(location.search);
+    return Boolean(urlParams.get("session_id"));
+  }, [location.search]);
+  const stripeSessionId = useMemo(() => {
+    const urlParams = new URLSearchParams(location.search);
+    return urlParams.get("session_id");
+  }, [location.search]);
+  const processedStripeSessionRef = useRef<string | null>(null);
 
   // The session token may not be in localStorage yet when Account first mounts
   // (AuthContext is still verifying with the backend). Poll until it arrives.
@@ -91,20 +102,68 @@ const Account = () => {
 
     const ensureInitialSubscription = async () => {
       if (loading) return;
-      if (!user || !hasSessionToken) {
-        if (!cancelled) setInitialSubscriptionChecked(true);
+
+      // Prevent re-entering the Stripe return refresh path on re-renders.
+      // If this session_id was already processed, finalize state and strip it.
+      if (
+        stripeSessionId &&
+        processedStripeSessionRef.current === stripeSessionId
+      ) {
+        if (!cancelled) {
+          setSubscriptionLoading(false);
+          setInitialSubscriptionChecked(true);
+          navigate(isASWeb ? "/account?asweb=1" : "/account", { replace: true });
+        }
         return;
       }
-      if (subscription) {
+
+      if (!user || !hasSessionToken) {
+        if (!cancelled) {
+          setSubscriptionLoading(false);
+          setInitialSubscriptionChecked(true);
+        }
+        return;
+      }
+      if (subscription && !hasStripeSessionId) {
         if (!cancelled) setInitialSubscriptionChecked(true);
         return;
       }
 
-      if (!cancelled) setSubscriptionLoading(true);
-      await refreshSubscription();
+      if (!cancelled) {
+        setSubscriptionLoading(true);
+      }
+
+      if (stripeSessionId) {
+        processedStripeSessionRef.current = stripeSessionId;
+      }
+
+      const attempts = hasStripeSessionId ? 3 : 1;
+      const timeoutMs = 8000;
+
+      const runRefreshWithTimeout = async () => {
+        await Promise.race([
+          refreshSubscription(),
+          new Promise<void>((resolve) => {
+            window.setTimeout(resolve, timeoutMs);
+          }),
+        ]);
+      };
+
+      for (let attempt = 0; attempt < attempts && !cancelled; attempt += 1) {
+        await runRefreshWithTimeout();
+        if (attempt < attempts - 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 1200));
+        }
+      }
+
       if (!cancelled) {
         setSubscriptionLoading(false);
         setInitialSubscriptionChecked(true);
+
+        // Remove Stripe session_id after processing so future loads use normal flow.
+        if (hasStripeSessionId) {
+          navigate(isASWeb ? "/account?asweb=1" : "/account", { replace: true });
+        }
       }
     };
 
@@ -112,7 +171,17 @@ const Account = () => {
     return () => {
       cancelled = true;
     };
-  }, [loading, user, hasSessionToken, subscription, refreshSubscription]);
+  }, [
+    loading,
+    user,
+    hasSessionToken,
+    subscription,
+    refreshSubscription,
+    hasStripeSessionId,
+    stripeSessionId,
+    navigate,
+    isASWeb,
+  ]);
 
   const handleRefreshSubscription = async () => {
     setSubscriptionLoading(true);
@@ -281,8 +350,82 @@ const Account = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 py-20 bg-gradient-hero">
+          <div className="container mx-auto px-4 max-w-4xl">
+            <div className="mb-8">
+              <h1 className="text-4xl font-bold text-foreground mb-4">
+                My <span className="text-primary">Account</span>
+              </h1>
+              <Skeleton className="h-6 w-80" />
+            </div>
+            <div className="grid md:grid-cols-2 gap-8 items-start">
+              {/* Account Info Skeleton */}
+              <Card className="border-accent/50 shadow-glow">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Shield className="h-5 w-5 mr-2" />
+                    Account Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Skeleton className="h-3 w-10 mb-2" />
+                    <Skeleton className="h-5 w-48" />
+                  </div>
+                  <div>
+                    <Skeleton className="h-3 w-14 mb-2" />
+                    <Skeleton className="h-5 w-24" />
+                  </div>
+                  <Skeleton className="h-10 w-full rounded-md" />
+                </CardContent>
+              </Card>
+
+              {/* Subscription Status Skeleton */}
+              <Card className="border-accent/50 shadow-glow">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <CreditCard className="h-5 w-5 mr-2" />
+                    Subscription Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                  </div>
+                  <div>
+                    <Skeleton className="h-3 w-10 mb-2" />
+                    <Skeleton className="h-5 w-40" />
+                  </div>
+                  <Skeleton className="h-16 w-full rounded-lg" />
+                  <Skeleton className="h-10 w-full rounded-md" />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Linked Accounts Skeleton */}
+            <div className="mt-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Linked Accounts</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-6 w-16 rounded-full" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-9 w-32 rounded-md" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </main>
+        <Footer />
       </div>
     );
   }
@@ -406,8 +549,17 @@ const Account = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 {subscriptionLoading || !initialSubscriptionChecked ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-6 w-20 rounded-full" />
+                    </div>
+                    <div>
+                      <Skeleton className="h-3 w-10 mb-2" />
+                      <Skeleton className="h-5 w-40" />
+                    </div>
+                    <Skeleton className="h-16 w-full rounded-lg" />
+                    <Skeleton className="h-10 w-full rounded-md" />
                   </div>
                 ) : subscription ? (
                   <>
@@ -657,6 +809,14 @@ const Account = () => {
                       No active subscription found
                     </p>
                     <Button
+                      onClick={() => navigate("/account/subscription-history")}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <History className="h-4 w-4 mr-2" />
+                      Manage Subscriptions
+                    </Button>
+                    <Button
                       onClick={() => navigate("/subscribe")}
                       className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
                     >
@@ -681,11 +841,11 @@ const Account = () => {
           </div>
 
           {/* Linked Accounts */}
-          {hasSessionToken && authProvider && (
+          {hasSessionToken && (
             <div className="mt-8">
               <LinkedAccounts
                 sessionToken={getSessionToken() ?? ''}
-                currentProvider={authProvider}
+                currentProvider={authProvider ?? undefined}
                 providers={linkedProviders}
                 onUpdate={() => { refreshLinkedProviders(); refreshSubscription(); }}
               />
