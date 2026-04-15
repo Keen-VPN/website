@@ -40,7 +40,8 @@ import { deleteAccount, getSessionToken, cancelSubscription, createBillingPortal
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
-import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
+import { detectDevice, isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
+import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 
 const Account = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
@@ -53,6 +54,7 @@ const Account = () => {
   const { toast } = useToast();
   const { user, loading, logout, subscription, refreshSubscription, linkedProviders, refreshLinkedProviders, hasSessionToken, authProvider } =
     useAuth();
+  const appStoreUrl = useAppStoreUrl();
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
   const unsupportedDeviceName = useMemo(() => getUnsupportedDeviceName(), []);
@@ -231,6 +233,15 @@ const Account = () => {
     subscription?.status === "active" &&
     subscription?.subscriptionType === "stripe" &&
     subscription?.plan?.toLowerCase().includes("monthly");
+  const isActiveStripeSubscription =
+    subscription?.status === "active" &&
+    subscription?.subscriptionType === "stripe";
+  const downloadAppButtonLabel = useMemo(() => {
+    const device = detectDevice();
+    if (device === "ios") return "Download KeenVPN for iPhone";
+    if (device === "macos") return "Download KeenVPN for Mac";
+    return "Download KeenVPN App";
+  }, []);
 
   const handleCancelSubscription = async () => {
     if (!user) return;
@@ -643,6 +654,15 @@ const Account = () => {
                       </div>
                     )}
                     <div className="space-y-3">
+                      {isActiveStripeSubscription && (
+                        <Button
+                          onClick={() => window.open(appStoreUrl, "_blank")}
+                          className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
+                        >
+                          {downloadAppButtonLabel}
+                        </Button>
+                      )}
+
                       <Button
                         onClick={() =>
                           navigate("/account/subscription-history")
