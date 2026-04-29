@@ -103,9 +103,15 @@ function normalizeBackendAuthResponse(
     normalizedSubscription.subscriptionType = rawSubscription.subscriptionType;
   }
 
+  // Only surface subscriptions with actionable statuses so that all auth
+  // paths (sign-in and background status-session refresh) are consistent.
+  // Non-active statuses (e.g. "canceled", "incomplete") are treated as null
+  // to prevent stale data from showing the wrong CTA label on initial load.
+  const isActionable = activeSubscriptionStatuses.has(normalizedSubscription.status);
+
   return {
     ...responseWithoutRawTrial,
-    subscription: normalizedSubscription,
+    subscription: isActionable ? normalizedSubscription : null,
     ...(data.trial !== undefined ? { trial: normalizedTrial } : {}),
   };
 }
@@ -288,16 +294,11 @@ export async function fetchSubscriptionStatusWithSession(
       ...(data as RawBackendAuthResponse),
       success: data?.success ?? true,
     });
-    const status = normalized.subscription?.status?.toLowerCase();
-    const subscription =
-      status && activeSubscriptionStatuses.has(status)
-        ? normalized.subscription ?? null
-        : null;
 
     return {
       success: normalized.success,
       hasActiveSubscription: Boolean(data?.hasActiveSubscription),
-      subscription,
+      subscription: normalized.subscription ?? null,
       trial: normalized.trial ?? null,
       error: normalized.error,
       unauthorized: normalized.unauthorized,
