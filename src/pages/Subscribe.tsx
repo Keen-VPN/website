@@ -88,12 +88,15 @@ const Subscribe = () => {
   }, [user, loading, initialStatusChecked, refreshSubscription]);
 
   // If user already has manageable access, don't show subscribe UI.
+  // Guard on initialStatusLoading too: statusRefreshing starts as false so
+  // without this guard a stale "active" subscription from the previous auth
+  // response can trigger the redirect before the fresh check completes.
   useEffect(() => {
-    if (loading || statusRefreshing) return;
+    if (loading || initialStatusLoading || statusRefreshing) return;
     if (user && isManageableSubscription) {
       navigate("/account", { replace: true });
     }
-  }, [user, isManageableSubscription, loading, statusRefreshing, navigate]);
+  }, [user, isManageableSubscription, loading, initialStatusLoading, statusRefreshing, navigate]);
 
   // Get URL parameters
   const planIdParam = searchParams.get("planId");
