@@ -110,7 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Subscription Management
   // ============================================================================
 
-  const fetchSubscriptionFromBackend = async (sessionToken: string) => {
+  const fetchSubscriptionFromBackend = React.useCallback(async (sessionToken: string) => {
     try {
       const response = await fetchSubscriptionStatusWithSession(sessionToken);
 
@@ -122,14 +122,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.unauthorized) {
         clearSessionToken();
         setHasSessionToken(false);
+        setAuthProvider(null);
+        setUser(null);
         setSubscription(null);
         setTrial(null);
+        try {
+          await firebaseSignOut();
+        } catch {
+          // Ignore sign-out errors while clearing invalid auth state.
+        }
       }
       return null;
     } catch {
       return null;
     }
-  };
+  }, [setAuthProvider]);
 
   const syncHasSessionToken = React.useCallback(() => {
     setHasSessionToken(Boolean(getSessionToken()));
@@ -606,14 +613,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (!response.success) {
             if (response.unauthorized) {
               clearSessionToken();
+              setHasSessionToken(false);
+              setAuthProvider(null);
+              setUser(null);
               setSubscription(null);
               setTrial(null);
+              try {
+                await firebaseSignOut();
+              } catch {
+                // Ignore sign-out errors while clearing invalid auth state.
+              }
             }
             setIsAuthenticating(false);
             return { success: false };
           }
           setSubscription(response.subscription || null);
           setTrial(response.trial ?? null);
+          void fetchSubscriptionFromBackend(token);
           if (window.location.pathname === '/signin') {
             window.location.href = accountUrl();
             setIsAuthenticating(false);
@@ -777,7 +793,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, setAuthProvider]);
 
   // ============================================================================
   // Refresh Subscription
@@ -789,7 +805,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (sessionToken) {
       await fetchSubscriptionFromBackend(sessionToken);
     }
-  }, []);
+  }, [fetchSubscriptionFromBackend]);
 
   // ============================================================================
   // Linked Providers
