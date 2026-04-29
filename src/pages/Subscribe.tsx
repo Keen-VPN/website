@@ -21,6 +21,10 @@ import {
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
 import { enterprisePlan } from "@/constants/pricing";
+import {
+  getSubscriptionCtaLabel,
+  hasManageableSubscription,
+} from "@/lib/subscription-cta";
 
 const Subscribe = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -29,21 +33,67 @@ const Subscribe = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, isAuthenticating, signIn, logout, subscription } = useAuth();
+  const {
+    user,
+    loading,
+    isAuthenticating,
+    signIn,
+    logout,
+    subscription,
+    trial,
+    refreshSubscription,
+  } = useAuth();
   const [sessionInvalidHandled, setSessionInvalidHandled] = useState(false);
+  const [initialStatusChecked, setInitialStatusChecked] = useState(false);
+  const [statusRefreshing, setStatusRefreshing] = useState(false);
+  const subscriptionCtaLabel = getSubscriptionCtaLabel(
+    user,
+    subscription,
+    trial,
+  );
+  const isManageableSubscription = hasManageableSubscription(subscription);
 
   // Subscription status is still being fetched from the backend.
   // Once auth `loading` is false, the subscription fetch has completed —
   // a null subscription means "no subscription", not "still loading".
-  const subscriptionLoading = loading || isAuthenticating;
+  const initialStatusLoading = Boolean(user) && !initialStatusChecked;
+  const subscriptionLoading =
+    loading || isAuthenticating || statusRefreshing || initialStatusLoading;
 
-  // If user already has an active subscription, don't show subscribe UI.
   useEffect(() => {
-    if (loading) return;
-    if (user && subscription?.status === "active") {
+    if (loading || !user || initialStatusChecked) return;
+    if (!getSessionToken()) {
+      setInitialStatusChecked(true);
+      return;
+    }
+
+    let cancelled = false;
+    const refreshStatus = async () => {
+      setStatusRefreshing(true);
+      try {
+        await refreshSubscription();
+      } finally {
+        if (!cancelled) {
+          setStatusRefreshing(false);
+          setInitialStatusChecked(true);
+        }
+      }
+    };
+
+    void refreshStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loading, initialStatusChecked, refreshSubscription]);
+
+  // If user already has manageable access, don't show subscribe UI.
+  useEffect(() => {
+    if (loading || statusRefreshing) return;
+    if (user && isManageableSubscription) {
       navigate("/account", { replace: true });
     }
-  }, [user, subscription, loading, navigate]);
+  }, [user, isManageableSubscription, loading, statusRefreshing, navigate]);
 
   // Get URL parameters
   const planIdParam = searchParams.get("planId");
@@ -155,11 +205,11 @@ const Subscribe = () => {
       return;
     }
 
-    // Check if user already has active subscription
-    if (subscription && subscription.status === "active") {
+    // Check if user already has subscription access that should be managed.
+    if (isManageableSubscription) {
       toast({
         title: "Already subscribed",
-        description: "You already have an active subscription",
+        description: "You already have a subscription to manage",
       });
       navigate("/account");
       return;
@@ -250,12 +300,16 @@ const Subscribe = () => {
     }
     : null;
 
-  if (loading || planLoading) {
+  if (loading || planLoading || initialStatusLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <span className="ml-2 text-muted-foreground">
-          {loading ? "Loading..." : "Loading plans..."}
+          {loading
+            ? "Loading..."
+            : initialStatusLoading
+              ? "Checking subscription status..."
+              : "Loading plans..."}
         </span>
       </div>
     );
@@ -384,7 +438,7 @@ const Subscribe = () => {
                         Checking subscription status...
                       </>
                     ) : (
-                      "Subscribe Now"
+                      subscriptionCtaLabel
                     )}
                   </Button>
 

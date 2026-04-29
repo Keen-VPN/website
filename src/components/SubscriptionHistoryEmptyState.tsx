@@ -3,6 +3,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { History, CreditCard, Calendar, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  getSubscriptionCtaLabel,
+  hasManageableSubscription,
+} from "@/lib/subscription-cta";
 
 interface SubscriptionHistoryEmptyStateProps {
   hasFilters?: boolean;
@@ -14,8 +18,14 @@ export function SubscriptionHistoryEmptyState({
   onClearFilters
 }: SubscriptionHistoryEmptyStateProps) {
   const navigate = useNavigate();
-  const { subscription } = useAuth();
-  const hasActiveSubscription = subscription?.status === "active";
+  const { user, subscription, trial } = useAuth();
+  const hasManageableSubscriptionAccess =
+    hasManageableSubscription(subscription);
+  const subscriptionCtaLabel = getSubscriptionCtaLabel(
+    user,
+    subscription,
+    trial,
+  );
 
   if (hasFilters) {
     return (
@@ -34,9 +44,9 @@ export function SubscriptionHistoryEmptyState({
                 Clear Filters
               </Button>
             )}
-            {!hasActiveSubscription && (
+            {!hasManageableSubscriptionAccess && (
               <Button onClick={() => navigate("/subscribe")}>
-                Subscribe Now
+                {subscriptionCtaLabel}
               </Button>
             )}
           </div>
@@ -84,13 +94,13 @@ export function SubscriptionHistoryEmptyState({
           </div>
 
           {/* CTA */}
-          {!hasActiveSubscription && (
+          {!hasManageableSubscriptionAccess && (
             <Button
               onClick={() => navigate("/subscribe")}
               className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
               size="lg"
             >
-              Get Started with KeenVPN
+              {subscriptionCtaLabel}
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           )}

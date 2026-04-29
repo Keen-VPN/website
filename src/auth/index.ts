@@ -23,6 +23,7 @@ export {
   authenticateWithBackend,
   loginWithFirebaseToken,
   verifySessionToken,
+  fetchSubscriptionStatusWithSession,
   cancelSubscription,
   createCheckoutSession,
   createBillingPortalSession,
@@ -40,6 +41,7 @@ export {
 
 export type {
   SubscriptionData,
+  TrialData,
   AuthState,
   BackendAuthResponse
 } from './types';

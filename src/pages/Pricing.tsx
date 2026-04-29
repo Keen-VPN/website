@@ -19,6 +19,8 @@ import { transformApiPlans } from "@/lib/pricing";
 
 import { PricingPlan } from "@/lib/pricing";
 import SEOHead from "@/components/SEOHead";
+import { canStartFreeTrial } from "@/lib/subscription-cta";
+import type { TrialData } from "@/auth/types";
 
 const pricingSEOProps = {
   title: "KeenVPN Pricing — Affordable VPN Plans for iOS & macOS",
@@ -37,25 +39,31 @@ export function getPricingCtaKind(
   authLoading: boolean,
   user: unknown,
   subscriptionStatus: string | undefined,
+  trial?: TrialData | null,
 ): PricingCtaKind {
   if (authLoading) return "loading";
-  if (!user) return "start_free_trial";
   const s = (subscriptionStatus ?? "").toLowerCase();
   if (s === "active" || s === "trialing" || s === "past_due") {
     return "manage_account";
   }
-  return "subscribe";
+  return canStartFreeTrial(
+    user,
+    s ? { status: s, endDate: "" } : null,
+    trial,
+  )
+    ? "start_free_trial"
+    : "subscribe";
 }
 
 const Pricing = () => {
 
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, subscription, loading: authLoading } = useAuth();
+  const { user, subscription, trial, loading: authLoading } = useAuth();
 
   const ctaKind = useMemo(
-    () => getPricingCtaKind(authLoading, user, subscription?.status),
-    [authLoading, user, subscription?.status],
+    () => getPricingCtaKind(authLoading, user, subscription?.status, trial),
+    [authLoading, user, subscription?.status, trial],
   );
 
   const isMonthlyStripeUpgradeEligible =

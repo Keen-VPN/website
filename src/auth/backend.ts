@@ -1,5 +1,5 @@
 import type { ApiPlan } from "@/lib/pricing";
-import { BackendAuthResponse, SubscriptionData } from "./types";
+import { BackendAuthResponse, SubscriptionData, TrialData } from "./types";
 
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
@@ -40,18 +40,51 @@ export interface RawSubscription {
   subscriptionType?: string;
 }
 
+export interface RawTrial {
+  active?: boolean;
+  trialActive?: boolean;
+  endsAt?: string | null;
+  trialEndsAt?: string | null;
+  daysRemaining?: number | null;
+  isPaid?: boolean;
+  tier?: string | null;
+}
+
 export interface RawBackendAuthResponse
-  extends Omit<BackendAuthResponse, "subscription"> {
+  extends Omit<BackendAuthResponse, "subscription" | "trial"> {
   subscription?: RawSubscription | null;
+  trial?: RawTrial | null;
+}
+
+const activeSubscriptionStatuses = new Set(["active", "trialing", "past_due"]);
+
+function normalizeTrial(rawTrial: RawTrial | null | undefined): TrialData | null {
+  if (!rawTrial) return null;
+
+  return {
+    active: Boolean(rawTrial.active ?? rawTrial.trialActive),
+    endsAt: rawTrial.endsAt ?? rawTrial.trialEndsAt ?? null,
+    daysRemaining: rawTrial.daysRemaining ?? null,
+    isPaid: rawTrial.isPaid,
+    tier: rawTrial.tier ?? null,
+  };
 }
 
 function normalizeBackendAuthResponse(
   data: RawBackendAuthResponse,
 ): BackendAuthResponse {
   const rawSubscription = data.subscription;
+  const normalizedTrial = normalizeTrial(data.trial);
+  const responseWithoutRawTrial = {
+    ...data,
+  } as Omit<RawBackendAuthResponse, "trial">;
+  delete (responseWithoutRawTrial as RawBackendAuthResponse).trial;
 
   if (!rawSubscription) {
-    return data as BackendAuthResponse;
+    return {
+      ...(responseWithoutRawTrial as BackendAuthResponse),
+      ...(data.trial !== undefined ? { trial: normalizedTrial } : {}),
+    };
   }
 
   const normalizedSubscription: SubscriptionData = {
@@ -71,9 +104,19 @@ function normalizeBackendAuthResponse(
   }
 
   return {
-    ...data,
+    ...responseWithoutRawTrial,
     subscription: normalizedSubscription,
+    ...(data.trial !== undefined ? { trial: normalizedTrial } : {}),
   };
+}
+
+export interface SubscriptionStatusResult {
+  success: boolean;
+  hasActiveSubscription?: boolean;
+  subscription: SubscriptionData | null;
+  trial: TrialData | null;
+  error?: string;
+  unauthorized?: boolean;
 }
 
 // ============================================================================
@@ -212,6 +255,62 @@ export async function verifySessionToken(
       success: false,
       error:
         error instanceof Error ? error.message : "Failed to verify session",
+      unauthorized: false,
+    };
+  }
+}
+
+export async function fetchSubscriptionStatusWithSession(
+  sessionToken: string,
+): Promise<SubscriptionStatusResult> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/subscription/status-session`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sessionToken }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return {
+        success: false,
+        subscription: null,
+        trial: null,
+        error: data?.error || "Failed to fetch subscription status",
+        unauthorized: response.status === 401,
+      };
+    }
+
+    const normalized = normalizeBackendAuthResponse({
+      ...(data as RawBackendAuthResponse),
+      success: data?.success ?? true,
+    });
+    const status = normalized.subscription?.status?.toLowerCase();
+    const subscription =
+      status && activeSubscriptionStatuses.has(status)
+        ? normalized.subscription ?? null
+        : null;
+
+    return {
+      success: normalized.success,
+      hasActiveSubscription: Boolean(data?.hasActiveSubscription),
+      subscription,
+      trial: normalized.trial ?? null,
+      error: normalized.error,
+      unauthorized: normalized.unauthorized,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      subscription: null,
+      trial: null,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch subscription status",
       unauthorized: false,
     };
   }

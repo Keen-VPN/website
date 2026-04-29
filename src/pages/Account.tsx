@@ -42,6 +42,10 @@ import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
 import { detectDevice, isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
+import {
+  getSubscriptionCtaLabel,
+  hasManageableSubscription,
+} from "@/lib/subscription-cta";
 
 const Account = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
@@ -52,9 +56,15 @@ const Account = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user, loading, logout, subscription, refreshSubscription, linkedProviders, refreshLinkedProviders, hasSessionToken, authProvider } =
+  const { user, loading, logout, subscription, trial, refreshSubscription, linkedProviders, refreshLinkedProviders, hasSessionToken, authProvider } =
     useAuth();
   const appStoreUrl = useAppStoreUrl();
+  const subscriptionCtaLabel = getSubscriptionCtaLabel(
+    user,
+    subscription,
+    trial,
+  );
+  const isManageableSubscription = hasManageableSubscription(subscription);
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
   const unsupportedDeviceName = useMemo(() => getUnsupportedDeviceName(), []);
@@ -455,7 +465,7 @@ const Account = () => {
             </CardHeader>
             <CardContent>
               <Button onClick={() => navigate("/subscribe")} className="w-full">
-                Sign In
+                {subscriptionCtaLabel}
               </Button>
             </CardContent>
           </Card>
@@ -800,13 +810,15 @@ const Account = () => {
                       ) : (
                         <Button
                           onClick={() =>
-                            navigate(subscription ? "/account" : "/subscribe")
+                            navigate(
+                              isManageableSubscription
+                                ? "/account"
+                                : "/subscribe",
+                            )
                           }
                           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
                         >
-                          {subscription
-                            ? "Manage Subscription"
-                            : "Subscribe Now"}
+                          {subscriptionCtaLabel}
                         </Button>
                       )}
                     </div>
@@ -840,7 +852,7 @@ const Account = () => {
                       onClick={() => navigate("/subscribe")}
                       className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
                     >
-                      Subscribe Now
+                      {subscriptionCtaLabel}
                     </Button>
                     <div className="pt-4 mt-4 border-t border-border">
                       <p className="text-sm text-muted-foreground">
