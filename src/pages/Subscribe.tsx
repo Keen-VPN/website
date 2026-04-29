@@ -41,11 +41,9 @@ const Subscribe = () => {
     logout,
     subscription,
     trial,
-    refreshSubscription,
   } = useAuth();
   const [sessionInvalidHandled, setSessionInvalidHandled] = useState(false);
   const [initialStatusChecked, setInitialStatusChecked] = useState(false);
-  const [statusRefreshing, setStatusRefreshing] = useState(false);
   const subscriptionCtaLabel = getSubscriptionCtaLabel(
     user,
     subscription,
@@ -57,46 +55,34 @@ const Subscribe = () => {
   // Once auth `loading` is false, the subscription fetch has completed —
   // a null subscription means "no subscription", not "still loading".
   const initialStatusLoading = Boolean(user) && !initialStatusChecked;
-  const subscriptionLoading =
-    loading || isAuthenticating || statusRefreshing || initialStatusLoading;
+  const subscriptionLoading = loading || isAuthenticating || initialStatusLoading;
 
   useEffect(() => {
     if (loading || !user || initialStatusChecked) return;
-    if (!getSessionToken()) {
-      setInitialStatusChecked(true);
-      return;
-    }
 
-    let cancelled = false;
-    const refreshStatus = async () => {
-      setStatusRefreshing(true);
-      try {
-        await refreshSubscription();
-      } finally {
-        if (!cancelled) {
-          setStatusRefreshing(false);
-          setInitialStatusChecked(true);
-        }
-      }
-    };
-
-    void refreshStatus();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, loading, initialStatusChecked, refreshSubscription]);
+    // AuthContext already calls fetchSubscriptionFromBackend (fire-and-forget)
+    // after verifySessionToken completes (loading → false). Since
+    // normalizeBackendAuthResponse now filters non-active subscriptions on
+    // every auth path, the subscription state is already correct at this point.
+    // We mark the check done immediately to unblock the redirect guard and
+    // avoid a redundant second call to /subscription/status-session.
+    //
+    // The only case where we still need an explicit refresh is when the component
+    // mounts before auth loading finishes (loading was true) — but the outer
+    // guard above handles that: we return early and wait for loading to clear.
+    setInitialStatusChecked(true);
+  }, [user, loading, initialStatusChecked]);
 
   // If user already has manageable access, don't show subscribe UI.
-  // Guard on initialStatusLoading too: statusRefreshing starts as false so
-  // without this guard a stale "active" subscription from the previous auth
-  // response can trigger the redirect before the fresh check completes.
+  // Guard on initialStatusLoading: without it, a stale "active" subscription
+  // from the previous auth response can trigger the redirect before the fresh
+  // check completes.
   useEffect(() => {
-    if (loading || initialStatusLoading || statusRefreshing) return;
+    if (loading || initialStatusLoading) return;
     if (user && isManageableSubscription) {
       navigate("/account", { replace: true });
     }
-  }, [user, isManageableSubscription, loading, initialStatusLoading, statusRefreshing, navigate]);
+  }, [user, isManageableSubscription, loading, initialStatusLoading, navigate]);
 
   // Get URL parameters
   const planIdParam = searchParams.get("planId");

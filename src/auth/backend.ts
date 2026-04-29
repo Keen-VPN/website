@@ -70,6 +70,17 @@ function normalizeTrial(rawTrial: RawTrial | null | undefined): TrialData | null
   };
 }
 
+/**
+ * Normalizes a raw backend auth response into a typed `BackendAuthResponse`.
+ *
+ * Key behaviour:
+ * - Subscription fields are renamed/coerced (e.g. `currentPeriodEnd` → `endDate`).
+ * - Only subscriptions with an actionable status (`active`, `trialing`, `past_due`)
+ *   are surfaced; all others are coerced to `null`. This keeps CTA label logic
+ *   consistent across every auth path (sign-in, session verify, and status refresh)
+ *   so pages never flicker between labels due to stale non-active subscription data.
+ * - Trial data is normalised from snake_case backend fields to camelCase frontend types.
+ */
 function normalizeBackendAuthResponse(
   data: RawBackendAuthResponse,
 ): BackendAuthResponse {
