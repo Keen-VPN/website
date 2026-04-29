@@ -9,9 +9,18 @@ export interface SubscriptionData {
   subscriptionType?: string;
 }
 
+export interface TrialData {
+  active: boolean;
+  endsAt: string | null;
+  daysRemaining: number | null;
+  isPaid?: boolean;
+  tier?: string | null;
+}
+
 export interface AuthState {
   user: FirebaseUser | null;
   subscription: SubscriptionData | null;
+  trial: TrialData | null;
   loading: boolean;
 }
 
@@ -24,7 +33,8 @@ export interface BackendAuthResponse {
     provider: string;
   };
   sessionToken?: string;
-  subscription?: SubscriptionData;
+  subscription?: SubscriptionData | null;
+  trial?: TrialData | null;
   error?: string;
   /** When true, backend rejected the token (401 or invalid); safe to clear session. When false/undefined on failure, do not clear (e.g. network error). */
   unauthorized?: boolean;

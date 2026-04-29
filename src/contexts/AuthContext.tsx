@@ -12,11 +12,13 @@ import {
   authenticateWithBackend,
   loginWithFirebaseToken,
   verifySessionToken,
+  fetchSubscriptionStatusWithSession,
   storeSessionToken,
   getSessionToken,
   clearSessionToken,
   getLinkedProviders,
   type SubscriptionData,
+  type TrialData,
   type SignInResult
 } from '@/auth';
 
@@ -32,6 +34,7 @@ interface LinkedProviders {
 interface AuthContextType {
   user: FirebaseUser | null;
   subscription: SubscriptionData | null;
+  trial: TrialData | null;
   loading: boolean;
   isAuthenticating: boolean;
   linkedProviders: LinkedProviders | null;
@@ -53,6 +56,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
+  const [trial, setTrial] = useState<TrialData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [linkedProviders, setLinkedProviders] = useState<LinkedProviders | null>(null);
@@ -106,22 +110,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Subscription Management
   // ============================================================================
 
-  const fetchSubscriptionFromBackend = async (sessionToken: string) => {
+  const fetchSubscriptionFromBackend = React.useCallback(async (sessionToken: string) => {
     try {
-      const response = await verifySessionToken(sessionToken);
+      const response = await fetchSubscriptionStatusWithSession(sessionToken);
 
-      if (response.success && response.subscription) {
-        setSubscription(response.subscription);
+      if (response.success) {
+        setSubscription(response.subscription ?? null);
+        setTrial(response.trial ?? null);
         return response.subscription;
-      } else {
-        setSubscription(null);
-        return null;
       }
+      if (response.unauthorized) {
+        // Only clear auth state if the token we got a 401 for is still
+        // the current session. A stale fire-and-forget call must never
+        // sign out a newly established session.
+        if (getSessionToken() === sessionToken) {
+          clearSessionToken();
+          setHasSessionToken(false);
+          setAuthProvider(null);
+          setUser(null);
+          setSubscription(null);
+          setTrial(null);
+          try {
+            await firebaseSignOut();
+          } catch {
+            // Ignore sign-out errors while clearing invalid auth state.
+          }
+        }
+      }
+      return null;
     } catch {
-      setSubscription(null);
       return null;
     }
-  };
+  }, [setAuthProvider]);
 
   const syncHasSessionToken = React.useCallback(() => {
     setHasSessionToken(Boolean(getSessionToken()));
@@ -239,7 +259,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               storeSessionToken(backendResponse.sessionToken);
               setHasSessionToken(true);
               setSubscription(backendResponse.subscription || null);
+              setTrial(backendResponse.trial ?? null);
               setAuthProvider(providerType);
+              void fetchSubscriptionFromBackend(backendResponse.sessionToken);
 
               // Fetch linked providers (non-blocking)
               refreshLinkedProviders(backendResponse.sessionToken);
@@ -274,6 +296,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               // Clear user state
               setUser(null);
               setSubscription(null);
+              setTrial(null);
 
               toast({
                 title: "Account Recently Deleted",
@@ -294,6 +317,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setAuthProvider(null);
               setUser(null);
               setSubscription(null);
+              setTrial(null);
 
               toast({
                 title: "Sign-In Failed",
@@ -334,9 +358,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setAuthProvider(response.user.provider || null);
             }
 
-            if (response.subscription) {
-              setSubscription(response.subscription);
-            }
+            setSubscription(response.subscription || null);
+            setTrial(response.trial ?? null);
+            void fetchSubscriptionFromBackend(sessionToken);
 
             // Fetch linked providers (non-blocking, pass token directly to avoid timing issues)
             refreshLinkedProviders(sessionToken);
@@ -405,6 +429,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 storeSessionToken(backendResponse.sessionToken);
                 setHasSessionToken(true);
                 setSubscription(backendResponse.subscription || null);
+                setTrial(backendResponse.trial ?? null);
+                void fetchSubscriptionFromBackend(backendResponse.sessionToken);
                 // Never overwrite auth_provider here — this path runs from the
                 // onAuthStateChanged listener which races with signIn(). The signIn
                 // flow sets the correct provider; the backend's user.provider is the
@@ -424,6 +450,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setAuthProvider(null);
                 setUser(null);
                 setSubscription(null);
+                setTrial(null);
 
                 toast({
                   title: "Sign-In Failed",
@@ -444,6 +471,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // verifySessionToken already resolved.
           if (!getSessionToken()) {
             setSubscription(null);
+            setTrial(null);
           }
           setAuthProvider(null);
           syncHasSessionToken();
@@ -590,12 +618,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (!response.success) {
             if (response.unauthorized) {
               clearSessionToken();
+              setHasSessionToken(false);
+              setAuthProvider(null);
+              setUser(null);
               setSubscription(null);
+              setTrial(null);
+              try {
+                await firebaseSignOut();
+              } catch {
+                // Ignore sign-out errors while clearing invalid auth state.
+              }
             }
             setIsAuthenticating(false);
             return { success: false };
           }
-          if (response.subscription) setSubscription(response.subscription);
+          setSubscription(response.subscription || null);
+          setTrial(response.trial ?? null);
+          void fetchSubscriptionFromBackend(token);
           if (window.location.pathname === '/signin') {
             window.location.href = accountUrl();
             setIsAuthenticating(false);
@@ -640,6 +679,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         storeSessionToken(backendResponse.sessionToken);
         setHasSessionToken(true);
         setSubscription(backendResponse.subscription || null);
+        setTrial(backendResponse.trial ?? null);
+        void fetchSubscriptionFromBackend(backendResponse.sessionToken);
         refreshLinkedProviders(backendResponse.sessionToken);
 
         setIsAuthenticating(false);
@@ -675,6 +716,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Clear user state
         setUser(null);
         setSubscription(null);
+        setTrial(null);
 
         setIsAuthenticating(false);
 
@@ -700,6 +742,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAuthProvider(null);
         setUser(null);
         setSubscription(null);
+        setTrial(null);
 
         toast({
           title: "Sign-In Failed",
@@ -741,6 +784,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setHasSessionToken(false);
       setUser(null);
       setSubscription(null);
+      setTrial(null);
       setAuthProvider(null);
 
       toast({
@@ -754,7 +798,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, setAuthProvider]);
 
   // ============================================================================
   // Refresh Subscription
@@ -766,7 +810,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (sessionToken) {
       await fetchSubscriptionFromBackend(sessionToken);
     }
-  }, []);
+  }, [fetchSubscriptionFromBackend]);
 
   // ============================================================================
   // Linked Providers
@@ -790,6 +834,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = React.useMemo<AuthContextType>(() => ({
     user,
     subscription,
+    trial,
     loading,
     isAuthenticating,
     linkedProviders,
@@ -799,7 +844,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     refreshSubscription,
     refreshLinkedProviders,
-  }), [user, subscription, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, refreshLinkedProviders]);
+  }), [user, subscription, trial, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, refreshLinkedProviders]);
 
   return (
     <AuthContext.Provider value={value}>
