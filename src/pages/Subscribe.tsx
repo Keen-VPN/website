@@ -21,7 +21,10 @@ import {
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
 import { enterprisePlan } from "@/constants/pricing";
-import { getSubscriptionCtaLabel } from "@/lib/subscription-cta";
+import {
+  getSubscriptionCtaLabel,
+  hasManageableSubscription,
+} from "@/lib/subscription-cta";
 
 const Subscribe = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -48,6 +51,7 @@ const Subscribe = () => {
     subscription,
     trial,
   );
+  const isManageableSubscription = hasManageableSubscription(subscription);
 
   // Subscription status is still being fetched from the backend.
   // Once auth `loading` is false, the subscription fetch has completed —
@@ -78,13 +82,13 @@ const Subscribe = () => {
     };
   }, [user, loading, initialStatusChecked, refreshSubscription]);
 
-  // If user already has an active subscription, don't show subscribe UI.
+  // If user already has manageable access, don't show subscribe UI.
   useEffect(() => {
     if (loading) return;
-    if (user && subscription?.status === "active") {
+    if (user && isManageableSubscription) {
       navigate("/account", { replace: true });
     }
-  }, [user, subscription, loading, navigate]);
+  }, [user, isManageableSubscription, loading, navigate]);
 
   // Get URL parameters
   const planIdParam = searchParams.get("planId");
@@ -196,11 +200,11 @@ const Subscribe = () => {
       return;
     }
 
-    // Check if user already has active subscription
-    if (subscription && subscription.status === "active") {
+    // Check if user already has subscription access that should be managed.
+    if (isManageableSubscription) {
       toast({
         title: "Already subscribed",
-        description: "You already have an active subscription",
+        description: "You already have a subscription to manage",
       });
       navigate("/account");
       return;
