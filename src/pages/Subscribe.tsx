@@ -56,7 +56,9 @@ const Subscribe = () => {
   // Subscription status is still being fetched from the backend.
   // Once auth `loading` is false, the subscription fetch has completed —
   // a null subscription means "no subscription", not "still loading".
-  const subscriptionLoading = loading || isAuthenticating || statusRefreshing;
+  const initialStatusLoading = Boolean(user) && !initialStatusChecked;
+  const subscriptionLoading =
+    loading || isAuthenticating || statusRefreshing || initialStatusLoading;
 
   useEffect(() => {
     if (loading || !user || initialStatusChecked) return;
@@ -68,10 +70,13 @@ const Subscribe = () => {
     let cancelled = false;
     const refreshStatus = async () => {
       setStatusRefreshing(true);
-      await refreshSubscription();
-      if (!cancelled) {
-        setStatusRefreshing(false);
-        setInitialStatusChecked(true);
+      try {
+        await refreshSubscription();
+      } finally {
+        if (!cancelled) {
+          setStatusRefreshing(false);
+          setInitialStatusChecked(true);
+        }
       }
     };
 
@@ -84,11 +89,11 @@ const Subscribe = () => {
 
   // If user already has manageable access, don't show subscribe UI.
   useEffect(() => {
-    if (loading) return;
+    if (loading || statusRefreshing) return;
     if (user && isManageableSubscription) {
       navigate("/account", { replace: true });
     }
-  }, [user, isManageableSubscription, loading, navigate]);
+  }, [user, isManageableSubscription, loading, statusRefreshing, navigate]);
 
   // Get URL parameters
   const planIdParam = searchParams.get("planId");
@@ -295,12 +300,16 @@ const Subscribe = () => {
     }
     : null;
 
-  if (loading || planLoading) {
+  if (loading || planLoading || initialStatusLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <span className="ml-2 text-muted-foreground">
-          {loading ? "Loading..." : "Loading plans..."}
+          {loading
+            ? "Loading..."
+            : initialStatusLoading
+              ? "Checking subscription status..."
+              : "Loading plans..."}
         </span>
       </div>
     );
