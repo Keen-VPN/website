@@ -39,7 +39,7 @@ export function canStartFreeTrial(
   const subscriptionStatus = getSubscriptionStatus(subscription);
   if (subscriptionStatus) return false;
 
-  return !trial?.endsAt;
+  return !trial?.active && !trial?.endsAt;
 }
 
 export function getSubscriptionCtaLabel(

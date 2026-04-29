@@ -120,16 +120,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return response.subscription;
       }
       if (response.unauthorized) {
-        clearSessionToken();
-        setHasSessionToken(false);
-        setAuthProvider(null);
-        setUser(null);
-        setSubscription(null);
-        setTrial(null);
-        try {
-          await firebaseSignOut();
-        } catch {
-          // Ignore sign-out errors while clearing invalid auth state.
+        // Only clear auth state if the token we got a 401 for is still
+        // the current session. A stale fire-and-forget call must never
+        // sign out a newly established session.
+        if (getSessionToken() === sessionToken) {
+          clearSessionToken();
+          setHasSessionToken(false);
+          setAuthProvider(null);
+          setUser(null);
+          setSubscription(null);
+          setTrial(null);
+          try {
+            await firebaseSignOut();
+          } catch {
+            // Ignore sign-out errors while clearing invalid auth state.
+          }
         }
       }
       return null;
