@@ -308,7 +308,7 @@ export async function fetchSubscriptionStatusWithSession(
 
     return {
       success: normalized.success,
-      hasActiveSubscription: Boolean(data?.hasActiveSubscription),
+      hasActiveSubscription: Boolean(normalized.subscription),
       subscription: normalized.subscription ?? null,
       trial: normalized.trial ?? null,
       error: normalized.error,

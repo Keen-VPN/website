@@ -41,9 +41,11 @@ const Subscribe = () => {
     logout,
     subscription,
     trial,
+    refreshSubscription,
   } = useAuth();
   const [sessionInvalidHandled, setSessionInvalidHandled] = useState(false);
   const [initialStatusChecked, setInitialStatusChecked] = useState(false);
+  const [statusRefreshing, setStatusRefreshing] = useState(false);
   const subscriptionCtaLabel = getSubscriptionCtaLabel(
     user,
     subscription,
@@ -51,38 +53,55 @@ const Subscribe = () => {
   );
   const isManageableSubscription = hasManageableSubscription(subscription);
 
-  // Subscription status is still being fetched from the backend.
-  // Once auth `loading` is false, the subscription fetch has completed —
-  // a null subscription means "no subscription", not "still loading".
+  // True while we are waiting for the first confirmed-fresh subscription status.
+  // Guards the redirect effect so a stale "active" value in AuthContext state
+  // (e.g. from a previous navigation within the SPA) can never trigger a premature
+  // redirect before we have verified the current state from the backend.
   const initialStatusLoading = Boolean(user) && !initialStatusChecked;
-  const subscriptionLoading = loading || isAuthenticating || initialStatusLoading;
+  const subscriptionLoading =
+    loading || isAuthenticating || statusRefreshing || initialStatusLoading;
 
   useEffect(() => {
     if (loading || !user || initialStatusChecked) return;
+    if (!getSessionToken()) {
+      setInitialStatusChecked(true);
+      return;
+    }
 
-    // AuthContext already calls fetchSubscriptionFromBackend (fire-and-forget)
-    // after verifySessionToken completes (loading → false). Since
-    // normalizeBackendAuthResponse now filters non-active subscriptions on
-    // every auth path, the subscription state is already correct at this point.
-    // We mark the check done immediately to unblock the redirect guard and
-    // avoid a redundant second call to /subscription/status-session.
-    //
-    // The only case where we still need an explicit refresh is when the component
-    // mounts before auth loading finishes (loading was true) — but the outer
-    // guard above handles that: we return early and wait for loading to clear.
-    setInitialStatusChecked(true);
-  }, [user, loading, initialStatusChecked]);
+    // We need an explicit refresh here even though AuthContext fires a
+    // fire-and-forget fetchSubscriptionFromBackend after verifySessionToken.
+    // That background refresh only runs on page load — when the user navigates
+    // to /subscribe within the SPA, AuthContext's loading is already false and
+    // no new refresh is triggered, leaving subscription state potentially stale.
+    let cancelled = false;
+    const refreshStatus = async () => {
+      setStatusRefreshing(true);
+      try {
+        await refreshSubscription();
+      } finally {
+        if (!cancelled) {
+          setStatusRefreshing(false);
+          setInitialStatusChecked(true);
+        }
+      }
+    };
+
+    void refreshStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loading, initialStatusChecked, refreshSubscription]);
 
   // If user already has manageable access, don't show subscribe UI.
-  // Guard on initialStatusLoading: without it, a stale "active" subscription
-  // from the previous auth response can trigger the redirect before the fresh
-  // check completes.
+  // Guard on both initialStatusLoading and statusRefreshing so we never
+  // redirect based on state that hasn't been confirmed fresh yet.
   useEffect(() => {
-    if (loading || initialStatusLoading) return;
+    if (loading || initialStatusLoading || statusRefreshing) return;
     if (user && isManageableSubscription) {
       navigate("/account", { replace: true });
     }
-  }, [user, isManageableSubscription, loading, initialStatusLoading, navigate]);
+  }, [user, isManageableSubscription, loading, initialStatusLoading, statusRefreshing, navigate]);
 
   // Get URL parameters
   const planIdParam = searchParams.get("planId");
