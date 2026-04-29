@@ -46,11 +46,7 @@ export function getPricingCtaKind(
   if (s === "active" || s === "trialing" || s === "past_due") {
     return "manage_account";
   }
-  return canStartFreeTrial(
-    user,
-    s ? { status: s, endDate: "" } : null,
-    trial,
-  )
+  return canStartFreeTrial(user, s, trial)
     ? "start_free_trial"
     : "subscribe";
 }

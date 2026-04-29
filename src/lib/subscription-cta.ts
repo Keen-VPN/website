@@ -10,22 +10,33 @@ const manageableSubscriptionStatuses = new Set([
   "past_due",
 ]);
 
+type SubscriptionState = SubscriptionData | string | null | undefined;
+
+function getSubscriptionStatus(subscription: SubscriptionState): string {
+  return (
+    (typeof subscription === "string" ? subscription : subscription?.status) ??
+    ""
+  ).toLowerCase();
+}
+
 export function hasManageableSubscription(
-  subscription: SubscriptionData | null | undefined,
+  subscription: SubscriptionState,
 ): boolean {
-  const status = subscription?.status?.toLowerCase();
+  const status = getSubscriptionStatus(subscription);
   return Boolean(status && manageableSubscriptionStatuses.has(status));
 }
 
 export function canStartFreeTrial(
   user: unknown,
-  subscription: SubscriptionData | null | undefined,
+  subscription: SubscriptionState,
   trial: TrialData | null | undefined,
 ): boolean {
+  // Signed-out visitors have no server-side trial history yet; product copy
+  // should invite them to start the trial before the subscribe flow asks them to sign in.
   if (!user) return true;
   if (hasManageableSubscription(subscription)) return false;
 
-  const subscriptionStatus = subscription?.status?.toLowerCase();
+  const subscriptionStatus = getSubscriptionStatus(subscription);
   if (subscriptionStatus) return false;
 
   return !trial?.endsAt;

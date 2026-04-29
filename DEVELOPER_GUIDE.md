@@ -152,12 +152,12 @@ All static data (pricing plans, features, FAQs, contact form schemas, app store 
 
 ### API Client Abstraction
 
-Backend API calls are centralized in two files:
+Most backend API calls are centralized in two files:
 
 - `src/auth/backend.ts` -- Auth-related calls (checkout, billing portal, account linking, deletion).
 - `src/lib/subscription-history-api.ts` -- Subscription history data fetching.
 
-These files handle request construction, error extraction, and response transformation. Components never make raw `fetch` calls.
+These files handle request construction, error extraction, and response transformation for most backend interactions. A small number of components still make direct `fetch` calls, such as `ContactSalesForm.tsx` for enterprise inquiries.
 
 ### AuthContext as State Hub
 
@@ -266,20 +266,24 @@ Migrated from GitHub Pages to Netlify in December 2025. The `netlify.toml` confi
 
 ### With Backend (`vpn-backend-service-v2`)
 
-All backend calls go through `src/auth/backend.ts` or `src/lib/subscription-history-api.ts`:
+Most backend calls go through `src/auth/backend.ts` or `src/lib/subscription-history-api.ts`:
 
 | Function | Backend Endpoint | Purpose |
 |----------|-----------------|---------|
-| `createCheckoutSession` | `POST /api/v1/payment/stripe/create-checkout-session` | Start Stripe checkout |
-| `createBillingPortalSession` | `POST /api/v1/subscription/billing-portal` | Open Stripe billing portal |
-| `cancelSubscription` | `POST /api/v1/subscription/cancel` | Cancel auto-renewal |
-| `linkProvider` | `POST /api/v1/auth/link-provider` | Link Google/Apple account |
-| `unlinkProvider` | `POST /api/v1/auth/unlink-provider` | Remove linked provider |
-| `getLinkedProviders` | `GET /api/v1/account/linked-providers` | Fetch linked accounts |
-| `deleteAccount` | `DELETE /api/v1/account` | Delete user account |
-| `fetchSubscriptionPlans` | `GET /api/v1/subscription/plans` | Get available plans |
-| (subscription history) | `GET /api/v1/subscription/history` | Fetch event timeline |
-| (contact sales) | `POST /api/v1/sales-contact` | Submit enterprise inquiry |
+| `createCheckoutSession` | `POST /payment/stripe/checkout` | Start Stripe checkout |
+| `createBillingPortalSession` | `POST /payment/stripe/portal` | Open Stripe billing portal |
+| `cancelSubscription` | `POST /subscription/cancel` | Cancel auto-renewal |
+| `fetchSubscriptionStatusWithSession` | `POST /subscription/status-session` | Refresh subscription and trial state |
+| `linkProvider` | `POST /auth/link-provider` | Link Google/Apple account |
+| `unlinkProvider` | `DELETE /auth/unlink-provider` | Remove linked provider |
+| `getLinkedProviders` | `GET /user/linked-providers` | Fetch linked accounts |
+| `deleteAccount` | `DELETE /auth/delete-account` | Delete user account |
+| `fetchSubscriptionPlans` | `GET /subscription/plans` | Get available plans |
+| `fetchSubscriptionPlanById` | `GET /subscription/plan/:id` | Get a selected plan |
+| (subscription history) | `GET /subscription/history` | Fetch event timeline |
+| (subscription event details) | `GET /subscription/history/:id/details` | Fetch one event's details |
+| (subscription history via session) | `POST /subscription/history` | Fetch event timeline via session token |
+| (contact sales) | `POST /sales-contact/submit` | Submit enterprise inquiry |
 
 ### With Apple Apps (`vpn-app-apple`)
 

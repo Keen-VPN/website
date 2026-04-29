@@ -119,6 +119,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTrial(response.trial ?? null);
         return response.subscription;
       }
+      if (response.unauthorized) {
+        clearSessionToken();
+        setHasSessionToken(false);
+        setSubscription(null);
+        setTrial(null);
+      }
       return null;
     } catch {
       return null;
