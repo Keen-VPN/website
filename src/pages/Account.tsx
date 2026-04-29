@@ -666,7 +666,7 @@ const Account = () => {
                     <div className="space-y-3">
                       {isActiveStripeSubscription && (
                         <Button
-                          onClick={() => window.open(appStoreUrl, "_blank")}
+                          onClick={() => window.open(/^https?:\/\//i.test(appStoreUrl) ? appStoreUrl : "https://vpnkeen.com", "_blank")}
                           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
                         >
                           {downloadAppButtonLabel}
