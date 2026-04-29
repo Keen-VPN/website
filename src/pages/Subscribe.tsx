@@ -21,6 +21,7 @@ import {
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
 import { enterprisePlan } from "@/constants/pricing";
+import { getSubscriptionCtaLabel } from "@/lib/subscription-cta";
 
 const Subscribe = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -29,13 +30,53 @@ const Subscribe = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, isAuthenticating, signIn, logout, subscription } = useAuth();
+  const {
+    user,
+    loading,
+    isAuthenticating,
+    signIn,
+    logout,
+    subscription,
+    trial,
+    refreshSubscription,
+  } = useAuth();
   const [sessionInvalidHandled, setSessionInvalidHandled] = useState(false);
+  const [initialStatusChecked, setInitialStatusChecked] = useState(false);
+  const [statusRefreshing, setStatusRefreshing] = useState(false);
+  const subscriptionCtaLabel = getSubscriptionCtaLabel(
+    user,
+    subscription,
+    trial,
+  );
 
   // Subscription status is still being fetched from the backend.
   // Once auth `loading` is false, the subscription fetch has completed —
   // a null subscription means "no subscription", not "still loading".
-  const subscriptionLoading = loading || isAuthenticating;
+  const subscriptionLoading = loading || isAuthenticating || statusRefreshing;
+
+  useEffect(() => {
+    if (loading || !user || initialStatusChecked) return;
+    if (!getSessionToken()) {
+      setInitialStatusChecked(true);
+      return;
+    }
+
+    let cancelled = false;
+    const refreshStatus = async () => {
+      setStatusRefreshing(true);
+      await refreshSubscription();
+      if (!cancelled) {
+        setStatusRefreshing(false);
+        setInitialStatusChecked(true);
+      }
+    };
+
+    void refreshStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loading, initialStatusChecked, refreshSubscription]);
 
   // If user already has an active subscription, don't show subscribe UI.
   useEffect(() => {
@@ -384,7 +425,7 @@ const Subscribe = () => {
                         Checking subscription status...
                       </>
                     ) : (
-                      "Subscribe Now"
+                      subscriptionCtaLabel
                     )}
                   </Button>
 
