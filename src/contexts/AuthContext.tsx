@@ -118,14 +118,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSubscription(response.subscription ?? null);
         setTrial(response.trial ?? null);
         return response.subscription;
-      } else {
-        setSubscription(null);
-        setTrial(null);
-        return null;
       }
+      return null;
     } catch {
-      setSubscription(null);
-      setTrial(null);
       return null;
     }
   };

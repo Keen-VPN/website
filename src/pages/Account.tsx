@@ -465,7 +465,7 @@ const Account = () => {
             </CardHeader>
             <CardContent>
               <Button onClick={() => navigate("/subscribe")} className="w-full">
-                Start Free Trial Now
+                {subscriptionCtaLabel}
               </Button>
             </CardContent>
           </Card>

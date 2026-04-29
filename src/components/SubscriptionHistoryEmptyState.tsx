@@ -3,7 +3,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { History, CreditCard, Calendar, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { getSubscriptionCtaLabel } from "@/lib/subscription-cta";
+import {
+  getSubscriptionCtaLabel,
+  hasManageableSubscription,
+} from "@/lib/subscription-cta";
 
 interface SubscriptionHistoryEmptyStateProps {
   hasFilters?: boolean;
@@ -16,7 +19,8 @@ export function SubscriptionHistoryEmptyState({
 }: SubscriptionHistoryEmptyStateProps) {
   const navigate = useNavigate();
   const { user, subscription, trial } = useAuth();
-  const hasActiveSubscription = subscription?.status === "active";
+  const hasManageableSubscriptionAccess =
+    hasManageableSubscription(subscription);
   const subscriptionCtaLabel = getSubscriptionCtaLabel(
     user,
     subscription,
@@ -40,7 +44,7 @@ export function SubscriptionHistoryEmptyState({
                 Clear Filters
               </Button>
             )}
-            {!hasActiveSubscription && (
+            {!hasManageableSubscriptionAccess && (
               <Button onClick={() => navigate("/subscribe")}>
                 {subscriptionCtaLabel}
               </Button>
@@ -90,7 +94,7 @@ export function SubscriptionHistoryEmptyState({
           </div>
 
           {/* CTA */}
-          {!hasActiveSubscription && (
+          {!hasManageableSubscriptionAccess && (
             <Button
               onClick={() => navigate("/subscribe")}
               className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
