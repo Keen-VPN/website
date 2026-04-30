@@ -286,8 +286,16 @@ const Subscribe = () => {
                 (order[getPlanBillingPeriod(b) as keyof typeof order] ?? 99)
               );
             });
+          const planIdMatchesReturnedPlan = Boolean(
+            planIdParam &&
+            response.plans.some((plan) =>
+              matchesRequestedPlan(plan, planIdParam),
+            ),
+          );
           const options =
-            premiumPlans.length > 0 ? premiumPlans : response.plans;
+            planIdMatchesReturnedPlan || premiumPlans.length === 0
+              ? response.plans
+              : premiumPlans;
           const requestedPlan = planIdParam
             ? options.find((plan) => matchesRequestedPlan(plan, planIdParam))
             : null;
@@ -430,8 +438,8 @@ const Subscribe = () => {
         price:
           "period" in selectedPlan
             ? isAnnualPlan(selectedPlan)
-              ? `$${(selectedPlan.price / 12).toFixed(2) || 0}`
-              : `$${selectedPlan.price || 0}`
+              ? `$${(selectedPlan.price / 12).toFixed(2)}`
+              : `$${selectedPlan.price}`
             : selectedPlan.monthlyPriceDisplay, // Fallback for PricingPlan (Enterprise)
         period:
           "period" in selectedPlan
