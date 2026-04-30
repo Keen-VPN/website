@@ -16,6 +16,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import {
   fetchSubscriptionPlanById,
+  fetchSubscriptionPlans,
   createCheckoutSession,
   getSessionToken,
   CHECKOUT_ERROR_SESSION_EXPIRED,
@@ -26,9 +27,114 @@ import {
   hasManageableSubscription,
 } from "@/lib/subscription-cta";
 
+const getPlanBillingPeriod = (plan: ApiPlan) =>
+  plan.billingPeriod || plan.period;
+
+const isAnnualPlan = (plan: ApiPlan) => getPlanBillingPeriod(plan) === "year";
+
+const getPlanFamily = (plan: ApiPlan) => {
+  const id = plan.id.toLowerCase();
+  if (id.includes("premium")) return "premium";
+  if (id.includes("team")) return "team";
+  return id.replace(/[-_]?(monthly|month|annual|yearly|year)$/, "");
+};
+
+const sortPlansByBillingPeriod = (plans: ApiPlan[]) => {
+  const order = { month: 0, year: 1 };
+  return [...plans].sort(
+    (a, b) =>
+      (order[getPlanBillingPeriod(a) as keyof typeof order] ?? 99) -
+      (order[getPlanBillingPeriod(b) as keyof typeof order] ?? 99),
+  );
+};
+
+const getPlanOptionLabel = (plan: ApiPlan) =>
+  isAnnualPlan(plan) ? "Annual" : "Monthly";
+
+const getPlanOptionPrice = (plan: ApiPlan) =>
+  isAnnualPlan(plan)
+    ? `$${(plan.price / 12).toFixed(2)}/mo`
+    : `$${plan.price}/mo`;
+
+const getPlanOptionMeta = (plan: ApiPlan) =>
+  isAnnualPlan(plan) ? `$${plan.price}/year` : "Billed monthly";
+
+const matchesRequestedPlan = (plan: ApiPlan, requestedPlanId: string) => {
+  if (plan.id === requestedPlanId) return true;
+  if (
+    requestedPlanId === "premium_annual" ||
+    requestedPlanId === "premium_yearly"
+  ) {
+    return isAnnualPlan(plan) && plan.id.toLowerCase().includes("premium");
+  }
+  if (requestedPlanId === "premium_monthly") {
+    return !isAnnualPlan(plan) && plan.id.toLowerCase().includes("premium");
+  }
+  return false;
+};
+
+interface PlanOptionSelectorProps {
+  plans: ApiPlan[];
+  selectedPlan: PricingPlan | ApiPlan;
+  onSelect: (plan: ApiPlan) => void;
+  className?: string;
+}
+
+const PlanOptionSelector = ({
+  plans,
+  selectedPlan,
+  onSelect,
+  className = "",
+}: PlanOptionSelectorProps) => {
+  if (plans.length <= 1) return null;
+
+  return (
+    <div className={className}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {plans.map((plan) => {
+          const isSelected =
+            "id" in selectedPlan && selectedPlan.id === plan.id;
+
+          return (
+            <button
+              key={plan.id}
+              type="button"
+              onClick={() => onSelect(plan)}
+              className={`rounded-lg border p-4 text-left transition-all ${
+                isSelected
+                  ? "border-primary bg-primary/10 shadow-glow"
+                  : "border-border bg-background hover:border-primary/50"
+              }`}
+              aria-pressed={isSelected}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="font-semibold text-foreground">
+                    {getPlanOptionLabel(plan)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {getPlanOptionMeta(plan)}
+                  </div>
+                </div>
+                {isSelected && <Check className="h-5 w-5 text-primary" />}
+              </div>
+              <div className="mt-3 text-2xl font-bold text-foreground">
+                {getPlanOptionPrice(plan)}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const Subscribe = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<PricingPlan | ApiPlan | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<
+    PricingPlan | ApiPlan | null
+  >(null);
+  const [planOptions, setPlanOptions] = useState<ApiPlan[]>([]);
   const [planLoading, setPlanLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -101,7 +207,14 @@ const Subscribe = () => {
     if (user && isManageableSubscription) {
       navigate("/account", { replace: true });
     }
-  }, [user, isManageableSubscription, loading, initialStatusLoading, statusRefreshing, navigate]);
+  }, [
+    user,
+    isManageableSubscription,
+    loading,
+    initialStatusLoading,
+    statusRefreshing,
+    navigate,
+  ]);
 
   // Get URL parameters
   const planIdParam = searchParams.get("planId");
@@ -134,7 +247,14 @@ const Subscribe = () => {
   // may not be visible yet due to timing; never log out in that case.
   const SESSION_EXPIRED_CHECK_DELAY_MS = 10_000;
   useEffect(() => {
-    if (loading || isAuthenticating || !user || sessionInvalidHandled || subscription) return;
+    if (
+      loading ||
+      isAuthenticating ||
+      !user ||
+      sessionInvalidHandled ||
+      subscription
+    )
+      return;
     if (!getSessionToken()) {
       const timeoutId = window.setTimeout(() => {
         if (!getSessionToken() && !subscription) {
@@ -147,7 +267,14 @@ const Subscribe = () => {
       }, SESSION_EXPIRED_CHECK_DELAY_MS);
       return () => clearTimeout(timeoutId);
     }
-  }, [user, loading, isAuthenticating, sessionInvalidHandled, subscription, handleSessionExpiredAndLogout]);
+  }, [
+    user,
+    loading,
+    isAuthenticating,
+    sessionInvalidHandled,
+    subscription,
+    handleSessionExpiredAndLogout,
+  ]);
 
   // Reset so we can run the invalid-session flow again if they later end up without a token.
   useEffect(() => {
@@ -156,35 +283,73 @@ const Subscribe = () => {
     }
   }, [user]);
 
-  // Fetch the specific plan by ID
+  // Fetch available subscription plans. The subscribe page should show both
+  // monthly and annual options, while still respecting a planId from /pricing.
   useEffect(() => {
-    const loadPlan = async () => {
+    const loadPlans = async () => {
       try {
         setPlanLoading(true);
+        setPlanOptions([]);
 
-        // Use premium_monthly as default if no planId is provided
-        const planToFetch = planIdParam || "premium_monthly";
+        const response = await fetchSubscriptionPlans();
 
-        const response = await fetchSubscriptionPlanById(planToFetch);
+        if (response.success && response.plans && response.plans.length > 0) {
+          const requestedReturnedPlan = planIdParam
+            ? response.plans.find((plan) =>
+                matchesRequestedPlan(plan, planIdParam),
+              )
+            : null;
+          const premiumPlans = sortPlansByBillingPeriod(
+            response.plans.filter((plan) => getPlanFamily(plan) === "premium"),
+          );
+          const options = requestedReturnedPlan
+            ? sortPlansByBillingPeriod(
+                response.plans.filter(
+                  (plan) =>
+                    getPlanFamily(plan) ===
+                    getPlanFamily(requestedReturnedPlan),
+                ),
+              )
+            : premiumPlans.length > 0
+              ? premiumPlans
+              : sortPlansByBillingPeriod(response.plans);
+          const requestedPlan = planIdParam
+            ? options.find((plan) => matchesRequestedPlan(plan, planIdParam))
+            : null;
+          const defaultPlan =
+            requestedPlan ||
+            options.find((plan) => getPlanBillingPeriod(plan) === "month") ||
+            options[0];
 
-        if (response.success && response.plan) {
-          // Use the plan directly from API - no transformation needed
-          setSelectedPlan(response.plan as unknown as ApiPlan);
+          if (!defaultPlan) {
+            setSelectedPlan(enterprisePlan);
+            return;
+          }
+
+          setPlanOptions(options);
+          setSelectedPlan(defaultPlan);
         } else {
           console.error("Failed to load plan:", response.error);
-          // Fallback to enterprise plan
-          setSelectedPlan(enterprisePlan);
+          if (planIdParam) {
+            const planResponse = await fetchSubscriptionPlanById(planIdParam);
+            setSelectedPlan(
+              planResponse.success && planResponse.plan
+                ? (planResponse.plan as unknown as ApiPlan)
+                : enterprisePlan,
+            );
+          } else {
+            setSelectedPlan(enterprisePlan);
+          }
         }
       } catch (err) {
         console.error("Failed to load plan:", err);
-        // Fallback to enterprise plan
         setSelectedPlan(enterprisePlan);
       } finally {
         setPlanLoading(false);
       }
     };
 
-    loadPlan();
+    loadPlans();
   }, [planIdParam]);
 
   const handleSignIn = async () => {
@@ -227,9 +392,10 @@ const Subscribe = () => {
       setCheckoutLoading(true);
 
       // Determine plan ID based on plan type
-      const planId = "id" in selectedPlan
-        ? selectedPlan.id
-        : (selectedPlan.monthlyId || selectedPlan.annualId);
+      const planId =
+        "id" in selectedPlan
+          ? selectedPlan.id
+          : selectedPlan.monthlyId || selectedPlan.annualId;
 
       if (!planId) {
         throw new Error("Plan ID is required");
@@ -250,7 +416,7 @@ const Subscribe = () => {
         sessionToken,
         planId,
         successUrl,
-        cancelUrl
+        cancelUrl,
       );
 
       if (!result.success) {
@@ -282,30 +448,30 @@ const Subscribe = () => {
   // Create plan display object from selectedPlan
   const planDisplay = selectedPlan
     ? {
-      name:
-        selectedPlan.name === "Enterprise"
-          ? "KeenVPN Enterprise"
-          : selectedPlan.name || "KeenVPN Premium",
-      price:
-        "period" in selectedPlan
-          ? selectedPlan.period === "year"
-            ? `$${(selectedPlan.price / 12).toFixed(2) || 0}`
-            : `$${selectedPlan.price || 0}`
-          : selectedPlan.monthlyPriceDisplay, // Fallback for PricingPlan (Enterprise)
-      period:
-        "period" in selectedPlan
-          ? selectedPlan.period === "year"
-            ? "/month, billed annually"
-            : "/month"
-          : "/month", // Default
-      description:
-        selectedPlan.description ||
-        `${selectedPlan.name} - Complete VPN protection`,
-      features:
-        selectedPlan.features
-          ?.filter((f) => f.included)
-          ?.map((f) => f.name) || [],
-    }
+        name:
+          selectedPlan.name === "Enterprise"
+            ? "KeenVPN Enterprise"
+            : selectedPlan.name || "KeenVPN Premium",
+        price:
+          "period" in selectedPlan
+            ? isAnnualPlan(selectedPlan)
+              ? `$${(selectedPlan.price / 12).toFixed(2)}`
+              : `$${selectedPlan.price}`
+            : selectedPlan.monthlyPriceDisplay, // Fallback for PricingPlan (Enterprise)
+        period:
+          "period" in selectedPlan
+            ? isAnnualPlan(selectedPlan)
+              ? "/month, billed annually"
+              : "/month"
+            : "/month", // Default
+        description:
+          selectedPlan.description ||
+          `${selectedPlan.name} - Complete VPN protection`,
+        features:
+          selectedPlan.features
+            ?.filter((f) => f.included)
+            ?.map((f) => f.name) || [],
+      }
     : null;
 
   if (loading || planLoading || initialStatusLoading) {
@@ -358,6 +524,13 @@ const Subscribe = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
+                  <PlanOptionSelector
+                    plans={planOptions}
+                    selectedPlan={selectedPlan}
+                    onSelect={setSelectedPlan}
+                    className="pb-3"
+                  />
+
                   <Button
                     onClick={handleSignIn}
                     disabled={loading}
@@ -408,6 +581,13 @@ const Subscribe = () => {
                 </div>
               </CardHeader>
               <CardContent>
+                <PlanOptionSelector
+                  plans={planOptions}
+                  selectedPlan={selectedPlan}
+                  onSelect={setSelectedPlan}
+                  className="mb-6"
+                />
+
                 <div className="mb-6 p-4 bg-accent/10 rounded-lg border border-accent/20">
                   <p className="text-sm text-muted-foreground">
                     <span className="font-semibold text-foreground">
