@@ -289,6 +289,7 @@ const Subscribe = () => {
     const loadPlans = async () => {
       try {
         setPlanLoading(true);
+        setPlanOptions([]);
 
         const response = await fetchSubscriptionPlans();
 
