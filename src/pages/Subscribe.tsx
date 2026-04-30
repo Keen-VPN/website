@@ -32,6 +32,22 @@ const getPlanBillingPeriod = (plan: ApiPlan) =>
 
 const isAnnualPlan = (plan: ApiPlan) => getPlanBillingPeriod(plan) === "year";
 
+const getPlanFamily = (plan: ApiPlan) => {
+  const id = plan.id.toLowerCase();
+  if (id.includes("premium")) return "premium";
+  if (id.includes("team")) return "team";
+  return id.replace(/[-_]?(monthly|month|annual|yearly|year)$/, "");
+};
+
+const sortPlansByBillingPeriod = (plans: ApiPlan[]) => {
+  const order = { month: 0, year: 1 };
+  return [...plans].sort(
+    (a, b) =>
+      (order[getPlanBillingPeriod(a) as keyof typeof order] ?? 99) -
+      (order[getPlanBillingPeriod(b) as keyof typeof order] ?? 99),
+  );
+};
+
 const getPlanOptionLabel = (plan: ApiPlan) =>
   isAnnualPlan(plan) ? "Annual" : "Monthly";
 
@@ -277,25 +293,25 @@ const Subscribe = () => {
         const response = await fetchSubscriptionPlans();
 
         if (response.success && response.plans && response.plans.length > 0) {
-          const premiumPlans = response.plans
-            .filter((plan) => plan.id.toLowerCase().includes("premium"))
-            .sort((a, b) => {
-              const order = { month: 0, year: 1 };
-              return (
-                (order[getPlanBillingPeriod(a) as keyof typeof order] ?? 99) -
-                (order[getPlanBillingPeriod(b) as keyof typeof order] ?? 99)
-              );
-            });
-          const planIdMatchesReturnedPlan = Boolean(
-            planIdParam &&
-            response.plans.some((plan) =>
-              matchesRequestedPlan(plan, planIdParam),
-            ),
+          const requestedReturnedPlan = planIdParam
+            ? response.plans.find((plan) =>
+                matchesRequestedPlan(plan, planIdParam),
+              )
+            : null;
+          const premiumPlans = sortPlansByBillingPeriod(
+            response.plans.filter((plan) => getPlanFamily(plan) === "premium"),
           );
-          const options =
-            planIdMatchesReturnedPlan || premiumPlans.length === 0
-              ? response.plans
-              : premiumPlans;
+          const options = requestedReturnedPlan
+            ? sortPlansByBillingPeriod(
+                response.plans.filter(
+                  (plan) =>
+                    getPlanFamily(plan) ===
+                    getPlanFamily(requestedReturnedPlan),
+                ),
+              )
+            : premiumPlans.length > 0
+              ? premiumPlans
+              : sortPlansByBillingPeriod(response.plans);
           const requestedPlan = planIdParam
             ? options.find((plan) => matchesRequestedPlan(plan, planIdParam))
             : null;
