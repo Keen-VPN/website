@@ -296,6 +296,11 @@ const Subscribe = () => {
             options.find((plan) => getPlanBillingPeriod(plan) === "month") ||
             options[0];
 
+          if (!defaultPlan) {
+            setSelectedPlan(enterprisePlan);
+            return;
+          }
+
           setPlanOptions(options);
           setSelectedPlan(defaultPlan);
         } else {
@@ -424,13 +429,13 @@ const Subscribe = () => {
             : selectedPlan.name || "KeenVPN Premium",
         price:
           "period" in selectedPlan
-            ? selectedPlan.period === "year"
+            ? isAnnualPlan(selectedPlan)
               ? `$${(selectedPlan.price / 12).toFixed(2) || 0}`
               : `$${selectedPlan.price || 0}`
             : selectedPlan.monthlyPriceDisplay, // Fallback for PricingPlan (Enterprise)
         period:
           "period" in selectedPlan
-            ? selectedPlan.period === "year"
+            ? isAnnualPlan(selectedPlan)
               ? "/month, billed annually"
               : "/month"
             : "/month", // Default
