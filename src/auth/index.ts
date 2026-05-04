@@ -32,8 +32,18 @@ export {
   getSessionToken,
   clearSessionToken,
   linkProvider,
-  getLinkedProviders
+  getLinkedProviders,
+  fetchMembershipTransferRequest,
+  submitMembershipTransferRequest,
+  getStoredMembershipTransferAdminKey,
+  storeMembershipTransferAdminKey,
+  adminListTransferRequests,
+  adminFetchTransferProofBlob,
+  adminApproveTransferRequest,
+  adminRejectTransferRequest,
 } from './backend';
+
+export type { MembershipTransferRequestData } from './backend';
 
 export {
   useDebounce

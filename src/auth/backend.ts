@@ -476,6 +476,334 @@ export async function createBillingPortalSession(
 }
 
 // ============================================================================
+// Membership transfer (competitor VPN → Keen credit)
+// ============================================================================
+
+export interface MembershipTransferRequestData {
+  id: string;
+  provider: string;
+  expiryDate: string;
+  proofUrl: string;
+  hasUploadedProof?: boolean;
+  hasS3Proof?: boolean;
+  status: string;
+  requestedCreditDays: number;
+  approvedCreditDays: number | null;
+  adminNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  reviewedAt: string | null;
+  reviewedByAdminId: string | null;
+}
+
+export async function fetchMembershipTransferRequest(sessionToken: string): Promise<{
+  success: boolean;
+  data: MembershipTransferRequestData | null;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/subscription/transfer-request`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        data: null,
+        error: extractBackendErrorMessage(raw, "Could not load transfer request"),
+      };
+    }
+    const record = raw as { data?: MembershipTransferRequestData | null };
+    return { success: true, data: record.data ?? null };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
+export interface MembershipTransferPresignData {
+  uploadUrl: string;
+  key: string;
+  expiresInSeconds: number;
+  headers: Record<string, string>;
+}
+
+/** Presigned PUT to upload proof bytes to S3 before submitting the transfer request with `proofS3Key`. */
+export async function requestMembershipTransferPresignedUpload(
+  sessionToken: string,
+  contentType: "image/jpeg" | "image/png" | "image/webp",
+): Promise<{ success: boolean; data?: MembershipTransferPresignData; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/subscription/transfer-request/presigned-upload`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ contentType }),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(raw, "Could not start proof upload"),
+      };
+    }
+    const record = raw as { data?: MembershipTransferPresignData };
+    if (!record.data?.uploadUrl || !record.data.key) {
+      return { success: false, error: "Invalid presign response" };
+    }
+    return { success: true, data: record.data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
+/** PUT proof image bytes to the presigned URL (S3). */
+export async function putMembershipTransferProofToPresignedUrl(
+  uploadUrl: string,
+  file: Blob,
+  headers: Record<string, string>,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const h = new Headers(headers);
+    const response = await fetch(uploadUrl, { method: "PUT", body: file, headers: h });
+    if (!response.ok) {
+      return { ok: false, error: `Upload failed (${response.status})` };
+    }
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
+export async function submitMembershipTransferRequest(
+  sessionToken: string,
+  payload: {
+    provider: string;
+    expiryDate: string;
+    proofUrl?: string;
+    proofS3Key?: string;
+    proofOriginalFilename?: string;
+    /** @deprecated Use presigned S3 flow: requestMembershipTransferPresignedUpload → PUT → submit with proofS3Key */
+    proofFile?: File | null;
+  },
+): Promise<{
+  success: boolean;
+  data?: MembershipTransferRequestData | null;
+  error?: string;
+}> {
+  try {
+    let response: Response;
+    if (payload.proofFile && payload.proofFile.size > 0) {
+      const ct = payload.proofFile.type;
+      const allowed =
+        ct === "image/jpeg" || ct === "image/png" || ct === "image/webp"
+          ? ct
+          : ("image/jpeg" as const);
+      const presign = await requestMembershipTransferPresignedUpload(sessionToken, allowed);
+      if (!presign.success || !presign.data) {
+        return { success: false, error: presign.error ?? "Presign failed" };
+      }
+      const put = await putMembershipTransferProofToPresignedUrl(
+        presign.data.uploadUrl,
+        payload.proofFile,
+        presign.data.headers,
+      );
+      if (!put.ok) {
+        return { success: false, error: put.error ?? "Upload failed" };
+      }
+      response = await fetch(`${BACKEND_URL}/subscription/transfer-request`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          provider: payload.provider,
+          expiryDate: payload.expiryDate,
+          proofUrl: payload.proofUrl?.trim() || undefined,
+          proofS3Key: presign.data.key,
+          proofOriginalFilename: payload.proofFile?.name || undefined,
+        }),
+      });
+    } else {
+      response = await fetch(`${BACKEND_URL}/subscription/transfer-request`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          provider: payload.provider,
+          expiryDate: payload.expiryDate,
+          proofUrl: payload.proofUrl?.trim() || undefined,
+          proofS3Key: payload.proofS3Key,
+        }),
+      });
+    }
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (response.status === 409) {
+      const again = await fetchMembershipTransferRequest(sessionToken);
+      return {
+        success: false,
+        error: "You already have a transfer request.",
+        data: again.data,
+      };
+    }
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(raw, "Submission failed"),
+      };
+    }
+    const record = raw as { data?: MembershipTransferRequestData };
+    return { success: true, data: record.data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
+const ADMIN_TRANSFER_KEY_STORAGE = "membershipTransferAdminApiKey";
+
+export function getStoredMembershipTransferAdminKey(): string {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem(ADMIN_TRANSFER_KEY_STORAGE) ?? "";
+}
+
+export function storeMembershipTransferAdminKey(key: string): void {
+  sessionStorage.setItem(ADMIN_TRANSFER_KEY_STORAGE, key);
+}
+
+export async function adminListTransferRequests(
+  adminKey: string,
+  status?: string,
+): Promise<{ success: boolean; data?: unknown[]; error?: string }> {
+  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+  const response = await fetch(`${BACKEND_URL}/admin/subscription/transfer-requests${q}`, {
+    headers: { "x-admin-api-key": adminKey },
+  });
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      success: false,
+      error: extractBackendErrorMessage(raw, "Failed to list requests"),
+    };
+  }
+  const record = raw as { data?: unknown[] };
+  return { success: true, data: record.data };
+}
+
+export async function adminFetchTransferProofBlob(
+  adminKey: string,
+  requestId: string,
+): Promise<{ ok: boolean; blob?: Blob; contentType?: string }> {
+  const response = await fetch(
+    `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/proof`,
+    { headers: { "x-admin-api-key": adminKey } },
+  );
+  if (!response.ok) return { ok: false };
+  const blob = await response.blob();
+  const contentType = response.headers.get("Content-Type") ?? undefined;
+  return { ok: true, blob, contentType };
+}
+
+export type AdminTransferProofViewData =
+  | { kind: "presigned"; viewUrl: string }
+  | { kind: "public"; viewUrl: string }
+  | { kind: "legacy_blob"; viewUrl: null; binaryPath: string };
+
+export async function adminFetchTransferProofView(
+  adminKey: string,
+  requestId: string,
+): Promise<{ ok: boolean; data?: AdminTransferProofViewData; error?: string }> {
+  const response = await fetch(
+    `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/proof-view`,
+    { headers: { "x-admin-api-key": adminKey } },
+  );
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: extractBackendErrorMessage(raw, "Could not load proof view"),
+    };
+  }
+  const record = raw as { data?: AdminTransferProofViewData };
+  if (!record.data) {
+    return { ok: false, error: "Invalid response" };
+  }
+  return { ok: true, data: record.data };
+}
+
+export async function adminApproveTransferRequest(
+  adminKey: string,
+  requestId: string,
+  body: { approvedCreditDays: number; adminNote?: string; reviewedByAdminId?: string },
+): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(
+    `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/approve`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-api-key": adminKey,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      success: false,
+      error: extractBackendErrorMessage(raw, "Approve failed"),
+    };
+  }
+  return { success: true };
+}
+
+export async function adminRejectTransferRequest(
+  adminKey: string,
+  requestId: string,
+  body: { adminNote: string; reviewedByAdminId?: string },
+): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(
+    `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/reject`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-api-key": adminKey,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      success: false,
+      error: extractBackendErrorMessage(raw, "Reject failed"),
+    };
+  }
+  return { success: true };
+}
+
+// ============================================================================
 // Session Storage
 // ============================================================================
 

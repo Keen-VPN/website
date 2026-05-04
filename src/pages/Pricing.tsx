@@ -21,6 +21,7 @@ import { PricingPlan } from "@/lib/pricing";
 import SEOHead from "@/components/SEOHead";
 import { canStartFreeTrial } from "@/lib/subscription-cta";
 import type { TrialData } from "@/auth/types";
+import { MembershipTransferDialog } from "@/components/MembershipTransferDialog";
 
 const pricingSEOProps = {
   title: "KeenVPN Pricing — Affordable VPN Plans for iOS & macOS",
@@ -68,6 +69,7 @@ const Pricing = () => {
     (subscription?.plan ?? "").toLowerCase().includes("monthly");
 
   const [portalLoading, setPortalLoading] = useState(false);
+  const [membershipTransferOpen, setMembershipTransferOpen] = useState(false);
 
   const handleUpgradeToAnnual = async () => {
     const token = getSessionToken();
@@ -192,6 +194,21 @@ const Pricing = () => {
               Annual
               <span className="ml-2 text-sm">(Save 17%)</span>
             </button>
+          </div>
+
+          <div className="max-w-2xl mx-auto mt-10 rounded-xl border border-border bg-card/80 px-6 py-5 text-left">
+            <p className="text-sm text-muted-foreground mb-3">
+              Already have a VPN? Switch to KeenVPN today and we&apos;ll transfer your remaining
+              membership time for free.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setMembershipTransferOpen(true)}
+            >
+              Request Membership Transfer
+            </Button>
           </div>
         </section>
 
@@ -600,6 +617,10 @@ const Pricing = () => {
       </main>
 
       <Footer />
+      <MembershipTransferDialog
+        open={membershipTransferOpen}
+        onOpenChange={setMembershipTransferOpen}
+      />
     </div>
   );
 };

@@ -21,6 +21,9 @@ const PaymentCancel = lazy(() => import("./pages/PaymentCancel"));
 const AuthDebug = lazy(() => import("./pages/AuthDebug"));
 const AppleDebug = lazy(() => import("./pages/AppleDebug"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const MembershipTransferAdmin = lazy(
+  () => import("./pages/admin/MembershipTransferAdmin"),
+);
 
 const queryClient = new QueryClient();
 
@@ -73,6 +76,10 @@ const App = () => (
               <Route path="/cancel" element={<PaymentCancel />} />
               <Route path="/auth/debug" element={<AuthDebug />} />
               <Route path="/apple/debug" element={<AppleDebug />} />
+              <Route
+                path="/admin/membership-transfer"
+                element={<MembershipTransferAdmin />}
+              />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
