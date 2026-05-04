@@ -23,6 +23,7 @@ import {
 } from "@/auth/backend";
 import { enterprisePlan } from "@/constants/pricing";
 import {
+  canStartFreeTrial,
   getSubscriptionCtaLabel,
   hasManageableSubscription,
 } from "@/lib/subscription-cta";
@@ -157,6 +158,12 @@ const Subscribe = () => {
     subscription,
     trial,
   );
+  const hasTrialHistory = Boolean(trial?.active || trial?.endsAt);
+  const subscribePageTitle = canStartFreeTrial(user, subscription, trial)
+    ? "Start Free VPN Trial"
+    : hasTrialHistory && !subscription
+      ? "Subscribe to Keen VPN"
+      : "Re-subscribe to Keen VPN";
   const isManageableSubscription = hasManageableSubscription(subscription);
 
   // True while we are waiting for the first confirmed-fresh subscription status.
@@ -507,11 +514,8 @@ const Subscribe = () => {
         <div className="container mx-auto px-4 max-w-2xl">
           <div className="text-center mb-8">
             <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
-              Subscribe to {planDisplay.name}
+              {subscribePageTitle}
             </h1>
-            <p className="text-xl text-muted-foreground">
-              {planDisplay.description}
-            </p>
           </div>
 
           {!user ? (
