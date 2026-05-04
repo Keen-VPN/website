@@ -158,9 +158,12 @@ const Subscribe = () => {
     subscription,
     trial,
   );
+  const hasTrialHistory = Boolean(trial?.active || trial?.endsAt);
   const subscribePageTitle = canStartFreeTrial(user, subscription, trial)
     ? "Start Free VPN Trial"
-    : "Re-subscribe to Keen VPN";
+    : hasTrialHistory && !subscription
+      ? "Subscribe to Keen VPN"
+      : "Re-subscribe to Keen VPN";
   const isManageableSubscription = hasManageableSubscription(subscription);
 
   // True while we are waiting for the first confirmed-fresh subscription status.
