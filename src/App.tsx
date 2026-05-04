@@ -3,9 +3,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
+import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 // Lazy load pages for code splitting
 const Index = lazy(() => import("./pages/Index"));
 const Pricing = lazy(() => import("./pages/Pricing"));
@@ -24,6 +26,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const MembershipTransferAdmin = lazy(
   () => import("./pages/admin/MembershipTransferAdmin"),
 );
+const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
 
 const queryClient = new QueryClient();
 
@@ -76,9 +79,17 @@ const App = () => (
               <Route path="/cancel" element={<PaymentCancel />} />
               <Route path="/auth/debug" element={<AuthDebug />} />
               <Route path="/apple/debug" element={<AppleDebug />} />
+              <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
               <Route
                 path="/admin/membership-transfer"
-                element={<MembershipTransferAdmin />}
+                element={
+                  <AdminAuthProvider>
+                    <AdminProtectedRoute>
+                      <MembershipTransferAdmin />
+                    </AdminProtectedRoute>
+                  </AdminAuthProvider>
+                }
               />
               <Route path="*" element={<NotFound />} />
             </Routes>

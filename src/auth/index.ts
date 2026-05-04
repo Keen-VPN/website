@@ -35,15 +35,17 @@ export {
   getLinkedProviders,
   fetchMembershipTransferRequest,
   submitMembershipTransferRequest,
-  getStoredMembershipTransferAdminKey,
-  storeMembershipTransferAdminKey,
+  adminLogin,
+  adminLogout,
+  adminFetchMe,
   adminListTransferRequests,
   adminFetchTransferProofBlob,
+  adminFetchTransferProofView,
   adminApproveTransferRequest,
   adminRejectTransferRequest,
 } from './backend';
 
-export type { MembershipTransferRequestData } from './backend';
+export type { MembershipTransferRequestData, AdminMe } from './backend';
 
 export {
   useDebounce

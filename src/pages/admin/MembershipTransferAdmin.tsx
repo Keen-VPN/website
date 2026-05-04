@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,9 +17,8 @@ import {
   adminListTransferRequests,
   adminRejectTransferRequest,
   BACKEND_URL,
-  getStoredMembershipTransferAdminKey,
-  storeMembershipTransferAdminKey,
 } from "@/auth/backend";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 type ProofMetadata = {
   mimeType: string | null;
@@ -62,7 +62,8 @@ function accountAgeLabel(iso: string | undefined): string {
 }
 
 export default function MembershipTransferAdmin() {
-  const [adminKey, setAdminKey] = useState(() => getStoredMembershipTransferAdminKey());
+  const { admin, logout, can } = useAdminAuth();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -72,17 +73,14 @@ export default function MembershipTransferAdmin() {
   const [proofZoom, setProofZoom] = useState(1);
   const [approveDays, setApproveDays] = useState("30");
   const [adminNote, setAdminNote] = useState("");
-  const [staffId, setStaffId] = useState("");
+
+  const canApprove = can("membership_transfer.approve");
+  const canReject = can("membership_transfer.reject");
 
   const refresh = useCallback(async () => {
-    if (!adminKey.trim()) {
-      setError("Set admin API key");
-      return;
-    }
-    storeMembershipTransferAdminKey(adminKey.trim());
     setLoading(true);
     setError(null);
-    const res = await adminListTransferRequests(adminKey.trim(), "PENDING");
+    const res = await adminListTransferRequests("PENDING");
     setLoading(false);
     if (!res.success || !res.data) {
       setError(res.error ?? "Failed to load");
@@ -90,7 +88,7 @@ export default function MembershipTransferAdmin() {
       return;
     }
     setRows(res.data as Row[]);
-  }, [adminKey]);
+  }, []);
 
   const revokeProofObjectUrl = () => {
     if (proofUrl?.startsWith("blob:")) {
@@ -106,7 +104,7 @@ export default function MembershipTransferAdmin() {
     setAdminNote("");
     setError(null);
     setModalOpen(true);
-    const view = await adminFetchTransferProofView(adminKey.trim(), row.id);
+    const view = await adminFetchTransferProofView(row.id);
     if (!view.ok || !view.data) {
       setError(view.error ?? "Could not load proof");
       return;
@@ -118,7 +116,7 @@ export default function MembershipTransferAdmin() {
     }
     const origin = new URL(BACKEND_URL).origin;
     const res = await fetch(`${origin}${d.binaryPath}`, {
-      headers: { "x-admin-api-key": adminKey.trim() },
+      credentials: "include",
     });
     if (!res.ok) {
       setError("Could not load proof image");
@@ -146,7 +144,7 @@ export default function MembershipTransferAdmin() {
   const maxApprove = (r: Row) => Math.min(r.requestedCreditDays, 180);
 
   const approve = async (daysOverride?: number) => {
-    if (!selected) return;
+    if (!selected || !canApprove) return;
     const days = daysOverride ?? Number(approveDays);
     if (!Number.isFinite(days) || days < 1 || days > 180) {
       setError("approvedCreditDays must be 1–180");
@@ -157,10 +155,9 @@ export default function MembershipTransferAdmin() {
       setError(`For this request, max is ${cap} days`);
       return;
     }
-    const res = await adminApproveTransferRequest(adminKey.trim(), selected.id, {
+    const res = await adminApproveTransferRequest(selected.id, {
       approvedCreditDays: days,
       adminNote: adminNote.trim() || undefined,
-      reviewedByAdminId: staffId.trim() || undefined,
     });
     if (!res.success) {
       setError(res.error ?? "Approve failed");
@@ -172,15 +169,14 @@ export default function MembershipTransferAdmin() {
   };
 
   const reject = async () => {
-    if (!selected) return;
+    if (!selected || !canReject) return;
     const note = adminNote.trim();
     if (!note) {
       setError("Rejection requires a note (may be shown to the user).");
       return;
     }
-    const res = await adminRejectTransferRequest(adminKey.trim(), selected.id, {
+    const res = await adminRejectTransferRequest(selected.id, {
       adminNote: note,
-      reviewedByAdminId: staffId.trim() || undefined,
     });
     if (!res.success) {
       setError(res.error ?? "Reject failed");
@@ -191,40 +187,30 @@ export default function MembershipTransferAdmin() {
     await refresh();
   };
 
+  const signOut = async () => {
+    await logout();
+    navigate("/admin/login", { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-background p-6 md:p-10">
       <div className="max-w-5xl mx-auto space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold">Membership transfer — admin</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Requires <code className="text-xs">MEMBERSHIP_TRANSFER_ADMIN_KEY</code> via{" "}
-            <code className="text-xs">x-admin-api-key</code>.
-          </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Membership transfer</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Signed in as {admin?.email} ({admin?.role}). Actions are limited by your role.
+            </p>
+          </div>
+          <Button type="button" variant="outline" onClick={() => void signOut()}>
+            Log out
+          </Button>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="admin-key">Admin API key</Label>
-            <Input
-              id="admin-key"
-              type="password"
-              autoComplete="off"
-              value={adminKey}
-              onChange={(e) => setAdminKey(e.target.value)}
-            />
-            <Button type="button" variant="secondary" onClick={() => void refresh()} disabled={loading}>
-              {loading ? "Loading…" : "Refresh pending"}
-            </Button>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="staff-id">Reviewer id (optional, audit)</Label>
-            <Input
-              id="staff-id"
-              value={staffId}
-              onChange={(e) => setStaffId(e.target.value)}
-              placeholder="you@company.com"
-            />
-          </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" onClick={() => void refresh()} disabled={loading}>
+            {loading ? "Loading…" : "Refresh pending"}
+          </Button>
         </div>
 
         {error ? (
@@ -397,33 +383,62 @@ export default function MembershipTransferAdmin() {
                       type="number"
                       min={1}
                       max={maxApprove(selected)}
+                      disabled={!canApprove}
                     />
                     <div className="flex flex-wrap gap-2">
-                      <Button type="button" size="sm" variant="secondary" onClick={() => void approve(30)}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={!canApprove}
+                        onClick={() => void approve(30)}
+                      >
                         Approve 30 days
                       </Button>
-                      <Button type="button" size="sm" variant="secondary" onClick={() => void approve(90)}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={!canApprove}
+                        onClick={() => void approve(90)}
+                      >
                         Approve 90 days
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         variant="secondary"
+                        disabled={!canApprove}
                         onClick={() => void approve(maxApprove(selected))}
                       >
                         Approve max ({maxApprove(selected)})
                       </Button>
                     </div>
-                    <Button type="button" onClick={() => void approve()}>
+                    <Button type="button" disabled={!canApprove} onClick={() => void approve()}>
                       Approve (use days above)
                     </Button>
+                    {!canApprove ? (
+                      <p className="text-xs text-muted-foreground">
+                        Your role cannot approve transfers.
+                      </p>
+                    ) : null}
                   </div>
                   <div className="space-y-2">
                     <Label>Note — optional for approve, required for reject</Label>
                     <Textarea value={adminNote} onChange={(e) => setAdminNote(e.target.value)} rows={4} />
-                    <Button type="button" variant="destructive" onClick={() => void reject()}>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={!canReject}
+                      onClick={() => void reject()}
+                    >
                       Reject
                     </Button>
+                    {!canReject ? (
+                      <p className="text-xs text-muted-foreground">
+                        Your role cannot reject transfers.
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </div>

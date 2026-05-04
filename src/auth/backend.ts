@@ -680,24 +680,85 @@ export async function submitMembershipTransferRequest(
   }
 }
 
-const ADMIN_TRANSFER_KEY_STORAGE = "membershipTransferAdminApiKey";
+export type AdminMe = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  permissions: string[];
+};
 
-export function getStoredMembershipTransferAdminKey(): string {
-  if (typeof window === "undefined") return "";
-  return sessionStorage.getItem(ADMIN_TRANSFER_KEY_STORAGE) ?? "";
+export async function adminLogin(
+  email: string,
+  password: string,
+): Promise<{ ok: boolean; admin?: AdminMe; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/auth/login`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Login failed"),
+      };
+    }
+    const record = raw as { data?: { admin: AdminMe } };
+    return { ok: true, admin: record.data?.admin };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
 }
 
-export function storeMembershipTransferAdminKey(key: string): void {
-  sessionStorage.setItem(ADMIN_TRANSFER_KEY_STORAGE, key);
+export async function adminLogout(): Promise<void> {
+  try {
+    await fetch(`${BACKEND_URL}/admin/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function adminFetchMe(): Promise<{
+  ok: boolean;
+  admin?: AdminMe;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/auth/me`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Unauthorized"),
+      };
+    }
+    const record = raw as { data?: { admin: AdminMe } };
+    return { ok: true, admin: record.data?.admin };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
 }
 
 export async function adminListTransferRequests(
-  adminKey: string,
   status?: string,
 ): Promise<{ success: boolean; data?: unknown[]; error?: string }> {
   const q = status ? `?status=${encodeURIComponent(status)}` : "";
   const response = await fetch(`${BACKEND_URL}/admin/subscription/transfer-requests${q}`, {
-    headers: { "x-admin-api-key": adminKey },
+    credentials: "include",
   });
   const raw: unknown = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -711,12 +772,11 @@ export async function adminListTransferRequests(
 }
 
 export async function adminFetchTransferProofBlob(
-  adminKey: string,
   requestId: string,
 ): Promise<{ ok: boolean; blob?: Blob; contentType?: string }> {
   const response = await fetch(
     `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/proof`,
-    { headers: { "x-admin-api-key": adminKey } },
+    { credentials: "include" },
   );
   if (!response.ok) return { ok: false };
   const blob = await response.blob();
@@ -730,12 +790,11 @@ export type AdminTransferProofViewData =
   | { kind: "legacy_blob"; viewUrl: null; binaryPath: string };
 
 export async function adminFetchTransferProofView(
-  adminKey: string,
   requestId: string,
 ): Promise<{ ok: boolean; data?: AdminTransferProofViewData; error?: string }> {
   const response = await fetch(
     `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/proof-view`,
-    { headers: { "x-admin-api-key": adminKey } },
+    { credentials: "include" },
   );
   const raw: unknown = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -752,17 +811,16 @@ export async function adminFetchTransferProofView(
 }
 
 export async function adminApproveTransferRequest(
-  adminKey: string,
   requestId: string,
-  body: { approvedCreditDays: number; adminNote?: string; reviewedByAdminId?: string },
+  body: { approvedCreditDays: number; adminNote?: string },
 ): Promise<{ success: boolean; error?: string }> {
   const response = await fetch(
     `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/approve`,
     {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-api-key": adminKey,
       },
       body: JSON.stringify(body),
     },
@@ -778,17 +836,16 @@ export async function adminApproveTransferRequest(
 }
 
 export async function adminRejectTransferRequest(
-  adminKey: string,
   requestId: string,
-  body: { adminNote: string; reviewedByAdminId?: string },
+  body: { adminNote: string },
 ): Promise<{ success: boolean; error?: string }> {
   const response = await fetch(
     `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/reject`,
     {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-api-key": adminKey,
       },
       body: JSON.stringify(body),
     },
