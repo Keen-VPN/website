@@ -688,6 +688,40 @@ export type AdminMe = {
   permissions: string[];
 };
 
+export type AdminUserOverview = {
+  totalUsers: number;
+  users: Array<{
+    id: string;
+    email: string;
+    name: string | null;
+    longestSessionSeconds: number;
+    createdAt: string;
+  }>;
+};
+
+export type AdminSubscriptionListItem = {
+  id: string;
+  status: string;
+  planName: string | null;
+  subscriptionType: string;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  updatedAt: string;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    joinedAt: string;
+  };
+};
+
+export type CreateAdminUserPayload = {
+  email: string;
+  password: string;
+  name: string;
+  role: "SUPER_ADMIN" | "SUPPORT_ADMIN" | "BILLING_ADMIN" | "READONLY_ADMIN";
+};
+
 export async function adminLogin(
   email: string,
   password: string,
@@ -753,6 +787,85 @@ export async function adminFetchMe(): Promise<{
   }
 }
 
+export async function adminFetchUsersOverview(): Promise<{
+  ok: boolean;
+  data?: AdminUserOverview;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/users/overview`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load users overview"),
+      };
+    }
+    const record = raw as { data?: AdminUserOverview };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminCreateUser(
+  payload: CreateAdminUserPayload,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/users`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to create admin user"),
+      };
+    }
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminUpdateOwnPassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/users/me/password`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to update password"),
+      };
+    }
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
 export async function adminListTransferRequests(
   status?: string,
 ): Promise<{ success: boolean; data?: unknown[]; error?: string }> {
@@ -769,6 +882,35 @@ export async function adminListTransferRequests(
   }
   const record = raw as { data?: unknown[] };
   return { success: true, data: record.data };
+}
+
+export async function adminListSubscriptions(limit = 50): Promise<{
+  ok: boolean;
+  data?: AdminSubscriptionListItem[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription/subscriptions?limit=${encodeURIComponent(String(limit))}`,
+      {
+        credentials: "include",
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load subscriptions"),
+      };
+    }
+    const record = raw as { data?: AdminSubscriptionListItem[] };
+    return { ok: true, data: record.data ?? [] };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
 }
 
 export async function adminFetchTransferProofBlob(

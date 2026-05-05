@@ -201,14 +201,16 @@ const Pricing = () => {
               Already have a VPN? Switch to KeenVPN today and we&apos;ll transfer your remaining
               membership time for free.
             </p>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setMembershipTransferOpen(true)}
-            >
-              Request Membership Transfer
-            </Button>
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setMembershipTransferOpen(true)}
+              >
+                Request Membership Transfer
+              </Button>
+            </div>
           </div>
         </section>
 

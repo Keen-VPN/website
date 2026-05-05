@@ -21,7 +21,7 @@ export default function AdminLogin() {
       if (cancelled) return;
       if (r.ok && r.admin) {
         const ret = searchParams.get("return");
-        navigate(ret && ret.startsWith("/admin") ? ret : "/admin/membership-transfer", {
+        navigate(ret && ret.startsWith("/admin") ? ret : "/admin/overview", {
           replace: true,
         });
         return;
@@ -44,7 +44,7 @@ export default function AdminLogin() {
       return;
     }
     const ret = searchParams.get("return");
-    navigate(ret && ret.startsWith("/admin") ? ret : "/admin/membership-transfer");
+    navigate(ret && ret.startsWith("/admin") ? ret : "/admin/overview");
   };
 
   if (checking) {
@@ -61,7 +61,7 @@ export default function AdminLogin() {
         <div>
           <h1 className="text-xl font-semibold">KeenVPN admin</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Sign in with your staff account. Sessions use secure cookies only.
+            Sign in with your staff account.
           </p>
         </div>
         <form onSubmit={(e) => void submit(e)} className="space-y-4">

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -62,8 +61,7 @@ function accountAgeLabel(iso: string | undefined): string {
 }
 
 export default function MembershipTransferAdmin() {
-  const { admin, logout, can } = useAdminAuth();
-  const navigate = useNavigate();
+  const { admin, can } = useAdminAuth();
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -85,9 +83,9 @@ export default function MembershipTransferAdmin() {
     if (!res.success || !res.data) {
       setError(res.error ?? "Failed to load");
       setRows([]);
-      return;
+    } else {
+      setRows(res.data as Row[]);
     }
-    setRows(res.data as Row[]);
   }, []);
 
   const revokeProofObjectUrl = () => {
@@ -187,14 +185,9 @@ export default function MembershipTransferAdmin() {
     await refresh();
   };
 
-  const signOut = async () => {
-    await logout();
-    navigate("/admin/login", { replace: true });
-  };
-
   return (
-    <div className="min-h-screen bg-background p-6 md:p-10">
-      <div className="max-w-5xl mx-auto space-y-8">
+    <div className="space-y-8">
+      <div className="space-y-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold">Membership transfer</h1>
@@ -202,9 +195,6 @@ export default function MembershipTransferAdmin() {
               Signed in as {admin?.email} ({admin?.role}). Actions are limited by your role.
             </p>
           </div>
-          <Button type="button" variant="outline" onClick={() => void signOut()}>
-            Log out
-          </Button>
         </div>
 
         <div className="flex flex-wrap gap-2">

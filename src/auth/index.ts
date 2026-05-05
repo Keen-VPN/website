@@ -38,14 +38,24 @@ export {
   adminLogin,
   adminLogout,
   adminFetchMe,
+  adminFetchUsersOverview,
+  adminCreateUser,
+  adminUpdateOwnPassword,
   adminListTransferRequests,
+  adminListSubscriptions,
   adminFetchTransferProofBlob,
   adminFetchTransferProofView,
   adminApproveTransferRequest,
   adminRejectTransferRequest,
 } from './backend';
 
-export type { MembershipTransferRequestData, AdminMe } from './backend';
+export type {
+  MembershipTransferRequestData,
+  AdminMe,
+  AdminUserOverview,
+  AdminSubscriptionListItem,
+  CreateAdminUserPayload,
+} from './backend';
 
 export {
   useDebounce

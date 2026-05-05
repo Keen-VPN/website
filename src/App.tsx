@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
+import AdminSidebarLayout from "@/components/admin/AdminSidebarLayout";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 // Lazy load pages for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -27,6 +28,9 @@ const MembershipTransferAdmin = lazy(
   () => import("./pages/admin/MembershipTransferAdmin"),
 );
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
+const AdminOverview = lazy(() => import("./pages/admin/AdminOverview"));
+const AdminSubscriptions = lazy(() => import("./pages/admin/AdminSubscriptions"));
+const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 
 const queryClient = new QueryClient();
 
@@ -79,18 +83,23 @@ const App = () => (
               <Route path="/cancel" element={<PaymentCancel />} />
               <Route path="/auth/debug" element={<AuthDebug />} />
               <Route path="/apple/debug" element={<AppleDebug />} />
-              <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route
-                path="/admin/membership-transfer"
+                path="/admin"
                 element={
                   <AdminAuthProvider>
                     <AdminProtectedRoute>
-                      <MembershipTransferAdmin />
+                      <AdminSidebarLayout />
                     </AdminProtectedRoute>
                   </AdminAuthProvider>
                 }
-              />
+              >
+                <Route index element={<Navigate to="/admin/overview" replace />} />
+                <Route path="overview" element={<AdminOverview />} />
+                <Route path="membership-transfer" element={<MembershipTransferAdmin />} />
+                <Route path="subscriptions" element={<AdminSubscriptions />} />
+                <Route path="users" element={<AdminUsers />} />
+              </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
