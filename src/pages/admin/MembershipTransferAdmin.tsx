@@ -78,13 +78,19 @@ export default function MembershipTransferAdmin() {
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const res = await adminListTransferRequests("PENDING");
-    setLoading(false);
-    if (!res.success || !res.data) {
-      setError(res.error ?? "Failed to load");
+    try {
+      const res = await adminListTransferRequests("PENDING");
+      if (!res.success || !res.data) {
+        setError(res.error ?? "Failed to load");
+        setRows([]);
+      } else {
+        setRows(res.data as Row[]);
+      }
+    } catch {
+      setError("Failed to load transfer requests. Please try again.");
       setRows([]);
-    } else {
-      setRows(res.data as Row[]);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -123,6 +129,10 @@ export default function MembershipTransferAdmin() {
     const blob = await res.blob();
     setProofUrl(URL.createObjectURL(blob));
   };
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   useEffect(() => {
     return () => {
