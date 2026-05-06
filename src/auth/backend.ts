@@ -493,6 +493,9 @@ export interface MembershipTransferRequestData {
   createdAt: string;
   updatedAt: string;
   reviewedAt: string | null;
+  // Backward compatibility: older backend responses expose reviewer ID directly.
+  reviewedByAdminId?: string | null;
+  // New safer shape from backend that avoids leaking admin UUIDs to end users.
   reviewedBySystem?: boolean;
 }
 
