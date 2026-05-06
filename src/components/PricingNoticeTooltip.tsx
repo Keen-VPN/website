@@ -25,6 +25,7 @@ const PricingNoticeTooltip = ({
   const pointerTriggeredFocusRef = useRef(false);
   const hoverOpenRef = useRef(false);
   const contentHoverRef = useRef(false);
+  const contentFocusRef = useRef(false);
   const closeTimerRef = useRef<number | null>(null);
 
   const clearCloseTimer = () => {
@@ -37,14 +38,18 @@ const PricingNoticeTooltip = ({
   const scheduleHoverClose = () => {
     clearCloseTimer();
     closeTimerRef.current = window.setTimeout(() => {
-      if (!hoverOpenRef.current && !contentHoverRef.current) {
+      if (
+        !hoverOpenRef.current &&
+        !contentHoverRef.current &&
+        !contentFocusRef.current
+      ) {
         setOpen(false);
       }
       closeTimerRef.current = null;
     }, 120);
   };
 
-  useEffect(() => clearCloseTimer, []);
+  useEffect(() => () => clearCloseTimer(), []);
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -84,7 +89,7 @@ const PricingNoticeTooltip = ({
                 setOpen(true);
               }
             }}
-            onBlur={() => setOpen(false)}
+            onBlur={() => scheduleHoverClose()}
             onKeyDown={(event) => {
               if (event.key === "Escape") {
                 setOpen(false);
@@ -107,6 +112,15 @@ const PricingNoticeTooltip = ({
           }}
           onMouseLeave={() => {
             contentHoverRef.current = false;
+            scheduleHoverClose();
+          }}
+          onFocus={() => {
+            clearCloseTimer();
+            contentFocusRef.current = true;
+            setOpen(true);
+          }}
+          onBlur={() => {
+            contentFocusRef.current = false;
             scheduleHoverClose();
           }}
         >
