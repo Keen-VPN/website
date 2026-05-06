@@ -595,6 +595,7 @@ export async function submitMembershipTransferRequest(
   payload: {
     provider: string;
     expiryDate: string;
+    contactEmail?: string;
     proofUrl?: string;
     proofS3Key?: string;
     proofOriginalFilename?: string;
@@ -635,6 +636,7 @@ export async function submitMembershipTransferRequest(
         body: JSON.stringify({
           provider: payload.provider,
           expiryDate: payload.expiryDate,
+          contactEmail: payload.contactEmail?.trim() || undefined,
           proofUrl: payload.proofUrl?.trim() || undefined,
           proofS3Key: presign.data.key,
           proofOriginalFilename: payload.proofFile?.name || undefined,
@@ -650,6 +652,7 @@ export async function submitMembershipTransferRequest(
         body: JSON.stringify({
           provider: payload.provider,
           expiryDate: payload.expiryDate,
+          contactEmail: payload.contactEmail?.trim() || undefined,
           proofUrl: payload.proofUrl?.trim() || undefined,
           proofS3Key: payload.proofS3Key,
         }),

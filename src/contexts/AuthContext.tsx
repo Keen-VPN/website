@@ -21,6 +21,10 @@ import {
   type TrialData,
   type SignInResult
 } from '@/auth';
+import {
+  consumePendingMembershipTransfer,
+  getMembershipTransferReturnUrl,
+} from "@/auth/membership-transfer-flow";
 
 // ============================================================================
 // Context Types
@@ -105,6 +109,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     () => (isASWebSession() ? '/account?asweb=1' : '/account'),
     [isASWebSession],
   );
+  const postLoginUrl = React.useCallback(() => {
+    if (consumePendingMembershipTransfer()) {
+      return getMembershipTransferReturnUrl();
+    }
+    return accountUrl();
+  }, [accountUrl]);
 
   // ============================================================================
   // Subscription Management
@@ -277,7 +287,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
               // Normal web flow - always land on account after login.
               if (window.location.pathname !== '/account') {
-                window.location.href = accountUrl();
+                window.location.href = postLoginUrl();
               }
               return;
             } else if (backendResponse?.error?.includes('recently deleted')) {
@@ -375,7 +385,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Immediately redirect if on signin page
             if (window.location.pathname === '/signin') {
-              window.location.href = accountUrl();
+              window.location.href = postLoginUrl();
             }
 
             setLoading(false);
@@ -438,7 +448,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 refreshLinkedProviders(backendResponse.sessionToken);
 
                 if (window.location.pathname === '/signin') {
-                  window.location.href = accountUrl();
+                  window.location.href = postLoginUrl();
                   return;
                 }
               } else if (backendResponse.error) {
@@ -636,7 +646,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setTrial(response.trial ?? null);
           void fetchSubscriptionFromBackend(token);
           if (window.location.pathname === '/signin') {
-            window.location.href = accountUrl();
+            window.location.href = postLoginUrl();
             setIsAuthenticating(false);
             return { success: true };
           }
@@ -693,7 +703,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // After any successful login, always land on account.
         if (window.location.pathname !== '/account') {
-          window.location.href = accountUrl();
+          window.location.href = postLoginUrl();
         }
 
         return { success: true, shouldRedirect: undefined };
@@ -771,7 +781,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshLinkedProviders is stable but declared after signIn
-  }, [isAuthenticating, toast, accountUrl]);
+  }, [isAuthenticating, toast, postLoginUrl]);
 
   // ============================================================================
   // Logout

@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   fetchMembershipTransferRequest,
   getSessionToken,
@@ -30,18 +32,20 @@ function toIsoDate(d: string): string {
 
 export function MembershipTransferDialog({ open, onOpenChange }: Props) {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { user, authProvider } = useAuth();
   const [existing, setExisting] = useState<MembershipTransferRequestData | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [provider, setProvider] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
-  const [proofUrl, setProofUrl] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setSubmitted(false);
+    setContactEmail("");
     const token = getSessionToken();
     if (!token) {
       setExisting(null);
@@ -67,11 +71,19 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
     return t.toISOString().slice(0, 10);
   };
 
+  const requiresContactEmail =
+    authProvider === "apple" &&
+    Boolean(user?.email?.toLowerCase().endsWith("privaterelay.appleid.com"));
+
+  const isValidContactEmail = (value: string): boolean =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
   const canSubmit =
-    provider.trim().length > 0 &&
     expiryDate.length > 0 &&
     new Date(toIsoDate(expiryDate)) > new Date() &&
-    (proofUrl.trim().length > 0 || (proofFile != null && proofFile.size > 0));
+    (!requiresContactEmail || isValidContactEmail(contactEmail)) &&
+    proofFile != null &&
+    proofFile.size > 0;
 
   const onSubmit = async () => {
     const token = getSessionToken();
@@ -86,7 +98,9 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
     if (!canSubmit) {
       toast({
         title: "Check the form",
-        description: "Provider, a future expiry date, and proof (URL or file) are required.",
+        description: requiresContactEmail
+          ? "A valid contact email, future expiry date, and proof upload are required."
+          : "A future expiry date and proof upload are required.",
         variant: "destructive",
       });
       return;
@@ -94,9 +108,9 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
     setSubmitting(true);
     try {
       const res = await submitMembershipTransferRequest(token, {
-        provider: provider.trim(),
+        provider: "Competitor VPN",
         expiryDate: toIsoDate(expiryDate),
-        proofUrl: proofUrl.trim() || undefined,
+        contactEmail: requiresContactEmail ? contactEmail.trim() : undefined,
         proofFile,
       });
       if (res.success) {
@@ -122,8 +136,27 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
     }
   };
 
+  const presentAdminNote = (note: string | null | undefined): string => {
+    if (!note) return "";
+    return note.replace(
+      "Auto-approved: competitor subscription expiry is within 1 month",
+      "Auto-approved: subscription expiry is within 1 month",
+    );
+  };
+
+  const isAutoApproved =
+    existing?.status === "APPROVED" &&
+    existing?.reviewedByAdminId === "system_auto_approval";
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    onOpenChange(nextOpen);
+    if (!nextOpen && isAutoApproved) {
+      navigate("/account");
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Membership transfer</DialogTitle>
@@ -151,16 +184,15 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
                     ? "Rejected"
                     : existing.status.replace(/_/g, " ")}
             </p>
-            <p>
-              <span className="font-medium">Provider:</span> {existing.provider}
-            </p>
             {existing.status === "REJECTED" && existing.adminNote ? (
               <p className="text-muted-foreground">
                 <span className="font-medium text-foreground">Reason: </span>
-                {existing.adminNote}
+                {presentAdminNote(existing.adminNote)}
               </p>
             ) : existing.adminNote && existing.status !== "REJECTED" ? (
-              <p className="text-muted-foreground">{existing.adminNote}</p>
+              <p className="text-muted-foreground">
+                {presentAdminNote(existing.adminNote)}
+              </p>
             ) : null}
           </div>
         ) : submitted ? (
@@ -169,15 +201,6 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
           </p>
         ) : (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="mt-provider">Current VPN provider</Label>
-              <Input
-                id="mt-provider"
-                value={provider}
-                onChange={(e) => setProvider(e.target.value)}
-                placeholder="e.g. ExampleVPN"
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="mt-expiry">Subscription expiry</Label>
               <Input
@@ -188,18 +211,20 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
                 onChange={(e) => setExpiryDate(e.target.value)}
               />
             </div>
+            {requiresContactEmail ? (
+              <div className="space-y-2">
+                <Label htmlFor="mt-contact-email">Contact email (required)</Label>
+                <Input
+                  id="mt-contact-email"
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  placeholder="you@example.com"
+                />
+              </div>
+            ) : null}
             <div className="space-y-2">
-              <Label htmlFor="mt-proof-url">Proof screenshot (HTTPS URL)</Label>
-              <Input
-                id="mt-proof-url"
-                type="url"
-                value={proofUrl}
-                onChange={(e) => setProofUrl(e.target.value)}
-                placeholder="https://…"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="mt-proof-file">Or upload image</Label>
+              <Label htmlFor="mt-proof-file">Upload proof image (required)</Label>
               <Input
                 id="mt-proof-file"
                 type="file"
@@ -211,7 +236,7 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
         )}
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
             Close
           </Button>
           {getSessionToken() && !existing && !loading && !submitted ? (

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, X, HelpCircle, ArrowUpCircle, Loader2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -22,6 +22,11 @@ import SEOHead from "@/components/SEOHead";
 import { canStartFreeTrial } from "@/lib/subscription-cta";
 import type { TrialData } from "@/auth/types";
 import { MembershipTransferDialog } from "@/components/MembershipTransferDialog";
+import {
+  hasMembershipTransferQuery,
+  MEMBERSHIP_TRANSFER_QUERY_KEY,
+  setPendingMembershipTransfer,
+} from "@/auth/membership-transfer-flow";
 
 const pricingSEOProps = {
   title: "KeenVPN Pricing — Affordable VPN Plans for iOS & macOS",
@@ -55,6 +60,7 @@ export function getPricingCtaKind(
 const Pricing = () => {
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { user, subscription, trial, loading: authLoading } = useAuth();
 
@@ -70,6 +76,23 @@ const Pricing = () => {
 
   const [portalLoading, setPortalLoading] = useState(false);
   const [membershipTransferOpen, setMembershipTransferOpen] = useState(false);
+
+  useEffect(() => {
+    if (authLoading || !hasMembershipTransferQuery(searchParams)) {
+      return;
+    }
+
+    if (!user) {
+      setPendingMembershipTransfer();
+      navigate("/signin", { replace: true });
+      return;
+    }
+
+    setMembershipTransferOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete(MEMBERSHIP_TRANSFER_QUERY_KEY);
+    setSearchParams(next, { replace: true });
+  }, [authLoading, user, searchParams, navigate, setSearchParams]);
 
   const handleUpgradeToAnnual = async () => {
     const token = getSessionToken();
@@ -206,7 +229,14 @@ const Pricing = () => {
                 type="button"
                 variant="secondary"
                 size="sm"
-                onClick={() => setMembershipTransferOpen(true)}
+                onClick={() => {
+                  if (!user) {
+                    setPendingMembershipTransfer();
+                    navigate("/signin");
+                    return;
+                  }
+                  setMembershipTransferOpen(true);
+                }}
               >
                 Request Membership Transfer
               </Button>
