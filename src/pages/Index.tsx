@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import Features from "@/components/Features";
+import MembershipTransferPromo from "@/components/MembershipTransferPromo";
 import Pricing from "@/components/Pricing";
 import Footer from "@/components/Footer";
 import SEOHead from "@/components/SEOHead";
@@ -18,6 +19,7 @@ const Index = () => {
       <div id="features">
         <Features />
       </div>
+      <MembershipTransferPromo />
       <div id="pricing">
         <Pricing />
       </div>
