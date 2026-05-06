@@ -19,15 +19,15 @@ import {
 } from "@/auth/backend";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
-type ProofMetadata = {
+interface ProofMetadata {
   mimeType: string | null;
   sizeBytes: number | null;
   originalFilename: string | null;
   uploadedAt: string | null;
   proofHashPrefix: string | null;
-};
+}
 
-type Row = {
+interface Row {
   id: string;
   userId: string;
   userEmail?: string;
@@ -47,7 +47,7 @@ type Row = {
   proofMetadata?: ProofMetadata;
   billingAlignmentStatus?: string;
   ledgerBillingAlignmentStatus?: string | null;
-};
+}
 
 function accountAgeLabel(iso: string | undefined): string {
   if (!iso) return "—";
@@ -94,11 +94,11 @@ export default function MembershipTransferAdmin() {
     }
   }, []);
 
-  const revokeProofObjectUrl = () => {
+  const revokeProofObjectUrl = useCallback(() => {
     if (proofUrl?.startsWith("blob:")) {
       URL.revokeObjectURL(proofUrl);
     }
-  };
+  }, [proofUrl]);
 
   const loadProof = async (row: Row) => {
     setSelected(row);
@@ -138,7 +138,7 @@ export default function MembershipTransferAdmin() {
     return () => {
       revokeProofObjectUrl();
     };
-  }, []);
+  }, [revokeProofObjectUrl]);
 
   const closeModal = (open: boolean) => {
     if (!open) {
