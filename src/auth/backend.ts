@@ -476,6 +476,550 @@ export async function createBillingPortalSession(
 }
 
 // ============================================================================
+// Membership transfer (competitor VPN → Keen credit)
+// ============================================================================
+
+export interface MembershipTransferRequestData {
+  id: string;
+  provider: string;
+  expiryDate: string;
+  proofUrl: string;
+  hasUploadedProof?: boolean;
+  hasS3Proof?: boolean;
+  status: string;
+  requestedCreditDays: number;
+  approvedCreditDays: number | null;
+  adminNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  reviewedAt: string | null;
+  reviewedByAdminId: string | null;
+}
+
+export async function fetchMembershipTransferRequest(sessionToken: string): Promise<{
+  success: boolean;
+  data: MembershipTransferRequestData | null;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/subscription/transfer-request`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        data: null,
+        error: extractBackendErrorMessage(raw, "Could not load transfer request"),
+      };
+    }
+    const record = raw as { data?: MembershipTransferRequestData | null };
+    return { success: true, data: record.data ?? null };
+  } catch (error) {
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
+export interface MembershipTransferPresignData {
+  uploadUrl: string;
+  key: string;
+  expiresInSeconds: number;
+  headers: Record<string, string>;
+}
+
+/** Presigned PUT to upload proof bytes to S3 before submitting the transfer request with `proofS3Key`. */
+export async function requestMembershipTransferPresignedUpload(
+  sessionToken: string,
+  contentType: "image/jpeg" | "image/png" | "image/webp",
+): Promise<{ success: boolean; data?: MembershipTransferPresignData; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/subscription/transfer-request/presigned-upload`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ contentType }),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(raw, "Could not start proof upload"),
+      };
+    }
+    const record = raw as { data?: MembershipTransferPresignData };
+    if (!record.data?.uploadUrl || !record.data.key) {
+      return { success: false, error: "Invalid presign response" };
+    }
+    return { success: true, data: record.data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
+/** PUT proof image bytes to the presigned URL (S3). */
+export async function putMembershipTransferProofToPresignedUrl(
+  uploadUrl: string,
+  file: Blob,
+  headers: Record<string, string>,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const h = new Headers(headers);
+    const response = await fetch(uploadUrl, { method: "PUT", body: file, headers: h });
+    if (!response.ok) {
+      return { ok: false, error: `Upload failed (${response.status})` };
+    }
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
+export async function submitMembershipTransferRequest(
+  sessionToken: string,
+  payload: {
+    provider: string;
+    expiryDate: string;
+    contactEmail?: string;
+    proofUrl?: string;
+    proofS3Key?: string;
+    proofOriginalFilename?: string;
+    /** @deprecated Use presigned S3 flow: requestMembershipTransferPresignedUpload → PUT → submit with proofS3Key */
+    proofFile?: File | null;
+  },
+): Promise<{
+  success: boolean;
+  data?: MembershipTransferRequestData | null;
+  error?: string;
+}> {
+  try {
+    let response: Response;
+    if (payload.proofFile && payload.proofFile.size > 0) {
+      const ct = payload.proofFile.type;
+      const allowed =
+        ct === "image/jpeg" || ct === "image/png" || ct === "image/webp"
+          ? ct
+          : ("image/jpeg" as const);
+      const presign = await requestMembershipTransferPresignedUpload(sessionToken, allowed);
+      if (!presign.success || !presign.data) {
+        return { success: false, error: presign.error ?? "Presign failed" };
+      }
+      const put = await putMembershipTransferProofToPresignedUrl(
+        presign.data.uploadUrl,
+        payload.proofFile,
+        presign.data.headers,
+      );
+      if (!put.ok) {
+        return { success: false, error: put.error ?? "Upload failed" };
+      }
+      response = await fetch(`${BACKEND_URL}/subscription/transfer-request`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          provider: payload.provider,
+          expiryDate: payload.expiryDate,
+          contactEmail: payload.contactEmail?.trim() || undefined,
+          proofUrl: payload.proofUrl?.trim() || undefined,
+          proofS3Key: presign.data.key,
+          proofOriginalFilename: payload.proofFile?.name || undefined,
+        }),
+      });
+    } else {
+      response = await fetch(`${BACKEND_URL}/subscription/transfer-request`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          provider: payload.provider,
+          expiryDate: payload.expiryDate,
+          contactEmail: payload.contactEmail?.trim() || undefined,
+          proofUrl: payload.proofUrl?.trim() || undefined,
+          proofS3Key: payload.proofS3Key,
+        }),
+      });
+    }
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (response.status === 409) {
+      const again = await fetchMembershipTransferRequest(sessionToken);
+      return {
+        success: false,
+        error: "You already have a transfer request.",
+        data: again.data,
+      };
+    }
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(raw, "Submission failed"),
+      };
+    }
+    const record = raw as { data?: MembershipTransferRequestData };
+    return { success: true, data: record.data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
+export type AdminMe = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  permissions: string[];
+};
+
+export type AdminUserOverview = {
+  totalUsers: number;
+  users: Array<{
+    id: string;
+    email: string;
+    name: string | null;
+    longestSessionSeconds: number;
+    createdAt: string;
+  }>;
+};
+
+export type AdminSubscriptionListItem = {
+  id: string;
+  status: string;
+  planName: string | null;
+  subscriptionType: string;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  updatedAt: string;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    joinedAt: string;
+  };
+};
+
+export type CreateAdminUserPayload = {
+  email: string;
+  password: string;
+  name: string;
+  role: "SUPER_ADMIN" | "SUPPORT_ADMIN" | "BILLING_ADMIN" | "READONLY_ADMIN";
+};
+
+export async function adminLogin(
+  email: string,
+  password: string,
+): Promise<{ ok: boolean; admin?: AdminMe; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/auth/login`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Login failed"),
+      };
+    }
+    const record = raw as { data?: { admin: AdminMe } };
+    return { ok: true, admin: record.data?.admin };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminLogout(): Promise<void> {
+  try {
+    await fetch(`${BACKEND_URL}/admin/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function adminFetchMe(): Promise<{
+  ok: boolean;
+  admin?: AdminMe;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/auth/me`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Unauthorized"),
+      };
+    }
+    const record = raw as { data?: { admin: AdminMe } };
+    return { ok: true, admin: record.data?.admin };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchUsersOverview(): Promise<{
+  ok: boolean;
+  data?: AdminUserOverview;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/users/overview`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load users overview"),
+      };
+    }
+    const record = raw as { data?: AdminUserOverview };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminCreateUser(
+  payload: CreateAdminUserPayload,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/users`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to create admin user"),
+      };
+    }
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminUpdateOwnPassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/users/me/password`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to update password"),
+      };
+    }
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminListTransferRequests(
+  status?: string,
+): Promise<{ success: boolean; data?: unknown[]; error?: string }> {
+  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+  const response = await fetch(`${BACKEND_URL}/admin/subscription/transfer-requests${q}`, {
+    credentials: "include",
+  });
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      success: false,
+      error: extractBackendErrorMessage(raw, "Failed to list requests"),
+    };
+  }
+  const record = raw as { data?: unknown[] };
+  return { success: true, data: record.data };
+}
+
+export async function adminListSubscriptions(limit = 50): Promise<{
+  ok: boolean;
+  data?: AdminSubscriptionListItem[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription/subscriptions?limit=${encodeURIComponent(String(limit))}`,
+      {
+        credentials: "include",
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load subscriptions"),
+      };
+    }
+    const record = raw as { data?: AdminSubscriptionListItem[] };
+    return { ok: true, data: record.data ?? [] };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchTransferProofBlob(
+  requestId: string,
+): Promise<{ ok: boolean; blob?: Blob; contentType?: string }> {
+  const response = await fetch(
+    `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/proof`,
+    { credentials: "include" },
+  );
+  if (!response.ok) return { ok: false };
+  const blob = await response.blob();
+  const contentType = response.headers.get("Content-Type") ?? undefined;
+  return { ok: true, blob, contentType };
+}
+
+export type AdminTransferProofViewData =
+  | { kind: "presigned"; viewUrl: string }
+  | { kind: "public"; viewUrl: string }
+  | { kind: "legacy_blob"; viewUrl: null; binaryPath: string };
+
+export async function adminFetchTransferProofView(
+  requestId: string,
+): Promise<{ ok: boolean; data?: AdminTransferProofViewData; error?: string }> {
+  const response = await fetch(
+    `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/proof-view`,
+    { credentials: "include" },
+  );
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: extractBackendErrorMessage(raw, "Could not load proof view"),
+    };
+  }
+  const record = raw as { data?: AdminTransferProofViewData };
+  if (!record.data) {
+    return { ok: false, error: "Invalid response" };
+  }
+  return { ok: true, data: record.data };
+}
+
+export async function adminApproveTransferRequest(
+  requestId: string,
+  body: { approvedCreditDays: number; adminNote?: string },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/approve`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(raw, "Approve failed"),
+      };
+    }
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
+export async function adminRejectTransferRequest(
+  requestId: string,
+  body: { adminNote: string },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/reject`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(raw, "Reject failed"),
+      };
+    }
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
+// ============================================================================
 // Session Storage
 // ============================================================================
 

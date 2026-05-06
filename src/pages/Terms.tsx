@@ -113,12 +113,14 @@ const Terms = () => {
                 <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-foreground mb-2">Auto-Renewal Terms</h3>
                   <ul className="list-disc list-inside space-y-2 ml-4">
-                    <li><strong>Automatic Renewal:</strong> Your subscription will automatically renew at the end of each billing period unless you cancel</li>
-                    <li><strong>Billing:</strong> You will be charged within 24 hours before the end of the current period</li>
-                    <li><strong>Same Rate:</strong> Renewal will be at the same rate, unless we notify you of a price change</li>
-                    <li><strong>Cancellation:</strong> You can cancel auto-renewal at any time through your account settings or by contacting support</li>
-                    <li><strong>Cancel Deadline:</strong> To avoid being charged for the next period, cancel at least 24 hours before the renewal date</li>
-                    <li><strong>Access After Cancellation:</strong> If you cancel, you'll retain access until the end of your current billing period</li>
+                    <li><strong>Initial Subscription Period:</strong> If your subscription begins with a trial offer, that price applies only to the initial subscription period shown at checkout and in your confirmation email</li>
+                    <li><strong>Automatic Renewal:</strong> Unless you cancel auto-renewal, your subscription will automatically renew at the end of the current subscription period. Monthly plans renew monthly, and annual plans renew annually</li>
+                    <li><strong>Recurring Payments:</strong> By purchasing a subscription, you authorize KeenVPN to charge your selected payment method on a recurring basis for each renewal period until auto-renewal is cancelled</li>
+                    <li><strong>Renewal Price:</strong> After the initial subscription period, your subscription renews at the current renewal price for your selected plan and billing cycle</li>
+                    <li><strong>Price Changes:</strong> Subscription prices may change in the future. If a price change applies to your subscription, we will notify you by email before the change takes effect or before your renewal charge is processed</li>
+                    <li><strong>Cancellation:</strong> You can cancel auto-renewal at any time through your KeenVPN account settings or by contacting support</li>
+                    <li><strong>Cancel Deadline:</strong> To avoid being charged for the next renewal period, cancel at least 24 hours before your renewal billing date.</li>
+                    <li><strong>Access After Cancellation:</strong> If you cancel auto-renewal, you'll retain access until the end of your current paid subscription period</li>
                   </ul>
                 </div>
 
@@ -142,7 +144,9 @@ const Terms = () => {
                     <li>30-day money-back guarantee for all new customers</li>
                     <li>Refund requests must be submitted within 30 days of purchase</li>
                     <li>Refunds are processed within 5-7 business days</li>
-                    <li>No partial refunds for unused portions of subscription periods</li>
+                    <li>Refund availability may vary depending on where you purchased your subscription and applicable law</li>
+                    <li>Subscriptions purchased through third parties, including app stores, are subject to that provider's cancellation and refund rules</li>
+                    <li>No partial refunds for unused portions of subscription periods unless required by applicable law</li>
                   </ul>
                 </div>
 

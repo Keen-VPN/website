@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import PricingNoticeTooltip from "@/components/PricingNoticeTooltip";
 import {
   fetchSubscriptionPlanById,
   fetchSubscriptionPlans,
@@ -480,6 +481,7 @@ const Subscribe = () => {
             ?.map((f) => f.name) || [],
       }
     : null;
+  const isEnterprisePlan = selectedPlan?.name === "Enterprise";
 
   if (loading || planLoading || initialStatusLoading) {
     return (
@@ -575,13 +577,14 @@ const Subscribe = () => {
                     </CardDescription>
                   </div>
                 </div>
-                <div className="mt-4">
+                <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-4xl font-bold text-foreground">
                     {planDisplay.price}
                   </span>
                   <span className="text-muted-foreground">
                     {planDisplay.period}
                   </span>
+                  {!isEnterprisePlan && <PricingNoticeTooltip />}
                 </div>
               </CardHeader>
               <CardContent>
