@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Info } from "lucide-react";
 
 import {
@@ -43,6 +43,8 @@ const PricingNoticeTooltip = ({
       closeTimerRef.current = null;
     }, 120);
   };
+
+  useEffect(() => clearCloseTimer, []);
 
   return (
     <TooltipProvider delayDuration={100}>
