@@ -24,6 +24,25 @@ const PricingNoticeTooltip = ({
   const [open, setOpen] = useState(false);
   const pointerTriggeredFocusRef = useRef(false);
   const hoverOpenRef = useRef(false);
+  const contentHoverRef = useRef(false);
+  const closeTimerRef = useRef<number | null>(null);
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const scheduleHoverClose = () => {
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      if (!hoverOpenRef.current && !contentHoverRef.current) {
+        setOpen(false);
+      }
+      closeTimerRef.current = null;
+    }, 120);
+  };
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -50,12 +69,13 @@ const PricingNoticeTooltip = ({
               }, 0);
             }}
             onMouseEnter={() => {
+              clearCloseTimer();
               hoverOpenRef.current = true;
               setOpen(true);
             }}
             onMouseLeave={() => {
               hoverOpenRef.current = false;
-              setOpen(false);
+              scheduleHoverClose();
             }}
             onFocus={() => {
               if (!pointerTriggeredFocusRef.current) {
@@ -78,6 +98,15 @@ const PricingNoticeTooltip = ({
           sideOffset={8}
           collisionPadding={16}
           className="max-w-[min(20rem,calc(100vw-2rem))] px-4 py-3 text-left leading-relaxed"
+          onMouseEnter={() => {
+            clearCloseTimer();
+            contentHoverRef.current = true;
+            setOpen(true);
+          }}
+          onMouseLeave={() => {
+            contentHoverRef.current = false;
+            scheduleHoverClose();
+          }}
         >
           {copy}
         </TooltipContent>
