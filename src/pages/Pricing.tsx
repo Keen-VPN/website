@@ -268,7 +268,7 @@ const Pricing = () => {
                       {period && (
                         <span className="text-muted-foreground">{period}</span>
                       )}
-                      <PricingNoticeTooltip />
+                      {plan.name !== "Enterprise" && <PricingNoticeTooltip />}
                     </div>
                   </div>
 

@@ -23,6 +23,7 @@ const PricingNoticeTooltip = ({
 }: PricingNoticeTooltipProps) => {
   const [open, setOpen] = useState(false);
   const pointerTriggeredFocusRef = useRef(false);
+  const hoverOpenRef = useRef(false);
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -38,7 +39,9 @@ const PricingNoticeTooltip = ({
             )}
             onClick={(event) => {
               event.preventDefault();
-              setOpen((current) => !current);
+              if (!hoverOpenRef.current) {
+                setOpen((current) => !current);
+              }
             }}
             onPointerDown={() => {
               pointerTriggeredFocusRef.current = true;
@@ -46,8 +49,14 @@ const PricingNoticeTooltip = ({
                 pointerTriggeredFocusRef.current = false;
               }, 0);
             }}
-            onMouseEnter={() => setOpen(true)}
-            onMouseLeave={() => setOpen(false)}
+            onMouseEnter={() => {
+              hoverOpenRef.current = true;
+              setOpen(true);
+            }}
+            onMouseLeave={() => {
+              hoverOpenRef.current = false;
+              setOpen(false);
+            }}
             onFocus={() => {
               if (!pointerTriggeredFocusRef.current) {
                 setOpen(true);
