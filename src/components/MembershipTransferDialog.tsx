@@ -20,10 +20,10 @@ import {
   type MembershipTransferRequestData,
 } from "@/auth/backend";
 
-type Props = {
+interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-};
+}
 
 function toIsoDate(d: string): string {
   const date = new Date(d + "T12:00:00");
@@ -149,7 +149,8 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
 
   const isAutoApproved =
     existing?.status === "APPROVED" &&
-    existing?.reviewedByAdminId === "system_auto_approval";
+    (existing?.reviewedBySystem === true ||
+      existing?.reviewedByAdminId === "system_auto_approval");
 
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen);
