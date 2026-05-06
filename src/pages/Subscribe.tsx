@@ -481,6 +481,7 @@ const Subscribe = () => {
             ?.map((f) => f.name) || [],
       }
     : null;
+  const isEnterprisePlan = selectedPlan?.name === "Enterprise";
 
   if (loading || planLoading || initialStatusLoading) {
     return (
@@ -583,7 +584,7 @@ const Subscribe = () => {
                   <span className="text-muted-foreground">
                     {planDisplay.period}
                   </span>
-                  <PricingNoticeTooltip />
+                  {!isEnterprisePlan && <PricingNoticeTooltip />}
                 </div>
               </CardHeader>
               <CardContent>
