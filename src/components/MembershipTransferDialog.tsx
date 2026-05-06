@@ -149,7 +149,7 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
 
   const isAutoApproved =
     existing?.status === "APPROVED" &&
-    existing?.reviewedByAdminId === "system_auto_approval";
+    existing?.reviewedBySystem === true;
 
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen);

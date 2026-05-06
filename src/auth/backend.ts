@@ -493,7 +493,7 @@ export interface MembershipTransferRequestData {
   createdAt: string;
   updatedAt: string;
   reviewedAt: string | null;
-  reviewedByAdminId: string | null;
+  reviewedBySystem?: boolean;
 }
 
 export async function fetchMembershipTransferRequest(sessionToken: string): Promise<{
