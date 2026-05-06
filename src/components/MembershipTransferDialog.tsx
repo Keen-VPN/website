@@ -30,6 +30,10 @@ function toIsoDate(d: string): string {
   return date.toISOString();
 }
 
+function isAfterMinDate(dateValue: string, minDateValue: string): boolean {
+  return dateValue.length > 0 && dateValue >= minDateValue;
+}
+
 export function MembershipTransferDialog({ open, onOpenChange }: Props) {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -79,8 +83,7 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
   const canSubmit =
-    expiryDate.length > 0 &&
-    new Date(toIsoDate(expiryDate)) > new Date() &&
+    isAfterMinDate(expiryDate, minDate()) &&
     (!requiresContactEmail || isValidContactEmail(contactEmail)) &&
     proofFile != null &&
     proofFile.size > 0;

@@ -153,17 +153,21 @@ export default function MembershipTransferAdmin() {
       setError(`For this request, max is ${cap} days`);
       return;
     }
-    const res = await adminApproveTransferRequest(selected.id, {
-      approvedCreditDays: days,
-      adminNote: adminNote.trim() || undefined,
-    });
-    if (!res.success) {
-      setError(res.error ?? "Approve failed");
-      return;
+    try {
+      const res = await adminApproveTransferRequest(selected.id, {
+        approvedCreditDays: days,
+        adminNote: adminNote.trim() || undefined,
+      });
+      if (!res.success) {
+        setError(res.error ?? "Approve failed");
+        return;
+      }
+      closeModal(false);
+      setAdminNote("");
+      await refresh();
+    } catch {
+      setError("Approve failed due to a network error. Please try again.");
     }
-    closeModal(false);
-    setAdminNote("");
-    await refresh();
   };
 
   const reject = async () => {
@@ -173,16 +177,20 @@ export default function MembershipTransferAdmin() {
       setError("Rejection requires a note (may be shown to the user).");
       return;
     }
-    const res = await adminRejectTransferRequest(selected.id, {
-      adminNote: note,
-    });
-    if (!res.success) {
-      setError(res.error ?? "Reject failed");
-      return;
+    try {
+      const res = await adminRejectTransferRequest(selected.id, {
+        adminNote: note,
+      });
+      if (!res.success) {
+        setError(res.error ?? "Reject failed");
+        return;
+      }
+      closeModal(false);
+      setAdminNote("");
+      await refresh();
+    } catch {
+      setError("Reject failed due to a network error. Please try again.");
     }
-    closeModal(false);
-    setAdminNote("");
-    await refresh();
   };
 
   return (

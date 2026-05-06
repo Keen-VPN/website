@@ -959,50 +959,64 @@ export async function adminApproveTransferRequest(
   requestId: string,
   body: { approvedCreditDays: number; adminNote?: string },
 ): Promise<{ success: boolean; error?: string }> {
-  const response = await fetch(
-    `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/approve`,
-    {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/approve`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    },
-  );
-  const raw: unknown = await response.json().catch(() => ({}));
-  if (!response.ok) {
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(raw, "Approve failed"),
+      };
+    }
+    return { success: true };
+  } catch (error) {
     return {
       success: false,
-      error: extractBackendErrorMessage(raw, "Approve failed"),
+      error: error instanceof Error ? error.message : "Network error",
     };
   }
-  return { success: true };
 }
 
 export async function adminRejectTransferRequest(
   requestId: string,
   body: { adminNote: string },
 ): Promise<{ success: boolean; error?: string }> {
-  const response = await fetch(
-    `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/reject`,
-    {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription/transfer-requests/${encodeURIComponent(requestId)}/reject`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    },
-  );
-  const raw: unknown = await response.json().catch(() => ({}));
-  if (!response.ok) {
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(raw, "Reject failed"),
+      };
+    }
+    return { success: true };
+  } catch (error) {
     return {
       success: false,
-      error: extractBackendErrorMessage(raw, "Reject failed"),
+      error: error instanceof Error ? error.message : "Network error",
     };
   }
-  return { success: true };
 }
 
 // ============================================================================
