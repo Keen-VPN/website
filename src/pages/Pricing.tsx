@@ -13,6 +13,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { ContactSalesDialog } from "@/components/ContactSalesForm";
+import PricingNoticeTooltip from "@/components/PricingNoticeTooltip";
 import { enterprisePlan, featureComparison, faqs } from "@/constants/pricing";
 import { fetchSubscriptionPlans, getSessionToken, createBillingPortalSession } from "@/auth/backend";
 import { transformApiPlans } from "@/lib/pricing";
@@ -256,7 +257,7 @@ const Pricing = () => {
                   </div>
 
                   <div className="mb-6">
-                    <div className="flex items-baseline gap-2">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="text-4xl font-bold text-foreground">
                         {plan.name === "Enterprise"
                           ? "Custom"
@@ -267,6 +268,7 @@ const Pricing = () => {
                       {period && (
                         <span className="text-muted-foreground">{period}</span>
                       )}
+                      <PricingNoticeTooltip />
                     </div>
                   </div>
 
