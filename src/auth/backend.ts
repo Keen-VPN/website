@@ -683,26 +683,26 @@ export async function submitMembershipTransferRequest(
   }
 }
 
-export type AdminMe = {
+export interface AdminMe {
   id: string;
   email: string;
   name: string;
   role: string;
   permissions: string[];
-};
+}
 
-export type AdminUserOverview = {
+export interface AdminUserOverview {
   totalUsers: number;
-  users: Array<{
+  users: {
     id: string;
     email: string;
     name: string | null;
     longestSessionSeconds: number;
     createdAt: string;
-  }>;
-};
+  }[];
+}
 
-export type AdminSubscriptionListItem = {
+export interface AdminSubscriptionListItem {
   id: string;
   status: string;
   planName: string | null;
@@ -716,14 +716,14 @@ export type AdminSubscriptionListItem = {
     name: string | null;
     joinedAt: string;
   };
-};
+}
 
-export type CreateAdminUserPayload = {
+export interface CreateAdminUserPayload {
   email: string;
   password: string;
   name: string;
   role: "SUPER_ADMIN" | "SUPPORT_ADMIN" | "BILLING_ADMIN" | "READONLY_ADMIN";
-};
+}
 
 export async function adminLogin(
   email: string,

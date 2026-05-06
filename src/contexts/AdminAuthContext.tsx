@@ -13,13 +13,13 @@ import {
   type AdminMe,
 } from "@/auth/backend";
 
-type AdminAuthContextValue = {
+interface AdminAuthContextValue {
   admin: AdminMe | null;
   loading: boolean;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
   can: (permission: string) => boolean;
-};
+}
 
 const AdminAuthContext = createContext<AdminAuthContextValue | null>(null);
 

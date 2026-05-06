@@ -20,10 +20,10 @@ import {
   type MembershipTransferRequestData,
 } from "@/auth/backend";
 
-type Props = {
+interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-};
+}
 
 function toIsoDate(d: string): string {
   const date = new Date(d + "T12:00:00");
