@@ -2,7 +2,7 @@ import type { ApiPlan } from "@/lib/pricing";
 import { BackendAuthResponse, SubscriptionData, TrialData } from "./types";
 
 export const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
+  import.meta.env.VITE_BACKEND_URL || "/api";
 
 function extractBackendErrorMessage(
   data: unknown,
@@ -696,6 +696,9 @@ export interface AdminMe {
 
 export interface AdminUserOverview {
   totalUsers: number;
+  page: number;
+  limit: number;
+  totalPages: number;
   users: {
     id: string;
     email: string;
@@ -719,6 +722,14 @@ export interface AdminSubscriptionListItem {
     name: string | null;
     joinedAt: string;
   };
+}
+
+export interface AdminSubscriptionListResponse {
+  items: AdminSubscriptionListItem[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 export interface CreateAdminUserPayload {
@@ -793,13 +804,22 @@ export async function adminFetchMe(): Promise<{
   }
 }
 
-export async function adminFetchUsersOverview(): Promise<{
+export async function adminFetchUsersOverview(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<{
   ok: boolean;
   data?: AdminUserOverview;
   error?: string;
 }> {
   try {
-    const response = await fetch(`${BACKEND_URL}/admin/users/overview`, {
+    const query = new URLSearchParams();
+    if (params?.page) query.set("page", String(params.page));
+    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.search?.trim()) query.set("search", params.search.trim());
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(`${BACKEND_URL}/admin/users/overview${suffix}`, {
       credentials: "include",
     });
     const raw: unknown = await response.json().catch(() => ({}));
@@ -890,14 +910,26 @@ export async function adminListTransferRequests(
   return { success: true, data: record.data };
 }
 
-export async function adminListSubscriptions(limit = 50): Promise<{
+export async function adminListSubscriptions(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  type?: string;
+}): Promise<{
   ok: boolean;
-  data?: AdminSubscriptionListItem[];
+  data?: AdminSubscriptionListResponse;
   error?: string;
 }> {
   try {
+    const query = new URLSearchParams();
+    query.set("page", String(params?.page ?? 1));
+    query.set("limit", String(params?.limit ?? 50));
+    if (params?.search?.trim()) query.set("search", params.search.trim());
+    if (params?.status?.trim()) query.set("status", params.status.trim());
+    if (params?.type?.trim()) query.set("type", params.type.trim());
     const response = await fetch(
-      `${BACKEND_URL}/admin/subscription/subscriptions?limit=${encodeURIComponent(String(limit))}`,
+      `${BACKEND_URL}/admin/subscription/subscriptions?${query.toString()}`,
       {
         credentials: "include",
       },
@@ -909,8 +941,17 @@ export async function adminListSubscriptions(limit = 50): Promise<{
         error: extractBackendErrorMessage(raw, "Failed to load subscriptions"),
       };
     }
-    const record = raw as { data?: AdminSubscriptionListItem[] };
-    return { ok: true, data: record.data ?? [] };
+    const record = raw as { data?: Partial<AdminSubscriptionListResponse> };
+    return {
+      ok: true,
+      data: {
+        items: record.data?.items ?? [],
+        page: record.data?.page ?? 1,
+        limit: record.data?.limit ?? (params?.limit ?? 50),
+        total: record.data?.total ?? 0,
+        totalPages: record.data?.totalPages ?? 1,
+      },
+    };
   } catch (e) {
     return {
       ok: false,
