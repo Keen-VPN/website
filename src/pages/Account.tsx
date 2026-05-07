@@ -74,6 +74,7 @@ const Account = () => {
   const [showContactEmailModal, setShowContactEmailModal] = useState(false);
   const [contactEmail, setContactEmail] = useState("");
   const [contactEmailLoading, setContactEmailLoading] = useState(false);
+  const [contactEmailError, setContactEmailError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -358,7 +359,8 @@ const Account = () => {
       if (!token) return;
       const result = await getContactEmailStatus(token);
       if (result.success && result.shouldPrompt) {
-        setContactEmail(result.contactEmail ?? user?.email ?? "");
+        setContactEmail(result.contactEmail ?? "");
+        setContactEmailError(null);
         setShowContactEmailModal(true);
       }
     };
@@ -368,8 +370,18 @@ const Account = () => {
   const handleSaveContactEmail = async () => {
     const token = getSessionToken();
     if (!token) return;
+    const normalized = contactEmail.trim().toLowerCase();
+    if (!isValidContactEmail(normalized)) {
+      setContactEmailError("Enter a valid email address.");
+      return;
+    }
+    if (isPrivateRelayEmail(normalized)) {
+      setContactEmailError("Please enter a real contact email (not Apple private relay).");
+      return;
+    }
+    setContactEmailError(null);
     setContactEmailLoading(true);
-    const saved = await saveContactEmail(token, contactEmail);
+    const saved = await saveContactEmail(token, normalized);
     if (!saved.success) {
       toast({
         title: "Could not save email",
@@ -396,6 +408,12 @@ const Account = () => {
     setShowContactEmailModal(false);
     setContactEmailLoading(false);
   };
+
+  const isPrivateRelayEmail = (email: string) =>
+    email.endsWith("@privaterelay.appleid.com");
+
+  const isValidContactEmail = (email: string) =>
+    /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email);
 
   const handleSkipContactEmail = async () => {
     const token = getSessionToken();
@@ -564,9 +582,15 @@ const Account = () => {
             <Input
               type="email"
               value={contactEmail}
-              onChange={(e) => setContactEmail(e.target.value)}
+              onChange={(e) => {
+                setContactEmail(e.target.value);
+                if (contactEmailError) setContactEmailError(null);
+              }}
               placeholder="you@example.com"
             />
+            {contactEmailError ? (
+              <p className="text-sm text-red-500">{contactEmailError}</p>
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleSkipContactEmail} disabled={contactEmailLoading}>
