@@ -37,6 +37,12 @@ const MagicLinkVerify = () => {
         await new Promise((resolve) => {
           window.setTimeout(resolve, 1200);
         });
+
+        // Do not verify on web in the open-app flow, otherwise the one-time token
+        // can be consumed by the app first and always fail here.
+        setState("success");
+        setMessage("If KeenVPN did not open, continue on web below.");
+        return;
       }
 
       const response = await verifyMagicLink(token);
@@ -84,6 +90,19 @@ const MagicLinkVerify = () => {
                 </div>
               ) : null}
 
+              {state === "success" && shouldOpenApp ? (
+                <div className="space-y-3">
+                  <Button className="w-full" asChild>
+                    <a href={appDeepLink}>Open KeenVPN app again</a>
+                  </Button>
+                  <Button variant="outline" className="w-full" asChild>
+                    <Link to={`/auth/magic?token=${encodeURIComponent(token)}`}>
+                      Continue on web
+                    </Link>
+                  </Button>
+                </div>
+              ) : null}
+
               {state === "expired" ? (
                 <div className="space-y-3">
                   <Button className="w-full" asChild>
@@ -98,7 +117,7 @@ const MagicLinkVerify = () => {
                 </Button>
               )}
 
-              {(state === "loading" || state === "error" || state === "expired") && (
+              {(state === "loading" || state === "expired") && (
                 <Button variant="ghost" className="w-full" asChild>
                   <a href={appDeepLink}>Open in KeenVPN app</a>
                 </Button>
