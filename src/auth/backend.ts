@@ -277,6 +277,64 @@ export async function verifySessionToken(
   }
 }
 
+export async function requestMagicLink(
+  email: string,
+): Promise<{ success: boolean; message?: string; error?: string; rateLimited?: boolean }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/magic-link`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Failed to send magic link"),
+        rateLimited: response.status === 429,
+      };
+    }
+    const record = data as { message?: string };
+    return { success: true, message: record.message };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to send magic link",
+    };
+  }
+}
+
+export async function verifyMagicLink(
+  token: string,
+): Promise<BackendAuthResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/magic/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Magic link verification failed"),
+        unauthorized: response.status === 401,
+      };
+    }
+    return normalizeBackendAuthResponse({
+      ...(data as RawBackendAuthResponse),
+      success: true,
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Magic link verification failed",
+      unauthorized: false,
+    };
+  }
+}
+
 export async function fetchSubscriptionStatusWithSession(
   sessionToken: string,
 ): Promise<SubscriptionStatusResult> {
@@ -708,6 +766,15 @@ export interface AdminUserOverview {
   }[];
 }
 
+export interface AdminIpAddressClickSummary {
+  total: number;
+  from: string;
+  to: string;
+  byPlatform: { label: string; count: number }[];
+  byConnectionStatus: { label: string; count: number }[];
+  topServerLocations: { label: string; count: number }[];
+}
+
 export interface AdminSubscriptionListItem {
   id: string;
   status: string;
@@ -830,6 +897,41 @@ export async function adminFetchUsersOverview(params?: {
       };
     }
     const record = raw as { data?: AdminUserOverview };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchIpAddressClickSummary(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminIpAddressClickSummary;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(`${BACKEND_URL}/admin/product-events/ip-address-clicks${suffix}`, {
+      credentials: "include",
+      signal: params?.signal,
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load IP address clicks"),
+      };
+    }
+    const record = raw as { data?: AdminIpAddressClickSummary };
     return { ok: true, data: record.data };
   } catch (e) {
     return {

@@ -6,6 +6,7 @@ import {
   LogOut,
   ShieldCheck,
   ArrowRightLeft,
+  BarChart3,
   CreditCard,
   Users,
 } from "lucide-react";
@@ -36,12 +37,19 @@ export default function AdminSidebarLayout() {
             <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-primary">
               <ShieldCheck className="h-4 w-4" />
             </div>
-            <h1 className="text-base font-semibold tracking-tight text-white">KeenVPN Admin</h1>
-            <p className="mt-1 text-xs text-white/70 break-all">{admin?.email}</p>
+            <h1 className="text-base font-semibold tracking-tight text-white">
+              KeenVPN Admin
+            </h1>
+            <p className="mt-1 text-xs text-white/70 break-all">
+              {admin?.email}
+            </p>
           </div>
 
           <nav className="mt-4 space-y-2">
-            <NavLink to="/admin/overview" className={({ isActive }) => linkClass(isActive)}>
+            <NavLink
+              to="/admin/overview"
+              className={({ isActive }) => linkClass(isActive)}
+            >
               <LayoutDashboard className="h-4 w-4" />
               Overview
             </NavLink>
@@ -51,6 +59,13 @@ export default function AdminSidebarLayout() {
             >
               <ArrowRightLeft className="h-4 w-4" />
               Membership Transfer
+            </NavLink>
+            <NavLink
+              to="/admin/product-events"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <BarChart3 className="h-4 w-4" />
+              Product Events
             </NavLink>
             <NavLink
               to="/admin/subscriptions"
