@@ -23,34 +23,34 @@ export default function AdminSubscriptions() {
   const load = useCallback(
     async (
       targetPage: number,
-      targetSearch = searchTerm,
-      targetStatus = statusFilter,
-      targetType = typeFilter,
+      targetSearch: string,
+      targetStatus: string,
+      targetType: string,
     ) => {
-    setLoading(true);
-    setError(null);
-    const res = await adminListSubscriptions({
-      page: targetPage,
-      limit,
-      search: targetSearch,
-      status: targetStatus,
-      type: targetType,
-    });
-    if (!res.ok || !res.data) {
-      setRows([]);
-      setTotal(0);
-      setTotalPages(1);
-      setError(res.error ?? "Failed to load subscriptions");
+      setLoading(true);
+      setError(null);
+      const res = await adminListSubscriptions({
+        page: targetPage,
+        limit,
+        search: targetSearch,
+        status: targetStatus,
+        type: targetType,
+      });
+      if (!res.ok || !res.data) {
+        setRows([]);
+        setTotal(0);
+        setTotalPages(1);
+        setError(res.error ?? "Failed to load subscriptions");
+        setLoading(false);
+        return;
+      }
+      setRows(res.data.items);
+      setPage(res.data.page);
+      setTotal(res.data.total);
+      setTotalPages(res.data.totalPages);
       setLoading(false);
-      return;
-    }
-    setRows(res.data.items);
-    setPage(res.data.page);
-    setTotal(res.data.total);
-    setTotalPages(res.data.totalPages);
-    setLoading(false);
     },
-    [limit, searchTerm, statusFilter, typeFilter],
+    [limit],
   );
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export default function AdminSubscriptions() {
         <h2 className="text-2xl font-bold">Subscriptions</h2>
         <button
           type="button"
-          onClick={() => void load(page)}
+          onClick={() => void load(page, searchTerm, statusFilter, typeFilter)}
           className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
         >
           Refresh
@@ -197,7 +197,12 @@ export default function AdminSubscriptions() {
             onClick={() => {
               const requested = Number.parseInt(jumpPageInput, 10);
               if (!Number.isFinite(requested) || requested < 1) return;
-              void load(Math.min(requested, totalPages));
+              void load(
+                Math.min(requested, totalPages),
+                searchTerm,
+                statusFilter,
+                typeFilter,
+              );
             }}
             className="rounded-md border border-border px-3 py-1.5 hover:bg-muted"
           >
@@ -205,7 +210,14 @@ export default function AdminSubscriptions() {
           </button>
           <button
             type="button"
-            onClick={() => void load(Math.max(1, page - 1))}
+            onClick={() =>
+              void load(
+                Math.max(1, page - 1),
+                searchTerm,
+                statusFilter,
+                typeFilter,
+              )
+            }
             disabled={loading || page <= 1}
             className="rounded-md border border-border px-3 py-1.5 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -213,7 +225,7 @@ export default function AdminSubscriptions() {
           </button>
           <button
             type="button"
-            onClick={() => void load(page + 1)}
+            onClick={() => void load(page + 1, searchTerm, statusFilter, typeFilter)}
             disabled={loading || page >= totalPages}
             className="rounded-md border border-border px-3 py-1.5 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
