@@ -335,6 +335,126 @@ export async function verifyMagicLink(
   }
 }
 
+export interface ContactEmailStatusResponse {
+  success: boolean;
+  shouldPrompt: boolean;
+  contactEmail: string | null;
+  isVerified: boolean;
+  error?: string;
+}
+
+export async function getContactEmailStatus(
+  sessionToken: string,
+): Promise<ContactEmailStatusResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/contact-email-status`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        shouldPrompt: false,
+        contactEmail: null,
+        isVerified: false,
+        error: extractBackendErrorMessage(data, "Failed to fetch contact email status"),
+      };
+    }
+    return data as ContactEmailStatusResponse;
+  } catch (error) {
+    return {
+      success: false,
+      shouldPrompt: false,
+      contactEmail: null,
+      isVerified: false,
+      error: error instanceof Error ? error.message : "Failed to fetch contact email status",
+    };
+  }
+}
+
+export async function saveContactEmail(
+  sessionToken: string,
+  email: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/contact-email`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { success: false, error: extractBackendErrorMessage(data, "Failed to save contact email") };
+    }
+    return data as { success: boolean; message?: string };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Failed to save contact email" };
+  }
+}
+
+export async function skipContactEmailPrompt(
+  sessionToken: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/contact-email/skip`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ reason: "not_now" }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { success: false, error: extractBackendErrorMessage(data, "Failed to skip for now") };
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Failed to skip for now" };
+  }
+}
+
+export async function sendContactEmailVerification(
+  sessionToken: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/verify-email`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { success: false, error: extractBackendErrorMessage(data, "Failed to send verification email") };
+    }
+    return data as { success: boolean; message?: string };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Failed to send verification email" };
+  }
+}
+
+export async function confirmContactEmailVerification(
+  token: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/verify-email/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { success: false, error: extractBackendErrorMessage(data, "Verification link is invalid or expired") };
+    }
+    return data as { success: boolean; message?: string };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Verification link is invalid or expired" };
+  }
+}
+
 export async function fetchSubscriptionStatusWithSession(
   sessionToken: string,
 ): Promise<SubscriptionStatusResult> {
