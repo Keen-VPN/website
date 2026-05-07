@@ -308,9 +308,11 @@ export async function verifyMagicLink(
   token: string,
 ): Promise<BackendAuthResponse> {
   try {
-    const url = new URL(`${BACKEND_URL}/auth/magic/verify`, window.location.origin);
-    url.searchParams.set("token", token);
-    const response = await fetch(url.toString(), { method: "GET" });
+    const response = await fetch(`${BACKEND_URL}/auth/magic/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
     const data: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
