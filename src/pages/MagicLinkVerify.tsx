@@ -8,8 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { storeSessionToken, verifyMagicLink } from "@/auth";
 
-const APP_DEEP_LINK_BASE = "keenvpn://auth/magic";
-
 const MagicLinkVerify = () => {
   const [searchParams] = useSearchParams();
   const [state, setState] = React.useState<"loading" | "success" | "expired" | "error">(
@@ -18,34 +16,12 @@ const MagicLinkVerify = () => {
   const [message, setMessage] = React.useState<string>("Verifying your secure link...");
 
   const token = searchParams.get("token") || "";
-  const shouldOpenApp = searchParams.get("openApp") === "1";
-  const appLinkParam = searchParams.get("appLink");
-  const appDeepLink =
-    appLinkParam && appLinkParam.startsWith("keenvpn://")
-      ? appLinkParam
-      : `${APP_DEEP_LINK_BASE}?token=${encodeURIComponent(token)}`;
 
   React.useEffect(() => {
     const run = async () => {
       if (!token) {
         setState("error");
         setMessage("Missing magic link token.");
-        return;
-      }
-
-      // Email clients often block custom URL schemes directly in emails.
-      // For openApp=1, we first try opening the installed app from a web page.
-      if (shouldOpenApp) {
-        setMessage("Opening KeenVPN app...");
-        window.location.href = appDeepLink;
-        await new Promise((resolve) => {
-          window.setTimeout(resolve, 1200);
-        });
-
-        // Do not verify on web in the open-app flow, otherwise the one-time token
-        // can be consumed by the app first and always fail here.
-        setState("success");
-        setMessage("If KeenVPN did not open, continue on web below.");
         return;
       }
 
@@ -69,7 +45,7 @@ const MagicLinkVerify = () => {
     };
 
     void run();
-  }, [appDeepLink, shouldOpenApp, token]);
+  }, [token]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -94,19 +70,6 @@ const MagicLinkVerify = () => {
                 </div>
               ) : null}
 
-              {state === "success" && shouldOpenApp ? (
-                <div className="space-y-3">
-                  <Button className="w-full" asChild>
-                    <a href={appDeepLink}>Open KeenVPN app again</a>
-                  </Button>
-                  <Button variant="outline" className="w-full" asChild>
-                    <Link to={`/auth/magic?token=${encodeURIComponent(token)}`}>
-                      Continue on web
-                    </Link>
-                  </Button>
-                </div>
-              ) : null}
-
               {state === "expired" ? (
                 <div className="space-y-3">
                   <Button className="w-full" asChild>
@@ -118,12 +81,6 @@ const MagicLinkVerify = () => {
               {(state === "error" || state === "expired") && (
                 <Button variant="outline" className="w-full" asChild>
                   <Link to="/signin">Back to sign in</Link>
-                </Button>
-              )}
-
-              {shouldOpenApp && (state === "loading" || state === "expired") && (
-                <Button variant="ghost" className="w-full" asChild>
-                  <a href={appDeepLink}>Open in KeenVPN app</a>
                 </Button>
               )}
             </CardContent>

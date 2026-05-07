@@ -20,8 +20,13 @@ const VerifyEmail = () => {
         return;
       }
       const result = await confirmContactEmailVerification(token);
-      setOk(Boolean(result.success));
-      setMessage(result.message || result.error || "Verification failed.");
+      const success = Boolean(result.success);
+      setOk(success);
+      if (success) {
+        setMessage(result.message || "Your email has been verified successfully.");
+      } else {
+        setMessage(result.error || result.message || "Verification failed.");
+      }
       setLoading(false);
     };
     void run();

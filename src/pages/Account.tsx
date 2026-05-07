@@ -75,6 +75,7 @@ const Account = () => {
   const [contactEmail, setContactEmail] = useState("");
   const [contactEmailLoading, setContactEmailLoading] = useState(false);
   const [contactEmailError, setContactEmailError] = useState<string | null>(null);
+  const hasHandledContactEmailPromptRef = useRef(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -354,6 +355,7 @@ const Account = () => {
 
   useEffect(() => {
     const run = async () => {
+      if (hasHandledContactEmailPromptRef.current) return;
       if (!hasSessionToken) return;
       const token = getSessionToken();
       if (!token) return;
@@ -405,6 +407,7 @@ const Account = () => {
       title: "Check your inbox",
       description: "We sent a verification link to your contact email.",
     });
+    hasHandledContactEmailPromptRef.current = true;
     setShowContactEmailModal(false);
     setContactEmailLoading(false);
   };
@@ -420,6 +423,7 @@ const Account = () => {
     if (token) {
       await skipContactEmailPrompt(token);
     }
+    hasHandledContactEmailPromptRef.current = true;
     setShowContactEmailModal(false);
   };
 
