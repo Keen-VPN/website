@@ -708,6 +708,15 @@ export interface AdminUserOverview {
   }[];
 }
 
+export interface AdminIpAddressClickSummary {
+  total: number;
+  from: string;
+  to: string;
+  byPlatform: { label: string; count: number }[];
+  byConnectionStatus: { label: string; count: number }[];
+  topServerLocations: { label: string; count: number }[];
+}
+
 export interface AdminSubscriptionListItem {
   id: string;
   status: string;
@@ -830,6 +839,39 @@ export async function adminFetchUsersOverview(params?: {
       };
     }
     const record = raw as { data?: AdminUserOverview };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchIpAddressClickSummary(params?: {
+  from?: string;
+  to?: string;
+}): Promise<{
+  ok: boolean;
+  data?: AdminIpAddressClickSummary;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(`${BACKEND_URL}/admin/product-events/ip-address-clicks${suffix}`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load IP address clicks"),
+      };
+    }
+    const record = raw as { data?: AdminIpAddressClickSummary };
     return { ok: true, data: record.data };
   } catch (e) {
     return {
