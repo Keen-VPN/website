@@ -851,6 +851,7 @@ export async function adminFetchUsersOverview(params?: {
 export async function adminFetchIpAddressClickSummary(params?: {
   from?: string;
   to?: string;
+  signal?: AbortSignal;
 }): Promise<{
   ok: boolean;
   data?: AdminIpAddressClickSummary;
@@ -863,6 +864,7 @@ export async function adminFetchIpAddressClickSummary(params?: {
     const suffix = query.toString() ? `?${query.toString()}` : "";
     const response = await fetch(`${BACKEND_URL}/admin/product-events/ip-address-clicks${suffix}`, {
       credentials: "include",
+      signal: params?.signal,
     });
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {

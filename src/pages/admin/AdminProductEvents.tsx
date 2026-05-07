@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   adminFetchIpAddressClickSummary,
   type AdminIpAddressClickSummary,
@@ -7,9 +7,11 @@ import {
 function BreakdownList({
   title,
   rows,
+  loading,
 }: {
   title: string;
   rows: { label: string; count: number }[];
+  loading: boolean;
 }) {
   return (
     <div className="rounded-lg border border-border p-4">
@@ -24,7 +26,10 @@ function BreakdownList({
             <span className="font-mono tabular-nums">{row.count}</span>
           </div>
         ))}
-        {rows.length === 0 ? (
+        {loading && rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : null}
+        {!loading && rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No events recorded.</p>
         ) : null}
       </div>
@@ -62,32 +67,45 @@ export default function AdminProductEvents() {
   const [error, setError] = useState<string | null>(null);
   const [fromInput, setFromInput] = useState("");
   const [toInput, setToInput] = useState("");
+  const activeRequest = useRef<AbortController | null>(null);
 
   const load = useCallback(async (fromValue: string, toValue: string) => {
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
+
     setLoading(true);
     setError(null);
     if (fromValue && toValue && fromValue > toValue) {
       setSummary(null);
       setError("Start date must be before end date");
       setLoading(false);
+      activeRequest.current = null;
       return;
     }
     const res = await adminFetchIpAddressClickSummary({
       from: dateInputToIsoStart(fromValue),
       to: dateInputToIsoExclusiveEnd(toValue),
+      signal: controller.signal,
     });
+    if (controller.signal.aborted || activeRequest.current !== controller) {
+      return;
+    }
     if (!res.ok || !res.data) {
       setSummary(null);
       setError(res.error ?? "Failed to load product events");
       setLoading(false);
+      activeRequest.current = null;
       return;
     }
     setSummary(res.data);
     setLoading(false);
+    activeRequest.current = null;
   }, []);
 
   useEffect(() => {
     void load("", "");
+    return () => activeRequest.current?.abort();
   }, [load]);
 
   return (
@@ -159,14 +177,20 @@ export default function AdminProductEvents() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <BreakdownList title="By platform" rows={summary?.byPlatform ?? []} />
+        <BreakdownList
+          title="By platform"
+          rows={summary?.byPlatform ?? []}
+          loading={loading}
+        />
         <BreakdownList
           title="By connection status"
           rows={summary?.byConnectionStatus ?? []}
+          loading={loading}
         />
         <BreakdownList
           title="Top server locations"
           rows={summary?.topServerLocations ?? []}
+          loading={loading}
         />
       </div>
     </div>
