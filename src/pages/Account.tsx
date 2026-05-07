@@ -364,7 +364,11 @@ const Account = () => {
         setContactEmail(result.contactEmail ?? "");
         setContactEmailError(null);
         setShowContactEmailModal(true);
+        return;
       }
+      // Avoid repeated status calls in this session once backend says no prompt is needed
+      // (or the request fails), even if auth context dependencies change.
+      hasHandledContactEmailPromptRef.current = true;
     };
     void run();
   }, [hasSessionToken, user?.email]);
