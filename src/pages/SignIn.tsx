@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -130,6 +131,11 @@ const SignIn = () => {
               </Button>
 
               <div className="text-center pt-4">
+                <div className="mb-3">
+                  <Link to="/signin/magic" className="text-sm text-primary hover:underline">
+                    Forgot your password? Use a magic link
+                  </Link>
+                </div>
                 <p className="text-sm text-muted-foreground">
                   By signing in, you agree to our{" "}
                   <a href="/terms" className="text-primary hover:underline">
