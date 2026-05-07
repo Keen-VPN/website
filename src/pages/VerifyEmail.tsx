@@ -6,12 +6,12 @@ import { confirmContactEmailVerification } from "@/auth";
 
 const VerifyEmail = () => {
   const [searchParams] = useSearchParams();
+  const token = searchParams.get("token") || "";
   const [loading, setLoading] = React.useState(true);
   const [ok, setOk] = React.useState(false);
   const [message, setMessage] = React.useState("Verifying your email...");
 
   React.useEffect(() => {
-    const token = searchParams.get("token") || "";
     const run = async () => {
       if (!token) {
         setOk(false);
@@ -30,7 +30,7 @@ const VerifyEmail = () => {
       setLoading(false);
     };
     void run();
-  }, [searchParams]);
+  }, [token]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-hero px-4">
