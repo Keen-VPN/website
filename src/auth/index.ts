@@ -23,6 +23,8 @@ export {
   authenticateWithBackend,
   loginWithFirebaseToken,
   verifySessionToken,
+  requestMagicLink,
+  verifyMagicLink,
   fetchSubscriptionStatusWithSession,
   cancelSubscription,
   createCheckoutSession,
