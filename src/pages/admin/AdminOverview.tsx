@@ -15,11 +15,20 @@ export default function AdminOverview() {
   const [overview, setOverview] = useState<AdminUserOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [jumpPageInput, setJumpPageInput] = useState("");
+  const limit = 20;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (targetPage: number, targetSearch: string) => {
     setLoading(true);
     setError(null);
-    const res = await adminFetchUsersOverview();
+    const res = await adminFetchUsersOverview({
+      page: targetPage,
+      limit,
+      search: targetSearch,
+    });
     if (!res.ok || !res.data) {
       setOverview(null);
       setError(res.error ?? "Failed to load admin overview");
@@ -27,11 +36,12 @@ export default function AdminOverview() {
       return;
     }
     setOverview(res.data);
+    setPage(res.data.page);
     setLoading(false);
-  }, []);
+  }, [limit]);
 
   useEffect(() => {
-    void load();
+    void load(1, searchTerm);
   }, [load]);
 
   return (
@@ -40,7 +50,7 @@ export default function AdminOverview() {
         <h2 className="text-2xl font-bold">Overview</h2>
         <button
           type="button"
-          onClick={() => void load()}
+          onClick={() => void load(page, searchTerm)}
           className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
         >
           Refresh
@@ -58,11 +68,45 @@ export default function AdminOverview() {
         <p className="mt-1 text-3xl font-semibold">{overview?.totalUsers ?? (loading ? "…" : 0)}</p>
       </div>
 
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="text-sm">
+          <span className="mb-1 block text-muted-foreground">Search users</span>
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Email or name"
+            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => {
+            const trimmed = searchInput.trim();
+            setSearchTerm(trimmed);
+            void load(1, trimmed);
+          }}
+          className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
+        >
+          Search
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setSearchInput("");
+            setSearchTerm("");
+            void load(1, "");
+          }}
+          className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
+        >
+          Clear
+        </button>
+      </div>
+
+      <div className="rounded-lg border border-border overflow-x-auto">
         <div className="border-b border-border bg-muted/40 px-4 py-3 text-sm font-medium">
           Users by longest session
         </div>
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-muted/50">
             <tr className="text-left">
               <th className="p-3">User</th>
@@ -87,6 +131,48 @@ export default function AdminOverview() {
             ) : null}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <p>
+          Page {overview?.page ?? page} of {overview?.totalPages ?? 1}
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            value={jumpPageInput}
+            onChange={(e) => setJumpPageInput(e.target.value)}
+            placeholder="Page #"
+            className="w-20 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const requested = Number.parseInt(jumpPageInput, 10);
+              if (!Number.isFinite(requested) || requested < 1) return;
+              const maxPage = overview?.totalPages ?? 1;
+              void load(Math.min(requested, maxPage), searchTerm);
+            }}
+            className="rounded-md border border-border px-3 py-1.5 hover:bg-muted"
+          >
+            Go
+          </button>
+          <button
+            type="button"
+            onClick={() => void load(Math.max(1, page - 1), searchTerm)}
+            disabled={loading || page <= 1}
+            className="rounded-md border border-border px-3 py-1.5 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => void load(page + 1, searchTerm)}
+            disabled={loading || page >= (overview?.totalPages ?? 1)}
+            className="rounded-md border border-border px-3 py-1.5 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );

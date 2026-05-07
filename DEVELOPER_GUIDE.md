@@ -372,7 +372,7 @@ Firebase configuration and backend URL are embedded at build time. Check `.env` 
 - `VITE_FIREBASE_API_KEY`
 - `VITE_FIREBASE_AUTH_DOMAIN`
 - `VITE_FIREBASE_PROJECT_ID`
-- `VITE_BACKEND_URL` (defaults to `https://vpnkeen.netlify.app`)
+- `VITE_BACKEND_URL` (defaults to `/api`)
 
 ---
 
