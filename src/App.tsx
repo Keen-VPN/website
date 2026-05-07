@@ -29,7 +29,12 @@ const MembershipTransferAdmin = lazy(
 );
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
 const AdminOverview = lazy(() => import("./pages/admin/AdminOverview"));
-const AdminSubscriptions = lazy(() => import("./pages/admin/AdminSubscriptions"));
+const AdminProductEvents = lazy(
+  () => import("./pages/admin/AdminProductEvents"),
+);
+const AdminSubscriptions = lazy(
+  () => import("./pages/admin/AdminSubscriptions"),
+);
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 
 const queryClient = new QueryClient();
@@ -94,9 +99,16 @@ const App = () => (
                   </AdminAuthProvider>
                 }
               >
-                <Route index element={<Navigate to="/admin/overview" replace />} />
+                <Route
+                  index
+                  element={<Navigate to="/admin/overview" replace />}
+                />
                 <Route path="overview" element={<AdminOverview />} />
-                <Route path="membership-transfer" element={<MembershipTransferAdmin />} />
+                <Route path="product-events" element={<AdminProductEvents />} />
+                <Route
+                  path="membership-transfer"
+                  element={<MembershipTransferAdmin />}
+                />
                 <Route path="subscriptions" element={<AdminSubscriptions />} />
                 <Route path="users" element={<AdminUsers />} />
               </Route>
