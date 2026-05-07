@@ -31,6 +31,9 @@ export interface BackendAuthResponse {
     email: string;
     name: string;
     provider: string;
+    contactEmail?: string | null;
+    contactEmailVerified?: boolean;
+    shouldPromptContactEmail?: boolean;
   };
   sessionToken?: string;
   subscription?: SubscriptionData | null;
