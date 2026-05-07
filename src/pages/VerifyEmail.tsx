@@ -10,8 +10,12 @@ const VerifyEmail = () => {
   const [loading, setLoading] = React.useState(true);
   const [ok, setOk] = React.useState(false);
   const [message, setMessage] = React.useState("Verifying your email...");
+  const verifiedTokenRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
+    if (verifiedTokenRef.current === token) return;
+    verifiedTokenRef.current = token;
+
     const run = async () => {
       if (!token) {
         setOk(false);

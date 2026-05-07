@@ -356,6 +356,7 @@ const Account = () => {
   useEffect(() => {
     const run = async () => {
       if (hasHandledContactEmailPromptRef.current) return;
+      if (showContactEmailModal) return;
       if (!hasSessionToken) return;
       const token = getSessionToken();
       if (!token) return;
@@ -363,6 +364,7 @@ const Account = () => {
       if (result.success && result.shouldPrompt) {
         setContactEmail(result.contactEmail ?? "");
         setContactEmailError(null);
+        hasHandledContactEmailPromptRef.current = true;
         setShowContactEmailModal(true);
         return;
       }
@@ -371,7 +373,7 @@ const Account = () => {
       hasHandledContactEmailPromptRef.current = true;
     };
     void run();
-  }, [hasSessionToken, user?.email]);
+  }, [hasSessionToken, user?.email, showContactEmailModal]);
 
   const handleSaveContactEmail = async () => {
     const token = getSessionToken();
