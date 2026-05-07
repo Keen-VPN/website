@@ -19,7 +19,11 @@ const MagicLinkVerify = () => {
 
   const token = searchParams.get("token") || "";
   const shouldOpenApp = searchParams.get("openApp") === "1";
-  const appDeepLink = `${APP_DEEP_LINK_BASE}?token=${encodeURIComponent(token)}`;
+  const appLinkParam = searchParams.get("appLink");
+  const appDeepLink =
+    appLinkParam && appLinkParam.startsWith("keenvpn://")
+      ? appLinkParam
+      : `${APP_DEEP_LINK_BASE}?token=${encodeURIComponent(token)}`;
 
   React.useEffect(() => {
     const run = async () => {
