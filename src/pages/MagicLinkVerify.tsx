@@ -121,7 +121,7 @@ const MagicLinkVerify = () => {
                 </Button>
               )}
 
-              {(state === "loading" || state === "expired") && (
+              {shouldOpenApp && (state === "loading" || state === "expired") && (
                 <Button variant="ghost" className="w-full" asChild>
                   <a href={appDeepLink}>Open in KeenVPN app</a>
                 </Button>
