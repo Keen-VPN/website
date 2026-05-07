@@ -815,8 +815,8 @@ export async function adminFetchUsersOverview(params?: {
 }> {
   try {
     const query = new URLSearchParams();
-    if (params?.page) query.set("page", String(params.page));
-    if (params?.limit) query.set("limit", String(params.limit));
+    query.set("page", String(params?.page ?? 1));
+    query.set("limit", String(params?.limit ?? 20));
     if (params?.search?.trim()) query.set("search", params.search.trim());
     const suffix = query.toString() ? `?${query.toString()}` : "";
     const response = await fetch(`${BACKEND_URL}/admin/users/overview${suffix}`, {
