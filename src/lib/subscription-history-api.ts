@@ -75,7 +75,7 @@ export interface HistoryFilters {
 }
 
 const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL || "https://vpnkeen.netlify.app/api";
+  import.meta.env.VITE_BACKEND_URL || "/api";
 
 // Simple in-memory cache for ETag support
 interface CacheEntry {
