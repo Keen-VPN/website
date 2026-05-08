@@ -30,6 +30,8 @@ export {
   skipContactEmailPrompt,
   sendContactEmailVerification,
   confirmContactEmailVerification,
+  requestEmailOtp,
+  verifyEmailOtp,
   fetchSubscriptionStatusWithSession,
   cancelSubscription,
   createCheckoutSession,
@@ -74,4 +76,3 @@ export type {
   AuthState,
   BackendAuthResponse
 } from './types';
-
