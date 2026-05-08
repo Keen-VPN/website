@@ -45,13 +45,16 @@ const SignIn = () => {
   const emailForOtp = otpEmail.trim().toLowerCase();
   const postOtpLoginUrl = React.useCallback(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    if (
+    const isASWebSession =
       urlParams.get("asweb") === "1" ||
-      sessionStorage.getItem("asweb_session") === "1"
-    ) {
+      sessionStorage.getItem("asweb_session") === "1";
+    const shouldReturnToMembershipTransfer =
+      consumePendingMembershipTransfer();
+
+    if (isASWebSession) {
       return "/account?asweb=1";
     }
-    if (consumePendingMembershipTransfer()) {
+    if (shouldReturnToMembershipTransfer) {
       return getMembershipTransferReturnUrl();
     }
     return "/account";
