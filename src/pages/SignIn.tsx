@@ -48,13 +48,15 @@ const SignIn = () => {
     const isASWebSession =
       urlParams.get("asweb") === "1" ||
       sessionStorage.getItem("asweb_session") === "1";
-    const shouldReturnToMembershipTransfer =
-      consumePendingMembershipTransfer();
 
     if (isASWebSession) {
+      // ASWeb sessions must return to the account page for the app callback.
+      // Clear any stale web-only membership transfer redirect so it cannot
+      // surprise the user on a later browser login.
+      consumePendingMembershipTransfer();
       return "/account?asweb=1";
     }
-    if (shouldReturnToMembershipTransfer) {
+    if (consumePendingMembershipTransfer()) {
       return getMembershipTransferReturnUrl();
     }
     return "/account";
