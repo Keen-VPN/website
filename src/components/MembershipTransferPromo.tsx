@@ -6,7 +6,7 @@ const MembershipTransferPromo = () => {
   const navigate = useNavigate();
 
   return (
-    <section className="bg-background pb-4">
+    <section className="bg-background py-8 md:py-10">
       <div className="mx-auto max-w-[1400px] px-4 md:px-8">
         <div className="max-w-5xl mx-auto rounded-lg border border-accent/30 bg-gradient-card p-5 shadow-card md:flex md:items-center md:justify-between md:gap-8 md:p-6">
           <div className="flex items-start gap-3 text-left md:gap-4">

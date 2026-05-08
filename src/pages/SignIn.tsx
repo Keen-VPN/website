@@ -8,16 +8,59 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, Apple } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+import { Label } from "@/components/ui/label";
+import { Loader2, Apple, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useDebounce } from "@/auth";
+import {
+  consumePendingMembershipTransfer,
+  getMembershipTransferReturnUrl,
+} from "@/auth/membership-transfer-flow";
+import {
+  requestEmailOtp,
+  storeSessionToken,
+  useDebounce,
+  verifyEmailOtp,
+} from "@/auth";
 import GoogleIcon from "@/components/ui/google-icon";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SEOHead from "@/components/SEOHead";
+import { useToast } from "@/hooks/use-toast";
 
 const SignIn = () => {
   const { signIn, loading: authLoading, isAuthenticating, user, subscription } = useAuth();
+  const { toast } = useToast();
+  const [otpEmail, setOtpEmail] = React.useState("");
+  const [otpCode, setOtpCode] = React.useState("");
+  const [otpSent, setOtpSent] = React.useState(false);
+  const [otpMessage, setOtpMessage] = React.useState("");
+  const [otpLoading, setOtpLoading] = React.useState(false);
+
+  const emailForOtp = otpEmail.trim().toLowerCase();
+  const postOtpLoginUrl = React.useCallback(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isASWebSession =
+      urlParams.get("asweb") === "1" ||
+      sessionStorage.getItem("asweb_session") === "1";
+
+    if (isASWebSession) {
+      // ASWeb sessions must return to the account page for the app callback.
+      // Clear any stale web-only membership transfer redirect so it cannot
+      // surprise the user on a later browser login.
+      consumePendingMembershipTransfer();
+      return "/account?asweb=1";
+    }
+    if (consumePendingMembershipTransfer()) {
+      return getMembershipTransferReturnUrl();
+    }
+    return "/account";
+  }, []);
 
   // Redirect logic for logged-in users
   React.useEffect(() => {
@@ -52,8 +95,66 @@ const SignIn = () => {
     await signIn("apple");
   }, 2000);
 
-  const isLoading =
-    authLoading || isGoogleDebouncing || isAppleDebouncing || isAuthenticating;
+  const providerLoading =
+    authLoading ||
+    isGoogleDebouncing ||
+    isAppleDebouncing ||
+    isAuthenticating;
+  const isLoading = providerLoading || otpLoading;
+
+  const sendOtp = async () => {
+    if (!emailForOtp) return;
+
+    setOtpLoading(true);
+    setOtpMessage("");
+    const result = await requestEmailOtp(emailForOtp);
+    setOtpLoading(false);
+
+    if (!result.success) {
+      toast({
+        title: result.rateLimited ? "Too many code requests" : "Code not sent",
+        description: result.error ?? "Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setOtpSent(true);
+    setOtpCode("");
+    setOtpMessage(
+      result.expiresInMinutes
+        ? `Code sent. It expires in ${result.expiresInMinutes} minutes.`
+        : result.message ?? "Code sent.",
+    );
+  };
+
+  const handleRequestOtp = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await sendOtp();
+  };
+
+  const handleVerifyOtp = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!emailForOtp || otpCode.length !== 6) return;
+
+    setOtpLoading(true);
+    const result = await verifyEmailOtp(emailForOtp, otpCode);
+    setOtpLoading(false);
+
+    if (!result.success || !result.sessionToken) {
+      toast({
+        title: "Sign-in code failed",
+        description: result.error ?? "Please check the code and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    storeSessionToken(result.sessionToken);
+    localStorage.setItem("auth_provider", "email");
+    sessionStorage.setItem("auth_provider", "email");
+    window.location.href = postOtpLoginUrl();
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -96,7 +197,8 @@ const SignIn = () => {
                 className="w-full bg-white text-gray-900 hover:bg-gray-50 border border-gray-300"
                 size="lg"
               >
-                {isGoogleDebouncing || (isLoading && !isAppleDebouncing) ? (
+                {isGoogleDebouncing ||
+                (providerLoading && !isAppleDebouncing) ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     {isGoogleDebouncing
@@ -117,7 +219,8 @@ const SignIn = () => {
                 className="w-full bg-black text-white hover:bg-gray-800"
                 size="lg"
               >
-                {isAppleDebouncing ? (
+                {isAppleDebouncing ||
+                (providerLoading && !isGoogleDebouncing) ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     {isAppleDebouncing ? "Please wait..." : "Authenticating..."}
@@ -129,6 +232,99 @@ const SignIn = () => {
                   </>
                 )}
               </Button>
+
+              <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">
+                    Or use email
+                  </span>
+                </div>
+              </div>
+
+              <form
+                onSubmit={otpSent ? handleVerifyOtp : handleRequestOtp}
+                className="space-y-3"
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="email-otp">Email</Label>
+                  <Input
+                    id="email-otp"
+                    type="email"
+                    autoComplete="email"
+                    value={otpEmail}
+                    onChange={(event) => {
+                      setOtpEmail(event.target.value);
+                      setOtpSent(false);
+                      setOtpCode("");
+                      setOtpMessage("");
+                    }}
+                    disabled={isLoading}
+                    placeholder="you@example.com"
+                  />
+                </div>
+
+                {otpSent ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="email-otp-code">Code</Label>
+                    <InputOTP
+                      id="email-otp-code"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={setOtpCode}
+                      disabled={isLoading}
+                      containerClassName="justify-center"
+                    >
+                      <InputOTPGroup>
+                        {Array.from({ length: 6 }).map((_, index) => (
+                          <InputOTPSlot key={index} index={index} />
+                        ))}
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                ) : null}
+
+                {otpMessage ? (
+                  <p className="text-sm text-muted-foreground">{otpMessage}</p>
+                ) : null}
+
+                <Button
+                  type="submit"
+                  disabled={
+                    isLoading ||
+                    !emailForOtp ||
+                    (otpSent && otpCode.length !== 6)
+                  }
+                  className="w-full"
+                  size="lg"
+                >
+                  {otpLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      {otpSent ? "Checking code..." : "Sending code..."}
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="mr-2 h-5 w-5" />
+                      {otpSent ? "Sign in with code" : "Send sign-in code"}
+                    </>
+                  )}
+                </Button>
+
+                {otpSent ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={isLoading}
+                    className="w-full"
+                    onClick={() => void sendOtp()}
+                  >
+                    Resend code
+                  </Button>
+                ) : null}
+              </form>
 
               <div className="text-center pt-4">
                 <div className="mb-3">
