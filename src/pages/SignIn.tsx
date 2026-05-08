@@ -142,6 +142,7 @@ const SignIn = () => {
     setOtpLoading(false);
 
     if (!result.success || !result.sessionToken) {
+      setOtpCode("");
       toast({
         title: "Sign-in code failed",
         description: result.error ?? "Please check the code and try again.",
@@ -272,6 +273,7 @@ const SignIn = () => {
                     <InputOTP
                       id="email-otp-code"
                       maxLength={6}
+                      autoComplete="one-time-code"
                       value={otpCode}
                       onChange={setOtpCode}
                       disabled={isLoading}
