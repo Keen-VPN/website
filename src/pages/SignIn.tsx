@@ -95,12 +95,12 @@ const SignIn = () => {
     await signIn("apple");
   }, 2000);
 
-  const isLoading =
+  const providerLoading =
     authLoading ||
     isGoogleDebouncing ||
     isAppleDebouncing ||
-    isAuthenticating ||
-    otpLoading;
+    isAuthenticating;
+  const isLoading = providerLoading || otpLoading;
 
   const sendOtp = async () => {
     if (!emailForOtp) return;
@@ -197,7 +197,8 @@ const SignIn = () => {
                 className="w-full bg-white text-gray-900 hover:bg-gray-50 border border-gray-300"
                 size="lg"
               >
-                {isGoogleDebouncing || (isLoading && !isAppleDebouncing) ? (
+                {isGoogleDebouncing ||
+                (providerLoading && !isAppleDebouncing) ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     {isGoogleDebouncing
@@ -218,7 +219,8 @@ const SignIn = () => {
                 className="w-full bg-black text-white hover:bg-gray-800"
                 size="lg"
               >
-                {isAppleDebouncing ? (
+                {isAppleDebouncing ||
+                (providerLoading && !isGoogleDebouncing) ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     {isAppleDebouncing ? "Please wait..." : "Authenticating..."}
