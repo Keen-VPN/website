@@ -373,6 +373,44 @@ export async function getContactEmailStatus(
   }
 }
 
+export async function requestEmailOtp(
+  email: string,
+): Promise<{
+  success: boolean;
+  message?: string;
+  expiresInMinutes?: number;
+  error?: string;
+  rateLimited?: boolean;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/otp/request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Failed to send sign-in code"),
+        rateLimited: response.status === 429,
+      };
+    }
+    const record = data as { message?: string; expiresInMinutes?: number };
+    return {
+      success: true,
+      message: record.message,
+      expiresInMinutes: record.expiresInMinutes,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to send sign-in code",
+    };
+  }
+}
+
 export async function saveContactEmail(
   sessionToken: string,
   email: string,
@@ -452,6 +490,37 @@ export async function confirmContactEmailVerification(
     return data as { success: boolean; message?: string };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Verification link is invalid or expired" };
+  }
+}
+
+export async function verifyEmailOtp(
+  email: string,
+  code: string,
+): Promise<BackendAuthResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/otp/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code }),
+    });
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Code verification failed"),
+        unauthorized: response.status === 401,
+      };
+    }
+    return normalizeBackendAuthResponse({
+      ...(data as RawBackendAuthResponse),
+      success: true,
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Code verification failed",
+    };
   }
 }
 
