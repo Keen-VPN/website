@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   adminListSubscriptions,
   adminRetriggerStripeCancelAtPeriodEnd,
@@ -37,6 +37,15 @@ export default function AdminSubscriptions() {
     text: string;
   } | null>(null);
   const limit = 50;
+
+  /** Latest list query; post-action refresh reads this so in-flight actions do not revert to stale page/filters. */
+  const listQueryRef = useRef({
+    page,
+    searchTerm,
+    statusFilter,
+    typeFilter,
+  });
+  listQueryRef.current = { page, searchTerm, statusFilter, typeFilter };
 
   const load = useCallback(
     async (
@@ -241,7 +250,8 @@ export default function AdminSubscriptions() {
                               tone: "success",
                               text: `${res.data.message}${extra}`,
                             });
-                            void load(page, searchTerm, statusFilter, typeFilter);
+                            const q = listQueryRef.current;
+                            void load(q.page, q.searchTerm, q.statusFilter, q.typeFilter);
                           })();
                         }}
                         className="rounded-md border border-border px-2 py-1.5 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
