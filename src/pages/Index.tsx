@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import Features from "@/components/Features";
 import MembershipTransferPromo from "@/components/MembershipTransferPromo";
+import WhyKeenVPN from "@/components/WhyKeenVPN";
 import Pricing from "@/components/Pricing";
 import Footer from "@/components/Footer";
 import SEOHead from "@/components/SEOHead";
@@ -17,6 +18,7 @@ const Index = () => {
       <Header />
       <Hero />
       <MembershipTransferPromo />
+      <WhyKeenVPN source="landing" />
       <div id="features">
         <Features />
       </div>
