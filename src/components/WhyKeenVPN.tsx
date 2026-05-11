@@ -46,6 +46,14 @@ const WhyKeenVPN = ({ source, compact = false }: WhyKeenVPNProps) => {
     });
   };
 
+  const handleComparisonKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>,
+  ) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    handleComparisonClick("comparison_table");
+  };
+
   return (
     <section
       ref={sectionRef}
@@ -115,10 +123,13 @@ const WhyKeenVPN = ({ source, compact = false }: WhyKeenVPNProps) => {
         )}
 
         <div className="mx-auto mt-10 max-w-5xl overflow-x-auto rounded-lg border border-border bg-card">
-          <button
-            type="button"
-            className="block min-w-[680px] w-full text-left"
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="KeenVPN comparison"
+            className="min-w-[680px] w-full"
             onClick={() => handleComparisonClick("comparison_table")}
+            onKeyDown={handleComparisonKeyDown}
           >
             <div className="grid grid-cols-[1.1fr_1fr_1fr] gap-3 border-b border-border bg-muted/30 px-4 py-4 text-sm font-semibold text-foreground md:px-6">
               <span>Feature</span>
@@ -147,7 +158,7 @@ const WhyKeenVPN = ({ source, compact = false }: WhyKeenVPNProps) => {
                 </span>
               </div>
             ))}
-          </button>
+          </div>
         </div>
 
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
