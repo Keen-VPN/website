@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import WhyKeenVPN from "@/components/WhyKeenVPN";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Accordion,
@@ -245,6 +246,8 @@ const Pricing = () => {
           </div>
         </section>
 
+        <WhyKeenVPN source="pricing" compact />
+
         {/* Error Banner */}
         {error && (
           <section className="container mx-auto px-4 mb-8">
@@ -257,7 +260,7 @@ const Pricing = () => {
         )}
 
         {/* Pricing Cards */}
-        <section className="container mx-auto px-4 mb-20">
+        <section id="plans" className="container mx-auto px-4 mb-20">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto items-stretch">
             {plans.map((plan, index) => {
               const isAnnual = billingPeriod === "annual";

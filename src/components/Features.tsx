@@ -45,11 +45,11 @@ const Features = () => {
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Why Choose <span className="text-primary">KeenVPN</span>?
+            Protection built into every connection
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Advanced security features designed to protect your digital life and
-            ensure complete privacy online.
+            Essential privacy and security features designed for everyday
+            browsing, public networks, and simple cross-device protection.
           </p>
         </div>
 
