@@ -1,10 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   adminListSubscriptions,
+  adminRetriggerStripeCancelAtPeriodEnd,
   type AdminSubscriptionListItem,
 } from "@/auth/backend";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
+
+function isStripeRenewalRetriggerEligible(row: AdminSubscriptionListItem): boolean {
+  if (row.subscriptionType !== "stripe") return false;
+  const s = row.status.toLowerCase();
+  if (s === "canceled" || s === "cancelled" || s === "expired" || s === "inactive") {
+    return false;
+  }
+  return true;
+}
 
 export default function AdminSubscriptions() {
+  const { can } = useAdminAuth();
+  const canWriteSubs = can("subscriptions.write");
   const [rows, setRows] = useState<AdminSubscriptionListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -18,6 +31,11 @@ export default function AdminSubscriptions() {
   const [typeInput, setTypeInput] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [jumpPageInput, setJumpPageInput] = useState("");
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
   const limit = 50;
 
   const load = useCallback(
@@ -73,6 +91,18 @@ export default function AdminSubscriptions() {
       {error ? (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
+        </div>
+      ) : null}
+
+      {actionNotice ? (
+        <div
+          className={
+            actionNotice.tone === "success"
+              ? "rounded-md border border-emerald-600/40 bg-emerald-600/10 p-3 text-sm text-emerald-900 dark:text-emerald-100"
+              : "rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
+          }
+        >
+          {actionNotice.text}
         </div>
       ) : null}
 
@@ -154,6 +184,7 @@ export default function AdminSubscriptions() {
               <th className="p-3">Status</th>
               <th className="p-3">Type</th>
               <th className="p-3">Period end</th>
+              {canWriteSubs ? <th className="p-3 w-[200px]">Billing</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -168,11 +199,68 @@ export default function AdminSubscriptions() {
                 <td className="p-3 text-muted-foreground">
                   {r.currentPeriodEnd ? r.currentPeriodEnd.slice(0, 10) : "—"}
                 </td>
+                {canWriteSubs ? (
+                  <td className="p-3 align-top">
+                    {isStripeRenewalRetriggerEligible(r) ? (
+                      <button
+                        type="button"
+                        title="Sets cancel_at_period_end in Stripe so the subscription does not renew again. Safe to run more than once."
+                        disabled={actionBusyId === r.id || loading}
+                        onClick={() => {
+                          const label = r.user.email;
+                          if (
+                            !window.confirm(
+                              `Turn off Stripe auto-renewal for ${label}? This does not refund; it stops future renewal charges after the current period.`,
+                            )
+                          ) {
+                            return;
+                          }
+                          void (async () => {
+                            setActionNotice(null);
+                            setActionBusyId(r.id);
+                            const res = await adminRetriggerStripeCancelAtPeriodEnd({
+                              subscriptionId: r.id,
+                            });
+                            setActionBusyId(null);
+                            if (!res.ok) {
+                              setActionNotice({ tone: "error", text: res.error ?? "Request failed" });
+                              return;
+                            }
+                            if (!res.data?.success) {
+                              setActionNotice({
+                                tone: "error",
+                                text: res.data?.message ?? res.data?.error ?? "Stripe update failed",
+                              });
+                              return;
+                            }
+                            const extra =
+                              res.data.stripeStatus != null
+                                ? ` Stripe status: ${res.data.stripeStatus}.`
+                                : "";
+                            setActionNotice({
+                              tone: "success",
+                              text: `${res.data.message}${extra}`,
+                            });
+                            void load(page, searchTerm, statusFilter, typeFilter);
+                          })();
+                        }}
+                        className="rounded-md border border-border px-2 py-1.5 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {actionBusyId === r.id ? "Working…" : "Stop Stripe renewal"}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                ) : null}
               </tr>
             ))}
             {!loading && rows.length === 0 ? (
               <tr>
-                <td className="p-4 text-muted-foreground" colSpan={5}>
+                <td
+                  className="p-4 text-muted-foreground"
+                  colSpan={canWriteSubs ? 6 : 5}
+                >
                   No subscriptions found.
                 </td>
               </tr>

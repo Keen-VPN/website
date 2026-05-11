@@ -52,6 +52,7 @@ export {
   adminUpdateOwnPassword,
   adminListTransferRequests,
   adminListSubscriptions,
+  adminRetriggerStripeCancelAtPeriodEnd,
   adminFetchTransferProofBlob,
   adminFetchTransferProofView,
   adminApproveTransferRequest,
@@ -63,6 +64,7 @@ export type {
   AdminMe,
   AdminUserOverview,
   AdminSubscriptionListItem,
+  AdminRetriggerStripeCancelResponse,
   CreateAdminUserPayload,
 } from './backend';
 
