@@ -5,7 +5,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import WhyKeenVPN from "@/components/WhyKeenVPN";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Accordion,
@@ -245,8 +244,6 @@ const Pricing = () => {
             </div>
           </div>
         </section>
-
-        <WhyKeenVPN source="pricing" compact />
 
         {/* Error Banner */}
         {error && (
