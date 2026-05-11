@@ -126,7 +126,6 @@ const WhyKeenVPN = ({ source, compact = false }: WhyKeenVPNProps) => {
           <div
             role="button"
             tabIndex={0}
-            aria-label="KeenVPN comparison"
             className="min-w-[680px] w-full"
             onClick={() => handleComparisonClick("comparison_table")}
             onKeyDown={handleComparisonKeyDown}
