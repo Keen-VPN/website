@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,6 +33,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SEOHead from "@/components/SEOHead";
 import { useToast } from "@/hooks/use-toast";
+
+const sanitizeOtpCode = (value: string) => value.replace(/\D/g, "").slice(0, 6);
 
 const SignIn = () => {
   const { signIn, loading: authLoading, isAuthenticating, user, subscription } = useAuth();
@@ -273,9 +276,11 @@ const SignIn = () => {
                     <InputOTP
                       id="email-otp-code"
                       maxLength={6}
+                      pattern={REGEXP_ONLY_DIGITS}
+                      pasteTransformer={sanitizeOtpCode}
                       autoComplete="one-time-code"
                       value={otpCode}
-                      onChange={setOtpCode}
+                      onChange={(value) => setOtpCode(sanitizeOtpCode(value))}
                       disabled={isLoading}
                       containerClassName="justify-center"
                     >
