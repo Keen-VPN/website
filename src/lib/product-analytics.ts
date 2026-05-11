@@ -13,8 +13,8 @@ export function trackProductEngagement(
   if (typeof window === "undefined") return;
 
   const detail = {
-    event: eventName,
     ...payload,
+    event: eventName,
   };
 
   window.dataLayer?.push(detail);
