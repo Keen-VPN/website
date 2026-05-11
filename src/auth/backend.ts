@@ -988,6 +988,17 @@ export interface AdminSubscriptionListResponse {
   totalPages: number;
 }
 
+/** Response body from POST /admin/subscription/stripe/retrigger-cancel-at-period-end */
+export interface AdminRetriggerStripeCancelResponse {
+  success: boolean;
+  message: string;
+  error: string | null;
+  subscriptionId?: string;
+  stripeSubscriptionId?: string;
+  stripeCancelAtPeriodEnd?: boolean;
+  stripeStatus?: string;
+}
+
 export interface CreateAdminUserPayload {
   email: string;
   password: string;
@@ -1243,6 +1254,40 @@ export async function adminListSubscriptions(params?: {
         totalPages: record.data?.totalPages ?? 1,
       },
     };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+/** Admin: re-apply Stripe `cancel_at_period_end` for a subscription row (legacy DB-only cancel fix). */
+export async function adminRetriggerStripeCancelAtPeriodEnd(params: {
+  subscriptionId: string;
+}): Promise<{
+  ok: boolean;
+  data?: AdminRetriggerStripeCancelResponse;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription/stripe/retrigger-cancel-at-period-end`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscriptionId: params.subscriptionId }),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Request failed"),
+      };
+    }
+    return { ok: true, data: raw as AdminRetriggerStripeCancelResponse };
   } catch (e) {
     return {
       ok: false,
