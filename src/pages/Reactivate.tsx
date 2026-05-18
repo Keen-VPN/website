@@ -53,8 +53,12 @@ const Reactivate = () => {
   React.useEffect(() => {
     if (token) {
       sessionStorage.setItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY, token);
+      setStatus("loading");
+      setMessage("");
     }
     previewValidatedForToken.current = null;
+    // New offer token must run the full flow again (same-route ?token= change does not remount).
+    terminalStateReached.current = false;
   }, [token]);
 
   React.useEffect(() => {
