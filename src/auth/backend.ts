@@ -618,6 +618,8 @@ export async function previewRetentionWinbackOffer(
   requiresAppleSettings?: boolean;
   offerExpiresAt?: string;
   invalidToken?: boolean;
+  /** When true, remove retention token from sessionStorage so /signin is not hijacked. */
+  discardStoredOffer?: boolean;
   error?: string;
 }> {
   try {
@@ -629,12 +631,16 @@ export async function previewRetentionWinbackOffer(
     const data: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       const error = extractBackendErrorMessage(data, "Invalid win-back offer");
+      const invalidToken =
+        response.status === 404 ||
+        (response.status === 400 && /invalid|expired/i.test(error));
+      const discardStoredOffer =
+        invalidToken || response.status === 400 || response.status === 404;
       return {
         success: false,
         error,
-        invalidToken:
-          response.status === 404 ||
-          (response.status === 400 && /invalid|expired/i.test(error)),
+        invalidToken,
+        discardStoredOffer,
       };
     }
     return data as {
@@ -660,6 +666,8 @@ export async function reactivateRetentionWinbackOffer(
   requiresAppleSettings?: boolean;
   alreadyRedeemed?: boolean;
   invalidToken?: boolean;
+  /** When true, remove retention token from sessionStorage so /signin is not hijacked. */
+  discardStoredOffer?: boolean;
   error?: string;
 }> {
   try {
@@ -677,12 +685,20 @@ export async function reactivateRetentionWinbackOffer(
         data,
         "Could not reactivate offer",
       );
+      const invalidToken =
+        response.status === 404 ||
+        (response.status === 400 && /invalid|expired/i.test(error));
+      const discardStoredOffer =
+        invalidToken ||
+        // Business-rule failures: drop stale offer from session so login redirect stops looping.
+        response.status === 400 ||
+        response.status === 403 ||
+        response.status === 404;
       return {
         success: false,
         error,
-        invalidToken:
-          response.status === 404 ||
-          (response.status === 400 && /invalid|expired/i.test(error)),
+        invalidToken,
+        discardStoredOffer,
       };
     }
     return data as {

@@ -59,11 +59,11 @@ const SignIn = () => {
       consumePendingMembershipTransfer();
       return "/account?asweb=1";
     }
-    if (consumePendingMembershipTransfer()) {
-      return getMembershipTransferReturnUrl();
-    }
     if (sessionStorage.getItem("retention_winback_token")) {
       return "/reactivate";
+    }
+    if (consumePendingMembershipTransfer()) {
+      return getMembershipTransferReturnUrl();
     }
     return "/account";
   }, []);

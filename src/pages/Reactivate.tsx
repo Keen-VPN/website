@@ -61,7 +61,7 @@ const Reactivate = () => {
       if (cancelled) return;
       if (!preview.success) {
         terminalStateReached.current = true;
-        if (preview.invalidToken) {
+        if (preview.discardStoredOffer || preview.invalidToken) {
           sessionStorage.removeItem(RETENTION_TOKEN_KEY);
         }
         setStatus("error");
@@ -95,7 +95,7 @@ const Reactivate = () => {
         setStatus("apple");
       } else {
         terminalStateReached.current = true;
-        if (result.invalidToken) {
+        if (result.discardStoredOffer || result.invalidToken) {
           sessionStorage.removeItem(RETENTION_TOKEN_KEY);
         }
         setStatus("error");
