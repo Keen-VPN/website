@@ -636,6 +636,15 @@ interface ReactivateRetentionWinbackOfferResult {
   error?: string;
 }
 
+/** Matches Nest `RetentionService.reactivateOffer` when `rewardGrantedAt` is set. */
+const WINBACK_ALREADY_REDEEMED_MESSAGE =
+  "Your 30 extra days free were already applied.";
+
+function messageIfNonEmpty(record: Record<string, unknown>): string | undefined {
+  const raw = record.message;
+  return typeof raw === "string" && raw.trim().length > 0 ? raw : undefined;
+}
+
 export async function previewRetentionWinbackOffer(
   token: string,
 ): Promise<PreviewRetentionWinbackOfferResult> {
@@ -752,9 +761,14 @@ export async function reactivateRetentionWinbackOffer(
       };
     }
     if (parsed.success === true) {
+      const alreadyRedeemed = parsed.alreadyRedeemed === true;
+      const existingMsg = messageIfNonEmpty(parsed);
       return {
         ...parsed,
         success: true,
+        ...(alreadyRedeemed && !existingMsg
+          ? { message: WINBACK_ALREADY_REDEEMED_MESSAGE }
+          : {}),
       } as ReactivateRetentionWinbackOfferResult;
     }
     if (parsed.success === false) {
@@ -767,6 +781,8 @@ export async function reactivateRetentionWinbackOffer(
       return {
         ...parsed,
         success: true,
+        message:
+          messageIfNonEmpty(parsed) ?? WINBACK_ALREADY_REDEEMED_MESSAGE,
       } as ReactivateRetentionWinbackOfferResult;
     }
     if (parsed.requiresAppleSettings === true) {
