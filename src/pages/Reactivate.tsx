@@ -36,6 +36,13 @@ const Reactivate = () => {
   const terminalStateReached = React.useRef(false);
   /** Avoid a second preview round-trip once this token passed validation. */
   const previewValidatedForToken = React.useRef<string | null>(null);
+  /** Suppress stale async work after deps change (Firebase user reference refresh, etc.). */
+  const flowRunGenerationRef = React.useRef(0);
+  /** Single in-flight reactivation per (session, offer) pair to avoid duplicate API calls. */
+  const reactivateFlightRef = React.useRef<{
+    key: string;
+    promise: ReturnType<typeof reactivateRetentionWinbackOffer>;
+  } | null>(null);
 
   React.useEffect(() => {
     if (token) {
@@ -45,6 +52,7 @@ const Reactivate = () => {
   }, [token]);
 
   React.useEffect(() => {
+    const myRun = ++flowRunGenerationRef.current;
     let cancelled = false;
 
     async function run() {
@@ -66,7 +74,7 @@ const Reactivate = () => {
             ReturnType<typeof previewRetentionWinbackOffer>
           >)
         : await previewRetentionWinbackOffer(token);
-      if (cancelled) return;
+      if (cancelled || flowRunGenerationRef.current !== myRun) return;
       if (!preview.success) {
         terminalStateReached.current = true;
         if (preview.discardStoredOffer || preview.invalidToken) {
@@ -96,14 +104,30 @@ const Reactivate = () => {
         return;
       }
 
-      const result = await reactivateRetentionWinbackOffer(sessionToken, token);
-      if (cancelled) return;
+      const flightKey = `${sessionToken}\0${token}`;
+      let flight = reactivateFlightRef.current;
+      if (!flight || flight.key !== flightKey) {
+        const promise = reactivateRetentionWinbackOffer(
+          sessionToken,
+          token,
+        ).finally(() => {
+          if (reactivateFlightRef.current?.key === flightKey) {
+            reactivateFlightRef.current = null;
+          }
+        });
+        reactivateFlightRef.current = { key: flightKey, promise };
+        flight = reactivateFlightRef.current;
+      }
+
+      const result = await flight.promise;
+      if (cancelled || flowRunGenerationRef.current !== myRun) return;
       setMessage(result.message ?? result.error ?? "");
 
       if (result.success) {
         terminalStateReached.current = true;
         sessionStorage.removeItem(RETENTION_TOKEN_KEY);
         await refreshSubscription();
+        if (cancelled || flowRunGenerationRef.current !== myRun) return;
         setStatus("success");
       } else if (result.requiresAppleSettings) {
         terminalStateReached.current = true;
