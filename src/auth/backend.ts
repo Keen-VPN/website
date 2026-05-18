@@ -643,7 +643,14 @@ export async function previewRetentionWinbackOffer(
         discardStoredOffer,
       };
     }
-    return data as {
+    const parsed =
+      data && typeof data === "object"
+        ? (data as Record<string, unknown>)
+        : {};
+    return {
+      ...parsed,
+      success: typeof parsed.success === "boolean" ? parsed.success : true,
+    } as {
       success: boolean;
       subscriptionType?: string;
       requiresAppleSettings?: boolean;
@@ -709,7 +716,14 @@ export async function reactivateRetentionWinbackOffer(
         alreadyRedeemed: record.alreadyRedeemed === true,
       };
     }
-    return data as {
+    const parsed =
+      data && typeof data === "object"
+        ? (data as Record<string, unknown>)
+        : {};
+    return {
+      ...parsed,
+      success: typeof parsed.success === "boolean" ? parsed.success : true,
+    } as {
       success: boolean;
       message?: string;
       requiresAppleSettings?: boolean;
