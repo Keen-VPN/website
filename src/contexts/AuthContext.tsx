@@ -17,6 +17,8 @@ import {
   getSessionToken,
   clearSessionToken,
   getLinkedProviders,
+  clearRetentionWinbackTokenStorage,
+  RETENTION_WINBACK_TOKEN_STORAGE_KEY,
   type SubscriptionData,
   type TrialData,
   type SignInResult
@@ -112,11 +114,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const postLoginUrl = React.useCallback(() => {
     if (isASWebSession()) {
       // Desktop app OAuth must land on account with callback; sweep web-only
-      // redirects so retention/membership transfer cannot hijack the ASWeb flow.
+      // redirects (win-back token + membership transfer) so they cannot hijack ASWeb.
       consumePendingMembershipTransfer();
+      clearRetentionWinbackTokenStorage();
       return '/account?asweb=1';
     }
-    if (sessionStorage.getItem('retention_winback_token')) {
+    if (sessionStorage.getItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY)) {
       return '/reactivate';
     }
     if (consumePendingMembershipTransfer()) {

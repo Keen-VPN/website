@@ -13,13 +13,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  RETENTION_WINBACK_TOKEN_STORAGE_KEY,
   getSessionToken,
   previewRetentionWinbackOffer,
   reactivateRetentionWinbackOffer,
 } from "@/auth";
 import { useAuth } from "@/contexts/AuthContext";
-
-const RETENTION_TOKEN_KEY = "retention_winback_token";
 
 const Reactivate = () => {
   const [searchParams] = useSearchParams();
@@ -27,7 +26,7 @@ const Reactivate = () => {
   const { user, loading, refreshSubscription, hasSessionToken } = useAuth();
   const tokenFromUrl = searchParams.get("token") ?? "";
   const [token] = React.useState(
-    () => tokenFromUrl || sessionStorage.getItem(RETENTION_TOKEN_KEY) || ""
+    () => tokenFromUrl || sessionStorage.getItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY) || ""
   );
   const [status, setStatus] = React.useState<
     "loading" | "signin" | "ready" | "success" | "apple" | "error"
@@ -46,7 +45,7 @@ const Reactivate = () => {
 
   React.useEffect(() => {
     if (token) {
-      sessionStorage.setItem(RETENTION_TOKEN_KEY, token);
+      sessionStorage.setItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY, token);
     }
     previewValidatedForToken.current = null;
   }, [token]);
@@ -60,7 +59,7 @@ const Reactivate = () => {
 
       if (!token) {
         terminalStateReached.current = true;
-        sessionStorage.removeItem(RETENTION_TOKEN_KEY);
+        sessionStorage.removeItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY);
         setStatus("error");
         setMessage("This win-back offer link is missing or invalid.");
         return;
@@ -78,7 +77,7 @@ const Reactivate = () => {
       if (!preview.success) {
         terminalStateReached.current = true;
         if (preview.discardStoredOffer || preview.invalidToken) {
-          sessionStorage.removeItem(RETENTION_TOKEN_KEY);
+          sessionStorage.removeItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY);
         }
         setStatus("error");
         setMessage(preview.error ?? "This win-back offer is unavailable.");
@@ -125,7 +124,7 @@ const Reactivate = () => {
 
       if (result.success) {
         terminalStateReached.current = true;
-        sessionStorage.removeItem(RETENTION_TOKEN_KEY);
+        sessionStorage.removeItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY);
         await refreshSubscription();
         if (cancelled || flowRunGenerationRef.current !== myRun) return;
         setStatus("success");
@@ -135,7 +134,7 @@ const Reactivate = () => {
       } else {
         terminalStateReached.current = true;
         if (result.discardStoredOffer || result.invalidToken) {
-          sessionStorage.removeItem(RETENTION_TOKEN_KEY);
+          sessionStorage.removeItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY);
         }
         setStatus("error");
       }
@@ -149,13 +148,13 @@ const Reactivate = () => {
 
   const signInForOffer = () => {
     if (token) {
-      sessionStorage.setItem(RETENTION_TOKEN_KEY, token);
+      sessionStorage.setItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY, token);
     }
     navigate("/signin");
   };
 
   const dismissOfferToAccount = () => {
-    sessionStorage.removeItem(RETENTION_TOKEN_KEY);
+    sessionStorage.removeItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY);
     navigate("/account");
   };
 

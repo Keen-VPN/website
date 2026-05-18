@@ -74,6 +74,11 @@ export {
   useDebounce
 } from './hooks';
 
+export {
+  RETENTION_WINBACK_TOKEN_STORAGE_KEY,
+  clearRetentionWinbackTokenStorage,
+} from './retention-winback-token';
+
 export type {
   SubscriptionData,
   TrialData,

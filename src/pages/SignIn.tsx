@@ -23,7 +23,9 @@ import {
   getMembershipTransferReturnUrl,
 } from "@/auth/membership-transfer-flow";
 import {
+  clearRetentionWinbackTokenStorage,
   requestEmailOtp,
+  RETENTION_WINBACK_TOKEN_STORAGE_KEY,
   storeSessionToken,
   useDebounce,
   verifyEmailOtp,
@@ -54,12 +56,13 @@ const SignIn = () => {
 
     if (isASWebSession) {
       // ASWeb sessions must return to the account page for the app callback.
-      // Clear any stale web-only membership transfer redirect so it cannot
-      // surprise the user on a later browser login.
+      // Clear stale web-only win-back token + membership transfer so neither
+      // can surprise the user on a later full-browser login.
       consumePendingMembershipTransfer();
+      clearRetentionWinbackTokenStorage();
       return "/account?asweb=1";
     }
-    if (sessionStorage.getItem("retention_winback_token")) {
+    if (sessionStorage.getItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY)) {
       return "/reactivate";
     }
     if (consumePendingMembershipTransfer()) {
