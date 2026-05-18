@@ -24,7 +24,7 @@ const RETENTION_TOKEN_KEY = "retention_winback_token";
 const Reactivate = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, loading, refreshSubscription } = useAuth();
+  const { user, loading, refreshSubscription, hasSessionToken } = useAuth();
   const tokenFromUrl = searchParams.get("token") ?? "";
   const [token] = React.useState(
     () => tokenFromUrl || sessionStorage.getItem(RETENTION_TOKEN_KEY) || ""
@@ -34,11 +34,14 @@ const Reactivate = () => {
   >("loading");
   const [message, setMessage] = React.useState("");
   const terminalStateReached = React.useRef(false);
+  /** Avoid a second preview round-trip once this token passed validation. */
+  const previewValidatedForToken = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (token) {
       sessionStorage.setItem(RETENTION_TOKEN_KEY, token);
     }
+    previewValidatedForToken.current = null;
   }, [token]);
 
   React.useEffect(() => {
@@ -57,7 +60,12 @@ const Reactivate = () => {
 
       if (loading) return;
 
-      const preview = await previewRetentionWinbackOffer(token);
+      const skipPreview = previewValidatedForToken.current === token;
+      const preview = skipPreview
+        ? ({ success: true as const } satisfies Awaited<
+            ReturnType<typeof previewRetentionWinbackOffer>
+          >)
+        : await previewRetentionWinbackOffer(token);
       if (cancelled) return;
       if (!preview.success) {
         terminalStateReached.current = true;
@@ -68,16 +76,23 @@ const Reactivate = () => {
         setMessage(preview.error ?? "This win-back offer is unavailable.");
         return;
       }
+      previewValidatedForToken.current = token;
 
       if (!user) {
         setStatus("signin");
         return;
       }
 
+      if (!hasSessionToken) {
+        // Firebase user exists; backend session may still be established in AuthContext.
+        setStatus("loading");
+        return;
+      }
+
       setStatus("ready");
       const sessionToken = getSessionToken();
       if (!sessionToken) {
-        setStatus("signin");
+        setStatus("loading");
         return;
       }
 
@@ -106,13 +121,18 @@ const Reactivate = () => {
     return () => {
       cancelled = true;
     };
-  }, [loading, refreshSubscription, token, user]);
+  }, [hasSessionToken, loading, refreshSubscription, token, user]);
 
   const signInForOffer = () => {
     if (token) {
       sessionStorage.setItem(RETENTION_TOKEN_KEY, token);
     }
     navigate("/signin");
+  };
+
+  const dismissOfferToAccount = () => {
+    sessionStorage.removeItem(RETENTION_TOKEN_KEY);
+    navigate("/account");
   };
 
   return (
@@ -185,6 +205,13 @@ const Reactivate = () => {
                     You can also open Settings, tap your Apple ID, then
                     Subscriptions, and choose KeenVPN.
                   </p>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={dismissOfferToAccount}
+                  >
+                    Continue to account without this offer
+                  </Button>
                 </>
               ) : null}
 

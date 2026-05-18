@@ -685,6 +685,10 @@ export async function reactivateRetentionWinbackOffer(
         data,
         "Could not reactivate offer",
       );
+      const record =
+        data && typeof data === "object"
+          ? (data as Record<string, unknown>)
+          : {};
       const invalidToken =
         response.status === 404 ||
         (response.status === 400 && /invalid|expired/i.test(error));
@@ -699,6 +703,10 @@ export async function reactivateRetentionWinbackOffer(
         error,
         invalidToken,
         discardStoredOffer,
+        message:
+          typeof record.message === "string" ? record.message : undefined,
+        requiresAppleSettings: record.requiresAppleSettings === true,
+        alreadyRedeemed: record.alreadyRedeemed === true,
       };
     }
     return data as {
