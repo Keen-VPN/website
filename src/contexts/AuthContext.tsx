@@ -110,6 +110,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [isASWebSession],
   );
   const postLoginUrl = React.useCallback(() => {
+    if (isASWebSession()) {
+      // Desktop app OAuth must land on account with callback; sweep web-only
+      // redirects so retention/membership transfer cannot hijack the ASWeb flow.
+      consumePendingMembershipTransfer();
+      return '/account?asweb=1';
+    }
     if (sessionStorage.getItem('retention_winback_token')) {
       return '/reactivate';
     }
@@ -117,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return getMembershipTransferReturnUrl();
     }
     return accountUrl();
-  }, [accountUrl]);
+  }, [accountUrl, isASWebSession]);
 
   // ============================================================================
   // Subscription Management
