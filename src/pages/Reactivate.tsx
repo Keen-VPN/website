@@ -24,10 +24,17 @@ const Reactivate = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, loading, refreshSubscription, hasSessionToken } = useAuth();
-  const tokenFromUrl = searchParams.get("token") ?? "";
-  const [token] = React.useState(
-    () => tokenFromUrl || sessionStorage.getItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY) || ""
-  );
+  const tokenParam = searchParams.get("token") ?? "";
+  const token = React.useMemo(() => {
+    if (tokenParam) return tokenParam;
+    try {
+      return (
+        sessionStorage.getItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY) || ""
+      );
+    } catch {
+      return "";
+    }
+  }, [tokenParam]);
   const [status, setStatus] = React.useState<
     "loading" | "signin" | "ready" | "success" | "apple" | "error"
   >("loading");
@@ -123,10 +130,10 @@ const Reactivate = () => {
       setMessage(result.message ?? result.error ?? "");
 
       if (result.success) {
-        terminalStateReached.current = true;
         sessionStorage.removeItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY);
         await refreshSubscription();
         if (cancelled || flowRunGenerationRef.current !== myRun) return;
+        terminalStateReached.current = true;
         setStatus("success");
       } else if (result.requiresAppleSettings) {
         terminalStateReached.current = true;
