@@ -62,6 +62,9 @@ const SignIn = () => {
     if (consumePendingMembershipTransfer()) {
       return getMembershipTransferReturnUrl();
     }
+    if (sessionStorage.getItem("retention_winback_token")) {
+      return "/reactivate";
+    }
     return "/account";
   }, []);
 

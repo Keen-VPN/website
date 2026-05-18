@@ -34,6 +34,8 @@ export {
   verifyEmailOtp,
   fetchSubscriptionStatusWithSession,
   cancelSubscription,
+  previewRetentionWinbackOffer,
+  reactivateRetentionWinbackOffer,
   createCheckoutSession,
   createBillingPortalSession,
   deleteAccount,

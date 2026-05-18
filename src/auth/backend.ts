@@ -610,6 +610,83 @@ export async function cancelSubscription(
   }
 }
 
+export async function previewRetentionWinbackOffer(
+  token: string,
+): Promise<{
+  success: boolean;
+  subscriptionType?: string;
+  requiresAppleSettings?: boolean;
+  offerExpiresAt?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/retention/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Invalid win-back offer"),
+      };
+    }
+    return data as {
+      success: boolean;
+      subscriptionType?: string;
+      requiresAppleSettings?: boolean;
+      offerExpiresAt?: string;
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Invalid win-back offer",
+    };
+  }
+}
+
+export async function reactivateRetentionWinbackOffer(
+  sessionToken: string,
+  token: string,
+): Promise<{
+  success: boolean;
+  message?: string;
+  requiresAppleSettings?: boolean;
+  alreadyRedeemed?: boolean;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/retention/reactivate`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token }),
+    });
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Could not reactivate offer"),
+      };
+    }
+    return data as {
+      success: boolean;
+      message?: string;
+      requiresAppleSettings?: boolean;
+      alreadyRedeemed?: boolean;
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Could not reactivate offer",
+    };
+  }
+}
+
 /** Sentinel error code when checkout fails due to expired/invalid session (e.g. 401). */
 export const CHECKOUT_ERROR_SESSION_EXPIRED = "SESSION_EXPIRED" as const;
 

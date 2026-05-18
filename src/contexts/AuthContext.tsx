@@ -110,6 +110,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [isASWebSession],
   );
   const postLoginUrl = React.useCallback(() => {
+    if (sessionStorage.getItem('retention_winback_token')) {
+      return '/reactivate';
+    }
     if (consumePendingMembershipTransfer()) {
       return getMembershipTransferReturnUrl();
     }
