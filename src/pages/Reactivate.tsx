@@ -33,6 +33,7 @@ const Reactivate = () => {
     "loading" | "signin" | "ready" | "success" | "apple" | "error"
   >("loading");
   const [message, setMessage] = React.useState("");
+  const terminalStateReached = React.useRef(false);
 
   React.useEffect(() => {
     if (token) {
@@ -44,21 +45,30 @@ const Reactivate = () => {
     let cancelled = false;
 
     async function run() {
+      if (terminalStateReached.current) return;
+
       if (!token) {
+        terminalStateReached.current = true;
+        sessionStorage.removeItem(RETENTION_TOKEN_KEY);
         setStatus("error");
         setMessage("This win-back offer link is missing or invalid.");
         return;
       }
 
+      if (loading) return;
+
       const preview = await previewRetentionWinbackOffer(token);
       if (cancelled) return;
       if (!preview.success) {
+        terminalStateReached.current = true;
+        if (preview.invalidToken) {
+          sessionStorage.removeItem(RETENTION_TOKEN_KEY);
+        }
         setStatus("error");
         setMessage(preview.error ?? "This win-back offer is unavailable.");
         return;
       }
 
-      if (loading) return;
       if (!user) {
         setStatus("signin");
         return;
@@ -76,12 +86,18 @@ const Reactivate = () => {
       setMessage(result.message ?? result.error ?? "");
 
       if (result.success) {
+        terminalStateReached.current = true;
         sessionStorage.removeItem(RETENTION_TOKEN_KEY);
         await refreshSubscription();
         setStatus("success");
       } else if (result.requiresAppleSettings) {
+        terminalStateReached.current = true;
         setStatus("apple");
       } else {
+        terminalStateReached.current = true;
+        if (result.invalidToken) {
+          sessionStorage.removeItem(RETENTION_TOKEN_KEY);
+        }
         setStatus("error");
       }
     }

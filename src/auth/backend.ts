@@ -617,6 +617,7 @@ export async function previewRetentionWinbackOffer(
   subscriptionType?: string;
   requiresAppleSettings?: boolean;
   offerExpiresAt?: string;
+  invalidToken?: boolean;
   error?: string;
 }> {
   try {
@@ -627,9 +628,13 @@ export async function previewRetentionWinbackOffer(
     });
     const data: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
+      const error = extractBackendErrorMessage(data, "Invalid win-back offer");
       return {
         success: false,
-        error: extractBackendErrorMessage(data, "Invalid win-back offer"),
+        error,
+        invalidToken:
+          response.status === 404 ||
+          (response.status === 400 && /invalid|expired/i.test(error)),
       };
     }
     return data as {
@@ -654,6 +659,7 @@ export async function reactivateRetentionWinbackOffer(
   message?: string;
   requiresAppleSettings?: boolean;
   alreadyRedeemed?: boolean;
+  invalidToken?: boolean;
   error?: string;
 }> {
   try {
@@ -667,9 +673,16 @@ export async function reactivateRetentionWinbackOffer(
     });
     const data: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
+      const error = extractBackendErrorMessage(
+        data,
+        "Could not reactivate offer",
+      );
       return {
         success: false,
-        error: extractBackendErrorMessage(data, "Could not reactivate offer"),
+        error,
+        invalidToken:
+          response.status === 404 ||
+          (response.status === 400 && /invalid|expired/i.test(error)),
       };
     }
     return data as {
