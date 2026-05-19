@@ -37,7 +37,7 @@ export const faqs = [
   {
     question: "How does billing work for annual plans?",
     answer:
-      "Annual plans are billed once per year upfront. You'll save significantly compared to monthly billing - that's equivalent to getting 2 months free on Individual plans and 2.5 months free on Team plans.",
+      "Annual plans are billed once per year upfront at $30/year — about $2.50/month. Compared to $10/month billing, you save 75% ($90 per year).",
   },
   {
     question: "Do you keep logs of my activity?",

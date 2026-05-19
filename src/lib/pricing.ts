@@ -1,3 +1,6 @@
+import type { AnnualSavingsMetrics } from "@/lib/pricing-savings";
+import { computeAnnualSavings } from "@/lib/pricing-savings";
+
 export interface ApiPlan {
   id: string;
   name: string;
@@ -12,6 +15,7 @@ export interface ApiPlan {
   }[];
   priceId: string;
   description?: string;
+  annualSavings?: AnnualSavingsMetrics;
 }
 
 export interface PricingPlan {
@@ -33,6 +37,7 @@ export interface PricingPlan {
   popular: boolean;
   monthlyPriceId?: string;
   annualPriceId?: string;
+  annualSavings?: AnnualSavingsMetrics | null;
 }
 
 export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
@@ -66,6 +71,13 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       annual?.price || (monthly?.price ? monthly.price * 12 : 0);
     const annualMonthlyEquivalent =
       annual && annualPrice > 0 ? `$${(annualPrice / 12).toFixed(2)}` : null;
+    const annualSavings =
+      annual?.annualSavings ??
+      (monthly && annual
+        ? computeAnnualSavings(monthly.price, annual.price)
+        : monthlyPrice > 0 && annualPrice > 0
+          ? computeAnnualSavings(monthlyPrice, annualPrice)
+          : null);
 
     const features = annual?.features?.length
       ? annual.features
@@ -92,6 +104,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       popular: isTeam,
       monthlyPriceId: monthly?.priceId,
       annualPriceId: annual?.priceId,
+      annualSavings,
     });
   });
 

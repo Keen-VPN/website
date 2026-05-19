@@ -16,9 +16,9 @@ import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import PricingNoticeTooltip from "@/components/PricingNoticeTooltip";
 import { enterprisePlan, featureComparison, faqs } from "@/constants/pricing";
 import { fetchSubscriptionPlans, getSessionToken, createBillingPortalSession } from "@/auth/backend";
-import { transformApiPlans } from "@/lib/pricing";
-
-import { PricingPlan } from "@/lib/pricing";
+import { transformApiPlans, PricingPlan } from "@/lib/pricing";
+import { FALLBACK_ANNUAL_SAVINGS } from "@/lib/pricing-savings";
+import { trackAnnualPlanEvent } from "@/lib/annual-plan-analytics";
 import SEOHead from "@/components/SEOHead";
 import { canStartFreeTrial } from "@/lib/subscription-cta";
 import type { TrialData } from "@/auth/types";
@@ -77,6 +77,18 @@ const Pricing = () => {
 
   const [portalLoading, setPortalLoading] = useState(false);
   const [membershipTransferOpen, setMembershipTransferOpen] = useState(false);
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
+    "annual",
+  );
+  const [plans, setPlans] = useState<PricingPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const premiumPlan = plans.find(
+    (p) => p.name === "Individual" || p.name === "Premium",
+  );
+  const annualSavings =
+    premiumPlan?.annualSavings ?? FALLBACK_ANNUAL_SAVINGS;
 
   useEffect(() => {
     if (authLoading || !hasMembershipTransferQuery(searchParams)) {
@@ -95,7 +107,19 @@ const Pricing = () => {
     setSearchParams(next, { replace: true });
   }, [authLoading, user, searchParams, navigate, setSearchParams]);
 
+  useEffect(() => {
+    if (billingPeriod === "annual") {
+      void trackAnnualPlanEvent("annual_plan_viewed", {
+        source: "pricing_page",
+        persistToBackend: false,
+      });
+    }
+  }, [billingPeriod]);
+
   const handleUpgradeToAnnual = async () => {
+    void trackAnnualPlanEvent("annual_upgrade_clicked", {
+      source: "pricing_page_upgrade_cta",
+    });
     const token = getSessionToken();
     if (!token) {
       toast({
@@ -130,12 +154,6 @@ const Pricing = () => {
       setPortalLoading(false);
     }
   };
-  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
-    "annual",
-  );
-  const [plans, setPlans] = useState<PricingPlan[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadPlans = async () => {
@@ -216,7 +234,9 @@ const Pricing = () => {
               }`}
             >
               Annual
-              <span className="ml-2 text-sm">(Save 17%)</span>
+              <span className="ml-2 text-sm">
+                ({annualSavings.savingsPercentLabel})
+              </span>
             </button>
           </div>
 
@@ -274,6 +294,8 @@ const Pricing = () => {
                 isAnnual && plan.annualMonthlyEquivalent
                   ? plan.annualMonthlyEquivalent
                   : null;
+              const planSavings =
+                isAnnual && plan.annualSavings ? plan.annualSavings : null;
 
               return (
                 <div
@@ -319,6 +341,17 @@ const Pricing = () => {
                       )}
                       {plan.name !== "Enterprise" && <PricingNoticeTooltip />}
                     </div>
+                    {planSavings && (
+                      <p className="mt-2 text-sm font-medium text-primary">
+                        {planSavings.annualBadgeLabel}
+                      </p>
+                    )}
+                    {planSavings && isAnnual && (
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {planSavings.annualDollarSavingsLabel} saved per year vs
+                        monthly billing
+                      </p>
+                    )}
                   </div>
 
                   {plan.name === "Enterprise" ? (
@@ -352,7 +385,7 @@ const Pricing = () => {
                       ) : (
                         <>
                           <ArrowUpCircle className="h-4 w-4 mr-2" />
-                          Upgrade to Annual (Save 17%)
+                          Upgrade to Annual ({annualSavings.savingsPercentLabel})
                         </>
                       )}
                     </Button>

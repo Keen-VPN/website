@@ -23,6 +23,8 @@ import {
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
 import { enterprisePlan } from "@/constants/pricing";
+import { computeAnnualSavings } from "@/lib/pricing-savings";
+import { trackAnnualPlanEvent } from "@/lib/annual-plan-analytics";
 import {
   canStartFreeTrial,
   getSubscriptionCtaLabel,
@@ -58,8 +60,16 @@ const getPlanOptionPrice = (plan: ApiPlan) =>
     ? `$${(plan.price / 12).toFixed(2)}/mo`
     : `$${plan.price}/mo`;
 
-const getPlanOptionMeta = (plan: ApiPlan) =>
-  isAnnualPlan(plan) ? `$${plan.price}/year` : "Billed monthly";
+const getPlanOptionMeta = (plan: ApiPlan, monthlyPlan?: ApiPlan) => {
+  if (!isAnnualPlan(plan)) return "Billed monthly";
+  const savings =
+    plan.annualSavings ??
+    (monthlyPlan
+      ? computeAnnualSavings(monthlyPlan.price, plan.price)
+      : null);
+  const base = `$${plan.price}/year`;
+  return savings ? `${savings.savingsPercentLabel} · ${base}` : base;
+};
 
 const matchesRequestedPlan = (plan: ApiPlan, requestedPlanId: string) => {
   if (plan.id === requestedPlanId) return true;
@@ -80,6 +90,7 @@ interface PlanOptionSelectorProps {
   selectedPlan: PricingPlan | ApiPlan;
   onSelect: (plan: ApiPlan) => void;
   className?: string;
+  monthlyPlan?: ApiPlan;
 }
 
 const PlanOptionSelector = ({
@@ -87,6 +98,7 @@ const PlanOptionSelector = ({
   selectedPlan,
   onSelect,
   className = "",
+  monthlyPlan,
 }: PlanOptionSelectorProps) => {
   if (plans.length <= 1) return null;
 
@@ -115,7 +127,7 @@ const PlanOptionSelector = ({
                     {getPlanOptionLabel(plan)}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {getPlanOptionMeta(plan)}
+                    {getPlanOptionMeta(plan, monthlyPlan)}
                   </div>
                 </div>
                 {isSelected && <Check className="h-5 w-5 text-primary" />}
@@ -226,6 +238,17 @@ const Subscribe = () => {
 
   // Get URL parameters
   const planIdParam = searchParams.get("planId");
+  const monthlyPlanOption = planOptions.find((p) => !isAnnualPlan(p));
+
+  useEffect(() => {
+    if (!selectedPlan || !("id" in selectedPlan)) return;
+    if (isAnnualPlan(selectedPlan as ApiPlan)) {
+      void trackAnnualPlanEvent("annual_plan_viewed", {
+        source: "subscribe_page",
+        persistToBackend: false,
+      });
+    }
+  }, [selectedPlan]);
 
   // Single place for "session expired" flow: show one toast and attempt logout without rethrowing,
   // so the outer catch never runs and we avoid double toasts.
@@ -409,6 +432,12 @@ const Subscribe = () => {
         throw new Error("Plan ID is required");
       }
 
+      if ("id" in selectedPlan && isAnnualPlan(selectedPlan)) {
+        void trackAnnualPlanEvent("annual_upgrade_clicked", {
+          source: "subscribe_checkout",
+        });
+      }
+
       const sessionToken = getSessionToken();
 
       if (!sessionToken) {
@@ -534,6 +563,7 @@ const Subscribe = () => {
                     plans={planOptions}
                     selectedPlan={selectedPlan}
                     onSelect={setSelectedPlan}
+                    monthlyPlan={monthlyPlanOption}
                     className="pb-3"
                   />
 
@@ -592,6 +622,7 @@ const Subscribe = () => {
                   plans={planOptions}
                   selectedPlan={selectedPlan}
                   onSelect={setSelectedPlan}
+                  monthlyPlan={monthlyPlanOption}
                   className="mb-6"
                 />
 

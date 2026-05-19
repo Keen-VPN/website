@@ -45,7 +45,7 @@ const PaymentCancel = () => {
                 </li>
                 <li className="flex items-start">
                   <span className="mr-2">💰</span>
-                  <span>Just $100/year - less than $8.33/month</span>
+                  <span>Just $30/year — only $2.50/month billed annually</span>
                 </li>
               </ul>
             </div>

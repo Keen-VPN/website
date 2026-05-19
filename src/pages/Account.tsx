@@ -64,6 +64,8 @@ import {
   getSubscriptionCtaLabel,
   hasManageableSubscription,
 } from "@/lib/subscription-cta";
+import { FALLBACK_ANNUAL_SAVINGS } from "@/lib/pricing-savings";
+import { trackAnnualPlanEvent } from "@/lib/annual-plan-analytics";
 
 const Account = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
@@ -112,6 +114,7 @@ const Account = () => {
     return urlParams.get("session_id");
   }, [location.search]);
   const processedStripeSessionRef = useRef<string | null>(null);
+  const trackedStripeAnnualCompletionRef = useRef(false);
 
   // The session token may not be in localStorage yet when Account first mounts
   // (AuthContext is still verifying with the backend). Poll until it arrives.
@@ -218,10 +221,33 @@ const Account = () => {
     isASWeb,
   ]);
 
+  useEffect(() => {
+    if (!initialSubscriptionChecked || !stripeSessionId) return;
+    if (trackedStripeAnnualCompletionRef.current) return;
+    const plan = (subscription?.plan ?? "").toLowerCase();
+    if (
+      plan.includes("annual") ||
+      plan.includes("yearly") ||
+      plan.includes("year")
+    ) {
+      trackedStripeAnnualCompletionRef.current = true;
+      void trackAnnualPlanEvent("annual_upgrade_completed", {
+        source: "stripe_checkout_return",
+      });
+    }
+  }, [initialSubscriptionChecked, stripeSessionId, subscription?.plan]);
+
   const handleRefreshSubscription = async () => {
     setSubscriptionLoading(true);
     await refreshSubscription();
     setSubscriptionLoading(false);
+  };
+
+  const handleUpgradeToAnnual = async () => {
+    void trackAnnualPlanEvent("annual_upgrade_clicked", {
+      source: "account_upgrade_cta",
+    });
+    await handleManageBilling();
   };
 
   const handleManageBilling = async () => {
@@ -738,26 +764,41 @@ const Account = () => {
                       </p>
                     </div>
 
-                    {/* Upgrade to Annual */}
+                    {/* Upgrade to Annual — monthly Stripe subscribers only */}
                     {isMonthlyStripe && !subscription.cancelAtPeriodEnd && (
-                      <Button
-                        onClick={handleManageBilling}
-                        disabled={portalLoading}
-                        variant="outline"
-                        className="w-full border-primary text-primary hover:bg-primary/10"
-                      >
-                        {portalLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Opening billing portal...
-                          </>
-                        ) : (
-                          <>
-                            <ArrowUpCircle className="h-4 w-4 mr-2" />
-                            Upgrade to Annual (Save 17%)
-                          </>
-                        )}
-                      </Button>
+                      <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                        <p className="text-sm font-medium text-foreground">
+                          Switch to annual and {FALLBACK_ANNUAL_SAVINGS.savingsPercentLabel.toLowerCase()}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Pay {FALLBACK_ANNUAL_SAVINGS.monthlyEquivalentLabel}/mo (
+                          {FALLBACK_ANNUAL_SAVINGS.annualDollarSavingsLabel} saved per year vs
+                          monthly). {FALLBACK_ANNUAL_SAVINGS.annualBadgeLabel}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Stripe applies proration when you switch mid-cycle: unused time on your
+                          monthly plan is credited toward the annual charge. Your annual billing
+                          starts immediately after you confirm in the billing portal.
+                        </p>
+                        <Button
+                          onClick={handleUpgradeToAnnual}
+                          disabled={portalLoading}
+                          variant="outline"
+                          className="w-full border-primary text-primary hover:bg-primary/10"
+                        >
+                          {portalLoading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Opening billing portal...
+                            </>
+                          ) : (
+                            <>
+                              <ArrowUpCircle className="h-4 w-4 mr-2" />
+                              Upgrade to Annual ({FALLBACK_ANNUAL_SAVINGS.savingsPercentLabel})
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     )}
 
                     {/* Auto-Renewal Status */}

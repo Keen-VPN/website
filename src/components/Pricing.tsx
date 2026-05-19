@@ -4,6 +4,11 @@ import { Check, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  CANONICAL_ANNUAL_PRICE_USD,
+  CANONICAL_MONTHLY_PRICE_USD,
+  computeAnnualSavings,
+} from "@/lib/pricing-savings";
 
 interface Plan {
   name: string;
@@ -79,7 +84,7 @@ const Pricing = () => {
             // Fallback to default annual plan
             setAnnualPlan({
               name: "KeenVPN Premium",
-              price: "$100",
+              price: `$${CANONICAL_ANNUAL_PRICE_USD}`,
               period: "/year",
               description: "Complete VPN protection for the entire year",
               features: defaultFeatures,
@@ -93,7 +98,7 @@ const Pricing = () => {
             // Fallback to default monthly plan
             setMonthlyPlan({
               name: "KeenVPN Premium",
-              price: "$10",
+              price: `$${CANONICAL_MONTHLY_PRICE_USD}`,
               period: "/month",
               description: "Complete VPN protection month to month",
               features: defaultFeatures,
@@ -115,6 +120,10 @@ const Pricing = () => {
 
   const renderPlanCard = (plan: Plan, isAnnual: boolean) => {
     const monthlyEquivalent = isAnnual ? `billed annually` : null;
+    const annualPriceNum = parseFloat(plan.price.replace("$", ""));
+    const savings = isAnnual
+      ? computeAnnualSavings(CANONICAL_MONTHLY_PRICE_USD, annualPriceNum)
+      : null;
 
     return (
       <div
@@ -153,6 +162,16 @@ const Pricing = () => {
               )}
             </span>
           </div>
+          {savings && (
+            <p className="mt-2 text-sm font-medium text-primary">
+              {savings.annualBadgeLabel}
+            </p>
+          )}
+          {savings && (
+            <p className="text-xs text-muted-foreground">
+              {savings.annualDollarSavingsLabel} saved per year
+            </p>
+          )}
         </div>
 
         <ul className="space-y-4 mb-8">

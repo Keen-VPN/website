@@ -6,8 +6,15 @@ declare global {
   }
 }
 
+export type ProductEngagementEvent =
+  | "why_keenvpn_viewed"
+  | "comparison_section_clicked"
+  | "annual_plan_viewed"
+  | "annual_upgrade_clicked"
+  | "annual_upgrade_completed";
+
 export function trackProductEngagement(
-  eventName: "why_keenvpn_viewed" | "comparison_section_clicked",
+  eventName: ProductEngagementEvent,
   payload: ProductAnalyticsPayload = {},
 ): void {
   if (typeof window === "undefined") return;
