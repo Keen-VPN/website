@@ -761,6 +761,13 @@ export async function reactivateRetentionWinbackOffer(
       };
     }
     if (parsed.success === true) {
+      if (parsed.requiresAppleSettings === true) {
+        return {
+          ...parsed,
+          success: false,
+          requiresAppleSettings: true,
+        } as ReactivateRetentionWinbackOfferResult;
+      }
       const alreadyRedeemed = parsed.alreadyRedeemed === true;
       const existingMsg = messageIfNonEmpty(parsed);
       return {

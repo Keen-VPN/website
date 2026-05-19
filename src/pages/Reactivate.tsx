@@ -27,6 +27,9 @@ const Reactivate = () => {
   const navigate = useNavigate();
   const { user, loading, refreshSubscription, hasSessionToken } = useAuth();
   const tokenParam = searchParams.get("token") ?? "";
+  /** Set when redirected from expired/invalid email CTA (backend `/retention/click`). */
+  const offerUnavailableFromQuery =
+    searchParams.get("error") === "offer_unavailable";
   const token = React.useMemo(() => {
     if (tokenParam) return tokenParam;
     return getRetentionWinbackTokenFromStorage();
@@ -68,7 +71,11 @@ const Reactivate = () => {
         terminalStateReached.current = true;
         clearRetentionWinbackTokenStorage();
         setStatus("error");
-        setMessage("This win-back offer link is missing or invalid.");
+        setMessage(
+          offerUnavailableFromQuery
+            ? "This win-back offer is no longer valid or could not be opened. You can manage your subscription from your account."
+            : "This win-back offer link is missing or invalid.",
+        );
         return;
       }
 
@@ -137,6 +144,9 @@ const Reactivate = () => {
         setStatus("success");
       } else if (result.requiresAppleSettings) {
         terminalStateReached.current = true;
+        if (result.discardStoredOffer || result.invalidToken) {
+          clearRetentionWinbackTokenStorage();
+        }
         setStatus("apple");
       } else {
         terminalStateReached.current = true;
@@ -151,7 +161,7 @@ const Reactivate = () => {
     return () => {
       cancelled = true;
     };
-  }, [hasSessionToken, loading, refreshSubscription, token, user]);
+  }, [hasSessionToken, loading, offerUnavailableFromQuery, refreshSubscription, token, user]);
 
   const signInForOffer = () => {
     if (token) {
