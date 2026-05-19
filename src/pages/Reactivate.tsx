@@ -13,7 +13,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  RETENTION_WINBACK_TOKEN_STORAGE_KEY,
+  clearRetentionWinbackTokenStorage,
+  getRetentionWinbackTokenFromStorage,
+  setRetentionWinbackTokenStorage,
   getSessionToken,
   previewRetentionWinbackOffer,
   reactivateRetentionWinbackOffer,
@@ -27,13 +29,7 @@ const Reactivate = () => {
   const tokenParam = searchParams.get("token") ?? "";
   const token = React.useMemo(() => {
     if (tokenParam) return tokenParam;
-    try {
-      return (
-        sessionStorage.getItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY) || ""
-      );
-    } catch {
-      return "";
-    }
+    return getRetentionWinbackTokenFromStorage();
   }, [tokenParam]);
   const [status, setStatus] = React.useState<
     "loading" | "signin" | "ready" | "success" | "apple" | "error"
@@ -52,7 +48,7 @@ const Reactivate = () => {
 
   React.useEffect(() => {
     if (token) {
-      sessionStorage.setItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY, token);
+      setRetentionWinbackTokenStorage(token);
       setStatus("loading");
       setMessage("");
     }
@@ -70,7 +66,7 @@ const Reactivate = () => {
 
       if (!token) {
         terminalStateReached.current = true;
-        sessionStorage.removeItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY);
+        clearRetentionWinbackTokenStorage();
         setStatus("error");
         setMessage("This win-back offer link is missing or invalid.");
         return;
@@ -88,7 +84,7 @@ const Reactivate = () => {
       if (!preview.success) {
         terminalStateReached.current = true;
         if (preview.discardStoredOffer || preview.invalidToken) {
-          sessionStorage.removeItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY);
+          clearRetentionWinbackTokenStorage();
         }
         setStatus("error");
         setMessage(preview.error ?? "This win-back offer is unavailable.");
@@ -134,7 +130,7 @@ const Reactivate = () => {
       setMessage(result.message ?? result.error ?? "");
 
       if (result.success) {
-        sessionStorage.removeItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY);
+        clearRetentionWinbackTokenStorage();
         await refreshSubscription();
         if (cancelled || flowRunGenerationRef.current !== myRun) return;
         terminalStateReached.current = true;
@@ -145,7 +141,7 @@ const Reactivate = () => {
       } else {
         terminalStateReached.current = true;
         if (result.discardStoredOffer || result.invalidToken) {
-          sessionStorage.removeItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY);
+          clearRetentionWinbackTokenStorage();
         }
         setStatus("error");
       }
@@ -159,13 +155,13 @@ const Reactivate = () => {
 
   const signInForOffer = () => {
     if (token) {
-      sessionStorage.setItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY, token);
+      setRetentionWinbackTokenStorage(token);
     }
     navigate("/signin");
   };
 
   const dismissOfferToAccount = () => {
-    sessionStorage.removeItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY);
+    clearRetentionWinbackTokenStorage();
     navigate("/account");
   };
 
