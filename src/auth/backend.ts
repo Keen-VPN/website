@@ -1170,6 +1170,49 @@ export interface AdminIpAddressClickSummary {
   topServerLocations: { label: string; count: number }[];
 }
 
+export interface AdminMedianMonthlySessionsSummary {
+  month: string;
+  median_sessions_per_user: number;
+  mean_sessions_per_user: number;
+  users_with_sessions: number;
+  total_sessions: number;
+  percentiles: {
+    p25: number;
+    p50: number;
+    p75: number;
+    p90: number;
+    p95: number;
+  };
+  filters: {
+    min_duration_seconds: number;
+    exclude_email_patterns: string[];
+    exclude_platforms: string[];
+  };
+}
+
+export interface AdminMedianMonthlySessionsReport {
+  summary: AdminMedianMonthlySessionsSummary;
+  histogram: { session_count: number; users: number }[];
+  segments: {
+    platform: AdminEngagementSegment[];
+    subscription_tier: AdminEngagementSegment[];
+    acquisition_source: AdminEngagementSegment[];
+  };
+  month_over_month: {
+    previous_month: string;
+    median_sessions_per_user: number;
+    users_with_sessions: number;
+    delta_median: number;
+  } | null;
+}
+
+export interface AdminEngagementSegment {
+  segment: string;
+  median_sessions_per_user: number;
+  users_with_sessions: number;
+  total_sessions: number;
+}
+
 export interface AdminSubscriptionListItem {
   id: string;
   status: string;
@@ -1277,6 +1320,75 @@ export async function adminFetchMe(): Promise<{
   }
 }
 
+export interface AdminConnectionSession {
+  id: string;
+  client_session_id: string;
+  session_start: string;
+  session_end: string | null;
+  duration_seconds: number;
+  platform: string;
+  app_version: string | null;
+  server_location: string | null;
+  bytes_transferred: number;
+  subscription_tier: string | null;
+  termination_reason: string;
+  disconnect_reason: string | null;
+}
+
+export interface AdminUserConnectionSessionsResponse {
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    provider: string;
+    longestSessionSeconds: number;
+    createdAt: string;
+  };
+  sessions: AdminConnectionSession[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export async function adminFetchUserConnectionSessions(
+  userId: string,
+  params?: { limit?: number; offset?: number; signal?: AbortSignal },
+): Promise<{
+  ok: boolean;
+  data?: AdminUserConnectionSessionsResponse;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    query.set("limit", String(params?.limit ?? 50));
+    query.set("offset", String(params?.offset ?? 0));
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/connection-sessions?${query.toString()}`,
+      {
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load connection sessions",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminUserConnectionSessionsResponse };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
 export async function adminFetchUsersOverview(params?: {
   page?: number;
   limit?: number;
@@ -1303,6 +1415,57 @@ export async function adminFetchUsersOverview(params?: {
       };
     }
     const record = raw as { data?: AdminUserOverview };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchMedianMonthlySessions(params?: {
+  month?: string;
+  minDurationSeconds?: number;
+  excludePlatforms?: string;
+  includeMom?: boolean;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminMedianMonthlySessionsReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.month) query.set("month", params.month);
+    if (params?.minDurationSeconds != null) {
+      query.set("min_duration_seconds", String(params.minDurationSeconds));
+    }
+    if (params?.excludePlatforms) {
+      query.set("exclude_platforms", params.excludePlatforms);
+    }
+    if (params?.includeMom === false) {
+      query.set("include_mom", "false");
+    }
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/connection-engagement/median-monthly-sessions${suffix}`,
+      {
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load connection engagement",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminMedianMonthlySessionsReport };
     return { ok: true, data: record.data };
   } catch (e) {
     return {

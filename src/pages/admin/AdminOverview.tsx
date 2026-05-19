@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { adminFetchUsersOverview, type AdminUserOverview } from "@/auth/backend";
 
 function formatDuration(seconds: number) {
@@ -112,6 +113,7 @@ export default function AdminOverview() {
               <th className="p-3">User</th>
               <th className="p-3">Longest session</th>
               <th className="p-3">Joined</th>
+              <th className="p-3">Sessions</th>
             </tr>
           </thead>
           <tbody>
@@ -120,11 +122,19 @@ export default function AdminOverview() {
                 <td className="p-3">{u.name ? `${u.name} (${u.email})` : u.email}</td>
                 <td className="p-3 font-mono">{formatDuration(u.longestSessionSeconds)}</td>
                 <td className="p-3 text-muted-foreground">{u.createdAt.slice(0, 10)}</td>
+                <td className="p-3">
+                  <Link
+                    to={`/admin/user-sessions/${u.id}`}
+                    className="text-primary hover:underline"
+                  >
+                    View sessions
+                  </Link>
+                </td>
               </tr>
             ))}
             {!loading && (overview?.users.length ?? 0) === 0 ? (
               <tr>
-                <td className="p-4 text-muted-foreground" colSpan={3}>
+                <td className="p-4 text-muted-foreground" colSpan={4}>
                   No users found.
                 </td>
               </tr>
