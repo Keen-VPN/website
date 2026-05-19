@@ -733,6 +733,8 @@ export async function reactivateRetentionWinbackOffer(
       const invalidToken =
         response.status === 404 ||
         (response.status === 400 && /invalid|expired/i.test(error));
+      // Do not discard on 401: session/auth expired while the win-back JWT may still be valid —
+      // keeping it lets sign-in redirects return to /reactivate to retry.
       const discardStoredOffer =
         invalidToken ||
         // Business-rule failures: drop stale offer from session so login redirect stops looping.
