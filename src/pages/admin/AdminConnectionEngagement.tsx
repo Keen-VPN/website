@@ -46,11 +46,11 @@ const distributionChartConfig = {
   },
 } satisfies ChartConfig;
 
-type DistributionChartRow = {
+interface DistributionChartRow {
   session_count: number;
   sessionLabel: string;
   users: number;
-};
+}
 
 function DistributionTooltip({
   active,
