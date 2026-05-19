@@ -34,6 +34,8 @@ export {
   verifyEmailOtp,
   fetchSubscriptionStatusWithSession,
   cancelSubscription,
+  previewRetentionWinbackOffer,
+  reactivateRetentionWinbackOffer,
   createCheckoutSession,
   createBillingPortalSession,
   deleteAccount,
@@ -71,6 +73,13 @@ export type {
 export {
   useDebounce
 } from './hooks';
+
+export {
+  RETENTION_WINBACK_TOKEN_STORAGE_KEY,
+  clearRetentionWinbackTokenStorage,
+  getRetentionWinbackTokenFromStorage,
+  setRetentionWinbackTokenStorage,
+} from './retention-winback-token';
 
 export type {
   SubscriptionData,

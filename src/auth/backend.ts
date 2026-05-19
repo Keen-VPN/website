@@ -28,6 +28,10 @@ function extractBackendErrorMessage(
   return fallback;
 }
 
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /** Wire shape from backend before normalization (fields may be missing or named differently). */
 export interface RawSubscription {
   status?: string;
@@ -606,6 +610,208 @@ export async function cancelSubscription(
         error instanceof Error
           ? error.message
           : "Failed to cancel subscription",
+    };
+  }
+}
+
+interface PreviewRetentionWinbackOfferResult {
+  success: boolean;
+  subscriptionType?: string;
+  requiresAppleSettings?: boolean;
+  offerExpiresAt?: string;
+  invalidToken?: boolean;
+  /** When true, remove retention token from sessionStorage so /signin is not hijacked. */
+  discardStoredOffer?: boolean;
+  error?: string;
+}
+
+interface ReactivateRetentionWinbackOfferResult {
+  success: boolean;
+  message?: string;
+  requiresAppleSettings?: boolean;
+  alreadyRedeemed?: boolean;
+  invalidToken?: boolean;
+  /** When true, remove retention token from sessionStorage so /signin is not hijacked. */
+  discardStoredOffer?: boolean;
+  error?: string;
+}
+
+/** Matches Nest `RetentionService.reactivateOffer` when `rewardGrantedAt` is set. */
+const WINBACK_ALREADY_REDEEMED_MESSAGE =
+  "Your 30 extra days free were already applied.";
+
+function messageIfNonEmpty(record: Record<string, unknown>): string | undefined {
+  const raw = record.message;
+  return typeof raw === "string" && raw.trim().length > 0 ? raw : undefined;
+}
+
+export async function previewRetentionWinbackOffer(
+  token: string,
+): Promise<PreviewRetentionWinbackOfferResult> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/retention/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = extractBackendErrorMessage(data, "Invalid win-back offer");
+      const invalidToken =
+        response.status === 404 ||
+        (response.status === 400 && /invalid|expired/i.test(error));
+      const discardStoredOffer =
+        invalidToken || response.status === 400 || response.status === 404;
+      return {
+        success: false,
+        error,
+        invalidToken,
+        discardStoredOffer,
+      };
+    }
+    const parsed = isJsonObject(data) ? data : null;
+    if (!parsed || Object.keys(parsed).length === 0) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Unexpected server response.",
+        ),
+      };
+    }
+    if (parsed.success === false) {
+      return { ...parsed, success: false } as PreviewRetentionWinbackOfferResult;
+    }
+    if (parsed.success === true) {
+      return { ...parsed, success: true } as PreviewRetentionWinbackOfferResult;
+    }
+    const hasPreviewPayload =
+      typeof parsed.subscriptionType === "string" ||
+      parsed.requiresAppleSettings === true ||
+      typeof parsed.offerExpiresAt === "string";
+    if (!hasPreviewPayload) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          parsed,
+          "Unexpected server response.",
+        ),
+      };
+    }
+    return { ...parsed, success: true } as PreviewRetentionWinbackOfferResult;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Invalid win-back offer",
+    };
+  }
+}
+
+export async function reactivateRetentionWinbackOffer(
+  sessionToken: string,
+  token: string,
+): Promise<ReactivateRetentionWinbackOfferResult> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/retention/reactivate`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token }),
+    });
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = extractBackendErrorMessage(
+        data,
+        "Could not reactivate offer",
+      );
+      const record =
+        data && typeof data === "object"
+          ? (data as Record<string, unknown>)
+          : {};
+      const invalidToken =
+        response.status === 404 ||
+        (response.status === 400 && /invalid|expired/i.test(error));
+      // Do not discard on 401: session/auth expired while the win-back JWT may still be valid —
+      // keeping it lets sign-in redirects return to /reactivate to retry.
+      const discardStoredOffer =
+        invalidToken ||
+        // Business-rule failures: drop stale offer from session so login redirect stops looping.
+        response.status === 400 ||
+        response.status === 403 ||
+        response.status === 404;
+      return {
+        success: false,
+        error,
+        invalidToken,
+        discardStoredOffer,
+        message:
+          typeof record.message === "string" ? record.message : undefined,
+        requiresAppleSettings: record.requiresAppleSettings === true,
+        alreadyRedeemed: record.alreadyRedeemed === true,
+      };
+    }
+    const parsed = isJsonObject(data) ? data : null;
+    if (!parsed || Object.keys(parsed).length === 0) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Could not reactivate offer",
+        ),
+      };
+    }
+    if (parsed.success === true) {
+      if (parsed.requiresAppleSettings === true) {
+        return {
+          ...parsed,
+          success: false,
+          requiresAppleSettings: true,
+        } as ReactivateRetentionWinbackOfferResult;
+      }
+      const alreadyRedeemed = parsed.alreadyRedeemed === true;
+      const existingMsg = messageIfNonEmpty(parsed);
+      return {
+        ...parsed,
+        success: true,
+        ...(alreadyRedeemed && !existingMsg
+          ? { message: WINBACK_ALREADY_REDEEMED_MESSAGE }
+          : {}),
+      } as ReactivateRetentionWinbackOfferResult;
+    }
+    if (parsed.success === false) {
+      return {
+        ...parsed,
+        success: false,
+      } as ReactivateRetentionWinbackOfferResult;
+    }
+    if (parsed.alreadyRedeemed === true) {
+      return {
+        ...parsed,
+        success: true,
+        message:
+          messageIfNonEmpty(parsed) ?? WINBACK_ALREADY_REDEEMED_MESSAGE,
+      } as ReactivateRetentionWinbackOfferResult;
+    }
+    if (parsed.requiresAppleSettings === true) {
+      return {
+        ...parsed,
+        success: false,
+      } as ReactivateRetentionWinbackOfferResult;
+    }
+    return {
+      success: false,
+      error: extractBackendErrorMessage(
+        parsed,
+        "Unexpected server response.",
+      ),
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Could not reactivate offer",
     };
   }
 }
