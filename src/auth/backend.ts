@@ -1444,6 +1444,8 @@ export async function adminFetchMedianMonthlySessions(params?: {
     if (params?.excludePlatforms) {
       query.set("exclude_platforms", params.excludePlatforms);
     }
+    // Omit include_mom unless opting out — backend defaults to true (MoM included).
+    // AdminConnectionEngagement never passes includeMom, so month_over_month is always returned.
     if (params?.includeMom === false) {
       query.set("include_mom", "false");
     }

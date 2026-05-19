@@ -301,6 +301,8 @@ export default function AdminConnectionEngagement() {
     [],
   );
 
+  // Initial fetch uses literals that match useState defaults (not monthInput state).
+  // Same pattern as AdminProductEvents — load takes explicit args; [] deps is intentional.
   useEffect(() => {
     void load(currentMonthValue(), "10", false);
     return () => activeRequest.current?.abort();
@@ -392,6 +394,22 @@ export default function AdminConnectionEngagement() {
           <p className="mt-2 text-xs text-muted-foreground">
             {summary?.month ?? monthInput}
           </p>
+          {mom ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              vs {mom.previous_month}:{" "}
+              <span
+                className={
+                  mom.delta_median >= 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-amber-600 dark:text-amber-400"
+                }
+              >
+                {mom.delta_median >= 0 ? "+" : ""}
+                {mom.delta_median} median
+              </span>{" "}
+              (prev {mom.median_sessions_per_user})
+            </p>
+          ) : null}
         </div>
         <div className="rounded-lg border border-border p-4">
           <p className="text-sm text-muted-foreground">Users with sessions</p>
@@ -410,22 +428,6 @@ export default function AdminConnectionEngagement() {
           <p className="mt-1 text-3xl font-semibold text-muted-foreground">
             {summary?.mean_sessions_per_user ?? (loading ? "…" : 0)}
           </p>
-          {mom ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              vs {mom.previous_month}:{" "}
-              <span
-                className={
-                  mom.delta_median >= 0
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-amber-600 dark:text-amber-400"
-                }
-              >
-                {mom.delta_median >= 0 ? "+" : ""}
-                {mom.delta_median} median
-              </span>{" "}
-              (prev {mom.median_sessions_per_user})
-            </p>
-          ) : null}
         </div>
       </div>
 
