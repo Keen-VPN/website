@@ -136,24 +136,22 @@ const Account = () => {
     shouldShowStripePostCheckoutUi(),
   );
 
+  // Single source of truth for post-checkout UI: mark return from ?session_id=,
+  // sync banner visibility from sessionStorage, clear only when signed out (not while loading).
   useEffect(() => {
+    if (loading) return;
     if (!user) {
-      clearStripeCheckoutReturn();
-      setShowPostCheckoutUi(false);
+      if (!hasSessionToken) {
+        clearStripeCheckoutReturn();
+        setShowPostCheckoutUi(false);
+      }
       return;
     }
     if (hasStripeSessionId) {
       markStripeCheckoutReturn(stripeSessionId);
-      setShowPostCheckoutUi(shouldShowStripePostCheckoutUi());
-    }
-  }, [user, hasStripeSessionId, stripeSessionId]);
-
-  useEffect(() => {
-    if (!user) {
-      return;
     }
     setShowPostCheckoutUi(shouldShowStripePostCheckoutUi());
-  }, [user]);
+  }, [user, loading, hasSessionToken, hasStripeSessionId, stripeSessionId]);
 
   const showPaymentCompleteBanner =
     Boolean(user) &&
@@ -306,6 +304,8 @@ const Account = () => {
     subscription?.status === "active" &&
     subscription?.subscriptionType === "stripe" &&
     subscription?.plan?.toLowerCase().includes("monthly");
+  const showStripeUpgradeToAnnual =
+    isMonthlyStripe && !subscription?.cancelAtPeriodEnd;
   // Stripe + active/trialing/past_due (not only status==="active") — download + cancel CTAs.
   const isStripeManageable =
     isStripeSubscription(subscription) &&
@@ -804,7 +804,7 @@ const Account = () => {
                     </div>
 
                     {/* Upgrade to Annual */}
-                    {isMonthlyStripe && !subscription.cancelAtPeriodEnd && (
+                    {showStripeUpgradeToAnnual && (
                       <Button
                         onClick={() => void openBillingPortal()}
                         disabled={portalLoading}
@@ -924,6 +924,7 @@ const Account = () => {
                         onCancel={() => void cancelSubscriptionAtPeriodEnd()}
                         onManageBilling={() => void openBillingPortal()}
                         portalLoading={portalLoading}
+                        showManageBilling={!showStripeUpgradeToAnnual}
                       />
 
                       {!hasManageableSubscription(subscription) ? (
