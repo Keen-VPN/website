@@ -13,7 +13,9 @@ import {
 import { AlertTriangle, CheckCircle, Loader2, XCircle } from "lucide-react";
 import type { SubscriptionData } from "@/auth/types";
 import {
+  canCancelStripeOnWebsite,
   hasManageableSubscription,
+  isStripeSubscription,
 } from "@/lib/subscription-cta";
 
 const APPLE_SUBSCRIPTIONS_URL = "itms-apps://apps.apple.com/account/subscriptions";
@@ -27,20 +29,6 @@ function formatDate(dateString: string | undefined): string {
     month: "long",
     day: "numeric",
   });
-}
-
-export function isStripeSubscription(
-  subscription: SubscriptionData | null | undefined,
-): boolean {
-  return subscription?.subscriptionType === "stripe";
-}
-
-export function canCancelStripeOnWebsite(
-  subscription: SubscriptionData | null | undefined,
-): boolean {
-  if (!subscription || !isStripeSubscription(subscription)) return false;
-  if (subscription.cancelAtPeriodEnd) return false;
-  return hasManageableSubscription(subscription);
 }
 
 interface SubscriptionCancellationControlsProps {

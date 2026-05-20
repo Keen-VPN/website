@@ -26,6 +26,20 @@ export function hasManageableSubscription(
   return Boolean(status && manageableSubscriptionStatuses.has(status));
 }
 
+export function isStripeSubscription(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return subscription?.subscriptionType === "stripe";
+}
+
+export function canCancelStripeOnWebsite(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (!subscription || !isStripeSubscription(subscription)) return false;
+  if (subscription.cancelAtPeriodEnd) return false;
+  return hasManageableSubscription(subscription);
+}
+
 export function canStartFreeTrial(
   user: unknown,
   subscription: SubscriptionState,

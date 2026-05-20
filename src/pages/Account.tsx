@@ -57,16 +57,14 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
-import {
-  isStripeSubscription,
-  SubscriptionCancellationControls,
-} from "@/components/SubscriptionCancellationControls";
+import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
 import { detectDevice, isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import {
   getSubscriptionCtaLabel,
   hasManageableSubscription,
+  isStripeSubscription,
 } from "@/lib/subscription-cta";
 import {
   PAYMENT_SUCCESS_DEEP_LINK,

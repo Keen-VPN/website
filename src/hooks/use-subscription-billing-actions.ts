@@ -7,10 +7,10 @@ import {
   getSessionToken,
 } from "@/auth";
 
-type UseSubscriptionBillingActionsOptions = {
+interface UseSubscriptionBillingActionsOptions {
   /** Stripe portal return URL (defaults to current page). */
   returnUrl?: string;
-};
+}
 
 /**
  * Shared cancel-at-period-end and Stripe billing portal actions for Account,

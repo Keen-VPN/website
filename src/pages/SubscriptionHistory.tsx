@@ -38,11 +38,8 @@ import { SubscriptionHistoryEmptyState } from "@/components/SubscriptionHistoryE
 import { SubscriptionHistoryErrorState } from "@/components/SubscriptionHistoryErrorState";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import {
-  isStripeSubscription,
-  SubscriptionCancellationControls,
-} from "@/components/SubscriptionCancellationControls";
-import { hasManageableSubscription } from "@/lib/subscription-cta";
+import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
+import { hasManageableSubscription, isStripeSubscription } from "@/lib/subscription-cta";
 
 const SubscriptionHistory = () => {
   const navigate = useNavigate();
