@@ -21,7 +21,8 @@ import {
   reactivateRetentionWinbackOffer,
 } from "@/auth";
 import { useAuth } from "@/contexts/AuthContext";
-import { APPLE_SUBSCRIPTIONS_MANAGE_URL } from "@/constants/apple-subscriptions";
+import { AppleIapSubscriptionsCta } from "@/components/AppleIapSubscriptionsCta";
+import { isApplePlatform } from "@/lib/device-detection";
 
 const Reactivate = () => {
   const [searchParams] = useSearchParams();
@@ -237,19 +238,16 @@ const Reactivate = () => {
                     {message ||
                       "Apple subscriptions must be re-enabled in Apple subscription settings. Once Apple confirms it, your offer will be applied."}
                   </p>
-                  <Button asChild className="w-full">
-                    <a
-                      href={APPLE_SUBSCRIPTIONS_MANAGE_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Open Apple Subscriptions
-                    </a>
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    You can also open Settings, tap your Apple ID, then
-                    Subscriptions, and choose KeenVPN.
-                  </p>
+                  <AppleIapSubscriptionsCta
+                    variant="default"
+                    instructionsAlign="center"
+                  />
+                  {isApplePlatform() ? (
+                    <p className="text-xs text-muted-foreground">
+                      You can also open Settings, tap your Apple ID, then
+                      Subscriptions, and choose KeenVPN.
+                    </p>
+                  ) : null}
                   <Button
                     variant="outline"
                     className="w-full"

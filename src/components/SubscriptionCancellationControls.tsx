@@ -10,15 +10,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { AlertTriangle, CheckCircle, Loader2, XCircle } from "lucide-react";
+import { AlertTriangle, Loader2, XCircle } from "lucide-react";
+import { AppleIapSubscriptionsCta } from "@/components/AppleIapSubscriptionsCta";
+import { isApplePlatform } from "@/lib/device-detection";
 import type { SubscriptionData } from "@/auth/types";
 import {
   canCancelStripeOnWebsite,
   hasManageableSubscription,
   isStripeSubscription,
 } from "@/lib/subscription-cta";
-import { APPLE_SUBSCRIPTIONS_MANAGE_URL } from "@/constants/apple-subscriptions";
-
 function formatDate(dateString: string | undefined): string {
   if (!dateString) return "the end of your billing period";
   const date = new Date(dateString);
@@ -68,7 +68,9 @@ export function SubscriptionCancellationControls({
           <p className="mt-1 text-xs text-yellow-700 dark:text-yellow-300/90">
             Your subscription stays active until <strong>{endLabel}</strong>.
             {isApple
-              ? " Manage or re-enable renewal in Apple Subscriptions."
+              ? isApplePlatform()
+                ? " Manage or re-enable renewal in Apple Subscriptions."
+                : " Manage or re-enable renewal on your iPhone, iPad, or Mac (Settings → Subscriptions)."
               : " You will not be charged again unless you turn renewal back on."}
           </p>
         </div>
@@ -76,25 +78,12 @@ export function SubscriptionCancellationControls({
     </div>
   );
 
-  const openAppleSubscriptionsButton = (
-    <Button asChild variant="outline" className="w-full">
-      <a
-        href={APPLE_SUBSCRIPTIONS_MANAGE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <CheckCircle className="mr-2 h-4 w-4" />
-        Open Apple Subscriptions
-      </a>
-    </Button>
-  );
-
   if (isApple && manageable) {
     if (subscription.cancelAtPeriodEnd) {
       return (
         <div className="space-y-3">
           {autoRenewalOffNotice}
-          {openAppleSubscriptionsButton}
+          <AppleIapSubscriptionsCta />
         </div>
       );
     }
@@ -109,7 +98,7 @@ export function SubscriptionCancellationControls({
           Apple&apos;s subscription settings. The website cannot turn off
           App Store auto-renewal.
         </p>
-        {openAppleSubscriptionsButton}
+        <AppleIapSubscriptionsCta />
       </div>
     );
   }
