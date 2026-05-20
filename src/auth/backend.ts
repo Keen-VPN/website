@@ -1,5 +1,9 @@
 import type { ApiPlan } from "@/lib/pricing";
 import { BackendAuthResponse, SubscriptionData, TrialData } from "./types";
+import {
+  getReferralTokenFromStorage,
+  clearReferralTokenStorage,
+} from "./referral-token";
 
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "/api";
@@ -154,10 +158,15 @@ export async function loginWithFirebaseToken(
   provider?: 'google' | 'apple',
 ): Promise<BackendAuthResponse> {
   try {
+    const referralToken = getReferralTokenFromStorage();
     const response = await fetch(`${BACKEND_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken, ...(provider ? { provider } : {}) }),
+      body: JSON.stringify({
+        idToken,
+        ...(provider ? { provider } : {}),
+        ...(referralToken ? { referralToken } : {}),
+      }),
     });
     const data: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -166,6 +175,9 @@ export async function loginWithFirebaseToken(
     // Backend /auth/login doesn't currently include `success` (unlike /auth/apple/signin).
     // Default to true only when absent so a future explicit `success: false` is respected.
     const normalized = normalizeBackendAuthResponse(data as RawBackendAuthResponse);
+    if (normalized.success ?? true) {
+      clearReferralTokenStorage();
+    }
     return { ...normalized, success: normalized.success ?? true };
   } catch (error) {
     return {
@@ -191,6 +203,7 @@ export async function authenticateWithBackend(
   },
 ): Promise<BackendAuthResponse> {
   try {
+    const referralToken = getReferralTokenFromStorage();
     const endpoint =
       provider === "apple" ? "/auth/apple/signin" : "/auth/google/signin";
     const body =
@@ -200,9 +213,11 @@ export async function authenticateWithBackend(
             userIdentifier: additionalData?.userIdentifier,
             email: additionalData?.email,
             fullName: additionalData?.fullName,
+            ...(referralToken ? { referralToken } : {}),
           }
         : {
             idToken: accessToken, // Backend expects 'idToken' parameter for Google
+            ...(referralToken ? { referralToken } : {}),
           };
 
     const response = await fetch(`${BACKEND_URL}${endpoint}`, {
@@ -221,7 +236,11 @@ export async function authenticateWithBackend(
       );
     }
 
-    return normalizeBackendAuthResponse(data as RawBackendAuthResponse);
+    const normalized = normalizeBackendAuthResponse(data as RawBackendAuthResponse);
+    if (normalized.success) {
+      clearReferralTokenStorage();
+    }
+    return normalized;
   } catch (error) {
     return {
       success: false,
@@ -233,8 +252,39 @@ export async function authenticateWithBackend(
   }
 }
 
+export async function fetchReferralDashboard(sessionToken: string): Promise<{
+  success: boolean;
+  referralUrl?: string;
+  token?: string;
+  totalReferrals?: number;
+  rewardsEarned?: number;
+  pendingReferrals?: number;
+  referrals?: Array<Record<string, unknown>>;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/referral/dashboard`, {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Failed to load referrals"),
+      };
+    }
+    return { success: true, ...(data as Record<string, unknown>) };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to load referrals",
+    };
+  }
+}
+
 /**
- * Verify session token with backend.
+ * Verify session token with the backend.
  * Returns unauthorized: true when the backend explicitly rejects the token
  * (HTTP 401, or 200 with { success: false, unauthorized: true } in the body),
  * so callers can clear the session. On network errors we return success: false without unauthorized.
@@ -502,10 +552,15 @@ export async function verifyEmailOtp(
   code: string,
 ): Promise<BackendAuthResponse> {
   try {
+    const referralToken = getReferralTokenFromStorage();
     const response = await fetch(`${BACKEND_URL}/auth/otp/verify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code }),
+      body: JSON.stringify({
+        email,
+        code,
+        ...(referralToken ? { referralToken } : {}),
+      }),
     });
     const data: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -515,10 +570,14 @@ export async function verifyEmailOtp(
         unauthorized: response.status === 401,
       };
     }
-    return normalizeBackendAuthResponse({
+    const normalized = normalizeBackendAuthResponse({
       ...(data as RawBackendAuthResponse),
       success: true,
     });
+    if (normalized.success) {
+      clearReferralTokenStorage();
+    }
+    return normalized;
   } catch (error) {
     return {
       success: false,
