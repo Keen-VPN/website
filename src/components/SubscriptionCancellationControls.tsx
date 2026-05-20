@@ -70,25 +70,64 @@ export function SubscriptionCancellationControls({
   const manageable = hasManageableSubscription(subscription);
   const endLabel = formatDate(subscription.endDate);
 
-  if (subscription.cancelAtPeriodEnd && manageable) {
+  const autoRenewalOffNotice = (
+    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900/50 dark:bg-yellow-950/30">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-600" />
+        <div>
+          <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+            Auto-renewal is off
+          </p>
+          <p className="mt-1 text-xs text-yellow-700 dark:text-yellow-300/90">
+            Your subscription stays active until <strong>{endLabel}</strong>.
+            {isApple
+              ? " Manage or re-enable renewal in Apple Subscriptions."
+              : " You will not be charged again unless you turn renewal back on."}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const openAppleSubscriptionsButton = (
+    <Button asChild variant="outline" className="w-full">
+      <a href={APPLE_SUBSCRIPTIONS_URL}>
+        <CheckCircle className="mr-2 h-4 w-4" />
+        Open Apple Subscriptions
+      </a>
+    </Button>
+  );
+
+  if (isApple && manageable) {
+    if (subscription.cancelAtPeriodEnd) {
+      return (
+        <div className="space-y-3">
+          {autoRenewalOffNotice}
+          {openAppleSubscriptionsButton}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-4">
+        <p className="text-sm font-medium text-foreground">
+          App Store subscription
+        </p>
+        <p className="text-xs text-muted-foreground">
+          KeenVPN subscriptions purchased through Apple must be cancelled in
+          Apple&apos;s subscription settings. The website cannot turn off
+          App Store auto-renewal.
+        </p>
+        {openAppleSubscriptionsButton}
+      </div>
+    );
+  }
+
+  if (subscription.cancelAtPeriodEnd && manageable && isStripe) {
     return (
       <div className="space-y-3">
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900/50 dark:bg-yellow-950/30">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-600" />
-            <div>
-              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                Auto-renewal is off
-              </p>
-              <p className="mt-1 text-xs text-yellow-700 dark:text-yellow-300/90">
-                Your subscription stays active until{" "}
-                <strong>{endLabel}</strong>. You will not be charged again
-                unless you turn renewal back on.
-              </p>
-            </div>
-          </div>
-        </div>
-        {isStripe && showManageBilling && onManageBilling ? (
+        {autoRenewalOffNotice}
+        {showManageBilling && onManageBilling ? (
           <Button
             type="button"
             variant="outline"
@@ -184,27 +223,6 @@ export function SubscriptionCancellationControls({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
-    );
-  }
-
-  if (isApple && manageable) {
-    return (
-      <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-4">
-        <p className="text-sm font-medium text-foreground">
-          App Store subscription
-        </p>
-        <p className="text-xs text-muted-foreground">
-          KeenVPN subscriptions purchased through Apple must be cancelled in
-          Apple&apos;s subscription settings. The website cannot turn off
-          App Store auto-renewal.
-        </p>
-        <Button asChild variant="outline" className="w-full">
-          <a href={APPLE_SUBSCRIPTIONS_URL}>
-            <CheckCircle className="mr-2 h-4 w-4" />
-            Open Apple Subscriptions
-          </a>
-        </Button>
       </div>
     );
   }

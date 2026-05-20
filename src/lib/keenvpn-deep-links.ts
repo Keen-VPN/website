@@ -53,6 +53,7 @@ export function shouldAutoOpenAppAfterStripeCheckout(): boolean {
   }
 }
 
+/** Prevents repeat programmatic open; does not hide the post-checkout banner. */
 export function markStripeAutoOpenDone(): void {
   const returnId = readStripeCheckoutReturnId();
   if (!returnId) {

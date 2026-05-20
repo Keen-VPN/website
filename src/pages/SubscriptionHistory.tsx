@@ -1,9 +1,4 @@
 import { useState } from "react";
-import {
-  cancelSubscription,
-  createBillingPortalSession,
-  getSessionToken,
-} from "@/auth";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +23,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscriptionHistory } from "@/hooks/useSubscriptionHistory";
+import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import {
   formatEventDate,
   formatCurrency,
@@ -50,11 +46,14 @@ import { hasManageableSubscription } from "@/lib/subscription-cta";
 
 const SubscriptionHistory = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading, subscription, refreshSubscription } =
-    useAuth();
+  const { user, loading: authLoading, subscription } = useAuth();
   const { toast } = useToast();
-  const [cancelling, setCancelling] = useState(false);
-  const [portalLoading, setPortalLoading] = useState(false);
+  const {
+    cancelling,
+    portalLoading,
+    cancelSubscriptionAtPeriodEnd,
+    openBillingPortal,
+  } = useSubscriptionBillingActions();
   const [selectedEvent, setSelectedEvent] = useState<SubscriptionEvent | null>(
     null,
   );
@@ -97,77 +96,6 @@ const SubscriptionHistory = () => {
     hasManageableSubscription(subscription) &&
     (isStripeSubscription(subscription) ||
       subscription.subscriptionType === "apple_iap");
-
-  const handleCancelSubscription = async () => {
-    const token = getSessionToken();
-    if (!token) {
-      toast({
-        title: "Session expired",
-        description: "Please sign in again.",
-        variant: "destructive",
-      });
-      return;
-    }
-    try {
-      setCancelling(true);
-      const result = await cancelSubscription(token);
-      if (result.success) {
-        toast({
-          title: "Subscription cancelled",
-          description:
-            "Auto-renewal is off. You keep access until the end of your billing period.",
-        });
-        await refreshSubscription();
-      } else {
-        throw new Error(result.error || "Failed to cancel subscription");
-      }
-    } catch (error) {
-      toast({
-        title: "Cancellation failed",
-        description:
-          error instanceof Error ? error.message : "Please try again",
-        variant: "destructive",
-      });
-    } finally {
-      setCancelling(false);
-    }
-  };
-
-  const handleManageBilling = async () => {
-    const token = getSessionToken();
-    if (!token) {
-      toast({
-        title: "Session expired",
-        description: "Please sign in again.",
-        variant: "destructive",
-      });
-      return;
-    }
-    try {
-      setPortalLoading(true);
-      const result = await createBillingPortalSession(
-        token,
-        window.location.href,
-      );
-      if (result.success && result.url) {
-        window.location.href = result.url;
-      } else {
-        toast({
-          title: "Unable to open billing portal",
-          description: result.error || "Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch {
-      toast({
-        title: "Something went wrong",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setPortalLoading(false);
-    }
-  };
 
   const handleLoadMore = async () => {
     if (pagination.hasNextPage && !loading) {
@@ -364,8 +292,8 @@ const SubscriptionHistory = () => {
                 <SubscriptionCancellationControls
                   subscription={subscription}
                   cancelling={cancelling}
-                  onCancel={handleCancelSubscription}
-                  onManageBilling={handleManageBilling}
+                  onCancel={() => void cancelSubscriptionAtPeriodEnd()}
+                  onManageBilling={() => void openBillingPortal()}
                   portalLoading={portalLoading}
                 />
               </CardContent>

@@ -49,8 +49,6 @@ import { useToast } from "@/hooks/use-toast";
 import {
   deleteAccount,
   getSessionToken,
-  cancelSubscription,
-  createBillingPortalSession,
   getContactEmailStatus,
   saveContactEmail,
   sendContactEmailVerification,
@@ -65,6 +63,7 @@ import {
 } from "@/components/SubscriptionCancellationControls";
 import { detectDevice, isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
+import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import {
   getSubscriptionCtaLabel,
   hasManageableSubscription,
@@ -83,12 +82,18 @@ import {
 
 const Account = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  // true on normal /account (no session_id) — render subscription card immediately;
+  // AuthContext usually has subscription already. Stripe return starts false (skeleton until sync).
   const [initialSubscriptionChecked, setInitialSubscriptionChecked] = useState(
     () => !new URLSearchParams(window.location.search).get("session_id"),
   );
-  const [cancelling, setCancelling] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [portalLoading, setPortalLoading] = useState(false);
+  const {
+    cancelling,
+    portalLoading,
+    cancelSubscriptionAtPeriodEnd,
+    openBillingPortal,
+  } = useSubscriptionBillingActions();
   const [showContactEmailModal, setShowContactEmailModal] = useState(false);
   const [contactEmail, setContactEmail] = useState("");
   const [contactEmailLoading, setContactEmailLoading] = useState(false);
@@ -150,28 +155,7 @@ const Account = () => {
       return;
     }
     setShowPostCheckoutUi(shouldShowStripePostCheckoutUi());
-  }, [location.pathname, user]);
-
-  const isAccountPath = (path: string) =>
-    path === "/account" || path.startsWith("/account/");
-
-  const previousPathRef = useRef(location.pathname);
-
-  useEffect(() => {
-    const previousPath = previousPathRef.current;
-    const currentPath = location.pathname;
-
-    if (
-      isAccountPath(previousPath) &&
-      !isAccountPath(currentPath) &&
-      shouldShowStripePostCheckoutUi()
-    ) {
-      dismissStripePostCheckoutUi();
-      setShowPostCheckoutUi(false);
-    }
-
-    previousPathRef.current = currentPath;
-  }, [location.pathname]);
+  }, [user]);
 
   const showPaymentCompleteBanner =
     Boolean(user) &&
@@ -196,9 +180,9 @@ const Account = () => {
       return;
     }
 
+    // Only mark auto-open done — keep banner/buttons if the deep link fails (app not installed).
     const timer = window.setTimeout(() => {
       markStripeAutoOpenDone();
-      dismissPostCheckoutUi();
       openKeenVpnNativeApp(PAYMENT_SUCCESS_DEEP_LINK);
     }, 700);
 
@@ -320,48 +304,11 @@ const Account = () => {
     setSubscriptionLoading(false);
   };
 
-  const handleManageBilling = async () => {
-    const token = getSessionToken();
-    if (!token) {
-      toast({
-        title: "Session expired",
-        description: "Please sign in again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setPortalLoading(true);
-      const result = await createBillingPortalSession(
-        token,
-        window.location.href,
-      );
-
-      if (result.success && result.url) {
-        window.location.href = result.url;
-      } else {
-        toast({
-          title: "Unable to open billing portal",
-          description: result.error || "Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch {
-      toast({
-        title: "Something went wrong",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setPortalLoading(false);
-    }
-  };
-
   const isMonthlyStripe =
     subscription?.status === "active" &&
     subscription?.subscriptionType === "stripe" &&
     subscription?.plan?.toLowerCase().includes("monthly");
+  // Stripe + active/trialing/past_due (not only status==="active") — download + cancel CTAs.
   const isStripeManageable =
     isStripeSubscription(subscription) &&
     hasManageableSubscription(subscription);
@@ -371,41 +318,6 @@ const Account = () => {
     if (device === "macos") return "Download KeenVPN for Mac";
     return "Download KeenVPN App";
   }, []);
-
-  const handleCancelSubscription = async () => {
-    if (!user) return;
-
-    try {
-      setCancelling(true);
-
-      const token = getSessionToken();
-      if (!token) {
-        throw new Error("Session expired. Please log in again.");
-      }
-
-      const result = await cancelSubscription(token);
-
-      if (result.success) {
-        toast({
-          title: "Subscription Cancelled",
-          description:
-            "Your subscription will remain active until the end of your billing period.",
-        });
-        await refreshSubscription();
-      } else {
-        throw new Error(result.error || "Failed to cancel subscription");
-      }
-    } catch (error) {
-      toast({
-        title: "Cancellation Failed",
-        description:
-          error instanceof Error ? error.message : "Please try again",
-        variant: "destructive",
-      });
-    } finally {
-      setCancelling(false);
-    }
-  };
 
   const handleDeleteAccount = async () => {
     if (!user) return;
@@ -896,7 +808,7 @@ const Account = () => {
                     {/* Upgrade to Annual */}
                     {isMonthlyStripe && !subscription.cancelAtPeriodEnd && (
                       <Button
-                        onClick={handleManageBilling}
+                        onClick={() => void openBillingPortal()}
                         disabled={portalLoading}
                         variant="outline"
                         className="w-full border-primary text-primary hover:bg-primary/10"
@@ -1011,8 +923,8 @@ const Account = () => {
                       <SubscriptionCancellationControls
                         subscription={subscription}
                         cancelling={cancelling}
-                        onCancel={handleCancelSubscription}
-                        onManageBilling={handleManageBilling}
+                        onCancel={() => void cancelSubscriptionAtPeriodEnd()}
+                        onManageBilling={() => void openBillingPortal()}
                         portalLoading={portalLoading}
                       />
 
