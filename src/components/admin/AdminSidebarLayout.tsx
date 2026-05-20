@@ -9,6 +9,7 @@ import {
   BarChart3,
   CreditCard,
   Users,
+  Activity,
 } from "lucide-react";
 
 function linkClass(isActive: boolean) {
@@ -66,6 +67,13 @@ export default function AdminSidebarLayout() {
             >
               <BarChart3 className="h-4 w-4" />
               Product Events
+            </NavLink>
+            <NavLink
+              to="/admin/connection-engagement"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Activity className="h-4 w-4" />
+              Connection Engagement
             </NavLink>
             <NavLink
               to="/admin/subscriptions"

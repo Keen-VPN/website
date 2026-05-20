@@ -36,10 +36,16 @@ const AdminOverview = lazy(() => import("./pages/admin/AdminOverview"));
 const AdminProductEvents = lazy(
   () => import("./pages/admin/AdminProductEvents"),
 );
+const AdminConnectionEngagement = lazy(
+  () => import("./pages/admin/AdminConnectionEngagement"),
+);
 const AdminSubscriptions = lazy(
   () => import("./pages/admin/AdminSubscriptions"),
 );
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
+const AdminUserSessions = lazy(
+  () => import("./pages/admin/AdminUserSessions"),
+);
 
 const queryClient = new QueryClient();
 
@@ -112,7 +118,15 @@ const App = () => (
                   element={<Navigate to="/admin/overview" replace />}
                 />
                 <Route path="overview" element={<AdminOverview />} />
+                <Route
+                  path="user-sessions/:userId"
+                  element={<AdminUserSessions />}
+                />
                 <Route path="product-events" element={<AdminProductEvents />} />
+                <Route
+                  path="connection-engagement"
+                  element={<AdminConnectionEngagement />}
+                />
                 <Route
                   path="membership-transfer"
                   element={<MembershipTransferAdmin />}
