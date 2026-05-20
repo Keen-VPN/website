@@ -25,11 +25,21 @@ function downloadTextFile(
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  // Defer cleanup so older WebViews finish the download before revoke/DOM removal.
+  window.setTimeout(() => {
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, 100);
 }
 
-/** Builds a multi-section CSV from the engagement report shown on the admin dashboard. */
+/**
+ * Builds a human-readable multi-section CSV (summary, histogram, segments).
+ * Sections are separated by blank lines and use different column layouts (3 vs 6
+ * columns) — fine for spreadsheets, not for uniform-schema parsers. Use JSON export
+ * for programmatic consumption.
+ */
 export function buildConnectionEngagementCsv(
   report: AdminMedianMonthlySessionsReport,
 ): string {
