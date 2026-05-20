@@ -27,6 +27,7 @@ import {
   consumePendingMembershipTransfer,
   getMembershipTransferReturnUrl,
 } from "@/auth/membership-transfer-flow";
+import { clearStripeCheckoutReturn } from "@/lib/keenvpn-deep-links";
 
 // ============================================================================
 // Context Types
@@ -803,6 +804,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await firebaseSignOut();
       clearSessionToken();
+      clearStripeCheckoutReturn();
       setHasSessionToken(false);
       setUser(null);
       setSubscription(null);

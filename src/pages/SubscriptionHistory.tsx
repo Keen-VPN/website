@@ -1,4 +1,9 @@
 import { useState } from "react";
+import {
+  cancelSubscription,
+  createBillingPortalSession,
+  getSessionToken,
+} from "@/auth";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,11 +42,19 @@ import { SubscriptionHistoryEmptyState } from "@/components/SubscriptionHistoryE
 import { SubscriptionHistoryErrorState } from "@/components/SubscriptionHistoryErrorState";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import {
+  isStripeSubscription,
+  SubscriptionCancellationControls,
+} from "@/components/SubscriptionCancellationControls";
+import { hasManageableSubscription } from "@/lib/subscription-cta";
 
 const SubscriptionHistory = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, subscription, refreshSubscription } =
+    useAuth();
   const { toast } = useToast();
+  const [cancelling, setCancelling] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<SubscriptionEvent | null>(
     null,
   );
@@ -77,6 +90,83 @@ const SubscriptionHistory = () => {
   const handleEventClick = (event: SubscriptionEvent) => {
     setSelectedEvent(event);
     setEventDetailOpen(true);
+  };
+
+  const showCancellationCard =
+    subscription &&
+    hasManageableSubscription(subscription) &&
+    (isStripeSubscription(subscription) ||
+      subscription.subscriptionType === "apple_iap");
+
+  const handleCancelSubscription = async () => {
+    const token = getSessionToken();
+    if (!token) {
+      toast({
+        title: "Session expired",
+        description: "Please sign in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setCancelling(true);
+      const result = await cancelSubscription(token);
+      if (result.success) {
+        toast({
+          title: "Subscription cancelled",
+          description:
+            "Auto-renewal is off. You keep access until the end of your billing period.",
+        });
+        await refreshSubscription();
+      } else {
+        throw new Error(result.error || "Failed to cancel subscription");
+      }
+    } catch (error) {
+      toast({
+        title: "Cancellation failed",
+        description:
+          error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    const token = getSessionToken();
+    if (!token) {
+      toast({
+        title: "Session expired",
+        description: "Please sign in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setPortalLoading(true);
+      const result = await createBillingPortalSession(
+        token,
+        window.location.href,
+      );
+      if (result.success && result.url) {
+        window.location.href = result.url;
+      } else {
+        toast({
+          title: "Unable to open billing portal",
+          description: result.error || "Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({
+        title: "Something went wrong",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPortalLoading(false);
+    }
   };
 
   const handleLoadMore = async () => {
@@ -264,6 +354,23 @@ const SubscriptionHistory = () => {
             onFiltersChange={setFilters}
             loading={loading}
           />
+
+          {showCancellationCard ? (
+            <Card className="mb-8 border-accent/50 shadow-glow">
+              <CardHeader>
+                <CardTitle className="text-lg">Cancel subscription</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SubscriptionCancellationControls
+                  subscription={subscription}
+                  cancelling={cancelling}
+                  onCancel={handleCancelSubscription}
+                  onManageBilling={handleManageBilling}
+                  portalLoading={portalLoading}
+                />
+              </CardContent>
+            </Card>
+          ) : null}
 
           {/* Summary Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
