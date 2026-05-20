@@ -19,6 +19,10 @@ import {
   ChartTooltip,
   type ChartConfig,
 } from "@/components/ui/chart";
+import {
+  downloadConnectionEngagementCsv,
+  downloadConnectionEngagementJson,
+} from "@/lib/connection-engagement-export";
 
 function currentMonthValue(): string {
   const now = new Date();
@@ -314,6 +318,7 @@ export default function AdminConnectionEngagement() {
 
   const summary = report?.summary;
   const mom = report?.month_over_month;
+  const canExport = Boolean(report) && !loading;
 
   return (
     <div className="space-y-4">
@@ -325,13 +330,39 @@ export default function AdminConnectionEngagement() {
             is better reflected by the median than the average.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={applyFilters}
-          className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
-        >
-          Refresh
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (report) {
+                downloadConnectionEngagementCsv(report);
+              }
+            }}
+            disabled={!canExport}
+            className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (report) {
+                downloadConnectionEngagementJson(report);
+              }
+            }}
+            disabled={!canExport}
+            className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Export JSON
+          </button>
+          <button
+            type="button"
+            onClick={applyFilters}
+            className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error ? (
