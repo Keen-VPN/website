@@ -21,6 +21,7 @@ import {
   reactivateRetentionWinbackOffer,
 } from "@/auth";
 import { useAuth } from "@/contexts/AuthContext";
+import { APPLE_SUBSCRIPTIONS_MANAGE_URL } from "@/constants/apple-subscriptions";
 
 const Reactivate = () => {
   const [searchParams] = useSearchParams();
@@ -237,7 +238,11 @@ const Reactivate = () => {
                       "Apple subscriptions must be re-enabled in Apple subscription settings. Once Apple confirms it, your offer will be applied."}
                   </p>
                   <Button asChild className="w-full">
-                    <a href="itms-apps://apps.apple.com/account/subscriptions">
+                    <a
+                      href={APPLE_SUBSCRIPTIONS_MANAGE_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       Open Apple Subscriptions
                     </a>
                   </Button>
