@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, Gift, Share2, Users, Clock, Loader2 } from "lucide-react";
 import Header from "@/components/Header";
@@ -107,6 +107,11 @@ const Referrals = () => {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const dataRef = useRef<DashboardPayload | null>(null);
+
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -160,9 +165,10 @@ const Referrals = () => {
 
   const loadMoreReferrals = async () => {
     const session = getSessionToken();
-    if (!session || !data?.referralsHasMore || loadingMore) return;
+    const snap = dataRef.current;
+    if (!session || !snap?.referralsHasMore || loadingMore) return;
 
-    const offset = data.referrals.length;
+    const offset = snap.referrals.length;
     setLoadingMore(true);
     const res = await fetchReferralDashboard(session, {
       offset,

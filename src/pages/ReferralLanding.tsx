@@ -11,7 +11,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { BACKEND_URL } from "@/auth/backend";
-import { setReferralTokenStorage } from "@/auth/referral-token";
+import {
+  clearReferralTokenStorage,
+  setReferralTokenStorage,
+} from "@/auth/referral-token";
 
 const ReferralLanding = () => {
   const { token } = useParams<{ token: string }>();
@@ -26,8 +29,9 @@ const ReferralLanding = () => {
       navigate("/");
       return;
     }
-    setReferralTokenStorage(token);
+    setReferrerName(null);
     setInviteInvalid(false);
+    setReferralTokenStorage(token);
 
     let cancelled = false;
     void fetch(`${BACKEND_URL}/referral/resolve/${encodeURIComponent(token)}`)
@@ -35,6 +39,7 @@ const ReferralLanding = () => {
       .then((data: { valid?: boolean; referrerName?: string }) => {
         if (cancelled) return;
         if (data.valid === false) {
+          clearReferralTokenStorage();
           setInviteInvalid(true);
         } else if (data.valid && data.referrerName) {
           setReferrerName(data.referrerName);

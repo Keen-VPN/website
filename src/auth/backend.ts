@@ -236,11 +236,12 @@ export async function authenticateWithBackend(
       );
     }
 
+    // Some provider responses may omit `success`; treat missing as success on HTTP 200.
     const normalized = normalizeBackendAuthResponse(data as RawBackendAuthResponse);
-    if (normalized.success) {
+    if (normalized.success ?? true) {
       clearReferralTokenStorage();
     }
-    return normalized;
+    return { ...normalized, success: normalized.success ?? true };
   } catch (error) {
     return {
       success: false,
@@ -288,7 +289,11 @@ export async function fetchReferralDashboard(
         error: extractBackendErrorMessage(data, "Failed to load referrals"),
       };
     }
-    return { success: true, ...(data as Record<string, unknown>) };
+    const payload =
+      data && typeof data === "object" && !Array.isArray(data)
+        ? (data as Record<string, unknown>)
+        : {};
+    return { ...payload, success: true };
   } catch (error) {
     return {
       success: false,
@@ -597,10 +602,10 @@ export async function verifyEmailOtp(
       ...(data as RawBackendAuthResponse),
       success: true,
     });
-    if (normalized.success) {
+    if (normalized.success ?? true) {
       clearReferralTokenStorage();
     }
-    return normalized;
+    return { ...normalized, success: normalized.success ?? true };
   } catch (error) {
     return {
       success: false,
