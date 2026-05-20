@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
+import { PAYMENT_CANCEL_DEEP_LINK } from "@/lib/keenvpn-deep-links";
 
 const PaymentCancel = () => {
   const deepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
@@ -56,7 +57,7 @@ const PaymentCancel = () => {
 
             {deepLinkSupported ? (
               <Button asChild variant="outline" className="w-full">
-                <a href="vpnkeen://cancel">Return to App</a>
+                <a href={PAYMENT_CANCEL_DEEP_LINK}>Return to KeenVPN App</a>
               </Button>
             ) : (
               <p className="text-sm text-muted-foreground text-center">
