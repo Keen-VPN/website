@@ -42,14 +42,13 @@ import {
   Trash2,
   History,
   ArrowUpCircle,
+  Smartphone,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   deleteAccount,
   getSessionToken,
-  cancelSubscription,
-  createBillingPortalSession,
   getContactEmailStatus,
   saveContactEmail,
   sendContactEmailVerification,
@@ -58,19 +57,41 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
+import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
 import { detectDevice, isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
+import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import {
   getSubscriptionCtaLabel,
   hasManageableSubscription,
+  isStripeSubscription,
 } from "@/lib/subscription-cta";
+import {
+  PAYMENT_SUCCESS_DEEP_LINK,
+  RETURN_TO_APP_LABEL,
+  clearStripeCheckoutReturn,
+  dismissStripePostCheckoutUi,
+  markStripeAutoOpenDone,
+  markStripeCheckoutReturn,
+  openKeenVpnNativeApp,
+  shouldAutoOpenAppAfterStripeCheckout,
+  shouldShowStripePostCheckoutUi,
+} from "@/lib/keenvpn-deep-links";
 
 const Account = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
-  const [initialSubscriptionChecked, setInitialSubscriptionChecked] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
+  // true on normal /account (no session_id) — render subscription card immediately;
+  // AuthContext usually has subscription already. Stripe return starts false (skeleton until sync).
+  const [initialSubscriptionChecked, setInitialSubscriptionChecked] = useState(
+    () => !new URLSearchParams(window.location.search).get("session_id"),
+  );
   const [deleting, setDeleting] = useState(false);
-  const [portalLoading, setPortalLoading] = useState(false);
+  const {
+    cancelling,
+    portalLoading,
+    cancelSubscriptionAtPeriodEnd,
+    openBillingPortal,
+  } = useSubscriptionBillingActions();
   const [showContactEmailModal, setShowContactEmailModal] = useState(false);
   const [contactEmail, setContactEmail] = useState("");
   const [contactEmailLoading, setContactEmailLoading] = useState(false);
@@ -87,7 +108,6 @@ const Account = () => {
     subscription,
     trial,
   );
-  const isManageableSubscription = hasManageableSubscription(subscription);
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
   const unsupportedDeviceName = useMemo(() => getUnsupportedDeviceName(), []);
@@ -112,6 +132,58 @@ const Account = () => {
     return urlParams.get("session_id");
   }, [location.search]);
   const processedStripeSessionRef = useRef<string | null>(null);
+  const [showPostCheckoutUi, setShowPostCheckoutUi] = useState(() =>
+    shouldShowStripePostCheckoutUi(),
+  );
+
+  // Single source of truth for post-checkout UI: mark return from ?session_id=,
+  // sync banner visibility from sessionStorage, clear only when signed out (not while loading).
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      if (!hasSessionToken) {
+        clearStripeCheckoutReturn();
+        setShowPostCheckoutUi(false);
+      }
+      return;
+    }
+    if (hasStripeSessionId) {
+      markStripeCheckoutReturn(stripeSessionId);
+    }
+    setShowPostCheckoutUi(shouldShowStripePostCheckoutUi());
+  }, [user, loading, hasSessionToken, hasStripeSessionId, stripeSessionId]);
+
+  const showPaymentCompleteBanner =
+    Boolean(user) &&
+    hasSessionToken &&
+    showPostCheckoutUi &&
+    initialSubscriptionChecked &&
+    !subscriptionLoading;
+
+  const showReturnToAppCta =
+    showPaymentCompleteBanner && isDeepLinkSupported;
+
+  const dismissPostCheckoutUi = () => {
+    dismissStripePostCheckoutUi();
+    setShowPostCheckoutUi(false);
+  };
+
+  useEffect(() => {
+    if (!showPostCheckoutUi || !isDeepLinkSupported) {
+      return;
+    }
+    if (!initialSubscriptionChecked || !shouldAutoOpenAppAfterStripeCheckout()) {
+      return;
+    }
+
+    // Only mark auto-open done — keep banner/buttons if the deep link fails (app not installed).
+    const timer = window.setTimeout(() => {
+      markStripeAutoOpenDone();
+      openKeenVpnNativeApp(PAYMENT_SUCCESS_DEEP_LINK);
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [showPostCheckoutUi, isDeepLinkSupported, initialSubscriptionChecked]);
 
   // The session token may not be in localStorage yet when Account first mounts
   // (AuthContext is still verifying with the backend). Poll until it arrives.
@@ -159,8 +231,16 @@ const Account = () => {
         }
         return;
       }
-      if (subscription && !hasStripeSessionId) {
-        if (!cancelled) setInitialSubscriptionChecked(true);
+
+      // Normal visit: show account immediately; refresh subscription in background.
+      if (!hasStripeSessionId) {
+        if (!cancelled) {
+          setSubscriptionLoading(false);
+          setInitialSubscriptionChecked(true);
+          if (!subscription) {
+            void refreshSubscription();
+          }
+        }
         return;
       }
 
@@ -172,8 +252,8 @@ const Account = () => {
         processedStripeSessionRef.current = stripeSessionId;
       }
 
-      const attempts = hasStripeSessionId ? 3 : 1;
-      const timeoutMs = 8000;
+      const attempts = 3;
+      const timeoutMs = 4000;
 
       const runRefreshWithTimeout = async () => {
         await Promise.race([
@@ -187,18 +267,14 @@ const Account = () => {
       for (let attempt = 0; attempt < attempts && !cancelled; attempt += 1) {
         await runRefreshWithTimeout();
         if (attempt < attempts - 1) {
-          await new Promise((resolve) => window.setTimeout(resolve, 1200));
+          await new Promise((resolve) => window.setTimeout(resolve, 600));
         }
       }
 
       if (!cancelled) {
         setSubscriptionLoading(false);
         setInitialSubscriptionChecked(true);
-
-        // Remove Stripe session_id after processing so future loads use normal flow.
-        if (hasStripeSessionId) {
-          navigate(isASWeb ? "/account?asweb=1" : "/account", { replace: true });
-        }
+        navigate(isASWeb ? "/account?asweb=1" : "/account", { replace: true });
       }
     };
 
@@ -224,92 +300,22 @@ const Account = () => {
     setSubscriptionLoading(false);
   };
 
-  const handleManageBilling = async () => {
-    const token = getSessionToken();
-    if (!token) {
-      toast({
-        title: "Session expired",
-        description: "Please sign in again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setPortalLoading(true);
-      const result = await createBillingPortalSession(
-        token,
-        window.location.href,
-      );
-
-      if (result.success && result.url) {
-        window.location.href = result.url;
-      } else {
-        toast({
-          title: "Unable to open billing portal",
-          description: result.error || "Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch {
-      toast({
-        title: "Something went wrong",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setPortalLoading(false);
-    }
-  };
-
   const isMonthlyStripe =
     subscription?.status === "active" &&
     subscription?.subscriptionType === "stripe" &&
     subscription?.plan?.toLowerCase().includes("monthly");
-  const isActiveStripeSubscription =
-    subscription?.status === "active" &&
-    subscription?.subscriptionType === "stripe";
+  const showStripeUpgradeToAnnual =
+    isMonthlyStripe && !subscription?.cancelAtPeriodEnd;
+  // Stripe + active/trialing/past_due (not only status==="active") — download + cancel CTAs.
+  const isStripeManageable =
+    isStripeSubscription(subscription) &&
+    hasManageableSubscription(subscription);
   const downloadAppButtonLabel = useMemo(() => {
     const device = detectDevice();
     if (device === "ios") return "Download KeenVPN for iPhone";
     if (device === "macos") return "Download KeenVPN for Mac";
     return "Download KeenVPN App";
   }, []);
-
-  const handleCancelSubscription = async () => {
-    if (!user) return;
-
-    try {
-      setCancelling(true);
-
-      const token = getSessionToken();
-      if (!token) {
-        throw new Error("Session expired. Please log in again.");
-      }
-
-      const result = await cancelSubscription(token);
-
-      if (result.success) {
-        toast({
-          title: "Subscription Cancelled",
-          description:
-            "Your subscription will remain active until the end of your billing period.",
-        });
-        await refreshSubscription();
-      } else {
-        throw new Error(result.error || "Failed to cancel subscription");
-      }
-    } catch (error) {
-      toast({
-        title: "Cancellation Failed",
-        description:
-          error instanceof Error ? error.message : "Please try again",
-        variant: "destructive",
-      });
-    } finally {
-      setCancelling(false);
-    }
-  };
 
   const handleDeleteAccount = async () => {
     if (!user) return;
@@ -624,8 +630,67 @@ const Account = () => {
             </p>
           </div>
 
-          {/* ASWebAuthenticationSession fallback — visible "Return to App" button */}
-          {isASWeb && (
+          {/* Post-Stripe checkout — auto-opens app on iOS/macOS; primary CTA below */}
+          {showPaymentCompleteBanner ? (
+            <Card className="mb-8 border-primary/50 shadow-glow bg-primary/5">
+              <CardContent className="flex flex-col items-center gap-4 py-6">
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-foreground">
+                    Payment complete
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Thanks for trying KeenVPN. Your subscription is active.{" "}
+                    {isDeepLinkSupported
+                      ? "Return to the app and connect to KeenVPN."
+                      : `Install KeenVPN on your ${unsupportedDeviceName} to connect.`}
+                  </p>
+                </div>
+                {isDeepLinkSupported ? (
+                  <>
+                    <Button
+                      asChild
+                      className="w-full max-w-sm bg-gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
+                      size="lg"
+                    >
+                      <a
+                        href={PAYMENT_SUCCESS_DEEP_LINK}
+                        onClick={() => {
+                          dismissPostCheckoutUi();
+                          clearStripeCheckoutReturn();
+                        }}
+                      >
+                        <Smartphone className="mr-2 h-5 w-5" />
+                        {RETURN_TO_APP_LABEL}
+                      </a>
+                    </Button>
+                    <p className="text-center text-xs text-muted-foreground">
+                      If the app did not open automatically, tap the button above.
+                    </p>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    className="w-full max-w-sm bg-gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
+                    size="lg"
+                    onClick={() => {
+                      window.open(
+                        /^https?:\/\//i.test(appStoreUrl)
+                          ? appStoreUrl
+                          : "https://vpnkeen.com",
+                        "_blank",
+                        "noopener,noreferrer",
+                      );
+                    }}
+                  >
+                    {downloadAppButtonLabel}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {/* ASWeb auth return — hidden when Stripe checkout just completed (success deep link instead) */}
+          {isASWeb && !showPostCheckoutUi && (
             <Card className="mb-8 border-primary/50 shadow-glow bg-primary/5">
               <CardContent className="flex flex-col items-center gap-4 py-6">
                 {isDeepLinkSupported ? (
@@ -739,9 +804,9 @@ const Account = () => {
                     </div>
 
                     {/* Upgrade to Annual */}
-                    {isMonthlyStripe && !subscription.cancelAtPeriodEnd && (
+                    {showStripeUpgradeToAnnual && (
                       <Button
-                        onClick={handleManageBilling}
+                        onClick={() => void openBillingPortal()}
                         disabled={portalLoading}
                         variant="outline"
                         className="w-full border-primary text-primary hover:bg-primary/10"
@@ -799,14 +864,31 @@ const Account = () => {
                       </div>
                     )}
                     <div className="space-y-3">
-                      {isActiveStripeSubscription && (
+                      {showReturnToAppCta ? (
+                        <Button
+                          asChild
+                          className="w-full bg-gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
+                          size="lg"
+                        >
+                          <a
+                            href={PAYMENT_SUCCESS_DEEP_LINK}
+                            onClick={() => {
+                              dismissPostCheckoutUi();
+                              clearStripeCheckoutReturn();
+                            }}
+                          >
+                            <Smartphone className="mr-2 h-5 w-5" />
+                            {RETURN_TO_APP_LABEL}
+                          </a>
+                        </Button>
+                      ) : isStripeManageable ? (
                         <Button
                           onClick={() => window.open(/^https?:\/\//i.test(appStoreUrl) ? appStoreUrl : "https://vpnkeen.com", "_blank")}
                           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
                         >
                           {downloadAppButtonLabel}
                         </Button>
-                      )}
+                      ) : null}
 
                       <Button
                         onClick={() =>
@@ -836,126 +918,23 @@ const Account = () => {
                         )}
                       </Button>
 
-                      {subscription.status === "active" ? (
-                        <>
-                          {!subscription.cancelAtPeriodEnd ? (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="destructive"
-                                  className="w-full"
-                                >
-                                  <XCircle className="h-4 w-4 mr-2" />
-                                  Turn Off Auto-Renewal
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle className="flex items-center">
-                                    <AlertTriangle className="h-5 w-5 mr-2 text-yellow-500" />
-                                    Turn Off Auto-Renewal
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to turn off
-                                    auto-renewal?
-                                    <br />
-                                    <br />
-                                    <strong>What happens:</strong>
-                                    <ul className="list-disc list-inside mt-2 space-y-1">
-                                      <li>
-                                        Your subscription will remain active
-                                        until{" "}
-                                        <strong>
-                                          {formatDate(subscription.endDate)}
-                                        </strong>
-                                      </li>
-                                      <li>You will NOT be charged again</li>
-                                      <li>
-                                        You can re-enable auto-renewal anytime
-                                        before this date
-                                      </li>
-                                      <li>
-                                        After this date, you'll need to
-                                        subscribe again to continue using
-                                        KeenVPN
-                                      </li>
-                                    </ul>
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>
-                                    Keep Auto-Renewal
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={handleCancelSubscription}
-                                    disabled={cancelling}
-                                    className="bg-red-600 hover:bg-red-700"
-                                  >
-                                    {cancelling ? (
-                                      <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Processing...
-                                      </>
-                                    ) : (
-                                      "Yes, Turn Off Auto-Renewal"
-                                    )}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          ) : (
-                            <>
-                              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg space-y-2">
-                                <div className="flex items-start">
-                                  <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2 mt-0.5" />
-                                  <div className="flex-1">
-                                    <p className="text-sm font-medium text-yellow-800">
-                                      Auto-Renewal Cancelled
-                                    </p>
-                                    <p className="text-xs text-yellow-700 mt-1">
-                                      Your subscription will end on{" "}
-                                      <strong>
-                                        {formatDate(subscription.endDate)}
-                                      </strong>
-                                      <br />
-                                      You will not be charged again unless you
-                                      re-enable auto-renewal.
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
+                      <SubscriptionCancellationControls
+                        subscription={subscription}
+                        cancelling={cancelling}
+                        onCancel={() => void cancelSubscriptionAtPeriodEnd()}
+                        onManageBilling={() => void openBillingPortal()}
+                        portalLoading={portalLoading}
+                        showManageBilling={!showStripeUpgradeToAnnual}
+                      />
 
-                              <Button
-                                onClick={() => {
-                                  toast({
-                                    title: "Re-enable Auto-Renewal",
-                                    description:
-                                      "Please contact support to re-enable auto-renewal, or subscribe again after your current period ends.",
-                                  });
-                                }}
-                                variant="outline"
-                                className="w-full border-green-500 text-green-600 hover:bg-green-50"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Re-enable Auto-Renewal
-                              </Button>
-                            </>
-                          )}
-                        </>
-                      ) : (
+                      {!hasManageableSubscription(subscription) ? (
                         <Button
-                          onClick={() =>
-                            navigate(
-                              isManageableSubscription
-                                ? "/account"
-                                : "/subscribe",
-                            )
-                          }
+                          onClick={() => navigate("/subscribe")}
                           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
                         >
                           {subscriptionCtaLabel}
                         </Button>
-                      )}
+                      ) : null}
                     </div>
                     <div className="pt-4 mt-4 border-t border-border">
                       <p className="text-sm text-muted-foreground">

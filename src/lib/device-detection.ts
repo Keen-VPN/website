@@ -27,9 +27,13 @@ export function detectDevice(): DeviceType {
   return "other";
 }
 
-export function isAppDeepLinkSupported(): boolean {
+export function isApplePlatform(): boolean {
   const device = detectDevice();
   return device === "macos" || device === "ios";
+}
+
+export function isAppDeepLinkSupported(): boolean {
+  return isApplePlatform();
 }
 
 export function getUnsupportedDeviceName(): string {

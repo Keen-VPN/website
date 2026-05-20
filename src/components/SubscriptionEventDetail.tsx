@@ -38,6 +38,9 @@ import {
   type SubscriptionEvent,
   type SubscriptionEventDetail,
 } from "@/lib/subscription-history-api";
+import { AppleIapSubscriptionsCta } from "@/components/AppleIapSubscriptionsCta";
+import { isApplePlatform } from "@/lib/device-detection";
+import { APPLE_SUBSCRIPTIONS_MANAGE_URL } from "@/constants/apple-subscriptions";
 
 interface SubscriptionEventDetailProps {
   event: SubscriptionEvent | null;
@@ -105,9 +108,7 @@ export function SubscriptionEventDetail({
   };
 
   const handleAppStoreManage = () => {
-    // Open App Store subscription management
-    const appStoreUrl = "https://apps.apple.com/account/subscriptions";
-    window.open(appStoreUrl, "_blank");
+    window.open(APPLE_SUBSCRIPTIONS_MANAGE_URL, "_blank", "noopener,noreferrer");
   };
 
   const handleContactSupport = () => {
@@ -365,12 +366,18 @@ Thank you!`);
                 </Button>
               )} */}
 
-              {eventDetail.providerActions.appStoreManage && (
-                <Button onClick={handleAppStoreManage} className="flex-1">
-                  <Smartphone className="h-4 w-4 mr-2" />
-                  Manage in App Store
-                </Button>
-              )}
+              {eventDetail.providerActions.appStoreManage ? (
+                isApplePlatform() ? (
+                  <Button onClick={handleAppStoreManage} className="flex-1">
+                    <Smartphone className="h-4 w-4 mr-2" />
+                    Manage in App Store
+                  </Button>
+                ) : (
+                  <div className="flex-1 min-w-0">
+                    <AppleIapSubscriptionsCta className="w-full" />
+                  </div>
+                )
+              ) : null}
 
               {/* Support Contact */}
               <Button
@@ -421,10 +428,17 @@ Thank you!`);
                     You can view your purchase history and download receipts
                     through your Apple ID account.
                   </p>
-                  <Button variant="outline" onClick={handleAppStoreManage}>
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    View Apple Receipts
-                  </Button>
+                  {isApplePlatform() ? (
+                    <Button variant="outline" onClick={handleAppStoreManage}>
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      View Apple Receipts
+                    </Button>
+                  ) : (
+                    <AppleIapSubscriptionsCta
+                      label="How to view Apple receipts"
+                      variant="outline"
+                    />
+                  )}
                 </div>
               </div>
             </>

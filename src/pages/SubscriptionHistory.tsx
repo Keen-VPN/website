@@ -23,6 +23,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscriptionHistory } from "@/hooks/useSubscriptionHistory";
+import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import {
   formatEventDate,
   formatCurrency,
@@ -37,11 +38,19 @@ import { SubscriptionHistoryEmptyState } from "@/components/SubscriptionHistoryE
 import { SubscriptionHistoryErrorState } from "@/components/SubscriptionHistoryErrorState";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
+import { hasManageableSubscription, isStripeSubscription } from "@/lib/subscription-cta";
 
 const SubscriptionHistory = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, subscription } = useAuth();
   const { toast } = useToast();
+  const {
+    cancelling,
+    portalLoading,
+    cancelSubscriptionAtPeriodEnd,
+    openBillingPortal,
+  } = useSubscriptionBillingActions();
   const [selectedEvent, setSelectedEvent] = useState<SubscriptionEvent | null>(
     null,
   );
@@ -78,6 +87,12 @@ const SubscriptionHistory = () => {
     setSelectedEvent(event);
     setEventDetailOpen(true);
   };
+
+  const showCancellationCard =
+    subscription &&
+    hasManageableSubscription(subscription) &&
+    (isStripeSubscription(subscription) ||
+      subscription.subscriptionType === "apple_iap");
 
   const handleLoadMore = async () => {
     if (pagination.hasNextPage && !loading) {
@@ -264,6 +279,23 @@ const SubscriptionHistory = () => {
             onFiltersChange={setFilters}
             loading={loading}
           />
+
+          {showCancellationCard ? (
+            <Card className="mb-8 border-accent/50 shadow-glow">
+              <CardHeader>
+                <CardTitle className="text-lg">Cancel subscription</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SubscriptionCancellationControls
+                  subscription={subscription}
+                  cancelling={cancelling}
+                  onCancel={() => void cancelSubscriptionAtPeriodEnd()}
+                  onManageBilling={() => void openBillingPortal()}
+                  portalLoading={portalLoading}
+                />
+              </CardContent>
+            </Card>
+          ) : null}
 
           {/* Summary Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
