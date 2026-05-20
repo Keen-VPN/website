@@ -1,10 +1,29 @@
 import type { AdminMedianMonthlySessionsReport } from "@/auth/backend";
 
+/** Spreadsheet apps treat these leading characters as formula/DDE triggers. */
+const SPREADSHEET_FORMULA_PREFIX_RE = /^[=+\-@\t\r]/;
+
+/**
+ * Neutralize CSV formula injection for string cells (OWASP CSV injection).
+ * Numeric/boolean cells are left unchanged so negative numbers stay numeric.
+ */
+function neutralizeSpreadsheetFormula(text: string): string {
+  const leadingWhitespace = text.match(/^\s*/)?.[0] ?? "";
+  const body = text.slice(leadingWhitespace.length);
+  if (SPREADSHEET_FORMULA_PREFIX_RE.test(body)) {
+    return `${leadingWhitespace}'${body}`;
+  }
+  return text;
+}
+
 function escapeCsvCell(value: string | number | boolean | null | undefined): string {
   if (value === null || value === undefined) {
     return "";
   }
-  const text = String(value);
+  const text =
+    typeof value === "string"
+      ? neutralizeSpreadsheetFormula(value)
+      : String(value);
   if (/[",\n\r]/.test(text)) {
     return `"${text.replace(/"/g, '""')}"`;
   }
