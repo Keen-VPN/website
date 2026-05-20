@@ -252,18 +252,33 @@ export async function authenticateWithBackend(
   }
 }
 
-export async function fetchReferralDashboard(sessionToken: string): Promise<{
+export async function fetchReferralDashboard(
+  sessionToken: string,
+  options?: { offset?: number; limit?: number },
+): Promise<{
   success: boolean;
   referralUrl?: string;
   token?: string;
   totalReferrals?: number;
   rewardsEarned?: number;
   pendingReferrals?: number;
-  referrals?: Array<Record<string, unknown>>;
+  referrals?: Record<string, unknown>[];
+  referralsOffset?: number;
+  referralsLimit?: number;
+  referralsHasMore?: boolean;
   error?: string;
 }> {
   try {
-    const response = await fetch(`${BACKEND_URL}/referral/dashboard`, {
+    const params = new URLSearchParams();
+    if (options?.offset !== undefined && options.offset >= 0) {
+      params.set("offset", String(options.offset));
+    }
+    if (options?.limit !== undefined && options.limit > 0) {
+      params.set("limit", String(options.limit));
+    }
+    const query = params.toString();
+    const url = `${BACKEND_URL}/referral/dashboard${query ? `?${query}` : ""}`;
+    const response = await fetch(url, {
       headers: { Authorization: `Bearer ${sessionToken}` },
     });
     const data: unknown = await response.json().catch(() => ({}));
@@ -362,10 +377,14 @@ export async function verifyMagicLink(
   token: string,
 ): Promise<BackendAuthResponse> {
   try {
+    const referralToken = getReferralTokenFromStorage();
     const response = await fetch(`${BACKEND_URL}/auth/magic/verify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({
+        token,
+        ...(referralToken ? { referralToken } : {}),
+      }),
     });
     const data: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -375,10 +394,14 @@ export async function verifyMagicLink(
         unauthorized: response.status === 401,
       };
     }
-    return normalizeBackendAuthResponse({
+    const normalized = normalizeBackendAuthResponse({
       ...(data as RawBackendAuthResponse),
       success: true,
     });
+    if (normalized.success ?? true) {
+      clearReferralTokenStorage();
+    }
+    return normalized;
   } catch (error) {
     return {
       success: false,

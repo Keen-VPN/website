@@ -18,6 +18,8 @@ const ReferralLanding = () => {
   const navigate = useNavigate();
   const [referrerName, setReferrerName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  /** `false` once we get a JSON body with valid === false */
+  const [inviteInvalid, setInviteInvalid] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -25,13 +27,16 @@ const ReferralLanding = () => {
       return;
     }
     setReferralTokenStorage(token);
+    setInviteInvalid(false);
 
     let cancelled = false;
     void fetch(`${BACKEND_URL}/referral/resolve/${encodeURIComponent(token)}`)
       .then((res) => res.json().catch(() => ({})))
       .then((data: { valid?: boolean; referrerName?: string }) => {
         if (cancelled) return;
-        if (data.valid && data.referrerName) {
+        if (data.valid === false) {
+          setInviteInvalid(true);
+        } else if (data.valid && data.referrerName) {
           setReferrerName(data.referrerName);
         }
         setLoading(false);
@@ -67,6 +72,15 @@ const ReferralLanding = () => {
             <CardDescription className="text-base">
               Create an account with the same browser session to connect this
               invite. When you subscribe, your friend can earn 1 free month.
+              {inviteInvalid ? (
+                <>
+                  {" "}
+                  <span className="mt-2 block text-sm text-muted-foreground">
+                    This invite link could not be validated. It may be invalid,
+                    expired, or referrals may be unavailable.
+                  </span>
+                </>
+              ) : null}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

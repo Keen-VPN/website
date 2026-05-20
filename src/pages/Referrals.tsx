@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, Gift, Share2, Users, Clock } from "lucide-react";
+import { Copy, Gift, Share2, Users, Clock, Loader2 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getSessionToken, fetchReferralDashboard } from "@/auth";
@@ -34,7 +35,10 @@ interface DashboardPayload {
   rewardsEarned: number;
   pendingReferrals: number;
   referrals: ReferralRow[];
+  referralsHasMore: boolean;
 }
+
+const REFERRALS_PAGE_SIZE = 20;
 
 const stageConfig: {
   key: keyof Pick<
@@ -47,9 +51,9 @@ const stageConfig: {
   >;
   label: string;
 }[] = [
-  { key: "appDownloadedAt", label: "Downloaded" },
-  { key: "appOpenedAt", label: "Opened app" },
   { key: "signedUpAt", label: "Signed up" },
+  { key: "appDownloadedAt", label: "Downloaded app" },
+  { key: "appOpenedAt", label: "Opened app" },
   { key: "subscribedAt", label: "Subscribed" },
   { key: "rewardedAt", label: "Reward" },
 ];
@@ -101,6 +105,8 @@ const Referrals = () => {
   const { toast } = useToast();
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -114,7 +120,11 @@ const Referrals = () => {
       return;
     }
     let cancelled = false;
-    void fetchReferralDashboard(session).then((res) => {
+    setFetchError(null);
+    void fetchReferralDashboard(session, {
+      offset: 0,
+      limit: REFERRALS_PAGE_SIZE,
+    }).then((res) => {
       if (cancelled) return;
       if (res.success && res.referralUrl) {
         setData({
@@ -124,7 +134,16 @@ const Referrals = () => {
           rewardsEarned: res.rewardsEarned ?? 0,
           pendingReferrals: res.pendingReferrals ?? 0,
           referrals: normalizeReferralRows(res.referrals),
+          referralsHasMore: Boolean(res.referralsHasMore),
         });
+        setFetchError(null);
+      } else {
+        setData(null);
+        setFetchError(
+          res.error?.trim()
+            ? res.error
+            : "Unable to load referral data. Please try again.",
+        );
       }
       setLoading(false);
     });
@@ -132,6 +151,50 @@ const Referrals = () => {
       cancelled = true;
     };
   }, [user, authLoading, navigate]);
+
+  const appendReferralRows = (existing: ReferralRow[], incoming: ReferralRow[]) => {
+    const seen = new Set(existing.map((r) => r.id));
+    const extra = incoming.filter((r) => !seen.has(r.id));
+    return [...existing, ...extra];
+  };
+
+  const loadMoreReferrals = async () => {
+    const session = getSessionToken();
+    if (!session || !data?.referralsHasMore || loadingMore) return;
+
+    const offset = data.referrals.length;
+    setLoadingMore(true);
+    const res = await fetchReferralDashboard(session, {
+      offset,
+      limit: REFERRALS_PAGE_SIZE,
+    });
+    setLoadingMore(false);
+
+    if (!res.success || !res.referralUrl) {
+      toast({
+        title: "Could not load more",
+        description:
+          res.error?.trim() || "Please refresh the page or try again later.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        totalReferrals: res.totalReferrals ?? prev.totalReferrals,
+        rewardsEarned: res.rewardsEarned ?? prev.rewardsEarned,
+        pendingReferrals: res.pendingReferrals ?? prev.pendingReferrals,
+        referrals: appendReferralRows(
+          prev.referrals,
+          normalizeReferralRows(res.referrals),
+        ),
+        referralsHasMore: Boolean(res.referralsHasMore),
+      };
+    });
+  };
 
   const copyLink = async () => {
     if (!data) return;
@@ -196,6 +259,23 @@ const Referrals = () => {
       <Header />
       <main className="flex-1 bg-gradient-hero py-20">
         <div className="container mx-auto max-w-4xl px-4">
+          {fetchError ? (
+            <Alert variant="destructive" className="mb-8">
+              <AlertTitle>Something went wrong</AlertTitle>
+              <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <span>{fetchError}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 border-destructive/50"
+                  onClick={() => window.location.reload()}
+                >
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <div className="mb-8">
             <h1 className="mb-2 text-4xl font-bold text-foreground">
               Refer a <span className="text-primary">friend</span>
@@ -259,7 +339,10 @@ const Referrals = () => {
           <Card>
             <CardHeader>
               <CardTitle>Progress</CardTitle>
-              <CardDescription>Status per friend (privacy-safe)</CardDescription>
+              <CardDescription>
+                Signed up happens on the web; download and opened update when your friend uses
+                the mobile app (if tracked).
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {referralRows.length === 0 ? (
@@ -291,6 +374,25 @@ const Referrals = () => {
                       </div>
                     </div>
                   ))}
+                  {data?.referralsHasMore ? (
+                    <div className="flex justify-center pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={loadingMore}
+                        onClick={() => void loadMoreReferrals()}
+                      >
+                        {loadingMore ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Loading…
+                          </>
+                        ) : (
+                          "Load more"
+                        )}
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </CardContent>
