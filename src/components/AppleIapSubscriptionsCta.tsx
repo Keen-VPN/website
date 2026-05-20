@@ -6,9 +6,12 @@ import { cn } from "@/lib/utils";
 
 interface AppleIapSubscriptionsCtaProps {
   label?: string;
+  /** Applied to the link button on iOS/macOS only; ignored on other platforms. */
   variant?: "default" | "outline" | "destructive" | "secondary" | "ghost" | "link";
   className?: string;
   buttonClassName?: string;
+  /** Layout for the non-Apple instructions box (e.g. center inside text-center cards). */
+  instructionsAlign?: "left" | "center";
 }
 
 /**
@@ -20,6 +23,7 @@ export function AppleIapSubscriptionsCta({
   variant = "outline",
   className,
   buttonClassName,
+  instructionsAlign = "left",
 }: AppleIapSubscriptionsCtaProps) {
   if (isApplePlatform()) {
     return (
@@ -40,10 +44,13 @@ export function AppleIapSubscriptionsCta({
     );
   }
 
+  const centered = instructionsAlign === "center";
+
   return (
     <div
       className={cn(
         "space-y-2 rounded-lg border border-border bg-muted/40 p-4",
+        centered && "text-center",
         className,
       )}
     >
@@ -54,7 +61,14 @@ export function AppleIapSubscriptionsCta({
         App Store subscriptions cannot be changed from this browser. Use one of
         your Apple devices:
       </p>
-      <ul className="list-inside list-disc space-y-1 text-xs text-muted-foreground">
+      <ul
+        className={cn(
+          "space-y-1 text-xs text-muted-foreground",
+          centered
+            ? "mx-auto max-w-sm list-none text-left"
+            : "list-inside list-disc",
+        )}
+      >
         <li>
           <strong>iPhone / iPad:</strong> Settings → [your name] → Subscriptions
           → KeenVPN

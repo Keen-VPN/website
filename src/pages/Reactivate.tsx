@@ -238,7 +238,10 @@ const Reactivate = () => {
                     {message ||
                       "Apple subscriptions must be re-enabled in Apple subscription settings. Once Apple confirms it, your offer will be applied."}
                   </p>
-                  <AppleIapSubscriptionsCta variant="default" />
+                  <AppleIapSubscriptionsCta
+                    variant="default"
+                    instructionsAlign="center"
+                  />
                   {isApplePlatform() ? (
                     <p className="text-xs text-muted-foreground">
                       You can also open Settings, tap your Apple ID, then

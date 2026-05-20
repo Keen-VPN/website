@@ -108,14 +108,6 @@ export function SubscriptionEventDetail({
   };
 
   const handleAppStoreManage = () => {
-    if (!isApplePlatform()) {
-      toast({
-        title: "Use an Apple device",
-        description:
-          "Open Settings → your Apple ID → Subscriptions on iPhone/iPad, or App Store → Account Settings on Mac.",
-      });
-      return;
-    }
     window.open(APPLE_SUBSCRIPTIONS_MANAGE_URL, "_blank", "noopener,noreferrer");
   };
 
