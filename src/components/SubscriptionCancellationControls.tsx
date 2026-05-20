@@ -17,8 +17,7 @@ import {
   hasManageableSubscription,
   isStripeSubscription,
 } from "@/lib/subscription-cta";
-
-const APPLE_SUBSCRIPTIONS_URL = "itms-apps://apps.apple.com/account/subscriptions";
+import { APPLE_SUBSCRIPTIONS_MANAGE_URL } from "@/constants/apple-subscriptions";
 
 function formatDate(dateString: string | undefined): string {
   if (!dateString) return "the end of your billing period";
@@ -79,7 +78,11 @@ export function SubscriptionCancellationControls({
 
   const openAppleSubscriptionsButton = (
     <Button asChild variant="outline" className="w-full">
-      <a href={APPLE_SUBSCRIPTIONS_URL}>
+      <a
+        href={APPLE_SUBSCRIPTIONS_MANAGE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         <CheckCircle className="mr-2 h-4 w-4" />
         Open Apple Subscriptions
       </a>

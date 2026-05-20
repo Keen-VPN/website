@@ -38,6 +38,7 @@ import {
   type SubscriptionEvent,
   type SubscriptionEventDetail,
 } from "@/lib/subscription-history-api";
+import { APPLE_SUBSCRIPTIONS_MANAGE_URL } from "@/constants/apple-subscriptions";
 
 interface SubscriptionEventDetailProps {
   event: SubscriptionEvent | null;
@@ -106,8 +107,7 @@ export function SubscriptionEventDetail({
 
   const handleAppStoreManage = () => {
     // Open App Store subscription management
-    const appStoreUrl = "https://apps.apple.com/account/subscriptions";
-    window.open(appStoreUrl, "_blank");
+    window.open(APPLE_SUBSCRIPTIONS_MANAGE_URL, "_blank", "noopener,noreferrer");
   };
 
   const handleContactSupport = () => {
