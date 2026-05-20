@@ -1,10 +1,29 @@
 import type { AdminMedianMonthlySessionsReport } from "@/auth/backend";
 
+/** Spreadsheet apps treat these leading characters as formula/DDE triggers. */
+const SPREADSHEET_FORMULA_PREFIX_RE = /^[=+\-@\t\r]/;
+
+/**
+ * Neutralize CSV formula injection for string cells (OWASP CSV injection).
+ * Numeric/boolean cells are left unchanged so negative numbers stay numeric.
+ */
+function neutralizeSpreadsheetFormula(text: string): string {
+  const leadingWhitespace = text.match(/^\s*/)?.[0] ?? "";
+  const body = text.slice(leadingWhitespace.length);
+  if (SPREADSHEET_FORMULA_PREFIX_RE.test(body)) {
+    return `${leadingWhitespace}'${body}`;
+  }
+  return text;
+}
+
 function escapeCsvCell(value: string | number | boolean | null | undefined): string {
   if (value === null || value === undefined) {
     return "";
   }
-  const text = String(value);
+  const text =
+    typeof value === "string"
+      ? neutralizeSpreadsheetFormula(value)
+      : String(value);
   if (/[",\n\r]/.test(text)) {
     return `"${text.replace(/"/g, '""')}"`;
   }
@@ -25,11 +44,21 @@ function downloadTextFile(
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  // Defer cleanup so older WebViews finish the download before revoke/DOM removal.
+  window.setTimeout(() => {
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, 100);
 }
 
-/** Builds a multi-section CSV from the engagement report shown on the admin dashboard. */
+/**
+ * Builds a human-readable multi-section CSV (summary, histogram, segments).
+ * Sections are separated by blank lines and use different column layouts (3 vs 6
+ * columns) — fine for spreadsheets, not for uniform-schema parsers. Use JSON export
+ * for programmatic consumption.
+ */
 export function buildConnectionEngagementCsv(
   report: AdminMedianMonthlySessionsReport,
 ): string {
