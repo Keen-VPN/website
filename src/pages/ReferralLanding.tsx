@@ -36,6 +36,8 @@ const ReferralLanding = () => {
     setInviteInvalid(false);
     setResolveFailed(false);
     setLoading(true);
+    /** Drop any prior invite token so stale values are never sent to auth after failed or superseded resolves. */
+    clearReferralTokenStorage();
 
     let cancelled = false;
 

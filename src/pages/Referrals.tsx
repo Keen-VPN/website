@@ -21,8 +21,8 @@ interface ReferralRow {
   id: string;
   status: string;
   refereeName: string;
-  /** Full referee account email — always exposed to the referrer on this page. */
-  refereeEmail?: string;
+  /** Full referee account email (API always sends string; missing → "" from coercion). */
+  refereeEmail: string;
   appDownloadedAt: string | null;
   appOpenedAt: string | null;
   signedUpAt: string | null;
@@ -63,6 +63,9 @@ const stageConfig: {
   { key: "appDownloadedAt", label: "Downloaded app", secondary: true },
   { key: "appOpenedAt", label: "Opened app", secondary: true },
 ];
+
+const referralPrimaryStages = stageConfig.filter((s) => !s.secondary);
+const referralSecondaryStages = stageConfig.filter((s) => s.secondary);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -390,14 +393,12 @@ const Referrals = () => {
                     </p>
                   ) : (
                     <div className="space-y-6">
-                      {referralRows.map((r) => {
-                        const primaryStages = stageConfig.filter((s) => !s.secondary);
-                        const secondaryStages = stageConfig.filter((s) => s.secondary);
-                        return (
-                          <div key={r.id} className="space-y-3 rounded-lg border p-4">
+                      {referralRows.map((r) => (
+                        <div key={r.id} className="space-y-3 rounded-lg border p-4">
                             <div className="flex items-center justify-between gap-3">
                               <div className="min-w-0 text-left">
                                 {r.refereeEmail &&
+                                r.refereeName.trim() &&
                                 r.refereeName.trim() !== r.refereeEmail.trim() ? (
                                   <>
                                     <div className="font-medium">{r.refereeName}</div>
@@ -414,7 +415,7 @@ const Referrals = () => {
                               {statusBadge(r.status)}
                             </div>
                             <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                              {primaryStages.map((s) => (
+                              {referralPrimaryStages.map((s) => (
                                 <span
                                   key={s.key}
                                   className={
@@ -432,7 +433,7 @@ const Referrals = () => {
                               <span className="font-medium uppercase tracking-wide opacity-70">
                                 App activity
                               </span>
-                              {secondaryStages.map((s) => (
+                              {referralSecondaryStages.map((s) => (
                                 <span
                                   key={s.key}
                                   className={
@@ -447,8 +448,7 @@ const Referrals = () => {
                               ))}
                             </div>
                           </div>
-                        );
-                      })}
+                      ))}
                       {data.referralsHasMore ? (
                         <div className="flex justify-center pt-2">
                           <Button
