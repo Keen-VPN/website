@@ -169,6 +169,8 @@ const Account = () => {
   const showReturnToAppCta =
     showPaymentCompleteBanner && isDeepLinkSupported;
 
+  // Intentionally not calling clearStripeCheckoutReturn here — dismiss hides UI via
+  // STRIPE_POST_CHECKOUT_UI_DISMISSED_KEY while preserving return/auto-open markers.
   const dismissPostCheckoutUi = () => {
     dismissStripePostCheckoutUi();
     setShowPostCheckoutUi(false);

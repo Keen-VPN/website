@@ -82,13 +82,30 @@ export function useSubscriptionBillingActions(
       return;
     }
 
+    // Open a tab synchronously on click so Safari does not block the portal URL
+    // after the async session fetch. Do not pass "noopener" — it returns null.
+    const portalWindow = window.open("about:blank", "_blank");
+    const popupBlocked = portalWindow === null;
+
     try {
       setPortalLoading(true);
       const result = await createBillingPortalSession(token, resolveReturnUrl());
 
       if (result.success && result.url) {
-        window.open(result.url, "_blank", "noopener,noreferrer");
+        if (portalWindow && !portalWindow.closed) {
+          portalWindow.location.replace(result.url);
+        } else if (popupBlocked) {
+          toast({
+            title: "Opening billing portal",
+            description:
+              "Your browser blocked a new tab. Opening Stripe in this window.",
+          });
+          window.location.assign(result.url);
+        } else {
+          window.location.assign(result.url);
+        }
       } else {
+        portalWindow?.close();
         toast({
           title: "Unable to open billing portal",
           description: result.error || "Please try again.",
@@ -96,6 +113,7 @@ export function useSubscriptionBillingActions(
         });
       }
     } catch {
+      portalWindow?.close();
       toast({
         title: "Something went wrong",
         description: "Please try again.",

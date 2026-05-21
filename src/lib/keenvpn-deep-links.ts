@@ -79,6 +79,11 @@ export function shouldShowStripePostCheckoutUi(): boolean {
   }
 }
 
+/**
+ * Hides post-checkout banner/CTAs for this checkout without removing return markers.
+ * Prefer this on "Return to App" so auto-open state stays consistent; use
+ * {@link clearStripeCheckoutReturn} only on sign-out or when abandoning the flow entirely.
+ */
 export function dismissStripePostCheckoutUi(): void {
   const returnId = readStripeCheckoutReturnId();
   if (!returnId) {
@@ -91,6 +96,7 @@ export function dismissStripePostCheckoutUi(): void {
   }
 }
 
+/** Removes all Stripe checkout return session keys (logout, signed-out /account). */
 export function clearStripeCheckoutReturn(): void {
   try {
     sessionStorage.removeItem(STRIPE_CHECKOUT_RETURN_KEY);
@@ -101,9 +107,15 @@ export function clearStripeCheckoutReturn(): void {
   }
 }
 
-/** Programmatic handoff to the native app (same pattern as export download anchor). */
+/**
+ * Programmatic handoff to the native KeenVPN app via custom URL scheme.
+ *
+ * Uses both a hidden iframe and a synthetic anchor click: Safari / ASWebAuthenticationSession
+ * often ignores anchor-only navigation for custom schemes, while the iframe can still reach
+ * the OS handler. Anchor remains the primary path in normal Safari tabs. Iframe creation is
+ * wrapped in try/catch for environments that block iframes.
+ */
 export function openKeenVpnNativeApp(deepLink: string = PAYMENT_SUCCESS_DEEP_LINK): void {
-  // Hidden iframe improves handoff when the page is inside ASWebAuthenticationSession.
   try {
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";

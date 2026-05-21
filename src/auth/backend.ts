@@ -987,7 +987,9 @@ export async function upgradeSubscriptionToAnnual(
         method: "POST",
         headers: {
           Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
         },
+        body: "{}",
       },
     );
 

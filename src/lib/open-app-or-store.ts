@@ -6,8 +6,16 @@ import {
 } from "@/lib/keenvpn-deep-links";
 import { hasManageableSubscription } from "@/lib/subscription-cta";
 
-function resolveAppStoreUrl(appStoreUrl: string): string {
+export function resolveAppStoreUrl(appStoreUrl: string): string {
   return /^https?:\/\//i.test(appStoreUrl) ? appStoreUrl : "https://vpnkeen.com";
+}
+
+/** Label for buttons that always open the App Store (install flow), never a deep link. */
+export function getAppStoreInstallButtonLabel(): string {
+  const device = detectDevice();
+  if (device === "ios") return "Download KeenVPN for iPhone";
+  if (device === "macos") return "Download KeenVPN for Mac";
+  return "Download KeenVPN App";
 }
 
 /** Paying subscribers on iOS/macOS: open the native app instead of the App Store. */
@@ -40,8 +48,5 @@ export function getAppDownloadButtonLabel(
     return "Open KeenVPN App";
   }
 
-  const device = detectDevice();
-  if (device === "ios") return "Download KeenVPN for iPhone";
-  if (device === "macos") return "Download KeenVPN for Mac";
-  return "Download KeenVPN App";
+  return getAppStoreInstallButtonLabel();
 }
