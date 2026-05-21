@@ -77,6 +77,7 @@ import {
   clearStripeCheckoutReturn,
   dismissStripePostCheckoutUi,
   markStripeAutoOpenDone,
+  isStripeCheckoutReturn,
   markStripeCheckoutReturn,
   returnToKeenVpnAppAfterPayment,
   shouldAutoOpenAppAfterStripeCheckout,
@@ -143,29 +144,27 @@ const Account = () => {
     shouldShowStripePostCheckoutUi(),
   );
 
-  // Single source of truth for post-checkout UI: mark return from ?session_id=,
-  // sync banner visibility from sessionStorage, clear only when signed out (not while loading).
+  // Mark Stripe return as soon as session_id is present (before auth loading finishes).
+  // Otherwise already-signed-in ASWeb users briefly see the auth "Return to App" card instead.
   useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      if (!hasSessionToken) {
-        clearStripeCheckoutReturn();
-        setShowPostCheckoutUi(false);
-      }
+    if (!hasStripeSessionId) {
       return;
     }
-    if (hasStripeSessionId) {
-      markStripeCheckoutReturn(stripeSessionId);
-    }
+    markStripeCheckoutReturn(stripeSessionId);
     setShowPostCheckoutUi(shouldShowStripePostCheckoutUi());
-  }, [user, loading, hasSessionToken, hasStripeSessionId, stripeSessionId]);
+  }, [hasStripeSessionId, stripeSessionId]);
+
+  // Clear post-checkout markers only when signed out (not while auth is loading).
+  useEffect(() => {
+    if (loading) return;
+    if (!user && !hasSessionToken) {
+      clearStripeCheckoutReturn();
+      setShowPostCheckoutUi(false);
+    }
+  }, [user, loading, hasSessionToken]);
 
   const showPaymentCompleteBanner =
-    Boolean(user) &&
-    hasSessionToken &&
-    showPostCheckoutUi &&
-    initialSubscriptionChecked &&
-    !subscriptionLoading;
+    Boolean(user) && hasSessionToken && showPostCheckoutUi;
 
   const showReturnToAppCta =
     showPaymentCompleteBanner && isDeepLinkSupported;
@@ -178,7 +177,7 @@ const Account = () => {
   };
 
   useEffect(() => {
-    if (!showPostCheckoutUi || !isDeepLinkSupported) {
+    if (!showPostCheckoutUi || !isDeepLinkSupported || isASWeb) {
       return;
     }
     if (!initialSubscriptionChecked || !shouldAutoOpenAppAfterStripeCheckout()) {
@@ -192,7 +191,12 @@ const Account = () => {
     }, 700);
 
     return () => window.clearTimeout(timer);
-  }, [showPostCheckoutUi, isDeepLinkSupported, initialSubscriptionChecked]);
+  }, [
+    showPostCheckoutUi,
+    isDeepLinkSupported,
+    isASWeb,
+    initialSubscriptionChecked,
+  ]);
 
   // The session token may not be in localStorage yet when Account first mounts
   // (AuthContext is still verifying with the backend). Poll until it arrives.
@@ -655,9 +659,8 @@ const Account = () => {
                         href={PAYMENT_SUCCESS_DEEP_LINK}
                         onClick={(event) => {
                           event.preventDefault();
-                          returnToKeenVpnAppAfterPayment(() => {
-                            dismissPostCheckoutUi();
-                          });
+                          markStripeAutoOpenDone();
+                          returnToKeenVpnAppAfterPayment();
                         }}
                       >
                         <Smartphone className="mr-2 h-5 w-5" />
@@ -665,8 +668,19 @@ const Account = () => {
                       </a>
                     </Button>
                     <p className="text-center text-xs text-muted-foreground">
-                      If the app did not open automatically, tap the button above.
+                      {isASWeb
+                        ? "Tap the button above to return to KeenVPN. This page stays open until you continue on web."
+                        : "If the app did not open automatically, tap the button above."}
                     </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground"
+                      onClick={dismissPostCheckoutUi}
+                    >
+                      Continue on web
+                    </Button>
                   </>
                 ) : (
                   <Button
@@ -682,8 +696,11 @@ const Account = () => {
             </Card>
           ) : null}
 
-          {/* ASWeb auth return — hidden when Stripe checkout just completed (success deep link instead) */}
-          {isASWeb && !showPostCheckoutUi && (
+          {/* ASWeb auth return — not during Stripe checkout return (payment banner uses vpnkeen://success) */}
+          {isASWeb &&
+            !showPostCheckoutUi &&
+            !hasStripeSessionId &&
+            !isStripeCheckoutReturn() && (
             <Card className="mb-8 border-primary/50 shadow-glow bg-primary/5">
               <CardContent className="flex flex-col items-center gap-4 py-6">
                 {isDeepLinkSupported ? (
@@ -867,9 +884,8 @@ const Account = () => {
                             href={PAYMENT_SUCCESS_DEEP_LINK}
                             onClick={(event) => {
                               event.preventDefault();
-                              returnToKeenVpnAppAfterPayment(() => {
-                                dismissPostCheckoutUi();
-                              });
+                              markStripeAutoOpenDone();
+                              returnToKeenVpnAppAfterPayment();
                             }}
                           >
                             <Smartphone className="mr-2 h-5 w-5" />
