@@ -3,8 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Sparkles, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
+import { AppleIapSubscriptionsCta } from "@/components/AppleIapSubscriptionsCta";
 import { computeAnnualSavings, formatSavingsPercent } from "@/lib/subscription-pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
+import {
+  canUpgradeAppleIapToAnnual,
+  canUpgradeStripeToAnnual,
+  shouldShowAnnualUpgradeOffer,
+} from "@/lib/subscription-cta";
 import { useState } from "react";
 
 const DISMISS_KEY = "keen_annual_upgrade_banner_dismissed";
@@ -41,7 +47,10 @@ export function AnnualUpgradeBanner({
     })();
   }, [source, trackAnnualEvent]);
 
-  if (dismissed || !subscription?.showAnnualUpgradePrompt) {
+  const isStripe = canUpgradeStripeToAnnual(subscription);
+  const isAppleIap = canUpgradeAppleIapToAnnual(subscription);
+
+  if (dismissed || !shouldShowAnnualUpgradeOffer(subscription)) {
     return null;
   }
 
@@ -74,24 +83,33 @@ export function AnnualUpgradeBanner({
             as well as get access to private money making opportunities online.
           </p>
           <p className="text-xs text-muted-foreground">
-            Your annual plan starts at your next billing date. No charge until
-            then — your current monthly period rolls over automatically.
+            {isStripe
+              ? "Your annual plan starts at your next billing date. No charge until then — your current monthly period rolls over automatically."
+              : "Switch to annual billing in the App Store. Apple manages App Store subscriptions."}
           </p>
-          <Button
-            size="sm"
-            className="bg-gradient-primary text-primary-foreground"
-            disabled={upgrading}
-            onClick={() => void upgradeToAnnual(source)}
-          >
-            {upgrading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Upgrading...
-              </>
-            ) : (
-              "Upgrade to annual subscription"
-            )}
-          </Button>
+          {isStripe ? (
+            <Button
+              size="sm"
+              className="bg-gradient-primary text-primary-foreground"
+              disabled={upgrading}
+              onClick={() => void upgradeToAnnual(source)}
+            >
+              {upgrading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Upgrading...
+                </>
+              ) : (
+                "Upgrade to annual subscription"
+              )}
+            </Button>
+          ) : isAppleIap ? (
+            <AppleIapSubscriptionsCta
+              label="Upgrade to annual in App Store"
+              variant="default"
+              buttonClassName="bg-gradient-primary text-primary-foreground hover:opacity-90"
+            />
+          ) : null}
         </div>
       </div>
     </div>

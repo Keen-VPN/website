@@ -6,6 +6,10 @@ import SEOHead from "@/components/SEOHead";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
+import {
+  canUpgradeAppleIapToAnnual,
+  canUpgradeStripeToAnnual,
+} from "@/lib/subscription-cta";
 
 /**
  * One-click annual upgrade landing page.
@@ -26,6 +30,16 @@ const UpgradeAnnual = () => {
 
     const plan = (subscription?.plan ?? "").toLowerCase();
     if (plan.includes("annual") || plan.includes("yearly")) {
+      navigate("/account", { replace: true });
+      return;
+    }
+
+    if (canUpgradeAppleIapToAnnual(subscription)) {
+      navigate("/account", { replace: true });
+      return;
+    }
+
+    if (!canUpgradeStripeToAnnual(subscription)) {
       navigate("/account", { replace: true });
       return;
     }

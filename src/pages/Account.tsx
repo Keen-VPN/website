@@ -67,7 +67,9 @@ import {
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import { AnnualUpgradeBanner } from "@/components/AnnualUpgradeBanner";
+import { AppleIapSubscriptionsCta } from "@/components/AppleIapSubscriptionsCta";
 import {
+  canUpgradeAppleIapToAnnual,
   canUpgradeStripeToAnnual,
   getSubscriptionCtaLabel,
   hasManageableSubscription,
@@ -315,6 +317,7 @@ const Account = () => {
   };
 
   const showStripeUpgradeToAnnual = canUpgradeStripeToAnnual(subscription);
+  const showAppleIapUpgradeToAnnual = canUpgradeAppleIapToAnnual(subscription);
   // Stripe + active/trialing/past_due (not only status==="active") — download + cancel CTAs.
   const isStripeManageable =
     isStripeSubscription(subscription) &&
@@ -840,6 +843,19 @@ const Account = () => {
                             </>
                           )}
                         </Button>
+                      </div>
+                    )}
+                    {showAppleIapUpgradeToAnnual && (
+                      <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                        <p className="text-sm text-foreground">
+                          You subscribed through the App Store. Switch to annual
+                          billing there — Apple manages your subscription.
+                        </p>
+                        <AppleIapSubscriptionsCta
+                          label="Upgrade to annual in App Store"
+                          variant="outline"
+                          buttonClassName="border-primary text-primary hover:bg-primary/10"
+                        />
                       </div>
                     )}
 

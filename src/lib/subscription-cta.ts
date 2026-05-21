@@ -40,6 +40,16 @@ export function canCancelStripeOnWebsite(
   return hasManageableSubscription(subscription);
 }
 
+export function isAppleIapSubscription(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return subscription?.subscriptionType === "apple_iap";
+}
+
+function isMonthlyPlanName(planName?: string | null): boolean {
+  return (planName ?? "").toLowerCase().includes("monthly");
+}
+
 /** Stripe monthly (or trialing monthly) with auto-renewal on — eligible for one-click annual upgrade. */
 export function canUpgradeStripeToAnnual(
   subscription: SubscriptionData | null | undefined,
@@ -50,7 +60,49 @@ export function canUpgradeStripeToAnnual(
   const status = getSubscriptionStatus(subscription);
   if (status !== "active" && status !== "trialing") return false;
 
-  return (subscription.plan ?? "").toLowerCase().includes("monthly");
+  return isMonthlyPlanName(subscription.plan);
+}
+
+/** Apple IAP monthly — upgrade via App Store subscription management. */
+export function canUpgradeAppleIapToAnnual(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (!subscription || !isAppleIapSubscription(subscription)) return false;
+  if (subscription.cancelAtPeriodEnd) return false;
+
+  const status = getSubscriptionStatus(subscription);
+  if (status !== "active" && status !== "trialing") return false;
+
+  return isMonthlyPlanName(subscription.plan);
+}
+
+/** Either billing provider eligible for annual upgrade UI. */
+export function canUpgradeToAnnual(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return (
+    canUpgradeStripeToAnnual(subscription) ||
+    canUpgradeAppleIapToAnnual(subscription)
+  );
+}
+
+const ANNUAL_UPGRADE_PROMPT_MIN_DAYS = 10;
+
+/** 10-day+ prompt: Stripe uses API flag; Apple IAP uses days since subscription start. */
+export function shouldShowAnnualUpgradeOffer(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (!subscription || subscription.cancelAtPeriodEnd) return false;
+  if (!isMonthlyPlanName(subscription.plan)) return false;
+
+  if (isStripeSubscription(subscription)) {
+    return subscription.showAnnualUpgradePrompt === true;
+  }
+  if (isAppleIapSubscription(subscription)) {
+    const days = subscription.daysSinceSubscriptionStart ?? 0;
+    return days >= ANNUAL_UPGRADE_PROMPT_MIN_DAYS;
+  }
+  return false;
 }
 
 export function canStartFreeTrial(
