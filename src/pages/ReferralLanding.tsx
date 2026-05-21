@@ -31,7 +31,6 @@ const ReferralLanding = () => {
     }
     setReferrerName(null);
     setInviteInvalid(false);
-    setReferralTokenStorage(token);
 
     let cancelled = false;
     void fetch(`${BACKEND_URL}/referral/resolve/${encodeURIComponent(token)}`)
@@ -41,8 +40,11 @@ const ReferralLanding = () => {
         if (data.valid === false) {
           clearReferralTokenStorage();
           setInviteInvalid(true);
-        } else if (data.valid && data.referrerName) {
-          setReferrerName(data.referrerName);
+        } else if (data.valid === true) {
+          setReferralTokenStorage(token);
+          if (data.referrerName) {
+            setReferrerName(data.referrerName);
+          }
         }
         setLoading(false);
       })
@@ -70,36 +72,45 @@ const ReferralLanding = () => {
         <Card className="w-full max-w-lg border-accent/50 text-center shadow-glow">
           <CardHeader>
             <CardTitle className="text-2xl">
-              {referrerName
-                ? `${referrerName} invited you to KeenVPN`
-                : "You've been invited to KeenVPN"}
+              {inviteInvalid
+                ? "This invite isn't available"
+                : referrerName
+                  ? `${referrerName} invited you to KeenVPN`
+                  : "You've been invited to KeenVPN"}
             </CardTitle>
             <CardDescription className="text-base">
-              Create an account with the same browser session to connect this
-              invite. When you subscribe, your friend can earn 1 free month.
               {inviteInvalid ? (
+                <span className="block font-medium text-destructive">
+                  This invite link could not be validated. It may be invalid, expired,
+                  or referrals may be unavailable.
+                </span>
+              ) : (
                 <>
-                  {" "}
-                  <span className="mt-2 block text-sm text-muted-foreground">
-                    This invite link could not be validated. It may be invalid,
-                    expired, or referrals may be unavailable.
-                  </span>
+                  Create an account with the same browser session to connect this invite.
+                  When you subscribe, your friend can earn 1 free month.
                 </>
-              ) : null}
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={() => navigate("/signin")}
-            >
-              Sign up or sign in
-            </Button>
-            <p className="text-sm text-muted-foreground">
-              After you subscribe on a paid plan, rewards apply per program
-              terms.
-            </p>
+            {inviteInvalid ? (
+              <Button className="w-full" size="lg" variant="secondary" type="button" onClick={() => navigate("/")}>
+                Go home
+              </Button>
+            ) : (
+              <Button className="w-full" size="lg" type="button" onClick={() => navigate("/signin")}>
+                Sign up or sign in
+              </Button>
+            )}
+            {!inviteInvalid ? (
+              <p className="text-sm text-muted-foreground">
+                After you subscribe on a paid plan, rewards apply per program terms.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                You can still use KeenVPN — use the sign-in flow from the homepage when you&apos;re ready.
+              </p>
+            )}
           </CardContent>
         </Card>
       </main>
