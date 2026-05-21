@@ -2,7 +2,7 @@ import type { SubscriptionData } from "@/auth/types";
 import { detectDevice, isAppDeepLinkSupported } from "@/lib/device-detection";
 import {
   openKeenVpnNativeApp,
-  PAYMENT_SUCCESS_DEEP_LINK,
+  OPEN_APP_DEEP_LINK,
 } from "@/lib/keenvpn-deep-links";
 import { hasManageableSubscription } from "@/lib/subscription-cta";
 
@@ -27,12 +27,49 @@ export function shouldOpenNativeAppFirst(
   );
 }
 
+/** If the tab stays visible after a deep link, assume the app is not installed. */
+const APP_OPEN_FALLBACK_MS = 5000;
+
+function openKeenVpnNativeAppWithAppStoreFallback(
+  appStoreUrl: string,
+  deepLink: string = OPEN_APP_DEEP_LINK,
+): void {
+  let didLeavePage = false;
+
+  const markLeft = () => {
+    didLeavePage = true;
+  };
+
+  const onVisibilityChange = () => {
+    if (document.visibilityState === "hidden") {
+      markLeft();
+    }
+  };
+
+  const cleanup = () => {
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+    window.removeEventListener("pagehide", markLeft);
+  };
+
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  window.addEventListener("pagehide", markLeft);
+
+  openKeenVpnNativeApp(deepLink);
+
+  window.setTimeout(() => {
+    cleanup();
+    if (!didLeavePage) {
+      window.open(resolveAppStoreUrl(appStoreUrl), "_blank", "noopener,noreferrer");
+    }
+  }, APP_OPEN_FALLBACK_MS);
+}
+
 export function openAppOrAppStore(
   subscription: SubscriptionData | null | undefined,
   appStoreUrl: string,
 ): void {
   if (shouldOpenNativeAppFirst(subscription)) {
-    openKeenVpnNativeApp(PAYMENT_SUCCESS_DEEP_LINK);
+    openKeenVpnNativeAppWithAppStoreFallback(appStoreUrl);
     return;
   }
   window.open(resolveAppStoreUrl(appStoreUrl), "_blank", "noopener,noreferrer");
