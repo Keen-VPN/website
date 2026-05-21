@@ -701,39 +701,6 @@ export async function fetchSubscriptionStatusWithSession(
   }
 }
 
-/**
- * Cancel subscription
- */
-export async function upgradeSubscriptionToAnnual(
-  sessionToken: string,
-): Promise<{ success: boolean; message?: string; error?: string }> {
-  try {
-    const response = await fetch(`${BACKEND_URL}/subscription/upgrade-to-annual`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionToken}`,
-      },
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(extractBackendErrorMessage(data, "Failed to upgrade subscription"));
-    }
-
-    return data;
-  } catch (error) {
-    return {
-      success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Failed to upgrade subscription",
-    };
-  }
-}
-
 export async function recordSubscriptionProductEvent(
   sessionToken: string,
   eventName: "annual_plan_viewed" | "annual_upgrade_clicked" | "annual_upgrade_completed",
