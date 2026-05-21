@@ -5,11 +5,33 @@ import {
   cancelSubscription,
   createBillingPortalSession,
   getSessionToken,
+  upgradeSubscriptionToAnnual,
 } from "@/auth";
+import type { SubscriptionData } from "@/auth/types";
+import { canUpgradeStripeToAnnual } from "@/lib/subscription-cta";
 
 interface UseSubscriptionBillingActionsOptions {
   /** Stripe portal return URL (defaults to current page). */
   returnUrl?: string;
+}
+
+function getAnnualUpgradeIneligibleMessage(
+  subscription: SubscriptionData | null | undefined,
+): string {
+  if (subscription?.cancelAtPeriodEnd) {
+    return "Re-enable auto-renewal before upgrading to annual.";
+  }
+  return "This subscription cannot be upgraded to annual right now.";
+}
+
+/** Sever opener before navigating to Stripe to prevent reverse tabnabbing. */
+function navigateExternalPortalTab(portalWindow: Window, url: string): void {
+  try {
+    portalWindow.opener = null;
+  } catch {
+    /* cross-origin or hardened environments may block assignment */
+  }
+  portalWindow.location.replace(url);
 }
 
 /**
@@ -19,10 +41,11 @@ interface UseSubscriptionBillingActionsOptions {
 export function useSubscriptionBillingActions(
   options: UseSubscriptionBillingActionsOptions = {},
 ) {
-  const { refreshSubscription } = useAuth();
+  const { refreshSubscription, subscription } = useAuth();
   const { toast } = useToast();
   const [cancelling, setCancelling] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [upgradingToAnnual, setUpgradingToAnnual] = useState(false);
 
   const resolveReturnUrl = useCallback(
     () => options.returnUrl ?? window.location.href,
@@ -80,13 +103,31 @@ export function useSubscriptionBillingActions(
       return;
     }
 
+    // Open a tab synchronously on click so Safari does not block the portal URL
+    // after the async session fetch. Do not pass "noopener" to window.open — it
+    // returns null and breaks the popup workaround; null opener before redirect instead.
+    const portalWindow = window.open("about:blank", "_blank");
+    const popupBlocked = portalWindow === null;
+
     try {
       setPortalLoading(true);
       const result = await createBillingPortalSession(token, resolveReturnUrl());
 
       if (result.success && result.url) {
-        window.location.href = result.url;
+        if (portalWindow && !portalWindow.closed) {
+          navigateExternalPortalTab(portalWindow, result.url);
+        } else if (popupBlocked) {
+          toast({
+            title: "Opening billing portal",
+            description:
+              "Your browser blocked a new tab. Opening Stripe in this window.",
+          });
+          window.location.assign(result.url);
+        } else {
+          window.location.assign(result.url);
+        }
       } else {
+        portalWindow?.close();
         toast({
           title: "Unable to open billing portal",
           description: result.error || "Please try again.",
@@ -94,6 +135,7 @@ export function useSubscriptionBillingActions(
         });
       }
     } catch {
+      portalWindow?.close();
       toast({
         title: "Something went wrong",
         description: "Please try again.",
@@ -104,10 +146,54 @@ export function useSubscriptionBillingActions(
     }
   }, [requireSessionToken, resolveReturnUrl, toast]);
 
+  const upgradeToAnnualPlan = useCallback(async () => {
+    const token = requireSessionToken();
+    if (!token) {
+      return;
+    }
+
+    if (!canUpgradeStripeToAnnual(subscription)) {
+      toast({
+        title: "Upgrade unavailable",
+        description: getAnnualUpgradeIneligibleMessage(subscription),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setUpgradingToAnnual(true);
+      const result = await upgradeSubscriptionToAnnual(token);
+
+      if (result.success) {
+        toast({
+          title: "Annual plan scheduled",
+          description:
+            result.message ||
+            "You will switch to annual billing at the end of your current period.",
+        });
+        await refreshSubscription();
+      } else {
+        throw new Error(result.error || "Failed to upgrade to annual");
+      }
+    } catch (error) {
+      toast({
+        title: "Upgrade failed",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpgradingToAnnual(false);
+    }
+  }, [requireSessionToken, subscription, toast, refreshSubscription]);
+
   return {
     cancelling,
     portalLoading,
+    upgradingToAnnual,
     cancelSubscriptionAtPeriodEnd,
     openBillingPortal,
+    upgradeToAnnualPlan,
   };
 }
