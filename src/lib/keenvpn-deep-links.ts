@@ -7,6 +7,9 @@ export const KEENVPN_URL_SCHEME = "vpnkeen";
 /** Post-Stripe checkout — app refreshes subscription status on open. */
 export const PAYMENT_SUCCESS_DEEP_LINK = `${KEENVPN_URL_SCHEME}://success`;
 
+/** Generic handoff from web (Header/Hero/Account) — foreground app without checkout UI. */
+export const OPEN_APP_DEEP_LINK = `${KEENVPN_URL_SCHEME}://open`;
+
 /** Checkout abandoned — app dismisses in-app checkout state. */
 export const PAYMENT_CANCEL_DEEP_LINK = `${KEENVPN_URL_SCHEME}://cancel`;
 
