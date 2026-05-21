@@ -121,6 +121,10 @@ const Referrals = () => {
     }
     const session = getSessionToken();
     if (!session) {
+      setData(null);
+      setFetchError(
+        "No active session found. Sign out and sign in again to view your referral dashboard.",
+      );
       setLoading(false);
       return;
     }
@@ -259,6 +263,7 @@ const Referrals = () => {
   }
 
   const referralRows = data?.referrals ?? [];
+  const dashboardReady = data !== null;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -292,117 +297,132 @@ const Referrals = () => {
             </p>
           </div>
 
-          <Card className="mb-8 border-accent/50 shadow-glow">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Share2 className="mr-2 h-5 w-5" />
-                Your referral link
-              </CardTitle>
-              <CardDescription>
-                Anyone who signs up with this link is attributed to you.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <code className="flex-1 break-all rounded-md bg-muted px-3 py-2 text-sm">
-                  {data?.referralUrl ?? "—"}
-                </code>
-                <Button type="button" variant="outline" size="icon" onClick={copyLink}>
-                  <Copy className="h-4 w-4" />
-                </Button>
+          {!dashboardReady && fetchError ? (
+            <p className="mb-8 text-sm text-muted-foreground">
+              Your referral link and progress will appear here after the dashboard loads successfully.
+            </p>
+          ) : null}
+
+          {dashboardReady ? (
+            <>
+              <Card className="mb-8 border-accent/50 shadow-glow">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Share2 className="mr-2 h-5 w-5" />
+                    Your referral link
+                  </CardTitle>
+                  <CardDescription>
+                    Anyone who signs up with this link is attributed to you.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-2">
+                    <code className="flex-1 break-all rounded-md bg-muted px-3 py-2 text-sm">
+                      {data.referralUrl}
+                    </code>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={copyLink}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <Button type="button" className="w-full" onClick={share}>
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Share link
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Card>
+                  <CardContent className="pt-6 text-center">
+                    <Users className="mx-auto mb-2 h-8 w-8 text-primary" />
+                    <div className="text-3xl font-bold">{data.totalReferrals}</div>
+                    <div className="text-sm text-muted-foreground">Invites</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6 text-center">
+                    <Gift className="mx-auto mb-2 h-8 w-8 text-green-500" />
+                    <div className="text-3xl font-bold">{data.rewardsEarned}</div>
+                    <div className="text-sm text-muted-foreground">Rewards</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6 text-center">
+                    <Clock className="mx-auto mb-2 h-8 w-8 text-yellow-500" />
+                    <div className="text-3xl font-bold">{data.pendingReferrals}</div>
+                    <div className="text-sm text-muted-foreground">In progress</div>
+                  </CardContent>
+                </Card>
               </div>
-              <Button type="button" className="w-full" onClick={share}>
-                <Share2 className="mr-2 h-4 w-4" />
-                Share link
-              </Button>
-            </CardContent>
-          </Card>
 
-          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <Users className="mx-auto mb-2 h-8 w-8 text-primary" />
-                <div className="text-3xl font-bold">{data?.totalReferrals ?? 0}</div>
-                <div className="text-sm text-muted-foreground">Invites</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <Gift className="mx-auto mb-2 h-8 w-8 text-green-500" />
-                <div className="text-3xl font-bold">{data?.rewardsEarned ?? 0}</div>
-                <div className="text-sm text-muted-foreground">Rewards</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <Clock className="mx-auto mb-2 h-8 w-8 text-yellow-500" />
-                <div className="text-3xl font-bold">{data?.pendingReferrals ?? 0}</div>
-                <div className="text-sm text-muted-foreground">In progress</div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Progress</CardTitle>
-              <CardDescription>
-                Signed up happens on the web; download and opened update when your friend uses
-                the mobile app (if tracked).
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {referralRows.length === 0 ? (
-                <p className="py-8 text-center text-muted-foreground">
-                  No referrals yet. Share your link to get started.
-                </p>
-              ) : (
-                <div className="space-y-6">
-                  {referralRows.map((r) => (
-                    <div key={r.id} className="space-y-3 rounded-lg border p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{r.refereeName}</span>
-                        {statusBadge(r.status)}
-                      </div>
-                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        {stageConfig.map((s) => (
-                          <span
-                            key={s.key}
-                            className={
-                              r[s.key]
-                                ? "text-primary font-medium"
-                                : "opacity-40"
-                            }
+              <Card>
+                <CardHeader>
+                  <CardTitle>Progress</CardTitle>
+                  <CardDescription>
+                    Signed up happens on the web; download and opened update when your friend uses
+                    the mobile app (if tracked).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {referralRows.length === 0 ? (
+                    <p className="py-8 text-center text-muted-foreground">
+                      No referrals yet. Share your link to get started.
+                    </p>
+                  ) : (
+                    <div className="space-y-6">
+                      {referralRows.map((r) => (
+                        <div key={r.id} className="space-y-3 rounded-lg border p-4">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">{r.refereeName}</span>
+                            {statusBadge(r.status)}
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                            {stageConfig.map((s) => (
+                              <span
+                                key={s.key}
+                                className={
+                                  r[s.key]
+                                    ? "text-primary font-medium"
+                                    : "opacity-40"
+                                }
+                              >
+                                {s.label}
+                                {r[s.key] ? " ✓" : ""}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {data.referralsHasMore ? (
+                        <div className="flex justify-center pt-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={loadingMore}
+                            onClick={() => void loadMoreReferrals()}
                           >
-                            {s.label}
-                            {r[s.key] ? " ✓" : ""}
-                          </span>
-                        ))}
-                      </div>
+                            {loadingMore ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading…
+                              </>
+                            ) : (
+                              "Load more"
+                            )}
+                          </Button>
+                        </div>
+                      ) : null}
                     </div>
-                  ))}
-                  {data?.referralsHasMore ? (
-                    <div className="flex justify-center pt-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={loadingMore}
-                        onClick={() => void loadMoreReferrals()}
-                      >
-                        {loadingMore ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Loading…
-                          </>
-                        ) : (
-                          "Load more"
-                        )}
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          ) : null}
         </div>
       </main>
       <Footer />
