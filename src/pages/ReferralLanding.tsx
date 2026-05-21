@@ -59,7 +59,7 @@ const ReferralLanding = () => {
           return;
         }
         if (data.valid === false) {
-          clearReferralTokenStorage();
+          // Storage already cleared at effect start; no token was written for invalid invites.
           setInviteInvalid(true);
         } else {
           setReferralTokenStorage(token);

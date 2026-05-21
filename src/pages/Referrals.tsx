@@ -379,7 +379,7 @@ const Referrals = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Pending referrals</CardTitle>
+                  <CardTitle>Your referrals</CardTitle>
                   <CardDescription>
                     Invitees appear as Pending until they start a trial and subscribe. Rows show signed
                     up, free trial, paid subscription, and reward. App download/open events are tracked
@@ -395,59 +395,59 @@ const Referrals = () => {
                     <div className="space-y-6">
                       {referralRows.map((r) => (
                         <div key={r.id} className="space-y-3 rounded-lg border p-4">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="min-w-0 text-left">
-                                {r.refereeEmail &&
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0 text-left">
+                              {r.refereeEmail &&
                                 r.refereeName.trim() &&
                                 r.refereeName.trim() !== r.refereeEmail.trim() ? (
-                                  <>
-                                    <div className="font-medium">{r.refereeName}</div>
-                                    <div className="break-all text-sm text-muted-foreground">
-                                      {r.refereeEmail}
-                                    </div>
-                                  </>
-                                ) : (
-                                  <div className="break-all font-medium">
-                                    {r.refereeEmail || r.refereeName || "—"}
+                                <>
+                                  <div className="font-medium">{r.refereeName}</div>
+                                  <div className="break-all text-sm text-muted-foreground">
+                                    {r.refereeEmail}
                                   </div>
-                                )}
-                              </div>
-                              {statusBadge(r.status)}
+                                </>
+                              ) : (
+                                <div className="break-all font-medium">
+                                  {r.refereeEmail || r.refereeName || "—"}
+                                </div>
+                              )}
                             </div>
-                            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                              {referralPrimaryStages.map((s) => (
-                                <span
-                                  key={s.key}
-                                  className={
-                                    r[s.key]
-                                      ? "text-primary font-medium"
-                                      : "opacity-40"
-                                  }
-                                >
-                                  {s.label}
-                                  {r[s.key] ? " ✓" : ""}
-                                </span>
-                              ))}
-                            </div>
-                            <div className="flex flex-wrap gap-2 border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
-                              <span className="font-medium uppercase tracking-wide opacity-70">
-                                App activity
-                              </span>
-                              {referralSecondaryStages.map((s) => (
-                                <span
-                                  key={s.key}
-                                  className={
-                                    r[s.key]
-                                      ? "font-medium text-foreground"
-                                      : "opacity-40"
-                                  }
-                                >
-                                  {s.label}
-                                  {r[s.key] ? " ✓" : ""}
-                                </span>
-                              ))}
-                            </div>
+                            {statusBadge(r.status)}
                           </div>
+                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                            {referralPrimaryStages.map((s) => (
+                              <span
+                                key={s.key}
+                                className={
+                                  r[s.key]
+                                    ? "text-primary font-medium"
+                                    : "opacity-40"
+                                }
+                              >
+                                {s.label}
+                                {r[s.key] ? " ✓" : ""}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="flex flex-wrap gap-2 border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
+                            <span className="font-medium uppercase tracking-wide opacity-70">
+                              App activity
+                            </span>
+                            {referralSecondaryStages.map((s) => (
+                              <span
+                                key={s.key}
+                                className={
+                                  r[s.key]
+                                    ? "font-medium text-foreground"
+                                    : "opacity-40"
+                                }
+                              >
+                                {s.label}
+                                {r[s.key] ? " ✓" : ""}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                       {data.referralsHasMore ? (
                         <div className="flex justify-center pt-2">
