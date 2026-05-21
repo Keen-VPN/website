@@ -21,9 +21,12 @@ interface ReferralRow {
   id: string;
   status: string;
   refereeName: string;
+  /** Full referee account email — always exposed to the referrer on this page. */
+  refereeEmail?: string;
   appDownloadedAt: string | null;
   appOpenedAt: string | null;
   signedUpAt: string | null;
+  trialStartedAt: string | null;
   subscribedAt: string | null;
   rewardedAt: string | null;
 }
@@ -46,16 +49,19 @@ const stageConfig: {
     | "appDownloadedAt"
     | "appOpenedAt"
     | "signedUpAt"
+    | "trialStartedAt"
     | "subscribedAt"
     | "rewardedAt"
   >;
   label: string;
+  secondary?: boolean;
 }[] = [
   { key: "signedUpAt", label: "Signed up" },
-  { key: "appDownloadedAt", label: "Downloaded app" },
-  { key: "appOpenedAt", label: "Opened app" },
+  { key: "trialStartedAt", label: "Free trial started" },
   { key: "subscribedAt", label: "Subscribed" },
   { key: "rewardedAt", label: "Reward" },
+  { key: "appDownloadedAt", label: "Downloaded app", secondary: true },
+  { key: "appOpenedAt", label: "Opened app", secondary: true },
 ];
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -81,9 +87,11 @@ function coerceReferralRow(raw: unknown): ReferralRow | null {
     id,
     status: coerceString(raw["status"]),
     refereeName: coerceString(raw["refereeName"]),
+    refereeEmail: coerceString(raw["refereeEmail"]),
     appDownloadedAt: coerceIsoOrNull(raw["appDownloadedAt"]),
     appOpenedAt: coerceIsoOrNull(raw["appOpenedAt"]),
     signedUpAt: coerceIsoOrNull(raw["signedUpAt"]),
+    trialStartedAt: coerceIsoOrNull(raw["trialStartedAt"]),
     subscribedAt: coerceIsoOrNull(raw["subscribedAt"]),
     rewardedAt: coerceIsoOrNull(raw["rewardedAt"]),
   };
@@ -240,13 +248,19 @@ const Referrals = () => {
   const statusBadge = (status: string) => {
     switch (status) {
       case "REWARDED":
-        return <Badge className="bg-green-600">Rewarded</Badge>;
+        return <Badge className="bg-green-600">Reward applied</Badge>;
       case "SUBSCRIBED":
         return <Badge className="bg-blue-600">Subscribed</Badge>;
+      case "TRIALING":
+        return (
+          <Badge variant="outline" className="border-violet-500 text-violet-700">
+            Free trial
+          </Badge>
+        );
       case "EXPIRED":
         return <Badge variant="secondary">Expired</Badge>;
       default:
-        return <Badge variant="outline">In progress</Badge>;
+        return <Badge variant="outline">Pending</Badge>;
     }
   };
 
@@ -299,7 +313,7 @@ const Referrals = () => {
 
           {!dashboardReady && fetchError ? (
             <p className="mb-8 text-sm text-muted-foreground">
-              Your referral link and progress will appear here after the dashboard loads successfully.
+              Your referral dashboard will appear here after it loads successfully.
             </p>
           ) : null}
 
@@ -355,17 +369,18 @@ const Referrals = () => {
                   <CardContent className="pt-6 text-center">
                     <Clock className="mx-auto mb-2 h-8 w-8 text-yellow-500" />
                     <div className="text-3xl font-bold">{data.pendingReferrals}</div>
-                    <div className="text-sm text-muted-foreground">In progress</div>
+                    <div className="text-sm text-muted-foreground">Pending</div>
                   </CardContent>
                 </Card>
               </div>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Progress</CardTitle>
+                  <CardTitle>Pending referrals</CardTitle>
                   <CardDescription>
-                    Signed up happens on the web; download and opened update when your friend uses
-                    the mobile app (if tracked).
+                    Invitees appear as Pending until they start a trial and subscribe. Rows show signed
+                    up, free trial, paid subscription, and reward. App download/open events are tracked
+                    when available from mobile.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -375,29 +390,65 @@ const Referrals = () => {
                     </p>
                   ) : (
                     <div className="space-y-6">
-                      {referralRows.map((r) => (
-                        <div key={r.id} className="space-y-3 rounded-lg border p-4">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">{r.refereeName}</span>
-                            {statusBadge(r.status)}
-                          </div>
-                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                            {stageConfig.map((s) => (
-                              <span
-                                key={s.key}
-                                className={
-                                  r[s.key]
-                                    ? "text-primary font-medium"
-                                    : "opacity-40"
-                                }
-                              >
-                                {s.label}
-                                {r[s.key] ? " ✓" : ""}
+                      {referralRows.map((r) => {
+                        const primaryStages = stageConfig.filter((s) => !s.secondary);
+                        const secondaryStages = stageConfig.filter((s) => s.secondary);
+                        return (
+                          <div key={r.id} className="space-y-3 rounded-lg border p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0 text-left">
+                                {r.refereeEmail &&
+                                r.refereeName.trim() !== r.refereeEmail.trim() ? (
+                                  <>
+                                    <div className="font-medium">{r.refereeName}</div>
+                                    <div className="break-all text-sm text-muted-foreground">
+                                      {r.refereeEmail}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="break-all font-medium">
+                                    {r.refereeEmail || r.refereeName || "—"}
+                                  </div>
+                                )}
+                              </div>
+                              {statusBadge(r.status)}
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                              {primaryStages.map((s) => (
+                                <span
+                                  key={s.key}
+                                  className={
+                                    r[s.key]
+                                      ? "text-primary font-medium"
+                                      : "opacity-40"
+                                  }
+                                >
+                                  {s.label}
+                                  {r[s.key] ? " ✓" : ""}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="flex flex-wrap gap-2 border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
+                              <span className="font-medium uppercase tracking-wide opacity-70">
+                                App activity
                               </span>
-                            ))}
+                              {secondaryStages.map((s) => (
+                                <span
+                                  key={s.key}
+                                  className={
+                                    r[s.key]
+                                      ? "font-medium text-foreground"
+                                      : "opacity-40"
+                                  }
+                                >
+                                  {s.label}
+                                  {r[s.key] ? " ✓" : ""}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {data.referralsHasMore ? (
                         <div className="flex justify-center pt-2">
                           <Button
