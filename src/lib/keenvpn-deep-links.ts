@@ -137,15 +137,11 @@ export function openKeenVpnNativeApp(deepLink: string = PAYMENT_SUCCESS_DEEP_LIN
 }
 
 /**
- * Return to the native app after Stripe checkout without tearing down the account UI first.
- * Dismisses post-checkout chrome only after a short delay so the browser sheet can close.
+ * Return to the native app after Stripe checkout. Does not hide post-checkout UI;
+ * callers should dismiss explicitly (e.g. "Continue on web") so users can retry the deep link.
  */
 export function returnToKeenVpnAppAfterPayment(
-  onDismissUi?: () => void,
   deepLink: string = PAYMENT_SUCCESS_DEEP_LINK,
 ): void {
   openKeenVpnNativeApp(deepLink);
-  if (onDismissUi) {
-    window.setTimeout(onDismissUi, 1200);
-  }
 }
