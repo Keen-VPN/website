@@ -5,6 +5,7 @@ import {
   cancelSubscription,
   createBillingPortalSession,
   getSessionToken,
+  upgradeSubscriptionToAnnual,
 } from "@/auth";
 
 interface UseSubscriptionBillingActionsOptions {
@@ -23,6 +24,7 @@ export function useSubscriptionBillingActions(
   const { toast } = useToast();
   const [cancelling, setCancelling] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [upgradingToAnnual, setUpgradingToAnnual] = useState(false);
 
   const resolveReturnUrl = useCallback(
     () => options.returnUrl ?? window.location.href,
@@ -85,7 +87,7 @@ export function useSubscriptionBillingActions(
       const result = await createBillingPortalSession(token, resolveReturnUrl());
 
       if (result.success && result.url) {
-        window.location.href = result.url;
+        window.open(result.url, "_blank", "noopener,noreferrer");
       } else {
         toast({
           title: "Unable to open billing portal",
@@ -104,10 +106,45 @@ export function useSubscriptionBillingActions(
     }
   }, [requireSessionToken, resolveReturnUrl, toast]);
 
+  const upgradeToAnnualPlan = useCallback(async () => {
+    const token = requireSessionToken();
+    if (!token) {
+      return;
+    }
+
+    try {
+      setUpgradingToAnnual(true);
+      const result = await upgradeSubscriptionToAnnual(token);
+
+      if (result.success) {
+        toast({
+          title: "Annual plan scheduled",
+          description:
+            result.message ||
+            "You will switch to annual billing at the end of your current period.",
+        });
+        await refreshSubscription();
+      } else {
+        throw new Error(result.error || "Failed to upgrade to annual");
+      }
+    } catch (error) {
+      toast({
+        title: "Upgrade failed",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpgradingToAnnual(false);
+    }
+  }, [requireSessionToken, toast, refreshSubscription]);
+
   return {
     cancelling,
     portalLoading,
+    upgradingToAnnual,
     cancelSubscriptionAtPeriodEnd,
     openBillingPortal,
+    upgradeToAnnualPlan,
   };
 }

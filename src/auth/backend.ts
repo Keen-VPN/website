@@ -974,6 +974,59 @@ export async function createCheckoutSession(
 }
 
 /**
+ * Switch a monthly Stripe subscription to annual at the next billing date (or trial end).
+ * No upfront annual charge; proration is disabled on the backend.
+ */
+export async function upgradeSubscriptionToAnnual(
+  sessionToken: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/subscription/upgrade-to-annual`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+        },
+      },
+    );
+
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to upgrade to annual plan",
+        ),
+      };
+    }
+
+    if (data?.success) {
+      return { success: true, message: data.message };
+    }
+
+    return {
+      success: false,
+      error: data?.error || data?.message || "Upgrade failed",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to upgrade to annual plan",
+    };
+  }
+}
+
+/**
  * Create a Stripe Billing Portal session for the current user.
  * Allows managing subscription (upgrade, downgrade, update payment method, etc.)
  */

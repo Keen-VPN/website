@@ -70,11 +70,13 @@ const Pricing = () => {
   );
 
   const isMonthlyStripeUpgradeEligible =
-    subscription?.status === "active" &&
+    (subscription?.status === "active" ||
+      subscription?.status === "trialing") &&
     subscription?.subscriptionType === "stripe" &&
     (subscription?.plan ?? "").toLowerCase().includes("monthly");
 
-  const { portalLoading, openBillingPortal } = useSubscriptionBillingActions();
+  const { upgradingToAnnual, upgradeToAnnualPlan } =
+    useSubscriptionBillingActions();
   const [membershipTransferOpen, setMembershipTransferOpen] = useState(false);
 
   useEffect(() => {
@@ -303,15 +305,15 @@ const Pricing = () => {
                     isMonthlyStripeUpgradeEligible &&
                     isAnnual ? (
                     <Button
-                      onClick={() => void openBillingPortal()}
-                      disabled={portalLoading}
+                      onClick={() => void upgradeToAnnualPlan()}
+                      disabled={upgradingToAnnual}
                       className="w-full mb-6 bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
                       size="lg"
                     >
-                      {portalLoading ? (
+                      {upgradingToAnnual ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Opening billing portal...
+                          Upgrading...
                         </>
                       ) : (
                         <>

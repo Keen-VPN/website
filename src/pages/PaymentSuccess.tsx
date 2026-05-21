@@ -16,10 +16,13 @@ import {
   isAppDeepLinkSupported,
   getUnsupportedDeviceName,
 } from "@/lib/device-detection";
+import { useAuth } from "@/contexts/AuthContext";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 import { PAYMENT_SUCCESS_DEEP_LINK } from "@/lib/keenvpn-deep-links";
+import { openAppOrAppStore } from "@/lib/open-app-or-store";
 
 const PaymentSuccess = () => {
+  const { subscription } = useAuth();
   const deepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
   const unsupportedDevice = useMemo(() => getUnsupportedDeviceName(), []);
   const appStoreUrl = useAppStoreUrl();
@@ -32,7 +35,7 @@ const PaymentSuccess = () => {
   }, []);
 
   const openAppStore = () => {
-    window.open(appStoreUrl, "_blank", "noopener,noreferrer");
+    openAppOrAppStore(subscription, appStoreUrl);
   };
 
   return (
