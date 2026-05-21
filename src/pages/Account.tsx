@@ -66,6 +66,7 @@ import {
 } from "@/lib/open-app-or-store";
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import {
+  canUpgradeStripeToAnnual,
   getSubscriptionCtaLabel,
   hasManageableSubscription,
   isStripeSubscription,
@@ -308,13 +309,7 @@ const Account = () => {
     setSubscriptionLoading(false);
   };
 
-  const isMonthlyStripe =
-    isStripeSubscription(subscription) &&
-    (subscription?.status === "active" ||
-      subscription?.status === "trialing") &&
-    subscription?.plan?.toLowerCase().includes("monthly");
-  const showStripeUpgradeToAnnual =
-    isMonthlyStripe && !subscription?.cancelAtPeriodEnd;
+  const showStripeUpgradeToAnnual = canUpgradeStripeToAnnual(subscription);
   // Stripe + active/trialing/past_due (not only status==="active") — download + cancel CTAs.
   const isStripeManageable =
     isStripeSubscription(subscription) &&

@@ -7,10 +7,31 @@ import {
   getSessionToken,
   upgradeSubscriptionToAnnual,
 } from "@/auth";
+import type { SubscriptionData } from "@/auth/types";
+import { canUpgradeStripeToAnnual } from "@/lib/subscription-cta";
 
 interface UseSubscriptionBillingActionsOptions {
   /** Stripe portal return URL (defaults to current page). */
   returnUrl?: string;
+}
+
+function getAnnualUpgradeIneligibleMessage(
+  subscription: SubscriptionData | null | undefined,
+): string {
+  if (subscription?.cancelAtPeriodEnd) {
+    return "Re-enable auto-renewal before upgrading to annual.";
+  }
+  return "This subscription cannot be upgraded to annual right now.";
+}
+
+/** Sever opener before navigating to Stripe to prevent reverse tabnabbing. */
+function navigateExternalPortalTab(portalWindow: Window, url: string): void {
+  try {
+    portalWindow.opener = null;
+  } catch {
+    /* cross-origin or hardened environments may block assignment */
+  }
+  portalWindow.location.replace(url);
 }
 
 /**
@@ -20,7 +41,7 @@ interface UseSubscriptionBillingActionsOptions {
 export function useSubscriptionBillingActions(
   options: UseSubscriptionBillingActionsOptions = {},
 ) {
-  const { refreshSubscription } = useAuth();
+  const { refreshSubscription, subscription } = useAuth();
   const { toast } = useToast();
   const [cancelling, setCancelling] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
@@ -83,7 +104,8 @@ export function useSubscriptionBillingActions(
     }
 
     // Open a tab synchronously on click so Safari does not block the portal URL
-    // after the async session fetch. Do not pass "noopener" — it returns null.
+    // after the async session fetch. Do not pass "noopener" to window.open — it
+    // returns null and breaks the popup workaround; null opener before redirect instead.
     const portalWindow = window.open("about:blank", "_blank");
     const popupBlocked = portalWindow === null;
 
@@ -93,7 +115,7 @@ export function useSubscriptionBillingActions(
 
       if (result.success && result.url) {
         if (portalWindow && !portalWindow.closed) {
-          portalWindow.location.replace(result.url);
+          navigateExternalPortalTab(portalWindow, result.url);
         } else if (popupBlocked) {
           toast({
             title: "Opening billing portal",
@@ -130,6 +152,15 @@ export function useSubscriptionBillingActions(
       return;
     }
 
+    if (!canUpgradeStripeToAnnual(subscription)) {
+      toast({
+        title: "Upgrade unavailable",
+        description: getAnnualUpgradeIneligibleMessage(subscription),
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setUpgradingToAnnual(true);
       const result = await upgradeSubscriptionToAnnual(token);
@@ -155,7 +186,7 @@ export function useSubscriptionBillingActions(
     } finally {
       setUpgradingToAnnual(false);
     }
-  }, [requireSessionToken, toast, refreshSubscription]);
+  }, [requireSessionToken, subscription, toast, refreshSubscription]);
 
   return {
     cancelling,

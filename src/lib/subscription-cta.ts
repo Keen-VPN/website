@@ -40,6 +40,19 @@ export function canCancelStripeOnWebsite(
   return hasManageableSubscription(subscription);
 }
 
+/** Stripe monthly (or trialing monthly) with auto-renewal on — eligible for one-click annual upgrade. */
+export function canUpgradeStripeToAnnual(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (!subscription || !isStripeSubscription(subscription)) return false;
+  if (subscription.cancelAtPeriodEnd) return false;
+
+  const status = getSubscriptionStatus(subscription);
+  if (status !== "active" && status !== "trialing") return false;
+
+  return (subscription.plan ?? "").toLowerCase().includes("monthly");
+}
+
 export function canStartFreeTrial(
   user: unknown,
   subscription: SubscriptionState,
