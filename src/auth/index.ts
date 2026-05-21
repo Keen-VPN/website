@@ -33,11 +33,13 @@ export {
   requestEmailOtp,
   verifyEmailOtp,
   fetchSubscriptionStatusWithSession,
+  fetchReferralDashboard,
   cancelSubscription,
   previewRetentionWinbackOffer,
   reactivateRetentionWinbackOffer,
   createCheckoutSession,
   createBillingPortalSession,
+  upgradeSubscriptionToAnnual,
   deleteAccount,
   storeSessionToken,
   getSessionToken,
@@ -80,6 +82,13 @@ export {
   getRetentionWinbackTokenFromStorage,
   setRetentionWinbackTokenStorage,
 } from './retention-winback-token';
+
+export {
+  REFERRAL_TOKEN_STORAGE_KEY,
+  clearReferralTokenStorage,
+  getReferralTokenFromStorage,
+  setReferralTokenStorage,
+} from './referral-token';
 
 export type {
   SubscriptionData,

@@ -10,6 +10,10 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
+import {
+  getAppDownloadButtonLabel,
+  openAppOrAppStore,
+} from "@/lib/open-app-or-store";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -17,6 +21,8 @@ const Header = () => {
   const navigate = useNavigate();
   const { user, subscription, logout } = useAuth();
   const appStoreUrl = useAppStoreUrl();
+  const downloadAppLabel = getAppDownloadButtonLabel(subscription);
+  const handleDownloadApp = () => openAppOrAppStore(subscription, appStoreUrl);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -93,6 +99,9 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/account">My Account</Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/referrals">Referrals</Link>
+                  </DropdownMenuItem>
                   {subscription?.status !== "active" && (
                     <DropdownMenuItem asChild>
                       <Link to="/subscribe">Subscribe</Link>
@@ -115,9 +124,9 @@ const Header = () => {
             )}
             <Button
               className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-glow transition-all"
-              onClick={() => window.open(appStoreUrl, "_blank")}
+              onClick={handleDownloadApp}
             >
-              Download App
+              {downloadAppLabel}
             </Button>
           </div>
 
@@ -206,6 +215,16 @@ const Header = () => {
                     >
                       <Link to="/account">My Account</Link>
                     </Button>
+                    <Button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                      }}
+                      variant="outline"
+                      className="w-full"
+                      asChild
+                    >
+                      <Link to="/referrals">Referrals</Link>
+                    </Button>
                     {subscription?.status !== "active" && (
                       <Button
                         onClick={() => {
@@ -246,10 +265,10 @@ const Header = () => {
                   className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-glow transition-all"
                   onClick={() => {
                     setIsMenuOpen(false);
-                    window.open(appStoreUrl, "_blank");
+                    handleDownloadApp();
                   }}
                 >
-                  Download App
+                  {downloadAppLabel}
                 </Button>
               </div>
             </div>

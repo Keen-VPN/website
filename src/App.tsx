@@ -20,6 +20,8 @@ const MagicLinkRequest = lazy(() => import("./pages/MagicLinkRequest"));
 const MagicLinkVerify = lazy(() => import("./pages/MagicLinkVerify"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const Reactivate = lazy(() => import("./pages/Reactivate"));
+const ReferralLanding = lazy(() => import("./pages/ReferralLanding"));
+const Referrals = lazy(() => import("./pages/Referrals"));
 const Subscribe = lazy(() => import("./pages/Subscribe"));
 const Account = lazy(() => import("./pages/Account"));
 const SubscriptionHistory = lazy(() => import("./pages/SubscriptionHistory"));
@@ -74,6 +76,15 @@ const App = () => (
               <Route path="/auth/magic" element={<MagicLinkVerify />} />
               <Route path="/auth/verify-email" element={<VerifyEmail />} />
               <Route path="/reactivate" element={<Reactivate />} />
+              <Route path="/r/:token" element={<ReferralLanding />} />
+              <Route
+                path="/referrals"
+                element={
+                  <ProtectedRoute>
+                    <Referrals />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/subscribe"
                 element={
