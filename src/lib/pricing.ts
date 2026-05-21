@@ -133,3 +133,40 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
     );
   });
 }
+
+/** Hero price on plan cards when annual billing is selected. */
+export function annualHeroPriceDisplay(
+  plan: PricingPlan,
+  isAnnual: boolean,
+): string {
+  if (plan.monthlyPrice === null) return "Custom";
+  if (isAnnual) {
+    return (
+      plan.annualMonthlyEquivalent ??
+      plan.annualPriceDisplay ??
+      plan.monthlyPriceDisplay
+    );
+  }
+  return plan.monthlyPriceDisplay;
+}
+
+/** Subtitle under annual hero price; null when yearly price is unavailable. */
+export function formatAnnualBillingDetail(plan: PricingPlan): string | null {
+  if (plan.monthlyPrice === null || !plan.annualPriceDisplay) return null;
+  if (plan.annualMonthlyEquivalent) {
+    return `Only ${plan.annualMonthlyEquivalent}/month billed yearly (${plan.annualPriceDisplay}/year)`;
+  }
+  return plan.annualPriceDisplay;
+}
+
+/** Compare-plans table price row for annual billing. */
+export function formatAnnualComparisonPrice(plan: PricingPlan): string {
+  if (plan.monthlyPrice === null) return "Custom";
+  if (plan.annualMonthlyEquivalent) {
+    return `${plan.annualMonthlyEquivalent} / month, billed annually`;
+  }
+  if (plan.annualPriceDisplay) {
+    return `${plan.annualPriceDisplay} / year`;
+  }
+  return `${plan.monthlyPriceDisplay} / month`;
+}

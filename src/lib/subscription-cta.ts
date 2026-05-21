@@ -1,4 +1,5 @@
 import type { SubscriptionData, TrialData } from "@/auth/types";
+import { isApplePlatform } from "@/lib/device-detection";
 
 export const START_FREE_TRIAL_NOW_LABEL = "Start Free Trial Now";
 export const SUBSCRIBE_NOW_LABEL = "Subscribe Now";
@@ -88,17 +89,25 @@ export function canUpgradeToAnnual(
 
 const ANNUAL_UPGRADE_PROMPT_MIN_DAYS = 10;
 
+/** Whether the account can render a one-click or App Store annual upgrade CTA. */
+export function hasAnnualUpgradeCta(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return (
+    canUpgradeStripeToAnnual(subscription) ||
+    (canUpgradeAppleIapToAnnual(subscription) && isApplePlatform())
+  );
+}
+
 /** 10-day+ prompt: Stripe uses API flag; Apple IAP uses days since subscription start. */
 export function shouldShowAnnualUpgradeOffer(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
-  if (!subscription || subscription.cancelAtPeriodEnd) return false;
-  if (!isMonthlyPlanName(subscription.plan)) return false;
-
-  if (isStripeSubscription(subscription)) {
+  if (canUpgradeStripeToAnnual(subscription)) {
     return subscription.showAnnualUpgradePrompt === true;
   }
-  if (isAppleIapSubscription(subscription)) {
+  if (canUpgradeAppleIapToAnnual(subscription)) {
+    if (!isApplePlatform()) return false;
     const days = subscription.daysSinceSubscriptionStart ?? 0;
     return days >= ANNUAL_UPGRADE_PROMPT_MIN_DAYS;
   }

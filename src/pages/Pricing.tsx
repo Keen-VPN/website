@@ -16,7 +16,12 @@ import PricingNoticeTooltip from "@/components/PricingNoticeTooltip";
 import { enterprisePlan, featureComparison, faqs } from "@/constants/pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
-import { transformApiPlans } from "@/lib/pricing";
+import {
+  annualHeroPriceDisplay,
+  formatAnnualBillingDetail,
+  formatAnnualComparisonPrice,
+  transformApiPlans,
+} from "@/lib/pricing";
 import { formatSavingsPercent } from "@/lib/subscription-pricing";
 
 import { PricingPlan } from "@/lib/pricing";
@@ -122,9 +127,15 @@ const Pricing = () => {
         setLoading(true);
         const response = await fetchSubscriptionPlans();
 
-        if (response.success && response.plans) {
+        if (response.success && response.plans && response.plans.length > 0) {
           const transformedPlans = transformApiPlans(response.plans);
-          setPlans([...transformedPlans, enterprisePlan]);
+          if (transformedPlans.length > 0) {
+            setError(null);
+            setPlans([...transformedPlans, enterprisePlan]);
+          } else {
+            setError(response.error || "Failed to load plans");
+            setPlans([enterprisePlan]);
+          }
         } else {
           setError(response.error || "Failed to load plans");
           setPlans([enterprisePlan]);
@@ -247,12 +258,13 @@ const Pricing = () => {
                 plan.monthlyPrice === null
                   ? ""
                   : isAnnual
-                    ? "/month, billed annually"
+                    ? plan.annualMonthlyEquivalent
+                      ? "/month, billed annually"
+                      : "/year"
                     : "/month";
-              const monthlyEquivalent =
-                isAnnual && plan.annualMonthlyEquivalent
-                  ? plan.annualMonthlyEquivalent
-                  : null;
+              const annualBillingDetail = isAnnual
+                ? formatAnnualBillingDetail(plan)
+                : null;
 
               return (
                 <div
@@ -287,11 +299,7 @@ const Pricing = () => {
                   <div className="mb-6">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="text-4xl font-bold text-foreground">
-                        {plan.name === "Enterprise"
-                          ? "Custom"
-                          : isAnnual
-                            ? monthlyEquivalent
-                            : price}
+                        {annualHeroPriceDisplay(plan, isAnnual)}
                       </span>
                       {period && (
                         <span className="text-muted-foreground">{period}</span>
@@ -306,10 +314,9 @@ const Pricing = () => {
                           : ""}
                       </p>
                     )}
-                    {plan.name !== "Enterprise" && isAnnual && plan.annualPriceDisplay && (
+                    {plan.name !== "Enterprise" && annualBillingDetail && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Only {plan.annualMonthlyEquivalent}/month billed yearly (
-                        {plan.annualPriceDisplay}/year)
+                        {annualBillingDetail}
                       </p>
                     )}
                   </div>
@@ -444,17 +451,17 @@ const Pricing = () => {
                       {plan.name}
                     </div>
                     <div className="text-xs md:text-sm text-muted-foreground mt-1 hidden sm:block">
-                      {plan.monthlyPrice === null
-                        ? "Custom"
-                        : billingPeriod === "annual"
-                          ? `${plan.annualMonthlyEquivalent} / month, billed annually`
+                      {billingPeriod === "annual"
+                        ? formatAnnualComparisonPrice(plan)
+                        : plan.monthlyPrice === null
+                          ? "Custom"
                           : `${plan.monthlyPriceDisplay} / month`}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1 sm:hidden">
-                      {plan.monthlyPrice === null
-                        ? "Custom"
-                        : billingPeriod === "annual"
-                          ? plan.annualMonthlyEquivalent
+                      {billingPeriod === "annual"
+                        ? formatAnnualComparisonPrice(plan)
+                        : plan.monthlyPrice === null
+                          ? "Custom"
                           : plan.monthlyPriceDisplay}
                     </div>
                     {plan.name === "Enterprise" && (

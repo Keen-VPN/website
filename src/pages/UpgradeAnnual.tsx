@@ -55,7 +55,7 @@ const UpgradeAnnual = () => {
       }
       navigate("/account", { replace: true });
     })();
-  }, [loading, user, subscription?.plan, navigate, upgradeToAnnual]);
+  }, [loading, user, subscription, navigate, upgradeToAnnual]);
 
   return (
     <div className="min-h-screen bg-background">

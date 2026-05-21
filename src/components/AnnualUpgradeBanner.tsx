@@ -4,13 +4,19 @@ import { Loader2, Sparkles, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import { AppleIapSubscriptionsCta } from "@/components/AppleIapSubscriptionsCta";
-import { computeAnnualSavings, formatSavingsPercent } from "@/lib/subscription-pricing";
+import {
+  computeAnnualSavings,
+  formatSavingsPercent,
+  formatUsd,
+} from "@/lib/subscription-pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import {
   canUpgradeAppleIapToAnnual,
   canUpgradeStripeToAnnual,
+  hasAnnualUpgradeCta,
   shouldShowAnnualUpgradeOffer,
 } from "@/lib/subscription-cta";
+import { isApplePlatform } from "@/lib/device-detection";
 import { useState } from "react";
 
 const DISMISS_KEY = "keen_annual_upgrade_banner_dismissed";
@@ -27,6 +33,7 @@ export function AnnualUpgradeBanner({
   const { subscription } = useAuth();
   const { upgrading, upgradeToAnnual, trackAnnualEvent } = useAnnualUpgrade();
   const [savingsPercent, setSavingsPercent] = useState(37.5);
+  const [annualYearlyPrice, setAnnualYearlyPrice] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(
     () => typeof window !== "undefined" && localStorage.getItem(DISMISS_KEY) === "1",
   );
@@ -42,15 +49,21 @@ export function AnnualUpgradeBanner({
           setSavingsPercent(
             computeAnnualSavings(monthly.price, annual.price).savingsPercent,
           );
+          setAnnualYearlyPrice(formatUsd(annual.price));
         }
       }
     })();
   }, [source, trackAnnualEvent]);
 
   const isStripe = canUpgradeStripeToAnnual(subscription);
-  const isAppleIap = canUpgradeAppleIapToAnnual(subscription);
+  const isAppleIap =
+    canUpgradeAppleIapToAnnual(subscription) && isApplePlatform();
 
-  if (dismissed || !shouldShowAnnualUpgradeOffer(subscription)) {
+  if (
+    dismissed ||
+    !shouldShowAnnualUpgradeOffer(subscription) ||
+    !hasAnnualUpgradeCta(subscription)
+  ) {
     return null;
   }
 
@@ -79,7 +92,10 @@ export function AnnualUpgradeBanner({
               {formatSavingsPercent(savingsPercent)}%
             </span>{" "}
             on your subscription by upgrading to an annual subscription, charged
-            next month. For $30 a year, you can access KeenVPN&apos;s growing VPN
+            next month.{" "}
+            {annualYearlyPrice
+              ? `For ${annualYearlyPrice} a year, you can access KeenVPN's growing VPN`
+              : "For our annual plan, you can access KeenVPN's growing VPN"}{" "}
             as well as get access to private money making opportunities online.
           </p>
           <p className="text-xs text-muted-foreground">
