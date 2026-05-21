@@ -58,12 +58,17 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
-import { detectDevice, isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
+import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
+import {
+  getAppDownloadButtonLabel,
+  openAppOrAppStore,
+} from "@/lib/open-app-or-store";
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import { AnnualUpgradeBanner } from "@/components/AnnualUpgradeBanner";
 import {
+  canUpgradeStripeToAnnual,
   getSubscriptionCtaLabel,
   hasManageableSubscription,
   isStripeSubscription,
@@ -74,8 +79,9 @@ import {
   clearStripeCheckoutReturn,
   dismissStripePostCheckoutUi,
   markStripeAutoOpenDone,
+  isStripeCheckoutReturn,
   markStripeCheckoutReturn,
-  openKeenVpnNativeApp,
+  returnToKeenVpnAppAfterPayment,
   shouldAutoOpenAppAfterStripeCheckout,
   shouldShowStripePostCheckoutUi,
 } from "@/lib/keenvpn-deep-links";
@@ -139,40 +145,40 @@ const Account = () => {
     shouldShowStripePostCheckoutUi(),
   );
 
-  // Single source of truth for post-checkout UI: mark return from ?session_id=,
-  // sync banner visibility from sessionStorage, clear only when signed out (not while loading).
+  // Mark Stripe return as soon as session_id is present (before auth loading finishes).
+  // Otherwise already-signed-in ASWeb users briefly see the auth "Return to App" card instead.
   useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      if (!hasSessionToken) {
-        clearStripeCheckoutReturn();
-        setShowPostCheckoutUi(false);
-      }
+    if (!hasStripeSessionId) {
       return;
     }
-    if (hasStripeSessionId) {
-      markStripeCheckoutReturn(stripeSessionId);
-    }
+    markStripeCheckoutReturn(stripeSessionId);
     setShowPostCheckoutUi(shouldShowStripePostCheckoutUi());
-  }, [user, loading, hasSessionToken, hasStripeSessionId, stripeSessionId]);
+  }, [hasStripeSessionId, stripeSessionId]);
+
+  // Clear post-checkout markers only when signed out (not while auth is loading).
+  useEffect(() => {
+    if (loading) return;
+    if (!user && !hasSessionToken) {
+      clearStripeCheckoutReturn();
+      setShowPostCheckoutUi(false);
+    }
+  }, [user, loading, hasSessionToken]);
 
   const showPaymentCompleteBanner =
-    Boolean(user) &&
-    hasSessionToken &&
-    showPostCheckoutUi &&
-    initialSubscriptionChecked &&
-    !subscriptionLoading;
+    Boolean(user) && hasSessionToken && showPostCheckoutUi;
 
   const showReturnToAppCta =
     showPaymentCompleteBanner && isDeepLinkSupported;
 
+  // Intentionally not calling clearStripeCheckoutReturn here — dismiss hides UI via
+  // STRIPE_POST_CHECKOUT_UI_DISMISSED_KEY while preserving return/auto-open markers.
   const dismissPostCheckoutUi = () => {
     dismissStripePostCheckoutUi();
     setShowPostCheckoutUi(false);
   };
 
   useEffect(() => {
-    if (!showPostCheckoutUi || !isDeepLinkSupported) {
+    if (!showPostCheckoutUi || !isDeepLinkSupported || isASWeb) {
       return;
     }
     if (!initialSubscriptionChecked || !shouldAutoOpenAppAfterStripeCheckout()) {
@@ -182,11 +188,16 @@ const Account = () => {
     // Only mark auto-open done — keep banner/buttons if the deep link fails (app not installed).
     const timer = window.setTimeout(() => {
       markStripeAutoOpenDone();
-      openKeenVpnNativeApp(PAYMENT_SUCCESS_DEEP_LINK);
+      returnToKeenVpnAppAfterPayment();
     }, 700);
 
     return () => window.clearTimeout(timer);
-  }, [showPostCheckoutUi, isDeepLinkSupported, initialSubscriptionChecked]);
+  }, [
+    showPostCheckoutUi,
+    isDeepLinkSupported,
+    isASWeb,
+    initialSubscriptionChecked,
+  ]);
 
   // The session token may not be in localStorage yet when Account first mounts
   // (AuthContext is still verifying with the backend). Poll until it arrives.
@@ -303,22 +314,12 @@ const Account = () => {
     setSubscriptionLoading(false);
   };
 
-  const isMonthlyStripe =
-    subscription?.status === "active" &&
-    subscription?.subscriptionType === "stripe" &&
-    subscription?.plan?.toLowerCase().includes("monthly");
-  const showStripeUpgradeToAnnual =
-    isMonthlyStripe && !subscription?.cancelAtPeriodEnd;
+  const showStripeUpgradeToAnnual = canUpgradeStripeToAnnual(subscription);
   // Stripe + active/trialing/past_due (not only status==="active") — download + cancel CTAs.
   const isStripeManageable =
     isStripeSubscription(subscription) &&
     hasManageableSubscription(subscription);
-  const downloadAppButtonLabel = useMemo(() => {
-    const device = detectDevice();
-    if (device === "ios") return "Download KeenVPN for iPhone";
-    if (device === "macos") return "Download KeenVPN for Mac";
-    return "Download KeenVPN App";
-  }, []);
+  const downloadAppButtonLabel = getAppDownloadButtonLabel(subscription);
 
   const handleDeleteAccount = async () => {
     if (!user) return;
@@ -657,9 +658,10 @@ const Account = () => {
                     >
                       <a
                         href={PAYMENT_SUCCESS_DEEP_LINK}
-                        onClick={() => {
-                          dismissPostCheckoutUi();
-                          clearStripeCheckoutReturn();
+                        onClick={(event) => {
+                          event.preventDefault();
+                          markStripeAutoOpenDone();
+                          returnToKeenVpnAppAfterPayment();
                         }}
                       >
                         <Smartphone className="mr-2 h-5 w-5" />
@@ -667,23 +669,26 @@ const Account = () => {
                       </a>
                     </Button>
                     <p className="text-center text-xs text-muted-foreground">
-                      If the app did not open automatically, tap the button above.
+                      {isASWeb
+                        ? "Tap the button above to return to KeenVPN. This page stays open until you continue on web."
+                        : "If the app did not open automatically, tap the button above."}
                     </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground"
+                      onClick={dismissPostCheckoutUi}
+                    >
+                      Continue on web
+                    </Button>
                   </>
                 ) : (
                   <Button
                     type="button"
                     className="w-full max-w-sm bg-gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
                     size="lg"
-                    onClick={() => {
-                      window.open(
-                        /^https?:\/\//i.test(appStoreUrl)
-                          ? appStoreUrl
-                          : "https://vpnkeen.com",
-                        "_blank",
-                        "noopener,noreferrer",
-                      );
-                    }}
+                    onClick={() => openAppOrAppStore(subscription, appStoreUrl)}
                   >
                     {downloadAppButtonLabel}
                   </Button>
@@ -692,8 +697,11 @@ const Account = () => {
             </Card>
           ) : null}
 
-          {/* ASWeb auth return — hidden when Stripe checkout just completed (success deep link instead) */}
-          {isASWeb && !showPostCheckoutUi && (
+          {/* ASWeb auth return — not during Stripe checkout return (payment banner uses vpnkeen://success) */}
+          {isASWeb &&
+            !showPostCheckoutUi &&
+            !hasStripeSessionId &&
+            !isStripeCheckoutReturn() && (
             <Card className="mb-8 border-primary/50 shadow-glow bg-primary/5">
               <CardContent className="flex flex-col items-center gap-4 py-6">
                 {isDeepLinkSupported ? (
@@ -882,9 +890,10 @@ const Account = () => {
                         >
                           <a
                             href={PAYMENT_SUCCESS_DEEP_LINK}
-                            onClick={() => {
-                              dismissPostCheckoutUi();
-                              clearStripeCheckoutReturn();
+                            onClick={(event) => {
+                              event.preventDefault();
+                              markStripeAutoOpenDone();
+                              returnToKeenVpnAppAfterPayment();
                             }}
                           >
                             <Smartphone className="mr-2 h-5 w-5" />
@@ -893,7 +902,9 @@ const Account = () => {
                         </Button>
                       ) : isStripeManageable ? (
                         <Button
-                          onClick={() => window.open(/^https?:\/\//i.test(appStoreUrl) ? appStoreUrl : "https://vpnkeen.com", "_blank")}
+                          onClick={() =>
+                            openAppOrAppStore(subscription, appStoreUrl)
+                          }
                           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
                         >
                           {downloadAppButtonLabel}

@@ -417,7 +417,9 @@ const Subscribe = () => {
         return;
       }
 
-      const successUrl = `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}`;
+      const aswebSuffix =
+        sessionStorage.getItem("asweb_session") === "1" ? "&asweb=1" : "";
+      const successUrl = `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}${aswebSuffix}`;
       const cancelUrl = `${window.location.origin}/pricing`;
 
       const result = await createCheckoutSession(

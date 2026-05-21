@@ -21,7 +21,10 @@ import { formatSavingsPercent } from "@/lib/subscription-pricing";
 
 import { PricingPlan } from "@/lib/pricing";
 import SEOHead from "@/components/SEOHead";
-import { canStartFreeTrial } from "@/lib/subscription-cta";
+import {
+  canStartFreeTrial,
+  canUpgradeStripeToAnnual,
+} from "@/lib/subscription-cta";
 import type { TrialData } from "@/auth/types";
 import { MembershipTransferDialog } from "@/components/MembershipTransferDialog";
 import {
@@ -71,9 +74,7 @@ const Pricing = () => {
   );
 
   const isMonthlyStripeUpgradeEligible =
-    subscription?.status === "active" &&
-    subscription?.subscriptionType === "stripe" &&
-    (subscription?.plan ?? "").toLowerCase().includes("monthly");
+    canUpgradeStripeToAnnual(subscription);
 
   const { upgrading, upgradeToAnnual, trackAnnualEvent } = useAnnualUpgrade();
   const annualViewTrackedRef = useRef(false);

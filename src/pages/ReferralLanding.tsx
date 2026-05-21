@@ -29,6 +29,7 @@ const ReferralLanding = () => {
       navigate("/");
       return;
     }
+    setLoading(true);
     setReferrerName(null);
     setInviteInvalid(false);
     setReferralTokenStorage(token);

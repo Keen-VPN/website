@@ -41,6 +41,7 @@ export {
   reactivateRetentionWinbackOffer,
   createCheckoutSession,
   createBillingPortalSession,
+  upgradeSubscriptionToAnnual,
   deleteAccount,
   storeSessionToken,
   getSessionToken,

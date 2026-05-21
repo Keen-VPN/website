@@ -7,6 +7,9 @@ export const KEENVPN_URL_SCHEME = "vpnkeen";
 /** Post-Stripe checkout — app refreshes subscription status on open. */
 export const PAYMENT_SUCCESS_DEEP_LINK = `${KEENVPN_URL_SCHEME}://success`;
 
+/** Generic handoff from web (Header/Hero/Account) — foreground app without checkout UI. */
+export const OPEN_APP_DEEP_LINK = `${KEENVPN_URL_SCHEME}://open`;
+
 /** Checkout abandoned — app dismisses in-app checkout state. */
 export const PAYMENT_CANCEL_DEEP_LINK = `${KEENVPN_URL_SCHEME}://cancel`;
 
@@ -79,6 +82,11 @@ export function shouldShowStripePostCheckoutUi(): boolean {
   }
 }
 
+/**
+ * Hides post-checkout banner/CTAs for this checkout without removing return markers.
+ * Prefer this on "Return to App" so auto-open state stays consistent; use
+ * {@link clearStripeCheckoutReturn} only on sign-out or when abandoning the flow entirely.
+ */
 export function dismissStripePostCheckoutUi(): void {
   const returnId = readStripeCheckoutReturnId();
   if (!returnId) {
@@ -91,6 +99,7 @@ export function dismissStripePostCheckoutUi(): void {
   }
 }
 
+/** Removes all Stripe checkout return session keys (logout, signed-out /account). */
 export function clearStripeCheckoutReturn(): void {
   try {
     sessionStorage.removeItem(STRIPE_CHECKOUT_RETURN_KEY);
@@ -101,11 +110,38 @@ export function clearStripeCheckoutReturn(): void {
   }
 }
 
-/** Programmatic handoff to the native app (same pattern as export download anchor). */
+/**
+ * Programmatic handoff to the native KeenVPN app via custom URL scheme.
+ *
+ * Uses both a hidden iframe and a synthetic anchor click: Safari / ASWebAuthenticationSession
+ * often ignores anchor-only navigation for custom schemes, while the iframe can still reach
+ * the OS handler. Anchor remains the primary path in normal Safari tabs. Iframe creation is
+ * wrapped in try/catch for environments that block iframes.
+ */
 export function openKeenVpnNativeApp(deepLink: string = PAYMENT_SUCCESS_DEEP_LINK): void {
+  try {
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = deepLink;
+    document.body.appendChild(iframe);
+    window.setTimeout(() => iframe.remove(), 500);
+  } catch {
+    /* ignore */
+  }
+
   const anchor = document.createElement("a");
   anchor.href = deepLink;
   document.body.appendChild(anchor);
   anchor.click();
   window.setTimeout(() => anchor.remove(), 100);
+}
+
+/**
+ * Return to the native app after Stripe checkout. Does not hide post-checkout UI;
+ * callers should dismiss explicitly (e.g. "Continue on web") so users can retry the deep link.
+ */
+export function returnToKeenVpnAppAfterPayment(
+  deepLink: string = PAYMENT_SUCCESS_DEEP_LINK,
+): void {
+  openKeenVpnNativeApp(deepLink);
 }

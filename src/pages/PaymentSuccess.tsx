@@ -12,27 +12,26 @@ import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import {
-  detectDevice,
   isAppDeepLinkSupported,
   getUnsupportedDeviceName,
 } from "@/lib/device-detection";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 import { PAYMENT_SUCCESS_DEEP_LINK } from "@/lib/keenvpn-deep-links";
+import {
+  getAppStoreInstallButtonLabel,
+  resolveAppStoreUrl,
+} from "@/lib/open-app-or-store";
 
 const PaymentSuccess = () => {
   const deepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
   const unsupportedDevice = useMemo(() => getUnsupportedDeviceName(), []);
   const appStoreUrl = useAppStoreUrl();
 
-  const downloadButtonLabel = useMemo(() => {
-    const device = detectDevice();
-    if (device === "ios") return "Download KeenVPN for iPhone";
-    if (device === "macos") return "Download KeenVPN for Mac";
-    return "Download KeenVPN App";
-  }, []);
+  // Always "Download" + App Store — not getAppDownloadButtonLabel (that shows "Open" for subscribers).
+  const downloadButtonLabel = useMemo(() => getAppStoreInstallButtonLabel(), []);
 
   const openAppStore = () => {
-    window.open(appStoreUrl, "_blank", "noopener,noreferrer");
+    window.open(resolveAppStoreUrl(appStoreUrl), "_blank", "noopener,noreferrer");
   };
 
   return (

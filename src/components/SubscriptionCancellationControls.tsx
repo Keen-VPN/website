@@ -118,10 +118,10 @@ export function SubscriptionCancellationControls({
             {portalLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Opening Stripe billing…
+                Opening billing…
               </>
             ) : (
-              "Manage billing in Stripe"
+              "Manage Billing"
             )}
           </Button>
         ) : null}
@@ -143,10 +143,10 @@ export function SubscriptionCancellationControls({
             {portalLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Opening Stripe billing…
+                Opening billing…
               </>
             ) : (
-              "Manage billing in Stripe"
+              "Manage Billing"
             )}
           </Button>
         ) : null}
@@ -154,7 +154,7 @@ export function SubscriptionCancellationControls({
           <AlertDialogTrigger asChild>
             <Button variant="destructive" className="w-full">
               <XCircle className="mr-2 h-4 w-4" />
-              Cancel Stripe subscription
+              Cancel Subscription
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -166,9 +166,8 @@ export function SubscriptionCancellationControls({
               <AlertDialogDescription asChild>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
-                    This turns off auto-renewal for your KeenVPN subscription
-                    billed through Stripe. You keep access until the end of your
-                    current period.
+                    This turns off auto-renewal for your KeenVPN subscription.
+                    You keep access until the end of your current period.
                   </p>
                   <p className="font-medium text-foreground">What happens:</p>
                   <ul className="list-inside list-disc space-y-1">
