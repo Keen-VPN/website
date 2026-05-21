@@ -21,8 +21,11 @@ const ReferralLanding = () => {
   const navigate = useNavigate();
   const [referrerName, setReferrerName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  /** `false` once we get a JSON body with valid === false */
+  /** `true` once we get explicit `valid: false` */
   const [inviteInvalid, setInviteInvalid] = useState(false);
+  /** Network failure, non-OK HTTP, or malformed resolve body (no usable `valid` boolean). */
+  const [resolveFailed, setResolveFailed] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
     if (!token) {
@@ -31,16 +34,32 @@ const ReferralLanding = () => {
     }
     setReferrerName(null);
     setInviteInvalid(false);
+    setResolveFailed(false);
+    setLoading(true);
 
     let cancelled = false;
+
     void fetch(`${BACKEND_URL}/referral/resolve/${encodeURIComponent(token)}`)
-      .then((res) => res.json().catch(() => ({})))
-      .then((data: { valid?: boolean; referrerName?: string }) => {
+      .then(async (res) => {
+        const data = (await res.json().catch(() => ({}))) as {
+          valid?: boolean;
+          referrerName?: string;
+        };
         if (cancelled) return;
+        if (!res.ok) {
+          setResolveFailed(true);
+          setLoading(false);
+          return;
+        }
+        if (typeof data.valid !== "boolean") {
+          setResolveFailed(true);
+          setLoading(false);
+          return;
+        }
         if (data.valid === false) {
           clearReferralTokenStorage();
           setInviteInvalid(true);
-        } else if (data.valid === true) {
+        } else {
           setReferralTokenStorage(token);
           if (data.referrerName) {
             setReferrerName(data.referrerName);
@@ -49,13 +68,16 @@ const ReferralLanding = () => {
         setLoading(false);
       })
       .catch(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setResolveFailed(true);
+          setLoading(false);
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [token, navigate]);
+  }, [token, navigate, retryNonce]);
 
   if (loading) {
     return (
@@ -74,15 +96,22 @@ const ReferralLanding = () => {
             <CardTitle className="text-2xl">
               {inviteInvalid
                 ? "This invite isn't available"
-                : referrerName
-                  ? `${referrerName} invited you to KeenVPN`
-                  : "You've been invited to KeenVPN"}
+                : resolveFailed
+                  ? "Couldn't verify this invite"
+                  : referrerName
+                    ? `${referrerName} invited you to KeenVPN`
+                    : "You've been invited to KeenVPN"}
             </CardTitle>
             <CardDescription className="text-base">
               {inviteInvalid ? (
                 <span className="block font-medium text-destructive">
                   This invite link could not be validated. It may be invalid, expired,
                   or referrals may be unavailable.
+                </span>
+              ) : resolveFailed ? (
+                <span className="block text-muted-foreground">
+                  We couldn&apos;t reach KeenVPN to validate this link (or the response was incomplete).
+                  Retry in a moment — your invite isn&apos;t saved until validation succeeds.
                 </span>
               ) : (
                 <>
@@ -94,23 +123,49 @@ const ReferralLanding = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {inviteInvalid ? (
-              <Button className="w-full" size="lg" variant="secondary" type="button" onClick={() => navigate("/")}>
+              <Button
+                className="w-full"
+                size="lg"
+                variant="secondary"
+                type="button"
+                onClick={() => navigate("/")}
+              >
                 Go home
               </Button>
+            ) : resolveFailed ? (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  className="w-full flex-1"
+                  size="lg"
+                  type="button"
+                  onClick={() => setRetryNonce((n) => n + 1)}
+                >
+                  Try again
+                </Button>
+                <Button
+                  className="w-full flex-1"
+                  size="lg"
+                  variant="outline"
+                  type="button"
+                  onClick={() => navigate("/")}
+                >
+                  Go home
+                </Button>
+              </div>
             ) : (
               <Button className="w-full" size="lg" type="button" onClick={() => navigate("/signin")}>
                 Sign up or sign in
               </Button>
             )}
-            {!inviteInvalid ? (
+            {!inviteInvalid && !resolveFailed ? (
               <p className="text-sm text-muted-foreground">
                 After you subscribe on a paid plan, rewards apply per program terms.
               </p>
-            ) : (
+            ) : inviteInvalid ? (
               <p className="text-sm text-muted-foreground">
                 You can still use KeenVPN — use the sign-in flow from the homepage when you&apos;re ready.
               </p>
-            )}
+            ) : null}
           </CardContent>
         </Card>
       </main>
