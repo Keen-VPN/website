@@ -73,7 +73,7 @@ import {
   dismissStripePostCheckoutUi,
   markStripeAutoOpenDone,
   markStripeCheckoutReturn,
-  openKeenVpnNativeApp,
+  returnToKeenVpnAppAfterPayment,
   shouldAutoOpenAppAfterStripeCheckout,
   shouldShowStripePostCheckoutUi,
 } from "@/lib/keenvpn-deep-links";
@@ -179,7 +179,7 @@ const Account = () => {
     // Only mark auto-open done — keep banner/buttons if the deep link fails (app not installed).
     const timer = window.setTimeout(() => {
       markStripeAutoOpenDone();
-      openKeenVpnNativeApp(PAYMENT_SUCCESS_DEEP_LINK);
+      returnToKeenVpnNativeAppAfterPayment();
     }, 700);
 
     return () => window.clearTimeout(timer);
@@ -654,9 +654,11 @@ const Account = () => {
                     >
                       <a
                         href={PAYMENT_SUCCESS_DEEP_LINK}
-                        onClick={() => {
-                          dismissPostCheckoutUi();
-                          clearStripeCheckoutReturn();
+                        onClick={(event) => {
+                          event.preventDefault();
+                          returnToKeenVpnAppAfterPayment(() => {
+                            dismissPostCheckoutUi();
+                          });
                         }}
                       >
                         <Smartphone className="mr-2 h-5 w-5" />
@@ -872,9 +874,11 @@ const Account = () => {
                         >
                           <a
                             href={PAYMENT_SUCCESS_DEEP_LINK}
-                            onClick={() => {
-                              dismissPostCheckoutUi();
-                              clearStripeCheckoutReturn();
+                            onClick={(event) => {
+                              event.preventDefault();
+                              returnToKeenVpnAppAfterPayment(() => {
+                                dismissPostCheckoutUi();
+                              });
                             }}
                           >
                             <Smartphone className="mr-2 h-5 w-5" />

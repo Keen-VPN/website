@@ -103,9 +103,34 @@ export function clearStripeCheckoutReturn(): void {
 
 /** Programmatic handoff to the native app (same pattern as export download anchor). */
 export function openKeenVpnNativeApp(deepLink: string = PAYMENT_SUCCESS_DEEP_LINK): void {
+  // Hidden iframe improves handoff when the page is inside ASWebAuthenticationSession.
+  try {
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = deepLink;
+    document.body.appendChild(iframe);
+    window.setTimeout(() => iframe.remove(), 500);
+  } catch {
+    /* ignore */
+  }
+
   const anchor = document.createElement("a");
   anchor.href = deepLink;
   document.body.appendChild(anchor);
   anchor.click();
   window.setTimeout(() => anchor.remove(), 100);
+}
+
+/**
+ * Return to the native app after Stripe checkout without tearing down the account UI first.
+ * Dismisses post-checkout chrome only after a short delay so the browser sheet can close.
+ */
+export function returnToKeenVpnAppAfterPayment(
+  onDismissUi?: () => void,
+  deepLink: string = PAYMENT_SUCCESS_DEEP_LINK,
+): void {
+  openKeenVpnNativeApp(deepLink);
+  if (onDismissUi) {
+    window.setTimeout(onDismissUi, 1200);
+  }
 }
