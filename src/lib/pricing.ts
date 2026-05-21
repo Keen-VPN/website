@@ -14,6 +14,15 @@ export interface ApiPlan {
   description?: string;
 }
 
+import {
+  computeAnnualSavings,
+  formatSavingsPercent,
+  formatUsd,
+  type AnnualSavingsSummary,
+} from "@/lib/subscription-pricing";
+
+export type { AnnualSavingsSummary };
+
 export interface PricingPlan {
   monthlyId?: string;
   annualId?: string;
@@ -24,6 +33,9 @@ export interface PricingPlan {
   monthlyPriceDisplay: string;
   annualPriceDisplay: string;
   annualMonthlyEquivalent: string | null;
+  annualSavingsPercent: number | null;
+  annualYearlySavingsDisplay: string | null;
+  annualSavingsLabel: string | null;
   features: {
     name: string;
     included: boolean;
@@ -64,8 +76,23 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
     const monthlyPrice = monthly?.price || annual?.price || 0;
     const annualPrice =
       annual?.price || (monthly?.price ? monthly.price * 12 : 0);
+    const savings =
+      monthly && annual
+        ? computeAnnualSavings(monthlyPrice, annualPrice)
+        : null;
     const annualMonthlyEquivalent =
-      annual && annualPrice > 0 ? `$${(annualPrice / 12).toFixed(2)}` : null;
+      savings && savings.annualMonthlyEquivalent > 0
+        ? formatUsd(savings.annualMonthlyEquivalent)
+        : null;
+    const annualSavingsPercent = savings?.savingsPercent ?? null;
+    const annualYearlySavingsDisplay =
+      savings && savings.yearlySavingsAmount > 0
+        ? formatUsd(savings.yearlySavingsAmount)
+        : null;
+    const annualSavingsLabel =
+      annualSavingsPercent && annualSavingsPercent > 0
+        ? `Save ${formatSavingsPercent(annualSavingsPercent)}%`
+        : null;
 
     const features = annual?.features?.length
       ? annual.features
@@ -87,6 +114,9 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       monthlyPriceDisplay: `$${monthlyPrice}`,
       annualPriceDisplay: `$${annualPrice}`,
       annualMonthlyEquivalent,
+      annualSavingsPercent,
+      annualYearlySavingsDisplay,
+      annualSavingsLabel,
       features,
       buttonText: "Start Free Trial",
       popular: isTeam,

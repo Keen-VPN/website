@@ -33,6 +33,8 @@ export {
   requestEmailOtp,
   verifyEmailOtp,
   fetchSubscriptionStatusWithSession,
+  upgradeSubscriptionToAnnual,
+  recordSubscriptionProductEvent,
   cancelSubscription,
   previewRetentionWinbackOffer,
   reactivateRetentionWinbackOffer,

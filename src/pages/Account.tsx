@@ -61,6 +61,8 @@ import { SubscriptionCancellationControls } from "@/components/SubscriptionCance
 import { detectDevice, isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
+import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
+import { AnnualUpgradeBanner } from "@/components/AnnualUpgradeBanner";
 import {
   getSubscriptionCtaLabel,
   hasManageableSubscription,
@@ -92,6 +94,7 @@ const Account = () => {
     cancelSubscriptionAtPeriodEnd,
     openBillingPortal,
   } = useSubscriptionBillingActions();
+  const { upgrading, upgradeToAnnual } = useAnnualUpgrade();
   const [showContactEmailModal, setShowContactEmailModal] = useState(false);
   const [contactEmail, setContactEmail] = useState("");
   const [contactEmailLoading, setContactEmailLoading] = useState(false);
@@ -784,6 +787,7 @@ const Account = () => {
                   </div>
                 ) : subscription ? (
                   <>
+                    <AnnualUpgradeBanner source="account_page" />
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">
                         Status
@@ -805,24 +809,30 @@ const Account = () => {
 
                     {/* Upgrade to Annual */}
                     {showStripeUpgradeToAnnual && (
-                      <Button
-                        onClick={() => void openBillingPortal()}
-                        disabled={portalLoading}
-                        variant="outline"
-                        className="w-full border-primary text-primary hover:bg-primary/10"
-                      >
-                        {portalLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Opening billing portal...
-                          </>
-                        ) : (
-                          <>
-                            <ArrowUpCircle className="h-4 w-4 mr-2" />
-                            Upgrade to Annual (Save 17%)
-                          </>
-                        )}
-                      </Button>
+                      <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                        <p className="text-sm text-foreground">
+                          Switch to annual billing and save — charged at your next
+                          billing date, not today.
+                        </p>
+                        <Button
+                          onClick={() => void upgradeToAnnual("account_upgrade_button")}
+                          disabled={upgrading}
+                          variant="outline"
+                          className="w-full border-primary text-primary hover:bg-primary/10"
+                        >
+                          {upgrading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Upgrading...
+                            </>
+                          ) : (
+                            <>
+                              <ArrowUpCircle className="h-4 w-4 mr-2" />
+                              Upgrade to annual subscription
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     )}
 
                     {/* Auto-Renewal Status */}

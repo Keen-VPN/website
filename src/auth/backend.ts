@@ -37,6 +37,10 @@ export interface RawSubscription {
   status?: string;
   endDate?: string;
   currentPeriodEnd?: string;
+  currentPeriodStart?: string;
+  subscriptionStartedAt?: string;
+  daysSinceSubscriptionStart?: number;
+  showAnnualUpgradePrompt?: boolean;
   customerId?: string;
   plan?: string;
   planName?: string;
@@ -117,6 +121,24 @@ function normalizeBackendAuthResponse(
   if (rawSubscription.subscriptionType !== undefined) {
     normalizedSubscription.subscriptionType = rawSubscription.subscriptionType;
   }
+  if (rawSubscription.currentPeriodStart !== undefined) {
+    normalizedSubscription.currentPeriodStart = rawSubscription.currentPeriodStart;
+  }
+  if (rawSubscription.currentPeriodEnd !== undefined) {
+    normalizedSubscription.currentPeriodEnd = rawSubscription.currentPeriodEnd;
+  }
+  if (rawSubscription.subscriptionStartedAt !== undefined) {
+    normalizedSubscription.subscriptionStartedAt =
+      rawSubscription.subscriptionStartedAt;
+  }
+  if (rawSubscription.daysSinceSubscriptionStart !== undefined) {
+    normalizedSubscription.daysSinceSubscriptionStart =
+      rawSubscription.daysSinceSubscriptionStart;
+  }
+  if (rawSubscription.showAnnualUpgradePrompt !== undefined) {
+    normalizedSubscription.showAnnualUpgradePrompt =
+      rawSubscription.showAnnualUpgradePrompt;
+  }
 
   // Only surface subscriptions with actionable statuses so that all auth
   // paths (sign-in and background status-session refresh) are consistent.
@@ -136,6 +158,11 @@ export interface SubscriptionStatusResult {
   hasActiveSubscription?: boolean;
   subscription: SubscriptionData | null;
   trial: TrialData | null;
+  annualSavings?: {
+    savingsPercent: number;
+    yearlySavingsAmount: number;
+    annualMonthlyEquivalent: number;
+  } | null;
   error?: string;
   unauthorized?: boolean;
 }
@@ -557,11 +584,18 @@ export async function fetchSubscriptionStatusWithSession(
       success: data?.success ?? true,
     });
 
+    const annualSavings =
+      data && typeof data === "object" && "annualSavings" in data
+        ? (data as { annualSavings?: SubscriptionStatusResult["annualSavings"] })
+            .annualSavings ?? null
+        : null;
+
     return {
       success: normalized.success,
       hasActiveSubscription: Boolean(normalized.subscription),
       subscription: normalized.subscription ?? null,
       trial: normalized.trial ?? null,
+      annualSavings,
       error: normalized.error,
       unauthorized: normalized.unauthorized,
     };
@@ -570,6 +604,7 @@ export async function fetchSubscriptionStatusWithSession(
       success: false,
       subscription: null,
       trial: null,
+      annualSavings: null,
       error:
         error instanceof Error
           ? error.message
@@ -582,6 +617,68 @@ export async function fetchSubscriptionStatusWithSession(
 /**
  * Cancel subscription
  */
+export async function upgradeSubscriptionToAnnual(
+  sessionToken: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/subscription/upgrade-to-annual`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionToken}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(extractBackendErrorMessage(data, "Failed to upgrade subscription"));
+    }
+
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to upgrade subscription",
+    };
+  }
+}
+
+export async function recordSubscriptionProductEvent(
+  sessionToken: string,
+  eventName: "annual_plan_viewed" | "annual_upgrade_clicked" | "annual_upgrade_completed",
+  payload?: { platform?: string; source?: string },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/subscription/events`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({
+        eventName,
+        platform: payload?.platform ?? "web",
+        source: payload?.source,
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(extractBackendErrorMessage(data, "Failed to record event"));
+    }
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to record event",
+    };
+  }
+}
+
 export async function cancelSubscription(
   sessionToken: string,
 ): Promise<{ success: boolean; error?: string }> {
