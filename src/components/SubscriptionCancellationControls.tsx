@@ -166,9 +166,8 @@ export function SubscriptionCancellationControls({
               <AlertDialogDescription asChild>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
-                    This turns off auto-renewal for your KeenVPN subscription
-                    billed through Stripe. You keep access until the end of your
-                    current period.
+                    This turns off auto-renewal for your KeenVPN subscription.
+                    You keep access until the end of your current period.
                   </p>
                   <p className="font-medium text-foreground">What happens:</p>
                   <ul className="list-inside list-disc space-y-1">
