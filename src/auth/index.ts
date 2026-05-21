@@ -34,6 +34,8 @@ export {
   verifyEmailOtp,
   fetchSubscriptionStatusWithSession,
   fetchReferralDashboard,
+  upgradeSubscriptionToAnnual,
+  recordSubscriptionProductEvent,
   cancelSubscription,
   previewRetentionWinbackOffer,
   reactivateRetentionWinbackOffer,

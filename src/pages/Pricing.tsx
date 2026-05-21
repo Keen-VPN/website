@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, X, HelpCircle, ArrowUpCircle, Loader2 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -15,8 +15,9 @@ import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import PricingNoticeTooltip from "@/components/PricingNoticeTooltip";
 import { enterprisePlan, featureComparison, faqs } from "@/constants/pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
-import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
+import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import { transformApiPlans } from "@/lib/pricing";
+import { formatSavingsPercent } from "@/lib/subscription-pricing";
 
 import { PricingPlan } from "@/lib/pricing";
 import SEOHead from "@/components/SEOHead";
@@ -74,7 +75,8 @@ const Pricing = () => {
     subscription?.subscriptionType === "stripe" &&
     (subscription?.plan ?? "").toLowerCase().includes("monthly");
 
-  const { portalLoading, openBillingPortal } = useSubscriptionBillingActions();
+  const { upgrading, upgradeToAnnual, trackAnnualEvent } = useAnnualUpgrade();
+  const annualViewTrackedRef = useRef(false);
   const [membershipTransferOpen, setMembershipTransferOpen] = useState(false);
 
   useEffect(() => {
@@ -100,6 +102,18 @@ const Pricing = () => {
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const premiumPlan = useMemo(
+    () => plans.find((p) => p.name === "Individual" || p.name === "Premium"),
+    [plans],
+  );
+  const annualSavingsLabel = premiumPlan?.annualSavingsLabel ?? "Save 30%";
+
+  useEffect(() => {
+    if (billingPeriod !== "annual" || annualViewTrackedRef.current) return;
+    annualViewTrackedRef.current = true;
+    void trackAnnualEvent("annual_plan_viewed", "pricing_page");
+  }, [billingPeriod, trackAnnualEvent]);
 
   useEffect(() => {
     const loadPlans = async () => {
@@ -180,7 +194,7 @@ const Pricing = () => {
               }`}
             >
               Annual
-              <span className="ml-2 text-sm">(Save 17%)</span>
+              <span className="ml-2 text-sm">({annualSavingsLabel})</span>
             </button>
           </div>
 
@@ -283,6 +297,20 @@ const Pricing = () => {
                       )}
                       {plan.name !== "Enterprise" && <PricingNoticeTooltip />}
                     </div>
+                    {plan.name !== "Enterprise" && isAnnual && plan.annualSavingsLabel && (
+                      <p className="mt-2 text-sm font-medium text-primary">
+                        {plan.annualSavingsLabel}
+                        {plan.annualYearlySavingsDisplay
+                          ? ` · ${plan.annualYearlySavingsDisplay} saved per year`
+                          : ""}
+                      </p>
+                    )}
+                    {plan.name !== "Enterprise" && isAnnual && plan.annualPriceDisplay && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Only {plan.annualMonthlyEquivalent}/month billed yearly (
+                        {plan.annualPriceDisplay}/year)
+                      </p>
+                    )}
                   </div>
 
                   {plan.name === "Enterprise" ? (
@@ -303,20 +331,23 @@ const Pricing = () => {
                     isMonthlyStripeUpgradeEligible &&
                     isAnnual ? (
                     <Button
-                      onClick={() => void openBillingPortal()}
-                      disabled={portalLoading}
+                      onClick={() => void upgradeToAnnual("pricing_card")}
+                      disabled={upgrading}
                       className="w-full mb-6 bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
                       size="lg"
                     >
-                      {portalLoading ? (
+                      {upgrading ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Opening billing portal...
+                          Upgrading...
                         </>
                       ) : (
                         <>
                           <ArrowUpCircle className="h-4 w-4 mr-2" />
-                          Upgrade to Annual (Save 17%)
+                          Upgrade to Annual (
+                          {plan.annualSavingsLabel ??
+                            `Save ${formatSavingsPercent(30)}%`}
+                          )
                         </>
                       )}
                     </Button>

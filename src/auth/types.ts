@@ -1,5 +1,11 @@
 import { User as FirebaseUser } from 'firebase/auth';
 
+export interface AnnualSavingsData {
+  savingsPercent: number;
+  yearlySavingsAmount: number;
+  annualMonthlyEquivalent: number;
+}
+
 export interface SubscriptionData {
   status: string;
   endDate: string;
@@ -7,6 +13,11 @@ export interface SubscriptionData {
   plan?: string;
   cancelAtPeriodEnd?: boolean;
   subscriptionType?: string;
+  currentPeriodStart?: string | null;
+  currentPeriodEnd?: string | null;
+  subscriptionStartedAt?: string | null;
+  daysSinceSubscriptionStart?: number | null;
+  showAnnualUpgradePrompt?: boolean;
 }
 
 export interface TrialData {
