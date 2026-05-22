@@ -1,4 +1,6 @@
-export const enterprisePlan = {
+import type { PricingPlan } from "@/lib/pricing";
+
+export const enterprisePlan: PricingPlan = {
   name: "Enterprise",
   description: "Custom solutions for large organizations (50+ users)",
   monthlyPrice: null,
@@ -6,6 +8,9 @@ export const enterprisePlan = {
   monthlyPriceDisplay: "Custom",
   annualPriceDisplay: "Custom",
   annualMonthlyEquivalent: null,
+  annualSavingsPercent: null,
+  annualYearlySavingsDisplay: null,
+  annualSavingsLabel: null,
   features: [
     { name: "1 month free trial", included: true, highlighted: true },
     { name: "Access to all server locations", included: true },

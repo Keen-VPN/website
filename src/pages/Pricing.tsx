@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, X, HelpCircle, ArrowUpCircle, Loader2 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -15,8 +15,14 @@ import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import PricingNoticeTooltip from "@/components/PricingNoticeTooltip";
 import { enterprisePlan, featureComparison, faqs } from "@/constants/pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
-import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
-import { transformApiPlans } from "@/lib/pricing";
+import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
+import {
+  annualHeroPriceDisplay,
+  formatAnnualBillingDetail,
+  formatAnnualComparisonPrice,
+  transformApiPlans,
+} from "@/lib/pricing";
+import { DEFAULT_ANNUAL_SAVINGS_LABEL } from "@/lib/subscription-pricing";
 
 import { PricingPlan } from "@/lib/pricing";
 import SEOHead from "@/components/SEOHead";
@@ -75,8 +81,10 @@ const Pricing = () => {
   const isMonthlyStripeUpgradeEligible =
     canUpgradeStripeToAnnual(subscription);
 
-  const { upgradingToAnnual, upgradeToAnnualPlan } =
-    useSubscriptionBillingActions();
+  const { upgrading, upgradeToAnnual, trackAnnualEvent } = useAnnualUpgrade();
+  // annual_plan_viewed: once per page visit (default billing is annual on mount).
+  // Toggling monthly → annual again does not re-fire; avoids inflated toggle counts.
+  const annualViewTrackedRef = useRef(false);
   const [membershipTransferOpen, setMembershipTransferOpen] = useState(false);
 
   useEffect(() => {
@@ -103,15 +111,36 @@ const Pricing = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const premiumPlan = useMemo(
+    () => plans.find((p) => p.name === "Individual" || p.name === "Premium"),
+    [plans],
+  );
+  const annualSavingsLabel =
+    premiumPlan?.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL;
+
+  useEffect(() => {
+    if (billingPeriod !== "annual" || annualViewTrackedRef.current) {
+      return;
+    }
+    annualViewTrackedRef.current = true;
+    void trackAnnualEvent("annual_plan_viewed", "pricing_page");
+  }, [billingPeriod, trackAnnualEvent]);
+
   useEffect(() => {
     const loadPlans = async () => {
       try {
         setLoading(true);
         const response = await fetchSubscriptionPlans();
 
-        if (response.success && response.plans) {
+        if (response.success && response.plans && response.plans.length > 0) {
           const transformedPlans = transformApiPlans(response.plans);
-          setPlans([...transformedPlans, enterprisePlan]);
+          if (transformedPlans.length > 0) {
+            setError(null);
+            setPlans([...transformedPlans, enterprisePlan]);
+          } else {
+            setError(response.error || "Failed to load plans");
+            setPlans([enterprisePlan]);
+          }
         } else {
           setError(response.error || "Failed to load plans");
           setPlans([enterprisePlan]);
@@ -182,7 +211,7 @@ const Pricing = () => {
               }`}
             >
               Annual
-              <span className="ml-2 text-sm">(Save 17%)</span>
+              <span className="ml-2 text-sm">({annualSavingsLabel})</span>
             </button>
           </div>
 
@@ -227,19 +256,17 @@ const Pricing = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto items-stretch">
             {plans.map((plan, index) => {
               const isAnnual = billingPeriod === "annual";
-              const price = isAnnual
-                ? plan.annualPriceDisplay || plan.monthlyPriceDisplay
-                : plan.monthlyPriceDisplay;
               const period =
                 plan.monthlyPrice === null
                   ? ""
                   : isAnnual
-                    ? "/month, billed annually"
+                    ? plan.annualMonthlyEquivalent
+                      ? "/month, billed annually"
+                      : "/year"
                     : "/month";
-              const monthlyEquivalent =
-                isAnnual && plan.annualMonthlyEquivalent
-                  ? plan.annualMonthlyEquivalent
-                  : null;
+              const annualBillingDetail = isAnnual
+                ? formatAnnualBillingDetail(plan)
+                : null;
 
               return (
                 <div
@@ -274,17 +301,26 @@ const Pricing = () => {
                   <div className="mb-6">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="text-4xl font-bold text-foreground">
-                        {plan.name === "Enterprise"
-                          ? "Custom"
-                          : isAnnual
-                            ? monthlyEquivalent
-                            : price}
+                        {annualHeroPriceDisplay(plan, isAnnual)}
                       </span>
                       {period && (
                         <span className="text-muted-foreground">{period}</span>
                       )}
                       {plan.name !== "Enterprise" && <PricingNoticeTooltip />}
                     </div>
+                    {plan.name !== "Enterprise" && isAnnual && plan.annualSavingsLabel && (
+                      <p className="mt-2 text-sm font-medium text-primary">
+                        {plan.annualSavingsLabel}
+                        {plan.annualYearlySavingsDisplay
+                          ? ` · ${plan.annualYearlySavingsDisplay} saved per year`
+                          : ""}
+                      </p>
+                    )}
+                    {plan.name !== "Enterprise" && annualBillingDetail && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {annualBillingDetail}
+                      </p>
+                    )}
                   </div>
 
                   {plan.name === "Enterprise" ? (
@@ -305,12 +341,12 @@ const Pricing = () => {
                     isMonthlyStripeUpgradeEligible &&
                     isAnnual ? (
                     <Button
-                      onClick={() => void upgradeToAnnualPlan()}
-                      disabled={upgradingToAnnual}
+                      onClick={() => void upgradeToAnnual("pricing_card")}
+                      disabled={upgrading}
                       className="w-full mb-6 bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
                       size="lg"
                     >
-                      {upgradingToAnnual ? (
+                      {upgrading ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                           Upgrading...
@@ -318,7 +354,9 @@ const Pricing = () => {
                       ) : (
                         <>
                           <ArrowUpCircle className="h-4 w-4 mr-2" />
-                          Upgrade to Annual (Save 17%)
+                          Upgrade to Annual (
+                          {plan.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL}
+                          )
                         </>
                       )}
                     </Button>
@@ -414,17 +452,17 @@ const Pricing = () => {
                       {plan.name}
                     </div>
                     <div className="text-xs md:text-sm text-muted-foreground mt-1 hidden sm:block">
-                      {plan.monthlyPrice === null
-                        ? "Custom"
-                        : billingPeriod === "annual"
-                          ? `${plan.annualMonthlyEquivalent} / month, billed annually`
+                      {billingPeriod === "annual"
+                        ? formatAnnualComparisonPrice(plan)
+                        : plan.monthlyPrice === null
+                          ? "Custom"
                           : `${plan.monthlyPriceDisplay} / month`}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1 sm:hidden">
-                      {plan.monthlyPrice === null
-                        ? "Custom"
-                        : billingPeriod === "annual"
-                          ? plan.annualMonthlyEquivalent
+                      {billingPeriod === "annual"
+                        ? formatAnnualComparisonPrice(plan)
+                        : plan.monthlyPrice === null
+                          ? "Custom"
                           : plan.monthlyPriceDisplay}
                     </div>
                     {plan.name === "Enterprise" && (

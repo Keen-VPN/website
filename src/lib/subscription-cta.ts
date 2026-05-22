@@ -1,4 +1,5 @@
 import type { SubscriptionData, TrialData } from "@/auth/types";
+import { isApplePlatform } from "@/lib/device-detection";
 
 export const START_FREE_TRIAL_NOW_LABEL = "Start Free Trial Now";
 export const SUBSCRIBE_NOW_LABEL = "Subscribe Now";
@@ -40,6 +41,16 @@ export function canCancelStripeOnWebsite(
   return hasManageableSubscription(subscription);
 }
 
+export function isAppleIapSubscription(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return subscription?.subscriptionType === "apple_iap";
+}
+
+function isMonthlyPlanName(planName?: string | null): boolean {
+  return (planName ?? "").toLowerCase().includes("monthly");
+}
+
 /** Stripe monthly (or trialing monthly) with auto-renewal on — eligible for one-click annual upgrade. */
 export function canUpgradeStripeToAnnual(
   subscription: SubscriptionData | null | undefined,
@@ -50,7 +61,57 @@ export function canUpgradeStripeToAnnual(
   const status = getSubscriptionStatus(subscription);
   if (status !== "active" && status !== "trialing") return false;
 
-  return (subscription.plan ?? "").toLowerCase().includes("monthly");
+  return isMonthlyPlanName(subscription.plan);
+}
+
+/** Apple IAP monthly — upgrade via App Store subscription management. */
+export function canUpgradeAppleIapToAnnual(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (!subscription || !isAppleIapSubscription(subscription)) return false;
+  if (subscription.cancelAtPeriodEnd) return false;
+
+  const status = getSubscriptionStatus(subscription);
+  if (status !== "active" && status !== "trialing") return false;
+
+  return isMonthlyPlanName(subscription.plan);
+}
+
+/** Either billing provider eligible for annual upgrade UI. */
+export function canUpgradeToAnnual(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return (
+    canUpgradeStripeToAnnual(subscription) ||
+    canUpgradeAppleIapToAnnual(subscription)
+  );
+}
+
+const ANNUAL_UPGRADE_PROMPT_MIN_DAYS = 10;
+
+/** Whether the account can render a one-click or App Store annual upgrade CTA. */
+export function hasAnnualUpgradeCta(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return (
+    canUpgradeStripeToAnnual(subscription) ||
+    (canUpgradeAppleIapToAnnual(subscription) && isApplePlatform())
+  );
+}
+
+/** 10-day+ prompt: Stripe uses API flag; Apple IAP uses days since subscription start. */
+export function shouldShowAnnualUpgradeOffer(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (canUpgradeStripeToAnnual(subscription)) {
+    return subscription.showAnnualUpgradePrompt === true;
+  }
+  if (canUpgradeAppleIapToAnnual(subscription)) {
+    if (!isApplePlatform()) return false;
+    const days = subscription.daysSinceSubscriptionStart ?? 0;
+    return days >= ANNUAL_UPGRADE_PROMPT_MIN_DAYS;
+  }
+  return false;
 }
 
 export function canStartFreeTrial(

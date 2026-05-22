@@ -24,6 +24,7 @@ const ReferralLanding = lazy(() => import("./pages/ReferralLanding"));
 const Referrals = lazy(() => import("./pages/Referrals"));
 const Subscribe = lazy(() => import("./pages/Subscribe"));
 const Account = lazy(() => import("./pages/Account"));
+const UpgradeAnnual = lazy(() => import("./pages/UpgradeAnnual"));
 const SubscriptionHistory = lazy(() => import("./pages/SubscriptionHistory"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const PaymentCancel = lazy(() => import("./pages/PaymentCancel"));
@@ -98,6 +99,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Account />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/upgrade-annual"
+                element={
+                  <ProtectedRoute>
+                    <UpgradeAnnual />
                   </ProtectedRoute>
                 }
               />

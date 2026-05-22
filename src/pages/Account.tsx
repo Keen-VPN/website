@@ -65,11 +65,19 @@ import {
   openAppOrAppStore,
 } from "@/lib/open-app-or-store";
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
+import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import {
+  ANNUAL_UPGRADE_BANNER_DISMISS_KEY,
+  AnnualUpgradeBanner,
+} from "@/components/AnnualUpgradeBanner";
+import { AppleIapSubscriptionsCta } from "@/components/AppleIapSubscriptionsCta";
+import {
+  canUpgradeAppleIapToAnnual,
   canUpgradeStripeToAnnual,
   getSubscriptionCtaLabel,
   hasManageableSubscription,
   isStripeSubscription,
+  shouldShowAnnualUpgradeOffer,
 } from "@/lib/subscription-cta";
 import {
   PAYMENT_SUCCESS_DEEP_LINK,
@@ -92,14 +100,19 @@ const Account = () => {
     () => !new URLSearchParams(window.location.search).get("session_id"),
   );
   const [deleting, setDeleting] = useState(false);
+  const [annualUpgradeBannerDismissed, setAnnualUpgradeBannerDismissed] =
+    useState(
+      () =>
+        typeof window !== "undefined" &&
+        localStorage.getItem(ANNUAL_UPGRADE_BANNER_DISMISS_KEY) === "1",
+    );
   const {
     cancelling,
     portalLoading,
-    upgradingToAnnual,
     cancelSubscriptionAtPeriodEnd,
     openBillingPortal,
-    upgradeToAnnualPlan,
   } = useSubscriptionBillingActions();
+  const { upgrading, upgradeToAnnual } = useAnnualUpgrade();
   const [showContactEmailModal, setShowContactEmailModal] = useState(false);
   const [contactEmail, setContactEmail] = useState("");
   const [contactEmailLoading, setContactEmailLoading] = useState(false);
@@ -314,6 +327,15 @@ const Account = () => {
   };
 
   const showStripeUpgradeToAnnual = canUpgradeStripeToAnnual(subscription);
+  const showAppleIapUpgradeToAnnual = canUpgradeAppleIapToAnnual(subscription);
+  // Banner owns the timed promo; inline card is fallback after dismiss or when no banner.
+  const showAnnualUpgradeBanner =
+    shouldShowAnnualUpgradeOffer(subscription) &&
+    !annualUpgradeBannerDismissed;
+  const showStripeUpgradeInCard =
+    showStripeUpgradeToAnnual && !showAnnualUpgradeBanner;
+  const showAppleIapUpgradeInCard =
+    showAppleIapUpgradeToAnnual && !showAnnualUpgradeBanner;
   // Stripe + active/trialing/past_due (not only status==="active") — download + cancel CTAs.
   const isStripeManageable =
     isStripeSubscription(subscription) &&
@@ -794,6 +816,10 @@ const Account = () => {
                   </div>
                 ) : subscription ? (
                   <>
+                    <AnnualUpgradeBanner
+                      source="account_page"
+                      onDismiss={() => setAnnualUpgradeBannerDismissed(true)}
+                    />
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">
                         Status
@@ -814,25 +840,44 @@ const Account = () => {
                     </div>
 
                     {/* Upgrade to Annual */}
-                    {showStripeUpgradeToAnnual && (
-                      <Button
-                        onClick={() => void upgradeToAnnualPlan()}
-                        disabled={upgradingToAnnual}
-                        variant="outline"
-                        className="w-full border-primary text-primary hover:bg-primary/10"
-                      >
-                        {upgradingToAnnual ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Upgrading...
-                          </>
-                        ) : (
-                          <>
-                            <ArrowUpCircle className="h-4 w-4 mr-2" />
-                            Upgrade to Annual (Save 17%)
-                          </>
-                        )}
-                      </Button>
+                    {showStripeUpgradeInCard && (
+                      <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                        <p className="text-sm text-foreground">
+                          Switch to annual billing and save — charged at your next
+                          billing date, not today.
+                        </p>
+                        <Button
+                          onClick={() => void upgradeToAnnual("account_upgrade_button")}
+                          disabled={upgrading}
+                          variant="outline"
+                          className="w-full border-primary text-primary hover:bg-primary/10"
+                        >
+                          {upgrading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Upgrading...
+                            </>
+                          ) : (
+                            <>
+                              <ArrowUpCircle className="h-4 w-4 mr-2" />
+                              Upgrade to annual subscription
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                    {showAppleIapUpgradeInCard && (
+                      <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                        <p className="text-sm text-foreground">
+                          You subscribed through the App Store. Switch to annual
+                          billing there — Apple manages your subscription.
+                        </p>
+                        <AppleIapSubscriptionsCta
+                          label="Upgrade to annual in App Store"
+                          variant="outline"
+                          buttonClassName="border-primary text-primary hover:bg-primary/10"
+                        />
+                      </div>
                     )}
 
                     {/* Auto-Renewal Status */}
