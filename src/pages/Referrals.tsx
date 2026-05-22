@@ -23,8 +23,6 @@ interface ReferralRow {
   refereeName: string;
   /** Full referee account email (API always sends string; missing → "" from coercion). */
   refereeEmail: string;
-  appDownloadedAt: string | null;
-  appOpenedAt: string | null;
   signedUpAt: string | null;
   trialStartedAt: string | null;
   subscribedAt: string | null;
@@ -46,26 +44,17 @@ const REFERRALS_PAGE_SIZE = 20;
 const stageConfig: {
   key: keyof Pick<
     ReferralRow,
-    | "appDownloadedAt"
-    | "appOpenedAt"
-    | "signedUpAt"
-    | "trialStartedAt"
-    | "subscribedAt"
-    | "rewardedAt"
+    "signedUpAt" | "trialStartedAt" | "subscribedAt" | "rewardedAt"
   >;
   label: string;
-  secondary?: boolean;
 }[] = [
   { key: "signedUpAt", label: "Signed up" },
   { key: "trialStartedAt", label: "Free trial started" },
   { key: "subscribedAt", label: "Subscribed" },
   { key: "rewardedAt", label: "Reward" },
-  { key: "appDownloadedAt", label: "Downloaded app", secondary: true },
-  { key: "appOpenedAt", label: "Opened app", secondary: true },
 ];
 
-const referralPrimaryStages = stageConfig.filter((s) => !s.secondary);
-const referralSecondaryStages = stageConfig.filter((s) => s.secondary);
+const referralPrimaryStages = stageConfig;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -91,8 +80,6 @@ function coerceReferralRow(raw: unknown): ReferralRow | null {
     status: coerceString(raw["status"]),
     refereeName: coerceString(raw["refereeName"]),
     refereeEmail: coerceString(raw["refereeEmail"]),
-    appDownloadedAt: coerceIsoOrNull(raw["appDownloadedAt"]),
-    appOpenedAt: coerceIsoOrNull(raw["appOpenedAt"]),
     signedUpAt: coerceIsoOrNull(raw["signedUpAt"]),
     trialStartedAt: coerceIsoOrNull(raw["trialStartedAt"]),
     subscribedAt: coerceIsoOrNull(raw["subscribedAt"]),
@@ -382,8 +369,7 @@ const Referrals = () => {
                   <CardTitle>Your referrals</CardTitle>
                   <CardDescription>
                     Invitees appear as Pending until they start a trial and subscribe. Rows show signed
-                    up, free trial, paid subscription, and reward. App download/open events are tracked
-                    when available from mobile.
+                    up, free trial, paid subscription, and reward.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -421,24 +407,6 @@ const Referrals = () => {
                                 className={
                                   r[s.key]
                                     ? "text-primary font-medium"
-                                    : "opacity-40"
-                                }
-                              >
-                                {s.label}
-                                {r[s.key] ? " ✓" : ""}
-                              </span>
-                            ))}
-                          </div>
-                          <div className="flex flex-wrap gap-2 border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
-                            <span className="font-medium uppercase tracking-wide opacity-70">
-                              App activity
-                            </span>
-                            {referralSecondaryStages.map((s) => (
-                              <span
-                                key={s.key}
-                                className={
-                                  r[s.key]
-                                    ? "font-medium text-foreground"
                                     : "opacity-40"
                                 }
                               >
