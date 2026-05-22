@@ -84,12 +84,14 @@ export default function AdminOverview() {
     [limit],
   );
 
+  // Mount-only: read filter state (not hardcoded literals) so URL/persisted defaults work later.
   useEffect(() => {
-    void load(1, searchTerm, currentMonthValue(), "10", false);
+    void load(1, searchTerm, monthInput, minDurationInput, excludeExtension);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial fetch only
   }, [load]);
 
   const applyFilters = () => {
-    void load(page, searchTerm, monthInput, minDurationInput, excludeExtension);
+    void load(1, searchTerm, monthInput, minDurationInput, excludeExtension);
   };
 
   const activeMonth = overview?.month ?? monthInput;
