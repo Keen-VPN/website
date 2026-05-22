@@ -33,6 +33,11 @@ export function formatSavingsPercent(percent: number): string {
   return Number.isInteger(percent) ? `${percent}` : percent.toFixed(1);
 }
 
+/** Fallback before plans API loads ($10/mo vs $30/yr). */
+export const DEFAULT_ANNUAL_SAVINGS_PERCENT = 37.5;
+
+export const DEFAULT_ANNUAL_SAVINGS_LABEL = `Save ${formatSavingsPercent(DEFAULT_ANNUAL_SAVINGS_PERCENT)}%`;
+
 export function formatUsd(amount: number): string {
   const rounded = Math.round(amount * 100) / 100;
   return rounded % 1 === 0 ? `$${rounded.toFixed(0)}` : `$${rounded.toFixed(2)}`;

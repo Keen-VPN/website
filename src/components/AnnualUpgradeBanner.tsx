@@ -6,6 +6,7 @@ import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import { AppleIapSubscriptionsCta } from "@/components/AppleIapSubscriptionsCta";
 import {
   computeAnnualSavings,
+  DEFAULT_ANNUAL_SAVINGS_PERCENT,
   formatSavingsPercent,
   formatUsd,
 } from "@/lib/subscription-pricing";
@@ -19,7 +20,8 @@ import {
 import { isApplePlatform } from "@/lib/device-detection";
 import { useState } from "react";
 
-const DISMISS_KEY = "keen_annual_upgrade_banner_dismissed";
+export const ANNUAL_UPGRADE_BANNER_DISMISS_KEY =
+  "keen_annual_upgrade_banner_dismissed";
 
 interface AnnualUpgradeBannerProps {
   source?: string;
@@ -32,10 +34,14 @@ export function AnnualUpgradeBanner({
 }: AnnualUpgradeBannerProps) {
   const { subscription } = useAuth();
   const { upgrading, upgradeToAnnual, trackAnnualEvent } = useAnnualUpgrade();
-  const [savingsPercent, setSavingsPercent] = useState(37.5);
+  const [savingsPercent, setSavingsPercent] = useState(
+    DEFAULT_ANNUAL_SAVINGS_PERCENT,
+  );
   const [annualYearlyPrice, setAnnualYearlyPrice] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem(DISMISS_KEY) === "1",
+    () =>
+      typeof window !== "undefined" &&
+      localStorage.getItem(ANNUAL_UPGRADE_BANNER_DISMISS_KEY) === "1",
   );
 
   useEffect(() => {
@@ -68,7 +74,7 @@ export function AnnualUpgradeBanner({
   }
 
   const handleDismiss = () => {
-    localStorage.setItem(DISMISS_KEY, "1");
+    localStorage.setItem(ANNUAL_UPGRADE_BANNER_DISMISS_KEY, "1");
     setDismissed(true);
     onDismiss?.();
   };

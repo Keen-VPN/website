@@ -66,7 +66,10 @@ import {
 } from "@/lib/open-app-or-store";
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
-import { AnnualUpgradeBanner } from "@/components/AnnualUpgradeBanner";
+import {
+  ANNUAL_UPGRADE_BANNER_DISMISS_KEY,
+  AnnualUpgradeBanner,
+} from "@/components/AnnualUpgradeBanner";
 import { AppleIapSubscriptionsCta } from "@/components/AppleIapSubscriptionsCta";
 import {
   canUpgradeAppleIapToAnnual,
@@ -74,6 +77,7 @@ import {
   getSubscriptionCtaLabel,
   hasManageableSubscription,
   isStripeSubscription,
+  shouldShowAnnualUpgradeOffer,
 } from "@/lib/subscription-cta";
 import {
   PAYMENT_SUCCESS_DEEP_LINK,
@@ -96,6 +100,12 @@ const Account = () => {
     () => !new URLSearchParams(window.location.search).get("session_id"),
   );
   const [deleting, setDeleting] = useState(false);
+  const [annualUpgradeBannerDismissed, setAnnualUpgradeBannerDismissed] =
+    useState(
+      () =>
+        typeof window !== "undefined" &&
+        localStorage.getItem(ANNUAL_UPGRADE_BANNER_DISMISS_KEY) === "1",
+    );
   const {
     cancelling,
     portalLoading,
@@ -318,6 +328,14 @@ const Account = () => {
 
   const showStripeUpgradeToAnnual = canUpgradeStripeToAnnual(subscription);
   const showAppleIapUpgradeToAnnual = canUpgradeAppleIapToAnnual(subscription);
+  // Banner owns the timed promo; inline card is fallback after dismiss or when no banner.
+  const showAnnualUpgradeBanner =
+    shouldShowAnnualUpgradeOffer(subscription) &&
+    !annualUpgradeBannerDismissed;
+  const showStripeUpgradeInCard =
+    showStripeUpgradeToAnnual && !showAnnualUpgradeBanner;
+  const showAppleIapUpgradeInCard =
+    showAppleIapUpgradeToAnnual && !showAnnualUpgradeBanner;
   // Stripe + active/trialing/past_due (not only status==="active") — download + cancel CTAs.
   const isStripeManageable =
     isStripeSubscription(subscription) &&
@@ -798,7 +816,10 @@ const Account = () => {
                   </div>
                 ) : subscription ? (
                   <>
-                    <AnnualUpgradeBanner source="account_page" />
+                    <AnnualUpgradeBanner
+                      source="account_page"
+                      onDismiss={() => setAnnualUpgradeBannerDismissed(true)}
+                    />
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">
                         Status
@@ -819,7 +840,7 @@ const Account = () => {
                     </div>
 
                     {/* Upgrade to Annual */}
-                    {showStripeUpgradeToAnnual && (
+                    {showStripeUpgradeInCard && (
                       <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
                         <p className="text-sm text-foreground">
                           Switch to annual billing and save — charged at your next
@@ -845,7 +866,7 @@ const Account = () => {
                         </Button>
                       </div>
                     )}
-                    {showAppleIapUpgradeToAnnual && (
+                    {showAppleIapUpgradeInCard && (
                       <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
                         <p className="text-sm text-foreground">
                           You subscribed through the App Store. Switch to annual

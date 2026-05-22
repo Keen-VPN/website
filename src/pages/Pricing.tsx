@@ -22,7 +22,7 @@ import {
   formatAnnualComparisonPrice,
   transformApiPlans,
 } from "@/lib/pricing";
-import { formatSavingsPercent } from "@/lib/subscription-pricing";
+import { DEFAULT_ANNUAL_SAVINGS_LABEL } from "@/lib/subscription-pricing";
 
 import { PricingPlan } from "@/lib/pricing";
 import SEOHead from "@/components/SEOHead";
@@ -82,6 +82,8 @@ const Pricing = () => {
     canUpgradeStripeToAnnual(subscription);
 
   const { upgrading, upgradeToAnnual, trackAnnualEvent } = useAnnualUpgrade();
+  // annual_plan_viewed: once per page visit (default billing is annual on mount).
+  // Toggling monthly → annual again does not re-fire; avoids inflated toggle counts.
   const annualViewTrackedRef = useRef(false);
   const [membershipTransferOpen, setMembershipTransferOpen] = useState(false);
 
@@ -113,10 +115,13 @@ const Pricing = () => {
     () => plans.find((p) => p.name === "Individual" || p.name === "Premium"),
     [plans],
   );
-  const annualSavingsLabel = premiumPlan?.annualSavingsLabel ?? "Save 30%";
+  const annualSavingsLabel =
+    premiumPlan?.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL;
 
   useEffect(() => {
-    if (billingPeriod !== "annual" || annualViewTrackedRef.current) return;
+    if (billingPeriod !== "annual" || annualViewTrackedRef.current) {
+      return;
+    }
     annualViewTrackedRef.current = true;
     void trackAnnualEvent("annual_plan_viewed", "pricing_page");
   }, [billingPeriod, trackAnnualEvent]);
@@ -353,8 +358,7 @@ const Pricing = () => {
                         <>
                           <ArrowUpCircle className="h-4 w-4 mr-2" />
                           Upgrade to Annual (
-                          {plan.annualSavingsLabel ??
-                            `Save ${formatSavingsPercent(30)}%`}
+                          {plan.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL}
                           )
                         </>
                       )}
