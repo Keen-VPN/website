@@ -10,6 +10,7 @@ import {
   CreditCard,
   Users,
   Activity,
+  TrendingDown,
 } from "lucide-react";
 
 function linkClass(isActive: boolean) {
@@ -81,6 +82,13 @@ export default function AdminSidebarLayout() {
             >
               <CreditCard className="h-4 w-4" />
               Subscriptions
+            </NavLink>
+            <NavLink
+              to="/admin/churn"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <TrendingDown className="h-4 w-4" />
+              Churn
             </NavLink>
             <NavLink
               to="/admin/users"
