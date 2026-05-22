@@ -1358,11 +1358,17 @@ export interface AdminUserOverview {
   page: number;
   limit: number;
   totalPages: number;
+  month: string;
+  filters: {
+    min_duration_seconds: number;
+    exclude_platforms: string[];
+  };
   users: {
     id: string;
     email: string;
     name: string | null;
     longestSessionSeconds: number;
+    connectionCount: number;
     createdAt: string;
   }[];
 }
@@ -1595,10 +1601,26 @@ export async function adminFetchUserConnectionSessions(
   }
 }
 
+/** Matches backend default for admin engagement / overview filters. */
+export const ADMIN_DEFAULT_MIN_DURATION_SECONDS = 10;
+
+/** Omit default min duration from query string; still send 0 (use `!= null`, not truthy). */
+function appendAdminMinDurationSeconds(
+  query: URLSearchParams,
+  minDurationSeconds?: number,
+): void {
+  if (minDurationSeconds == null) return;
+  if (minDurationSeconds === ADMIN_DEFAULT_MIN_DURATION_SECONDS) return;
+  query.set("min_duration_seconds", String(minDurationSeconds));
+}
+
 export async function adminFetchUsersOverview(params?: {
   page?: number;
   limit?: number;
   search?: string;
+  month?: string;
+  minDurationSeconds?: number;
+  excludePlatforms?: string;
 }): Promise<{
   ok: boolean;
   data?: AdminUserOverview;
@@ -1609,6 +1631,11 @@ export async function adminFetchUsersOverview(params?: {
     query.set("page", String(params?.page ?? 1));
     query.set("limit", String(params?.limit ?? 20));
     if (params?.search?.trim()) query.set("search", params.search.trim());
+    if (params?.month) query.set("month", params.month);
+    appendAdminMinDurationSeconds(query, params?.minDurationSeconds);
+    if (params?.excludePlatforms) {
+      query.set("exclude_platforms", params.excludePlatforms);
+    }
     const suffix = query.toString() ? `?${query.toString()}` : "";
     const response = await fetch(`${BACKEND_URL}/admin/users/overview${suffix}`, {
       credentials: "include",
@@ -1644,9 +1671,7 @@ export async function adminFetchMedianMonthlySessions(params?: {
   try {
     const query = new URLSearchParams();
     if (params?.month) query.set("month", params.month);
-    if (params?.minDurationSeconds != null) {
-      query.set("min_duration_seconds", String(params.minDurationSeconds));
-    }
+    appendAdminMinDurationSeconds(query, params?.minDurationSeconds);
     if (params?.excludePlatforms) {
       query.set("exclude_platforms", params.excludePlatforms);
     }
