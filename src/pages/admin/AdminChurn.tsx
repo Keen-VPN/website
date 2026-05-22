@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -86,10 +86,15 @@ export default function AdminChurn() {
   const [trend, setTrend] = useState<AdminChurnTrendReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadGeneration = useRef(0);
 
   const load = useCallback(async (targetMonth: number, targetYear: number) => {
+    const generation = ++loadGeneration.current;
+
     setLoading(true);
     setError(null);
+    setReport(null);
+    setTrend(null);
 
     const from = trendWindowStart(targetMonth, targetYear, 6);
     const to = trendWindowEnd(targetMonth, targetYear);
@@ -98,6 +103,10 @@ export default function AdminChurn() {
       adminFetchChurnReport({ month: targetMonth, year: targetYear }),
       adminFetchChurnTrend({ from, to }),
     ]);
+
+    if (generation !== loadGeneration.current) {
+      return;
+    }
 
     if (!reportRes.ok || !reportRes.data) {
       setReport(null);
@@ -121,6 +130,9 @@ export default function AdminChurn() {
 
   useEffect(() => {
     void load(month, year);
+    return () => {
+      loadGeneration.current += 1;
+    };
   }, [load, month, year]);
 
   const chartRows = useMemo(
@@ -231,7 +243,7 @@ export default function AdminChurn() {
         </CardContent>
       </Card>
 
-      {report && report.breakdowns.length > 0 ? (
+      {!loading && report && report.breakdowns.length > 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>Breakdowns</CardTitle>
