@@ -256,9 +256,6 @@ const Pricing = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto items-stretch">
             {plans.map((plan, index) => {
               const isAnnual = billingPeriod === "annual";
-              const price = isAnnual
-                ? plan.annualPriceDisplay || plan.monthlyPriceDisplay
-                : plan.monthlyPriceDisplay;
               const period =
                 plan.monthlyPrice === null
                   ? ""

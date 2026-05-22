@@ -1,8 +1,8 @@
-export type AnnualSavingsSummary = {
+export interface AnnualSavingsSummary {
   savingsPercent: number;
   yearlySavingsAmount: number;
   annualMonthlyEquivalent: number;
-};
+}
 
 export function computeAnnualSavings(
   monthlyPrice: number,
