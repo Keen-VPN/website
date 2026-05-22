@@ -1449,6 +1449,54 @@ export interface AdminSubscriptionListResponse {
   totalPages: number;
 }
 
+export interface AdminChurnBreakdownRow {
+  billingPeriod: string;
+  subscriptionType: string;
+  hardChurned: number;
+  softChurned: number;
+  trialChurned: number;
+  mrrStart: number;
+  revenueChurned: number;
+}
+
+export interface AdminChurnReport {
+  month: number;
+  year: number;
+  monthLabel: string;
+  startOfMonthActiveUsers: number;
+  hardChurned: number;
+  hardChurnRate: number;
+  softChurned: number;
+  softChurnRate: number;
+  trialChurned: number;
+  trialChurnRate: number;
+  mrrStart: number;
+  revenueChurned: number;
+  revenueChurnRate: number;
+  breakdowns: AdminChurnBreakdownRow[];
+}
+
+export interface AdminChurnTrendPoint {
+  month: number;
+  year: number;
+  monthLabel: string;
+  startOfMonthActiveUsers: number;
+  hardChurned: number;
+  hardChurnRate: number;
+  softChurned: number;
+  softChurnRate: number;
+  trialChurned: number;
+  mrrStart: number;
+  revenueChurned: number;
+  revenueChurnRate: number;
+}
+
+export interface AdminChurnTrendReport {
+  from: string;
+  to: string;
+  points: AdminChurnTrendPoint[];
+}
+
 /** Response body from POST /admin/subscription/stripe/retrigger-cancel-at-period-end */
 export interface AdminRetriggerStripeCancelResponse {
   success: boolean;
@@ -1812,6 +1860,64 @@ export async function adminListTransferRequests(
   }
   const record = raw as { data?: unknown[] };
   return { success: true, data: record.data };
+}
+
+export async function adminFetchChurnReport(params: {
+  month: number;
+  year: number;
+}): Promise<{ ok: boolean; data?: AdminChurnReport; error?: string }> {
+  try {
+    const query = new URLSearchParams();
+    query.set("month", String(params.month));
+    query.set("year", String(params.year));
+    const response = await fetch(
+      `${BACKEND_URL}/admin/churn/monthly?${query.toString()}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load churn report"),
+      };
+    }
+    const record = raw as { data?: AdminChurnReport };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchChurnTrend(params: {
+  from: string;
+  to: string;
+}): Promise<{ ok: boolean; data?: AdminChurnTrendReport; error?: string }> {
+  try {
+    const query = new URLSearchParams();
+    query.set("from", params.from);
+    query.set("to", params.to);
+    const response = await fetch(
+      `${BACKEND_URL}/admin/churn/trend?${query.toString()}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load churn trend"),
+      };
+    }
+    const record = raw as { data?: AdminChurnTrendReport };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
 }
 
 export async function adminListSubscriptions(params?: {

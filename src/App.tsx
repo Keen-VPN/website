@@ -45,6 +45,7 @@ const AdminConnectionEngagement = lazy(
 const AdminSubscriptions = lazy(
   () => import("./pages/admin/AdminSubscriptions"),
 );
+const AdminChurn = lazy(() => import("./pages/admin/AdminChurn"));
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminUserSessions = lazy(
   () => import("./pages/admin/AdminUserSessions"),
@@ -152,6 +153,7 @@ const App = () => (
                   element={<MembershipTransferAdmin />}
                 />
                 <Route path="subscriptions" element={<AdminSubscriptions />} />
+                <Route path="churn" element={<AdminChurn />} />
                 <Route path="users" element={<AdminUsers />} />
               </Route>
               <Route path="*" element={<NotFound />} />
