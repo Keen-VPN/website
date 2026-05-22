@@ -1601,6 +1601,19 @@ export async function adminFetchUserConnectionSessions(
   }
 }
 
+/** Matches backend default for admin engagement / overview filters. */
+export const ADMIN_DEFAULT_MIN_DURATION_SECONDS = 10;
+
+/** Omit default min duration from query string; still send 0 (use `!= null`, not truthy). */
+function appendAdminMinDurationSeconds(
+  query: URLSearchParams,
+  minDurationSeconds?: number,
+): void {
+  if (minDurationSeconds == null) return;
+  if (minDurationSeconds === ADMIN_DEFAULT_MIN_DURATION_SECONDS) return;
+  query.set("min_duration_seconds", String(minDurationSeconds));
+}
+
 export async function adminFetchUsersOverview(params?: {
   page?: number;
   limit?: number;
@@ -1619,9 +1632,7 @@ export async function adminFetchUsersOverview(params?: {
     query.set("limit", String(params?.limit ?? 20));
     if (params?.search?.trim()) query.set("search", params.search.trim());
     if (params?.month) query.set("month", params.month);
-    if (params?.minDurationSeconds != null) {
-      query.set("min_duration_seconds", String(params.minDurationSeconds));
-    }
+    appendAdminMinDurationSeconds(query, params?.minDurationSeconds);
     if (params?.excludePlatforms) {
       query.set("exclude_platforms", params.excludePlatforms);
     }
@@ -1660,9 +1671,7 @@ export async function adminFetchMedianMonthlySessions(params?: {
   try {
     const query = new URLSearchParams();
     if (params?.month) query.set("month", params.month);
-    if (params?.minDurationSeconds != null) {
-      query.set("min_duration_seconds", String(params.minDurationSeconds));
-    }
+    appendAdminMinDurationSeconds(query, params?.minDurationSeconds);
     if (params?.excludePlatforms) {
       query.set("exclude_platforms", params.excludePlatforms);
     }
