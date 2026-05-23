@@ -67,13 +67,37 @@ function money(value: number): string {
   }).format(value);
 }
 
+function friendlyProvider(raw: string): string {
+  switch (raw.toLowerCase()) {
+    case "stripe":
+      return "Credit card";
+    case "apple_iap":
+      return "Apple";
+    default:
+      return raw;
+  }
+}
+
+function friendlyBilling(raw: string): string {
+  switch (raw.toLowerCase()) {
+    case "month":
+      return "Monthly";
+    case "year":
+    case "annual":
+    case "yearly":
+      return "Annual";
+    default:
+      return raw;
+  }
+}
+
 const trendChartConfig = {
   hardChurnRate: {
-    label: "Hard churn %",
+    label: "Lost subscribers %",
     color: "hsl(var(--destructive))",
   },
   softChurnRate: {
-    label: "Soft churn %",
+    label: "At risk %",
     color: "hsl(var(--primary))",
   },
 } satisfies ChartConfig;
@@ -153,9 +177,8 @@ export default function AdminChurn() {
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Churn analytics</h2>
           <p className="text-sm text-muted-foreground">
-            Monthly user and revenue churn (UTC calendar months). Internal test
-            accounts are excluded via{" "}
-            <code className="text-xs">ANALYTICS_EXCLUDE_EMAIL_PATTERNS</code>.
+            Monthly subscriber loss and revenue impact. Internal test accounts
+            are excluded.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -163,13 +186,17 @@ export default function AdminChurn() {
             <span className="text-muted-foreground">Report month</span>
             <input
               type="month"
+              max={initial.label}
               className="rounded-md border border-border bg-background px-3 py-2"
               value={monthInputValue}
               onChange={(e) => {
                 const match = /^(\d{4})-(\d{2})$/.exec(e.target.value);
                 if (!match) return;
-                setYear(Number(match[1]));
-                setMonth(Number(match[2]));
+                const y = Number(match[1]);
+                const m = Number(match[2]);
+                if (y > initial.year || (y === initial.year && m > initial.month)) return;
+                setYear(y);
+                setMonth(m);
               }}
             />
           </label>
@@ -198,45 +225,46 @@ export default function AdminChurn() {
           loading={loading}
         />
         <SummaryCard
-          title="Hard churn"
+          title="Lost subscribers"
           value={report ? `${report.hardChurned} (${pct(report.hardChurnRate)})` : "—"}
-          subtitle="Cancelled / expired in month"
+          subtitle="Cancelled or expired this month"
           loading={loading}
         />
         <SummaryCard
-          title="Soft churn"
+          title="At risk"
           value={report ? `${report.softChurned} (${pct(report.softChurnRate)})` : "—"}
-          subtitle="Cancel at period end set in month"
+          subtitle="Turned off auto-renewal this month"
           loading={loading}
         />
         <SummaryCard
-          title="Trial churn"
+          title="Trial drop-offs"
           value={report ? `${report.trialChurned} (${pct(report.trialChurnRate)})` : "—"}
-          subtitle="Trial ended without paid active"
+          subtitle="Free trials that ended without subscribing"
           loading={loading}
         />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Revenue churn</CardTitle>
+          <CardTitle>Revenue impact</CardTitle>
           <CardDescription>
-            MRR normalized (annual plans ÷ 12) at month start vs revenue lost to hard churn.
+            Monthly revenue at start of month (annual plans ÷ 12) vs revenue
+            lost to cancelled subscribers.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
           <MetricBlock
-            label="MRR at month start"
+            label="Monthly revenue (start of month)"
             value={report ? money(report.mrrStart) : "—"}
             loading={loading}
           />
           <MetricBlock
-            label="Revenue churned"
+            label="Revenue lost"
             value={report ? money(report.revenueChurned) : "—"}
             loading={loading}
           />
           <MetricBlock
-            label="Net revenue churn"
+            label="Revenue lost (%)"
             value={report ? pct(report.revenueChurnRate) : "—"}
             loading={loading}
           />
@@ -247,19 +275,19 @@ export default function AdminChurn() {
         <Card>
           <CardHeader>
             <CardTitle>Breakdowns</CardTitle>
-            <CardDescription>By billing period and subscription provider.</CardDescription>
+            <CardDescription>By plan type and payment method.</CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-muted-foreground">
-                  <th className="pb-2 pr-4 font-medium">Billing</th>
-                  <th className="pb-2 pr-4 font-medium">Provider</th>
-                  <th className="pb-2 pr-4 font-medium text-right">Hard</th>
-                  <th className="pb-2 pr-4 font-medium text-right">Soft</th>
-                  <th className="pb-2 pr-4 font-medium text-right">Trial</th>
-                  <th className="pb-2 pr-4 font-medium text-right">MRR start</th>
-                  <th className="pb-2 font-medium text-right">Rev. churned</th>
+                  <th className="pb-2 pr-4 font-medium">Plan</th>
+                  <th className="pb-2 pr-4 font-medium">Payment method</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Lost</th>
+                  <th className="pb-2 pr-4 font-medium text-right">At risk</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Trial drop-off</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Revenue (start)</th>
+                  <th className="pb-2 font-medium text-right">Revenue lost</th>
                 </tr>
               </thead>
               <tbody>
@@ -268,8 +296,8 @@ export default function AdminChurn() {
                     key={`${row.billingPeriod}-${row.subscriptionType}`}
                     className="border-t border-border/60"
                   >
-                    <td className="py-2 pr-4 capitalize">{row.billingPeriod}</td>
-                    <td className="py-2 pr-4">{row.subscriptionType}</td>
+                    <td className="py-2 pr-4">{friendlyBilling(row.billingPeriod)}</td>
+                    <td className="py-2 pr-4">{friendlyProvider(row.subscriptionType)}</td>
                     <td className="py-2 pr-4 text-right tabular-nums">{row.hardChurned}</td>
                     <td className="py-2 pr-4 text-right tabular-nums">{row.softChurned}</td>
                     <td className="py-2 pr-4 text-right tabular-nums">{row.trialChurned}</td>
@@ -290,7 +318,7 @@ export default function AdminChurn() {
       <Card>
         <CardHeader>
           <CardTitle>6-month trend</CardTitle>
-          <CardDescription>Hard vs soft churn rate (% of active users at month start).</CardDescription>
+          <CardDescription>Lost subscribers vs at-risk subscribers (% of active users at month start).</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
