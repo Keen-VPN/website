@@ -70,7 +70,7 @@ function money(value: number): string {
 function friendlyProvider(raw: string): string {
   switch (raw.toLowerCase()) {
     case "stripe":
-      return "Credit card";
+      return "Stripe";
     case "apple_iap":
       return "Apple";
     default:
