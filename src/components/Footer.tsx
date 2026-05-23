@@ -72,7 +72,7 @@ const Footer = () => {
 
         <div className="border-t border-border mt-8 pt-8 text-center">
           <p className="text-muted-foreground">
-            © 2025 Negative Nine Inc. All rights reserved. KeenVPN™ is a product
+            © 2026 Negative Nine Inc. All rights reserved. KeenVPN™ is a product
             of Negative Nine Inc., registered in the United States.
           </p>
         </div>
