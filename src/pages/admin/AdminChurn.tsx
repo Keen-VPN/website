@@ -192,8 +192,11 @@ export default function AdminChurn() {
               onChange={(e) => {
                 const match = /^(\d{4})-(\d{2})$/.exec(e.target.value);
                 if (!match) return;
-                setYear(Number(match[1]));
-                setMonth(Number(match[2]));
+                const y = Number(match[1]);
+                const m = Number(match[2]);
+                if (y > initial.year || (y === initial.year && m > initial.month)) return;
+                setYear(y);
+                setMonth(m);
               }}
             />
           </label>
