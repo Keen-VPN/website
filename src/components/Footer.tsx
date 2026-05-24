@@ -12,13 +12,6 @@ const Footer = () => {
               <img src="/logo-white.png" alt="KeenVPN" className="h-12 w-12" />
               <span className="text-xl font-bold text-foreground">KeenVPN</span>
             </div>
-            <h3 className="font-semibold text-foreground mb-2">About Us</h3>
-            <p className="text-muted-foreground mb-4 max-w-md">
-              KeenVPN is a secure VPN service owned and operated by Negative
-              Nine Inc., a technology company based in Texas, USA. Our mission
-              is to provide privacy-first networking tools to individuals and
-              businesses across the globe.
-            </p>
             <div className="flex items-center space-x-2 text-muted-foreground">
               <Mail className="h-4 w-4 text-accent" />
               <a
