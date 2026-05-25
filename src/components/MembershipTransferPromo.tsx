@@ -15,14 +15,14 @@ const MembershipTransferPromo = () => {
             </div>
             <div>
               <p className="mb-2 text-sm font-medium text-primary">
-                Switch without losing paid time
+                Switch to KeenVPN
               </p>
               <h2 className="text-xl font-bold leading-tight text-foreground md:text-2xl">
-                Already have a VPN? We’ll match your remaining time.
+                Keep the VPN time you already paid for
               </h2>
               <p className="mt-3 text-muted-foreground">
-                We’ll match whatever time you have left on your current VPN at
-                no extra cost.
+                Bring proof of your current VPN and we match your remaining
+                time at no extra cost.
               </p>
               <p className="mt-3 inline-flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4 text-primary" />
@@ -31,7 +31,7 @@ const MembershipTransferPromo = () => {
             </div>
           </div>
           <Button
-            onClick={() => navigate("/pricing")}
+            onClick={() => navigate("/switch")}
             className="mt-6 w-full bg-primary text-primary-foreground hover:bg-primary/90 md:mt-0 md:w-auto md:flex-shrink-0"
             size="lg"
           >

@@ -19,10 +19,12 @@ import {
   submitMembershipTransferRequest,
   type MembershipTransferRequestData,
 } from "@/auth/backend";
+import { trackSwitchPageEvent } from "@/lib/product-analytics";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  analyticsSource?: "switch_page" | "pricing";
 }
 
 function toIsoDate(d: string): string {
@@ -34,7 +36,7 @@ function isAfterMinDate(dateValue: string, minDateValue: string): boolean {
   return dateValue.length > 0 && dateValue >= minDateValue;
 }
 
-export function MembershipTransferDialog({ open, onOpenChange }: Props) {
+export function MembershipTransferDialog({ open, onOpenChange, analyticsSource }: Props) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, authProvider } = useAuth();
@@ -48,6 +50,9 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
 
   useEffect(() => {
     if (!open) return;
+    if (analyticsSource === "switch_page") {
+      trackSwitchPageEvent("switch_request_started", { source: "switch_page" });
+    }
     setSubmitted(false);
     setContactEmail("");
     const token = getSessionToken();
@@ -67,7 +72,7 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, analyticsSource]);
 
   const minDate = (): string => {
     const t = new Date();
@@ -119,6 +124,11 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
       if (res.success) {
         setSubmitted(true);
         setExisting(res.data ?? null);
+        if (analyticsSource === "switch_page") {
+          trackSwitchPageEvent("switch_request_completed", {
+            source: "switch_page",
+          });
+        }
         toast({
           title: "Request submitted",
           description:
@@ -163,10 +173,15 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Membership transfer</DialogTitle>
+          <DialogTitle>
+            {analyticsSource === "switch_page"
+              ? "Switch to KeenVPN"
+              : "Membership transfer"}
+          </DialogTitle>
           <DialogDescription>
-            Already have a VPN? Switch to KeenVPN today and we&apos;ll transfer your remaining
-            membership time for free.
+            {analyticsSource === "switch_page"
+              ? "Upload proof of your current VPN subscription and we will match your remaining time."
+              : "Already have a VPN? Upload proof of your subscription and we will transfer your remaining time for free."}
           </DialogDescription>
         </DialogHeader>
 
@@ -181,9 +196,9 @@ export function MembershipTransferDialog({ open, onOpenChange }: Props) {
             <p>
               <span className="font-medium">Status:</span>{" "}
               {existing.status === "PENDING"
-                ? "Pending — most requests are reviewed within 24 hours."
+                ? "Pending. Most requests are reviewed within 24 hours."
                 : existing.status === "APPROVED"
-                  ? `Approved — ${existing.approvedCreditDays ?? 0} day(s) of Keen credit were added to your account.`
+                  ? `Approved. ${existing.approvedCreditDays ?? 0} day(s) of Keen credit were added to your account.`
                   : existing.status === "REJECTED"
                     ? "Rejected"
                     : existing.status.replace(/_/g, " ")}

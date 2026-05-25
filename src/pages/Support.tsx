@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { serverLocationStats } from "@/constants/server-locations";
 import {
   Mail,
   HelpCircle,
@@ -54,7 +55,7 @@ const Support = () => {
         },
         {
           q: "How do I switch server locations?",
-          a: "In the KeenVPN app, click on your current location in the sidebar. You can instantly switch between available servers (US and Nigeria) even while connected.",
+          a: `In the KeenVPN app, click on your current location in the sidebar. You can switch between available servers across ${serverLocationStats.countries} countries. See our full list on the Server Locations page.`,
         },
       ],
     },

@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   consumePendingMembershipTransfer,
+  consumePendingMembershipTransferReturnUrl,
   getMembershipTransferReturnUrl,
   hasMembershipTransferQuery,
   MEMBERSHIP_TRANSFER_QUERY_KEY,
+  MEMBERSHIP_TRANSFER_SOURCE_SWITCH,
+  PENDING_MEMBERSHIP_TRANSFER_SOURCE_KEY,
   setPendingMembershipTransfer,
 } from "@/auth/membership-transfer-flow";
 
@@ -23,8 +26,19 @@ function makeStorage(initial: Record<string, string> = {}) {
 describe("membership transfer pending flow", () => {
   it("logged-out click stores flag and can redirect to login", () => {
     const storage = makeStorage();
-    setPendingMembershipTransfer(storage);
+    setPendingMembershipTransfer(undefined, storage);
     expect(storage.getItem("keenvpn_pending_membership_transfer")).toBe("true");
+  });
+
+  it("stores switch source for post-login redirect", () => {
+    const storage = makeStorage();
+    setPendingMembershipTransfer(MEMBERSHIP_TRANSFER_SOURCE_SWITCH, storage);
+    expect(storage.getItem(PENDING_MEMBERSHIP_TRANSFER_SOURCE_KEY)).toBe(
+      MEMBERSHIP_TRANSFER_SOURCE_SWITCH,
+    );
+    expect(consumePendingMembershipTransferReturnUrl(storage)).toBe(
+      "/pricing?membershipTransfer=1&source=switch",
+    );
   });
 
   it("successful login consumes flag and returns to pricing", () => {
@@ -32,6 +46,9 @@ describe("membership transfer pending flow", () => {
     expect(consumePendingMembershipTransfer(storage)).toBe(true);
     expect(storage.getItem("keenvpn_pending_membership_transfer")).toBeNull();
     expect(getMembershipTransferReturnUrl()).toBe("/pricing?membershipTransfer=1");
+    expect(getMembershipTransferReturnUrl("switch")).toBe(
+      "/pricing?membershipTransfer=1&source=switch",
+    );
   });
 
   it("pricing auto-opens modal for authenticated user with membershipTransfer=1", () => {

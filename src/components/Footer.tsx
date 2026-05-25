@@ -34,7 +34,23 @@ const Footer = () => {
 
           {/* Legal */}
           <div>
-            <ul className="flex gap-4">
+            <ul className="flex flex-wrap justify-end gap-4">
+              <li>
+                <Link
+                  to="/servers"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Server Locations
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/switch"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Switch to KeenVPN
+                </Link>
+              </li>
               <li>
                 <Link
                   to="/support"
