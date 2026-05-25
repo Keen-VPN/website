@@ -34,7 +34,10 @@ import type { TrialData } from "@/auth/types";
 import { MembershipTransferDialog } from "@/components/MembershipTransferDialog";
 import {
   hasMembershipTransferQuery,
+  isSwitchPageMembershipTransfer,
   MEMBERSHIP_TRANSFER_QUERY_KEY,
+  MEMBERSHIP_TRANSFER_SOURCE_KEY,
+  MEMBERSHIP_TRANSFER_SOURCE_SWITCH,
   setPendingMembershipTransfer,
 } from "@/auth/membership-transfer-flow";
 
@@ -86,14 +89,26 @@ const Pricing = () => {
   // Toggling monthly → annual again does not re-fire; avoids inflated toggle counts.
   const annualViewTrackedRef = useRef(false);
   const [membershipTransferOpen, setMembershipTransferOpen] = useState(false);
+  const [membershipTransferFromSwitch, setMembershipTransferFromSwitch] =
+    useState(false);
 
   useEffect(() => {
     if (authLoading || !hasMembershipTransferQuery(searchParams)) {
       return;
     }
 
+    if (isSwitchPageMembershipTransfer(searchParams)) {
+      setMembershipTransferFromSwitch(true);
+    } else {
+      setMembershipTransferFromSwitch(false);
+    }
+
     if (!user) {
-      setPendingMembershipTransfer();
+      setPendingMembershipTransfer(
+        isSwitchPageMembershipTransfer(searchParams)
+          ? MEMBERSHIP_TRANSFER_SOURCE_SWITCH
+          : undefined,
+      );
       navigate("/signin", { replace: true });
       return;
     }
@@ -101,6 +116,7 @@ const Pricing = () => {
     setMembershipTransferOpen(true);
     const next = new URLSearchParams(searchParams);
     next.delete(MEMBERSHIP_TRANSFER_QUERY_KEY);
+    next.delete(MEMBERSHIP_TRANSFER_SOURCE_KEY);
     setSearchParams(next, { replace: true });
   }, [authLoading, user, searchParams, navigate, setSearchParams]);
 
@@ -231,6 +247,7 @@ const Pricing = () => {
                     navigate("/signin");
                     return;
                   }
+                  setMembershipTransferFromSwitch(false);
                   setMembershipTransferOpen(true);
                 }}
               >
@@ -657,7 +674,15 @@ const Pricing = () => {
       <Footer />
       <MembershipTransferDialog
         open={membershipTransferOpen}
-        onOpenChange={setMembershipTransferOpen}
+        onOpenChange={(open) => {
+          setMembershipTransferOpen(open);
+          if (!open) {
+            setMembershipTransferFromSwitch(false);
+          }
+        }}
+        analyticsSource={
+          membershipTransferFromSwitch ? "switch_page" : undefined
+        }
       />
     </div>
   );

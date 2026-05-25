@@ -1345,6 +1345,45 @@ export async function submitMembershipTransferRequest(
   }
 }
 
+export async function submitServerLocationPreference(params: {
+  region: string;
+  reason: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const token = getSessionToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const response = await fetch(
+      `${BACKEND_URL}/v1/user/preferences/server-locations`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify(params),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to submit location request",
+        ),
+      };
+    }
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
 export interface AdminMe {
   id: string;
   email: string;

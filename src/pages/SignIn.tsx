@@ -20,7 +20,7 @@ import { Loader2, Apple, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   consumePendingMembershipTransfer,
-  getMembershipTransferReturnUrl,
+  consumePendingMembershipTransferReturnUrl,
 } from "@/auth/membership-transfer-flow";
 import {
   clearRetentionWinbackTokenStorage,
@@ -65,8 +65,9 @@ const SignIn = () => {
     if (sessionStorage.getItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY)) {
       return "/reactivate";
     }
-    if (consumePendingMembershipTransfer()) {
-      return getMembershipTransferReturnUrl();
+    const transferUrl = consumePendingMembershipTransferReturnUrl();
+    if (transferUrl) {
+      return transferUrl;
     }
     return "/account";
   }, []);
