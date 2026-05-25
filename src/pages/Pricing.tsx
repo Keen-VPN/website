@@ -34,7 +34,9 @@ import type { TrialData } from "@/auth/types";
 import { MembershipTransferDialog } from "@/components/MembershipTransferDialog";
 import {
   hasMembershipTransferQuery,
+  isSwitchPageMembershipTransfer,
   MEMBERSHIP_TRANSFER_QUERY_KEY,
+  MEMBERSHIP_TRANSFER_SOURCE_KEY,
   setPendingMembershipTransfer,
 } from "@/auth/membership-transfer-flow";
 
@@ -86,10 +88,16 @@ const Pricing = () => {
   // Toggling monthly → annual again does not re-fire; avoids inflated toggle counts.
   const annualViewTrackedRef = useRef(false);
   const [membershipTransferOpen, setMembershipTransferOpen] = useState(false);
+  const [membershipTransferFromSwitch, setMembershipTransferFromSwitch] =
+    useState(false);
 
   useEffect(() => {
     if (authLoading || !hasMembershipTransferQuery(searchParams)) {
       return;
+    }
+
+    if (isSwitchPageMembershipTransfer(searchParams)) {
+      setMembershipTransferFromSwitch(true);
     }
 
     if (!user) {
@@ -101,6 +109,7 @@ const Pricing = () => {
     setMembershipTransferOpen(true);
     const next = new URLSearchParams(searchParams);
     next.delete(MEMBERSHIP_TRANSFER_QUERY_KEY);
+    next.delete(MEMBERSHIP_TRANSFER_SOURCE_KEY);
     setSearchParams(next, { replace: true });
   }, [authLoading, user, searchParams, navigate, setSearchParams]);
 
@@ -658,6 +667,9 @@ const Pricing = () => {
       <MembershipTransferDialog
         open={membershipTransferOpen}
         onOpenChange={setMembershipTransferOpen}
+        analyticsSource={
+          membershipTransferFromSwitch ? "switch_page" : undefined
+        }
       />
     </div>
   );

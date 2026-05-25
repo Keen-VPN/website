@@ -10,6 +10,8 @@ import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
 import AdminSidebarLayout from "@/components/admin/AdminSidebarLayout";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 // Lazy load pages for code splitting
+const Switch = lazy(() => import("./pages/Switch"));
+const Servers = lazy(() => import("./pages/Servers"));
 const Index = lazy(() => import("./pages/Index"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Privacy = lazy(() => import("./pages/Privacy"));
@@ -69,6 +71,8 @@ const App = () => (
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/switch" element={<Switch />} />
+              <Route path="/servers" element={<Servers />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />

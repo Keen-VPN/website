@@ -54,7 +54,7 @@ const Support = () => {
         },
         {
           q: "How do I switch server locations?",
-          a: "In the KeenVPN app, click on your current location in the sidebar. You can instantly switch between available servers (US and Nigeria) even while connected.",
+          a: "In the KeenVPN app, click on your current location in the sidebar. You can switch between available servers across 20+ countries — see our full list on the Server Locations page.",
         },
       ],
     },

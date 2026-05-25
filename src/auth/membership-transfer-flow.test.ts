@@ -32,6 +32,9 @@ describe("membership transfer pending flow", () => {
     expect(consumePendingMembershipTransfer(storage)).toBe(true);
     expect(storage.getItem("keenvpn_pending_membership_transfer")).toBeNull();
     expect(getMembershipTransferReturnUrl()).toBe("/pricing?membershipTransfer=1");
+    expect(getMembershipTransferReturnUrl("switch")).toBe(
+      "/pricing?membershipTransfer=1&source=switch",
+    );
   });
 
   it("pricing auto-opens modal for authenticated user with membershipTransfer=1", () => {

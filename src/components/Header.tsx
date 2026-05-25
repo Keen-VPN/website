@@ -56,6 +56,13 @@ const Header = () => {
               Pricing
             </Link>
             <Link
+              to="/servers"
+              className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/servers") ? "text-primary" : "text-muted-foreground"
+                }`}
+            >
+              Servers
+            </Link>
+            <Link
               to="/support"
               className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/support") ? "text-primary" : "text-muted-foreground"
                 }`}
@@ -164,6 +171,16 @@ const Header = () => {
                 onClick={() => setIsMenuOpen(false)}
               >
                 Pricing
+              </Link>
+              <Link
+                to="/servers"
+                className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/servers")
+                  ? "text-primary"
+                  : "text-muted-foreground"
+                  }`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Servers
               </Link>
               <Link
                 to="/support"

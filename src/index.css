@@ -134,3 +134,38 @@ All colors MUST be HSL.
       "Segoe UI", sans-serif;
   }
 }
+
+.server-locations-map {
+  background: hsl(217 62% 15%);
+}
+
+.server-locations-map .leaflet-tile-pane img {
+  filter: saturate(0.88) brightness(0.96) hue-rotate(6deg);
+}
+
+.server-locations-map .leaflet-popup-content-wrapper,
+.server-locations-map .leaflet-popup-tip {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  box-shadow: var(--shadow-card);
+}
+
+.server-locations-map .leaflet-popup-content {
+  margin: 10px 12px;
+  line-height: 1.4;
+}
+
+.keen-server-marker-wrap {
+  background: transparent;
+  border: none;
+}
+
+.keen-server-marker {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: hsl(21 90% 46%);
+  box-shadow: 0 0 0 4px hsl(21 90% 46% / 0.25);
+  border: 2px solid hsl(225 33% 97%);
+}
