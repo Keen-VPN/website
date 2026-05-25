@@ -22,6 +22,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { getMembershipTransferReturnUrl } from "@/auth/membership-transfer-flow";
+import { serverLocationStats } from "@/constants/server-locations";
 import { trackSwitchPageEvent } from "@/lib/product-analytics";
 
 const valueProps = [
@@ -39,7 +40,7 @@ const valueProps = [
   },
   {
     icon: Globe,
-    title: "Servers in 20+ countries",
+    title: `Servers in ${serverLocationStats.countries} countries`,
     description:
       "Switch to a VPN with global coverage, not just one or two regions.",
   },
@@ -105,7 +106,7 @@ export default function Switch() {
     trackSwitchPageEvent("switch_page_viewed");
   }, []);
 
-  const startSwitch = (location: "hero" | "online" | "bottom") => {
+  const startSwitch = (location: "hero" | "how_it_works" | "bottom") => {
     trackSwitchPageEvent("switch_cta_clicked", { location });
     navigate(getMembershipTransferReturnUrl("switch"));
   };
@@ -140,7 +141,7 @@ export default function Switch() {
                   className="bg-primary px-8 py-6 text-lg font-semibold text-primary-foreground shadow-glow hover:bg-primary/90"
                   onClick={() => startSwitch("hero")}
                 >
-                  Get started
+                  Switch to KeenVPN
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
                 <Button
@@ -224,9 +225,9 @@ export default function Switch() {
               <Button
                 size="lg"
                 className="bg-primary px-8 py-6 text-lg font-semibold text-primary-foreground shadow-glow hover:bg-primary/90"
-                onClick={() => startSwitch("online")}
+                onClick={() => startSwitch("how_it_works")}
               >
-                Get started
+                Switch to KeenVPN
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>
@@ -257,8 +258,7 @@ export default function Switch() {
                 {
                   icon: Globe,
                   title: "Global server network",
-                  description:
-                    "Connect through 20+ countries across four regions.",
+                  description: `Connect through ${serverLocationStats.countries} countries across ${serverLocationStats.regions} regions.`,
                 },
                 {
                   icon: Clock,
@@ -323,7 +323,7 @@ export default function Switch() {
                 className="bg-primary px-8 py-6 text-lg font-semibold text-primary-foreground shadow-glow hover:bg-primary/90"
                 onClick={() => startSwitch("bottom")}
               >
-                Get started
+                Switch to KeenVPN
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>

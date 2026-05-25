@@ -44,10 +44,18 @@ export default function Servers() {
 
   const onSearchChange = (value: string) => {
     setQuery(value);
-    if (value.trim()) {
-      trackServerPageEvent("server_location_searched", { query: value.trim() });
-    }
   };
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+
+    const timer = window.setTimeout(() => {
+      trackServerPageEvent("server_location_searched", { query: trimmed });
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   return (
     <div className="min-h-screen bg-background">

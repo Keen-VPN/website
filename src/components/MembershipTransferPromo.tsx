@@ -35,7 +35,7 @@ const MembershipTransferPromo = () => {
             className="mt-6 w-full bg-primary text-primary-foreground hover:bg-primary/90 md:mt-0 md:w-auto md:flex-shrink-0"
             size="lg"
           >
-            Get started
+            Switch to KeenVPN
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
