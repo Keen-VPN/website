@@ -25,7 +25,7 @@ import {
 } from '@/auth';
 import {
   consumePendingMembershipTransfer,
-  getMembershipTransferReturnUrl,
+  consumePendingMembershipTransferReturnUrl,
 } from "@/auth/membership-transfer-flow";
 import { clearStripeCheckoutReturn } from "@/lib/keenvpn-deep-links";
 
@@ -123,8 +123,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (sessionStorage.getItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY)) {
       return '/reactivate';
     }
-    if (consumePendingMembershipTransfer()) {
-      return getMembershipTransferReturnUrl();
+    const transferUrl = consumePendingMembershipTransferReturnUrl();
+    if (transferUrl) {
+      return transferUrl;
     }
     return accountUrl();
   }, [accountUrl, isASWebSession]);

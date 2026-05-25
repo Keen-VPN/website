@@ -20,6 +20,7 @@ import { trackServerPageEvent } from "@/lib/product-analytics";
 
 export default function Servers() {
   const viewedRef = useRef(false);
+  const lastTrackedSearchRef = useRef("");
   const [query, setQuery] = useState("");
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestRegion, setRequestRegion] = useState("");
@@ -48,20 +49,27 @@ export default function Servers() {
 
   useEffect(() => {
     const trimmed = query.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      lastTrackedSearchRef.current = "";
+      return;
+    }
 
     const timer = window.setTimeout(() => {
+      if (lastTrackedSearchRef.current === trimmed) return;
+      lastTrackedSearchRef.current = trimmed;
       trackServerPageEvent("server_location_searched", { query: trimmed });
     }, 500);
 
     return () => window.clearTimeout(timer);
   }, [query]);
 
+  const serversSeoDescription = `Browse KeenVPN VPN server locations across the Americas, Europe, Africa, and Asia-Pacific. Fast, secure servers in ${serverLocationStats.countries} countries.`;
+
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
         title="VPN Server Locations — KeenVPN Global Network"
-        description="Browse KeenVPN VPN server locations across the Americas, Europe, Africa, and Asia-Pacific. Fast, secure servers in 20 countries."
+        description={serversSeoDescription}
         canonical="https://vpnkeen.com/servers"
       />
       <Header />

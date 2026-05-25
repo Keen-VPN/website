@@ -37,6 +37,7 @@ import {
   isSwitchPageMembershipTransfer,
   MEMBERSHIP_TRANSFER_QUERY_KEY,
   MEMBERSHIP_TRANSFER_SOURCE_KEY,
+  MEMBERSHIP_TRANSFER_SOURCE_SWITCH,
   setPendingMembershipTransfer,
 } from "@/auth/membership-transfer-flow";
 
@@ -98,10 +99,16 @@ const Pricing = () => {
 
     if (isSwitchPageMembershipTransfer(searchParams)) {
       setMembershipTransferFromSwitch(true);
+    } else {
+      setMembershipTransferFromSwitch(false);
     }
 
     if (!user) {
-      setPendingMembershipTransfer();
+      setPendingMembershipTransfer(
+        isSwitchPageMembershipTransfer(searchParams)
+          ? MEMBERSHIP_TRANSFER_SOURCE_SWITCH
+          : undefined,
+      );
       navigate("/signin", { replace: true });
       return;
     }

@@ -136,7 +136,17 @@ All colors MUST be HSL.
 }
 
 .server-locations-map {
-  background: hsl(217 62% 15%);
+  background: hsl(var(--background));
+}
+
+.server-locations-map .leaflet-control-attribution {
+  background: hsl(var(--card) / 0.9);
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+}
+
+.server-locations-map .leaflet-control-attribution a {
+  color: hsl(var(--accent));
 }
 
 .server-locations-map .leaflet-tile-pane img {

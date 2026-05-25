@@ -51,11 +51,11 @@ export default function ServerLocationsMap({ locations }: Props) {
         minZoom={2}
         maxZoom={8}
         scrollWheelZoom={false}
-        attributionControl={false}
         className="server-locations-map z-0 h-[min(420px,60vh)] w-full"
         aria-label="Interactive map of KeenVPN server locations"
       >
         <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png"
           subdomains="abcd"
         />
