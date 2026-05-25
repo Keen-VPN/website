@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   adminFetchIpAddressClickSummary,
+  adminFetchReviewPromptSummary,
   type AdminIpAddressClickSummary,
+  type AdminReviewPromptSummary,
 } from "@/auth/backend";
 
 function BreakdownList({
@@ -37,14 +39,19 @@ function BreakdownList({
   );
 }
 
-function formatDateRange(summary: AdminIpAddressClickSummary | null) {
-  if (!summary) return "Last 90 days";
-  const from = new Date(summary.from);
-  const to = new Date(summary.to);
-  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+function formatDateRange(from?: string, to?: string) {
+  if (!from || !to) return "Last 90 days";
+  const start = new Date(from);
+  const end = new Date(to);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
     return "Last 90 days";
   }
-  return `${from.toLocaleDateString()} - ${to.toLocaleDateString()}`;
+  return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+}
+
+function formatPercent(value: number | null | undefined) {
+  if (value == null) return "—";
+  return `${Math.round(value * 100)}%`;
 }
 
 function dateInputToIsoStart(value: string) {
@@ -63,6 +70,8 @@ export default function AdminProductEvents() {
   const [summary, setSummary] = useState<AdminIpAddressClickSummary | null>(
     null,
   );
+  const [reviewSummary, setReviewSummary] =
+    useState<AdminReviewPromptSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fromInput, setFromInput] = useState("");
@@ -78,27 +87,37 @@ export default function AdminProductEvents() {
     setError(null);
     if (fromValue && toValue && fromValue > toValue) {
       setSummary(null);
+      setReviewSummary(null);
       setError("Start date must be before end date");
       setLoading(false);
       activeRequest.current = null;
       return;
     }
-    const res = await adminFetchIpAddressClickSummary({
-      from: dateInputToIsoStart(fromValue),
-      to: dateInputToIsoExclusiveEnd(toValue),
-      signal: controller.signal,
-    });
+
+    const from = dateInputToIsoStart(fromValue);
+    const to = dateInputToIsoExclusiveEnd(toValue);
+    const [ipRes, reviewRes] = await Promise.all([
+      adminFetchIpAddressClickSummary({ from, to, signal: controller.signal }),
+      adminFetchReviewPromptSummary({ from, to, signal: controller.signal }),
+    ]);
+
     if (controller.signal.aborted || activeRequest.current !== controller) {
       return;
     }
-    if (!res.ok || !res.data) {
+
+    if (!ipRes.ok || !reviewRes.ok) {
       setSummary(null);
-      setError(res.error ?? "Failed to load product events");
+      setReviewSummary(null);
+      setError(
+        ipRes.error ?? reviewRes.error ?? "Failed to load product events",
+      );
       setLoading(false);
       activeRequest.current = null;
       return;
     }
-    setSummary(res.data);
+
+    setSummary(ipRes.data ?? null);
+    setReviewSummary(reviewRes.data ?? null);
     setLoading(false);
     activeRequest.current = null;
   }, []);
@@ -109,7 +128,7 @@ export default function AdminProductEvents() {
   }, [load]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Product events</h2>
         <button
@@ -166,33 +185,105 @@ export default function AdminProductEvents() {
         </button>
       </div>
 
-      <div className="rounded-lg border border-border p-4">
-        <p className="text-sm text-muted-foreground">IP address link clicks</p>
-        <p className="mt-1 text-3xl font-semibold">
-          {summary?.total ?? (loading ? "…" : 0)}
-        </p>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {formatDateRange(summary)}
-        </p>
-      </div>
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold">In-app review prompts</h3>
+          <p className="text-sm text-muted-foreground">
+            Users who connected on 3+ days with 3+ successful sessions and saw
+            the review prompt.
+          </p>
+        </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Users prompted</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {reviewSummary?.usersPrompted ?? (loading ? "…" : 0)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Needs improvement</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {reviewSummary?.needsImprovementSelected ?? (loading ? "…" : 0)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Feedback submitted</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {reviewSummary?.feedbackSubmitted ?? (loading ? "…" : 0)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Feedback conversion</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {loading ? "…" : formatPercent(reviewSummary?.feedbackConversionRate)}
+            </p>
+          </div>
+        </div>
+
+        <div
+          className={`rounded-lg border p-4 text-sm ${
+            reviewSummary?.feedbackFormEnabled
+              ? "border-border bg-muted/30"
+              : "border-amber-500/40 bg-amber-500/10"
+          }`}
+        >
+          <p className="font-medium">
+            Feedback form:{" "}
+            {reviewSummary?.feedbackFormEnabled ? "enabled" : "auto-disabled"}
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            {reviewSummary?.feedbackFormEnabled
+              ? "Users who tap “Needs improvement” see the in-app feedback form."
+              : `No feedback submissions after ${reviewSummary?.minSampleSize ?? 5}+ “Needs improvement” taps in this window. Apps hide the feedback form automatically.`}
+          </p>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          {formatDateRange(reviewSummary?.from, reviewSummary?.to)} · Great:{" "}
+          {reviewSummary?.accepted ?? 0} · Later: {reviewSummary?.dismissed ?? 0}
+        </p>
+
         <BreakdownList
-          title="By platform"
-          rows={summary?.byPlatform ?? []}
+          title="Prompts by platform"
+          rows={reviewSummary?.byPlatform ?? []}
           loading={loading}
         />
-        <BreakdownList
-          title="By connection status"
-          rows={summary?.byConnectionStatus ?? []}
-          loading={loading}
-        />
-        <BreakdownList
-          title="Top server locations"
-          rows={summary?.topServerLocations ?? []}
-          loading={loading}
-        />
-      </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold">IP address link clicks</h3>
+        </div>
+
+        <div className="rounded-lg border border-border p-4">
+          <p className="text-sm text-muted-foreground">Total clicks</p>
+          <p className="mt-1 text-3xl font-semibold">
+            {summary?.total ?? (loading ? "…" : 0)}
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {formatDateRange(summary?.from, summary?.to)}
+          </p>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <BreakdownList
+            title="By platform"
+            rows={summary?.byPlatform ?? []}
+            loading={loading}
+          />
+          <BreakdownList
+            title="By connection status"
+            rows={summary?.byConnectionStatus ?? []}
+            loading={loading}
+          />
+          <BreakdownList
+            title="Top server locations"
+            rows={summary?.topServerLocations ?? []}
+            loading={loading}
+          />
+        </div>
+      </section>
     </div>
   );
 }
