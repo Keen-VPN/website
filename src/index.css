@@ -172,6 +172,7 @@ All colors MUST be HSL.
 
 .keen-server-marker {
   display: block;
+  box-sizing: content-box;
   width: 12px;
   height: 12px;
   border-radius: 50%;
