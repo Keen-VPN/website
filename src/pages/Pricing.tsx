@@ -247,6 +247,7 @@ const Pricing = () => {
                     navigate("/signin");
                     return;
                   }
+                  setMembershipTransferFromSwitch(false);
                   setMembershipTransferOpen(true);
                 }}
               >
@@ -673,7 +674,12 @@ const Pricing = () => {
       <Footer />
       <MembershipTransferDialog
         open={membershipTransferOpen}
-        onOpenChange={setMembershipTransferOpen}
+        onOpenChange={(open) => {
+          setMembershipTransferOpen(open);
+          if (!open) {
+            setMembershipTransferFromSwitch(false);
+          }
+        }}
         analyticsSource={
           membershipTransferFromSwitch ? "switch_page" : undefined
         }
