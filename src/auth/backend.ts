@@ -1421,6 +1421,22 @@ export interface AdminIpAddressClickSummary {
   topServerLocations: { label: string; count: number }[];
 }
 
+export interface AdminReviewPromptSummary {
+  usersPrompted: number;
+  needsImprovementSelected: number;
+  feedbackSubmitted: number;
+  accepted: number;
+  dismissed: number;
+  /** Ratio in [0, 1], e.g. 0.75 means 75% of "needs improvement" taps led to feedback. */
+  feedbackConversionRate: number | null;
+  feedbackFormEnabled: boolean;
+  feedbackFormWindowDays: number;
+  minSampleSize: number;
+  from: string;
+  to: string;
+  byPlatform: { label: string; count: number }[];
+}
+
 export interface AdminMedianMonthlySessionsSummary {
   month: string;
   median_sessions_per_user: number;
@@ -1821,6 +1837,41 @@ export async function adminFetchIpAddressClickSummary(params?: {
       };
     }
     const record = raw as { data?: AdminIpAddressClickSummary };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchReviewPromptSummary(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminReviewPromptSummary;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(`${BACKEND_URL}/admin/product-events/review-prompts${suffix}`, {
+      credentials: "include",
+      signal: params?.signal,
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load review prompt metrics"),
+      };
+    }
+    const record = raw as { data?: AdminReviewPromptSummary };
     return { ok: true, data: record.data };
   } catch (e) {
     return {
