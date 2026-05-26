@@ -239,7 +239,7 @@ export default function AdminProductEvents() {
           }`}
         >
           <p className="font-medium">
-            Feedback form:{" "}
+            Feedback form (live app setting):{" "}
             {loading || !reviewSummary
               ? "…"
               : reviewSummary.feedbackFormEnabled
@@ -253,7 +253,7 @@ export default function AdminProductEvents() {
                 ? "Review prompt metrics unavailable."
                 : reviewSummary.feedbackFormEnabled
                   ? "Users who tap “Needs improvement” see the in-app feedback form."
-                  : `No feedback submissions after ${reviewSummary.minSampleSize}+ “Needs improvement” taps in this window. Apps hide the feedback form automatically.`}
+                  : `No feedback submissions after ${reviewSummary.minSampleSize}+ “Needs improvement” taps in the last ${reviewSummary.feedbackFormWindowDays ?? 90} days. Apps hide the feedback form automatically.`}
           </p>
         </div>
 
@@ -264,7 +264,7 @@ export default function AdminProductEvents() {
         </p>
 
         <BreakdownList
-          title="Prompts by platform"
+          title="Prompt events by platform"
           rows={reviewSummary?.byPlatform ?? []}
           loading={loading}
         />

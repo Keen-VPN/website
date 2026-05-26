@@ -1427,8 +1427,10 @@ export interface AdminReviewPromptSummary {
   feedbackSubmitted: number;
   accepted: number;
   dismissed: number;
+  /** Ratio in [0, 1], e.g. 0.75 means 75% of "needs improvement" taps led to feedback. */
   feedbackConversionRate: number | null;
   feedbackFormEnabled: boolean;
+  feedbackFormWindowDays: number;
   minSampleSize: number;
   from: string;
   to: string;
