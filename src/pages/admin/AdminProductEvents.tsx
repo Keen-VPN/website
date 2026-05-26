@@ -105,19 +105,27 @@ export default function AdminProductEvents() {
       return;
     }
 
-    if (!ipRes.ok || !reviewRes.ok) {
+    const errors: string[] = [];
+
+    if (ipRes.ok && ipRes.data) {
+      setSummary(ipRes.data);
+    } else {
       setSummary(null);
-      setReviewSummary(null);
-      setError(
-        ipRes.error ?? reviewRes.error ?? "Failed to load product events",
+      errors.push(
+        ipRes.error ?? "Failed to load IP address click metrics",
       );
-      setLoading(false);
-      activeRequest.current = null;
-      return;
     }
 
-    setSummary(ipRes.data ?? null);
-    setReviewSummary(reviewRes.data ?? null);
+    if (reviewRes.ok && reviewRes.data) {
+      setReviewSummary(reviewRes.data);
+    } else {
+      setReviewSummary(null);
+      errors.push(
+        reviewRes.error ?? "Failed to load review prompt metrics",
+      );
+    }
+
+    setError(errors.length > 0 ? errors.join(" · ") : null);
     setLoading(false);
     activeRequest.current = null;
   }, []);
@@ -223,25 +231,36 @@ export default function AdminProductEvents() {
 
         <div
           className={`rounded-lg border p-4 text-sm ${
-            reviewSummary?.feedbackFormEnabled
+            loading || !reviewSummary
               ? "border-border bg-muted/30"
-              : "border-amber-500/40 bg-amber-500/10"
+              : reviewSummary.feedbackFormEnabled
+                ? "border-border bg-muted/30"
+                : "border-amber-500/40 bg-amber-500/10"
           }`}
         >
           <p className="font-medium">
             Feedback form:{" "}
-            {reviewSummary?.feedbackFormEnabled ? "enabled" : "auto-disabled"}
+            {loading || !reviewSummary
+              ? "…"
+              : reviewSummary.feedbackFormEnabled
+                ? "enabled"
+                : "auto-disabled"}
           </p>
           <p className="mt-1 text-muted-foreground">
-            {reviewSummary?.feedbackFormEnabled
-              ? "Users who tap “Needs improvement” see the in-app feedback form."
-              : `No feedback submissions after ${reviewSummary?.minSampleSize ?? 5}+ “Needs improvement” taps in this window. Apps hide the feedback form automatically.`}
+            {loading
+              ? "Loading feedback form status…"
+              : !reviewSummary
+                ? "Review prompt metrics unavailable."
+                : reviewSummary.feedbackFormEnabled
+                  ? "Users who tap “Needs improvement” see the in-app feedback form."
+                  : `No feedback submissions after ${reviewSummary.minSampleSize}+ “Needs improvement” taps in this window. Apps hide the feedback form automatically.`}
           </p>
         </div>
 
         <p className="text-xs text-muted-foreground">
           {formatDateRange(reviewSummary?.from, reviewSummary?.to)} · Great:{" "}
-          {reviewSummary?.accepted ?? 0} · Later: {reviewSummary?.dismissed ?? 0}
+          {reviewSummary?.accepted ?? (loading ? "…" : 0)} · Later:{" "}
+          {reviewSummary?.dismissed ?? (loading ? "…" : 0)}
         </p>
 
         <BreakdownList
