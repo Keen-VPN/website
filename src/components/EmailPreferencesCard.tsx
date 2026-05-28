@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Card,
   CardContent,
@@ -26,11 +26,14 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const loadGeneration = useRef(0);
 
   const loadPreferences = useCallback(async () => {
+    const generation = ++loadGeneration.current;
     setLoading(true);
     setLoadError(null);
     const response = await getEmailPreferences(sessionToken);
+    if (generation !== loadGeneration.current) return;
     if (response.success) {
       setOptIn(response.contextualEngagementOptIn);
     } else {
@@ -41,6 +44,9 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
 
   useEffect(() => {
     void loadPreferences();
+    return () => {
+      loadGeneration.current += 1;
+    };
   }, [loadPreferences]);
 
   async function handleToggle(checked: boolean) {

@@ -42,7 +42,7 @@ const ContextualEmailUnsubscribe = () => {
     setMessage("");
 
     const response = await confirmContextualEmailUnsubscribe(token);
-    if (!response.success || !response.redirectUrl) {
+    if (!response.success) {
       setStatus("error");
       setMessage(
         response.error ||
@@ -51,15 +51,12 @@ const ContextualEmailUnsubscribe = () => {
       return;
     }
 
-    if (!isSameOriginRedirect(response.redirectUrl)) {
-      setStatus("error");
-      setMessage(
-        "We could not redirect you safely. Manage email preferences from your account instead.",
-      );
-      return;
-    }
+    const redirectUrl =
+      response.redirectUrl && isSameOriginRedirect(response.redirectUrl)
+        ? response.redirectUrl
+        : "/account?email_prefs=unsubscribed";
 
-    window.location.href = response.redirectUrl;
+    window.location.href = redirectUrl;
   };
 
   return (
