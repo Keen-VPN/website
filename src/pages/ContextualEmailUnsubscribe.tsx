@@ -14,6 +14,14 @@ import {
 } from "@/components/ui/card";
 import { confirmContextualEmailUnsubscribe } from "@/auth";
 
+function isSameOriginRedirect(url: string): boolean {
+  try {
+    return new URL(url, window.location.origin).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 const ContextualEmailUnsubscribe = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -39,6 +47,14 @@ const ContextualEmailUnsubscribe = () => {
       setMessage(
         response.error ||
           "This unsubscribe link is invalid or has expired. You can manage email preferences from your account.",
+      );
+      return;
+    }
+
+    if (!isSameOriginRedirect(response.redirectUrl)) {
+      setStatus("error");
+      setMessage(
+        "We could not redirect you safely. Manage email preferences from your account instead.",
       );
       return;
     }

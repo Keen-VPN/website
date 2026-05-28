@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -26,29 +27,25 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setLoadError(null);
-      const response = await getEmailPreferences(sessionToken);
-      if (cancelled) return;
-      if (response.success) {
-        setOptIn(response.contextualEngagementOptIn);
-      } else {
-        setLoadError(response.error ?? "Could not load email preferences");
-      }
-      setLoading(false);
+  const loadPreferences = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    const response = await getEmailPreferences(sessionToken);
+    if (response.success) {
+      setOptIn(response.contextualEngagementOptIn);
+    } else {
+      setLoadError(response.error ?? "Could not load email preferences");
     }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
+    setLoading(false);
   }, [sessionToken]);
 
+  useEffect(() => {
+    void loadPreferences();
+  }, [loadPreferences]);
+
   async function handleToggle(checked: boolean) {
+    if (loadError) return;
+
     const previous = optIn;
     setOptIn(checked);
     setSaving(true);
@@ -58,6 +55,7 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
 
     if (response.success) {
       setOptIn(response.contextualEngagementOptIn);
+      setLoadError(null);
       return;
     }
 
@@ -88,7 +86,17 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
               interests. Off by default.
             </p>
             {loadError ? (
-              <p className="text-sm text-destructive">{loadError}</p>
+              <div className="space-y-1">
+                <p className="text-sm text-destructive">{loadError}</p>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0 text-sm"
+                  onClick={() => void loadPreferences()}
+                >
+                  Retry
+                </Button>
+              </div>
             ) : null}
           </div>
           {loading || saving ? (
@@ -97,6 +105,7 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
             <Switch
               id="contextual-email-opt-in"
               checked={optIn}
+              disabled={Boolean(loadError)}
               onCheckedChange={(checked) => void handleToggle(checked)}
             />
           )}
