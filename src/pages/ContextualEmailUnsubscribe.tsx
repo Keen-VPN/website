@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { confirmContextualEmailUnsubscribe } from "@/auth";
+import { confirmContextualEmailUnsubscribe, getSessionToken } from "@/auth";
 
 function isSameOriginRedirect(url: string): boolean {
   try {
@@ -27,7 +27,7 @@ const ContextualEmailUnsubscribe = () => {
   const navigate = useNavigate();
   const token = searchParams.get("token")?.trim() ?? "";
   const [status, setStatus] = React.useState<
-    "confirm" | "submitting" | "error"
+    "confirm" | "submitting" | "success" | "error"
   >("confirm");
   const [message, setMessage] = React.useState("");
 
@@ -56,7 +56,15 @@ const ContextualEmailUnsubscribe = () => {
         ? response.redirectUrl
         : "/account?email_prefs=unsubscribed";
 
-    window.location.href = redirectUrl;
+    if (getSessionToken()) {
+      window.location.href = redirectUrl;
+      return;
+    }
+
+    setStatus("success");
+    setMessage(
+      "You have been unsubscribed from personalized tips and offers.",
+    );
   };
 
   return (
@@ -76,12 +84,14 @@ const ContextualEmailUnsubscribe = () => {
                 <MailX className="h-6 w-6 text-muted-foreground" />
               </div>
               <CardTitle className="text-2xl">
-                Unsubscribe from personalized emails?
+                {status === "success"
+                  ? "You're unsubscribed"
+                  : "Unsubscribe from personalized emails?"}
               </CardTitle>
               <CardDescription>
-                You will stop receiving personalized tips and offers based on
-                your browsing while connected to KeenVPN. General product
-                updates may still be sent separately.
+                {status === "success"
+                  ? message
+                  : "You will stop receiving personalized tips and offers based on your browsing while connected to KeenVPN. General product updates may still be sent separately."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -92,7 +102,13 @@ const ContextualEmailUnsubscribe = () => {
                 </p>
               ) : null}
 
-              {token && status !== "error" ? (
+              {status === "success" ? (
+                <Button className="w-full" onClick={() => navigate("/signin")}>
+                  Sign in to manage preferences
+                </Button>
+              ) : null}
+
+              {token && status !== "error" && status !== "success" ? (
                 <Button
                   className="w-full"
                   variant="destructive"
@@ -110,14 +126,20 @@ const ContextualEmailUnsubscribe = () => {
                 </Button>
               ) : null}
 
-              <Button
-                className="w-full"
-                variant="outline"
-                disabled={status === "submitting"}
-                onClick={() => navigate("/account")}
-              >
-                Keep emails / go to account
-              </Button>
+              {status !== "success" ? (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  disabled={status === "submitting"}
+                  onClick={() => navigate(getSessionToken() ? "/account" : "/signin")}
+                >
+                  {status === "submitting"
+                    ? "Please wait..."
+                    : getSessionToken()
+                      ? "Keep emails / go to account"
+                      : "Keep emails / sign in"}
+                </Button>
+              ) : null}
             </CardContent>
           </Card>
         </div>
