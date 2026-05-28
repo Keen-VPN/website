@@ -57,6 +57,7 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
+import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
 import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
@@ -175,6 +176,21 @@ const Account = () => {
       setShowPostCheckoutUi(false);
     }
   }, [user, loading, hasSessionToken]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("email_prefs") !== "unsubscribed") return;
+    toast({
+      title: "Email preferences updated",
+      description: "You are unsubscribed from personalized tips and offers.",
+    });
+    params.delete("email_prefs");
+    const nextSearch = params.toString();
+    navigate(
+      { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : "" },
+      { replace: true },
+    );
+  }, [location.pathname, location.search, navigate, toast]);
 
   const showPaymentCompleteBanner =
     Boolean(user) && hasSessionToken && showPostCheckoutUi;
@@ -1053,6 +1069,12 @@ const Account = () => {
                 providers={linkedProviders}
                 onUpdate={() => { refreshLinkedProviders(); refreshSubscription(); }}
               />
+            </div>
+          )}
+
+          {hasSessionToken && (
+            <div className="mt-8">
+              <EmailPreferencesCard sessionToken={getSessionToken() ?? ""} />
             </div>
           )}
 

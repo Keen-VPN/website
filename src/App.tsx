@@ -38,6 +38,9 @@ const MembershipTransferAdmin = lazy(
 );
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
 const AdminOverview = lazy(() => import("./pages/admin/AdminOverview"));
+const AdminDomainInsights = lazy(
+  () => import("./pages/admin/AdminDomainInsights"),
+);
 const AdminProductEvents = lazy(
   () => import("./pages/admin/AdminProductEvents"),
 );
@@ -148,6 +151,10 @@ const App = () => (
                   element={<AdminUserSessions />}
                 />
                 <Route path="product-events" element={<AdminProductEvents />} />
+                <Route
+                  path="domain-insights"
+                  element={<AdminDomainInsights />}
+                />
                 <Route
                   path="connection-engagement"
                   element={<AdminConnectionEngagement />}

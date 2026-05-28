@@ -28,6 +28,8 @@ export {
   getContactEmailStatus,
   saveContactEmail,
   skipContactEmailPrompt,
+  getEmailPreferences,
+  updateEmailPreferences,
   sendContactEmailVerification,
   confirmContactEmailVerification,
   requestEmailOtp,
