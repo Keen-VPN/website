@@ -93,7 +93,7 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
           </div>
           {loading || saving ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          ) : loadError ? null : (
+          ) : (
             <Switch
               id="contextual-email-opt-in"
               checked={optIn}

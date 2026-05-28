@@ -177,6 +177,7 @@ export default function AdminDomainInsights() {
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [ruleForm, setRuleForm] = useState<RuleFormState>(emptyRuleForm());
   const [savingRule, setSavingRule] = useState(false);
+  const [ruleDialogError, setRuleDialogError] = useState<string | null>(null);
 
   const metricsRequest = useRef<AbortController | null>(null);
 
@@ -259,26 +260,28 @@ export default function AdminDomainInsights() {
   function openCreateRule() {
     setEditingRuleId(null);
     setRuleForm(emptyRuleForm());
+    setRuleDialogError(null);
     setRuleDialogOpen(true);
   }
 
   function openEditRule(rule: AdminDomainEmailRule) {
     setEditingRuleId(rule.id);
     setRuleForm(ruleToForm(rule));
+    setRuleDialogError(null);
     setRuleDialogOpen(true);
   }
 
   async function saveRule() {
     if (!canWrite) return;
     setSavingRule(true);
-    setError(null);
+    setRuleDialogError(null);
 
     const paragraphs = ruleForm.bodyText
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean);
     if (paragraphs.length === 0) {
-      setError("Email body needs at least one paragraph.");
+      setRuleDialogError("Email body needs at least one paragraph.");
       setSavingRule(false);
       return;
     }
@@ -298,25 +301,26 @@ export default function AdminDomainInsights() {
       });
       setSavingRule(false);
       if (!res.ok) {
-        setError(res.error ?? "Failed to update rule");
+        setRuleDialogError(res.error ?? "Failed to update rule");
         return;
       }
     } else {
       const payload = formToCreatePayload(ruleForm);
       if (!payload.id || !payload.domain) {
-        setError("Rule id and domain are required.");
+        setRuleDialogError("Rule id and domain are required.");
         setSavingRule(false);
         return;
       }
       const res = await adminCreateDomainEmailRule(payload);
       setSavingRule(false);
       if (!res.ok) {
-        setError(res.error ?? "Failed to create rule");
+        setRuleDialogError(res.error ?? "Failed to create rule");
         return;
       }
     }
 
     setRuleDialogOpen(false);
+    setRuleDialogError(null);
     await loadRules();
   }
 
@@ -596,13 +600,24 @@ export default function AdminDomainInsights() {
         </div>
       </section>
 
-      <Dialog open={ruleDialogOpen} onOpenChange={setRuleDialogOpen}>
+      <Dialog
+        open={ruleDialogOpen}
+        onOpenChange={(open) => {
+          setRuleDialogOpen(open);
+          if (!open) setRuleDialogError(null);
+        }}
+      >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {editingRuleId ? "Edit domain rule" : "New domain rule"}
             </DialogTitle>
           </DialogHeader>
+          {ruleDialogError ? (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              {ruleDialogError}
+            </div>
+          ) : null}
           <div className="space-y-3">
             {!editingRuleId ? (
               <div>

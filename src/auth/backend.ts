@@ -633,6 +633,43 @@ export async function updateEmailPreferences(
   }
 }
 
+export interface ContextualEmailUnsubscribeResponse {
+  success: boolean;
+  redirectUrl?: string;
+  error?: string;
+}
+
+export async function confirmContextualEmailUnsubscribe(
+  token: string,
+): Promise<ContextualEmailUnsubscribeResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/contextual-email/unsubscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to unsubscribe from personalized emails",
+        ),
+      };
+    }
+    return data as ContextualEmailUnsubscribeResponse;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to unsubscribe from personalized emails",
+    };
+  }
+}
+
 export async function sendContactEmailVerification(
   sessionToken: string,
 ): Promise<{ success: boolean; message?: string; error?: string }> {
