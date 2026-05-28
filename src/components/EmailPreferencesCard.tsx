@@ -24,16 +24,20 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
   const [optIn, setOptIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       setLoading(true);
+      setLoadError(null);
       const response = await getEmailPreferences(sessionToken);
       if (cancelled) return;
       if (response.success) {
         setOptIn(response.contextualEngagementOptIn);
+      } else {
+        setLoadError(response.error ?? "Could not load email preferences");
       }
       setLoading(false);
     }
@@ -83,10 +87,13 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
               Optional emails about perks and recommendations based on your
               interests. Off by default.
             </p>
+            {loadError ? (
+              <p className="text-sm text-destructive">{loadError}</p>
+            ) : null}
           </div>
           {loading || saving ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          ) : (
+          ) : loadError ? null : (
             <Switch
               id="contextual-email-opt-in"
               checked={optIn}

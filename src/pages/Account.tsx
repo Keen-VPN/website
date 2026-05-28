@@ -154,6 +154,7 @@ const Account = () => {
     return urlParams.get("session_id");
   }, [location.search]);
   const processedStripeSessionRef = useRef<string | null>(null);
+  const handledEmailUnsubscribeRef = useRef(false);
   const [showPostCheckoutUi, setShowPostCheckoutUi] = useState(() =>
     shouldShowStripePostCheckoutUi(),
   );
@@ -180,6 +181,8 @@ const Account = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get("email_prefs") !== "unsubscribed") return;
+    if (handledEmailUnsubscribeRef.current) return;
+    handledEmailUnsubscribeRef.current = true;
     toast({
       title: "Email preferences updated",
       description: "You are unsubscribed from personalized tips and offers.",
@@ -190,7 +193,7 @@ const Account = () => {
       { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : "" },
       { replace: true },
     );
-  }, [location.pathname, location.search, navigate, toast]);
+  }, [location.search, location.pathname, navigate, toast]);
 
   const showPaymentCompleteBanner =
     Boolean(user) && hasSessionToken && showPostCheckoutUi;

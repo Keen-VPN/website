@@ -112,6 +112,13 @@ const emptyRuleForm = (): RuleFormState => ({
   enabled: true,
 });
 
+function parseFormNumber(value: string, fallback: number): number {
+  const trimmed = value.trim();
+  if (trimmed === "") return fallback;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function ruleToForm(rule: AdminDomainEmailRule): RuleFormState {
   return {
     id: rule.id,
@@ -141,8 +148,8 @@ function formToCreatePayload(form: RuleFormState): CreateDomainEmailRulePayload 
       .filter(Boolean),
     ctaLabel: form.ctaLabel.trim(),
     ctaUrl: form.ctaUrl.trim(),
-    cooldownDays: Number(form.cooldownDays) || 30,
-    sendDelayMinutes: Number(form.sendDelayMinutes) || 120,
+    cooldownDays: parseFormNumber(form.cooldownDays, 30),
+    sendDelayMinutes: parseFormNumber(form.sendDelayMinutes, 120),
     enabled: form.enabled,
   };
 }
@@ -179,6 +186,7 @@ export default function AdminDomainInsights() {
     metricsRequest.current = controller;
 
     setLoadingMetrics(true);
+    setError(null);
     if (fromValue && toValue && fromValue > toValue) {
       setMetrics(null);
       setError("Start date must be before end date");
@@ -209,6 +217,7 @@ export default function AdminDomainInsights() {
 
   const loadRules = useCallback(async () => {
     setLoadingRules(true);
+    setError(null);
     const res = await adminListDomainEmailRules();
     if (res.ok && res.data) {
       setRules(res.data);
@@ -283,8 +292,8 @@ export default function AdminDomainInsights() {
         emailBodyParagraphs: paragraphs,
         ctaLabel: ruleForm.ctaLabel.trim(),
         ctaUrl: ruleForm.ctaUrl.trim(),
-        cooldownDays: Number(ruleForm.cooldownDays) || 30,
-        sendDelayMinutes: Number(ruleForm.sendDelayMinutes) || 120,
+        cooldownDays: parseFormNumber(ruleForm.cooldownDays, 30),
+        sendDelayMinutes: parseFormNumber(ruleForm.sendDelayMinutes, 120),
         enabled: ruleForm.enabled,
       });
       setSavingRule(false);
