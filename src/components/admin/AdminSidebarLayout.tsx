@@ -11,6 +11,7 @@ import {
   Users,
   Activity,
   TrendingDown,
+  Mail,
 } from "lucide-react";
 
 function linkClass(isActive: boolean) {
@@ -68,6 +69,13 @@ export default function AdminSidebarLayout() {
             >
               <BarChart3 className="h-4 w-4" />
               Product Events
+            </NavLink>
+            <NavLink
+              to="/admin/domain-insights"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Mail className="h-4 w-4" />
+              Domain Insights
             </NavLink>
             <NavLink
               to="/admin/connection-engagement"
