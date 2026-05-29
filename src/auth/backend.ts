@@ -565,6 +565,111 @@ export async function skipContactEmailPrompt(
   }
 }
 
+export interface EmailPreferencesResponse {
+  success: boolean;
+  contextualEngagementOptIn: boolean;
+  contextualEngagementOptInAt: string | null;
+  error?: string;
+}
+
+export async function getEmailPreferences(
+  sessionToken: string,
+): Promise<EmailPreferencesResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/email-preferences`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        contextualEngagementOptIn: false,
+        contextualEngagementOptInAt: null,
+        error: extractBackendErrorMessage(data, "Failed to fetch email preferences"),
+      };
+    }
+    return data as EmailPreferencesResponse;
+  } catch (error) {
+    return {
+      success: false,
+      contextualEngagementOptIn: false,
+      contextualEngagementOptInAt: null,
+      error: error instanceof Error ? error.message : "Failed to fetch email preferences",
+    };
+  }
+}
+
+export async function updateEmailPreferences(
+  sessionToken: string,
+  contextualEngagementOptIn: boolean,
+): Promise<EmailPreferencesResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/email-preferences`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ contextualEngagementOptIn }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        contextualEngagementOptIn: false,
+        contextualEngagementOptInAt: null,
+        error: extractBackendErrorMessage(data, "Failed to update email preferences"),
+      };
+    }
+    return data as EmailPreferencesResponse;
+  } catch (error) {
+    return {
+      success: false,
+      contextualEngagementOptIn: false,
+      contextualEngagementOptInAt: null,
+      error: error instanceof Error ? error.message : "Failed to update email preferences",
+    };
+  }
+}
+
+export interface ContextualEmailUnsubscribeResponse {
+  success: boolean;
+  redirectUrl?: string;
+  error?: string;
+}
+
+export async function confirmContextualEmailUnsubscribe(
+  token: string,
+): Promise<ContextualEmailUnsubscribeResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/contextual-email/unsubscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to unsubscribe from personalized emails",
+        ),
+      };
+    }
+    return data as ContextualEmailUnsubscribeResponse;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to unsubscribe from personalized emails",
+    };
+  }
+}
+
 export async function sendContactEmailVerification(
   sessionToken: string,
 ): Promise<{ success: boolean; message?: string; error?: string }> {
@@ -1437,6 +1542,63 @@ export interface AdminReviewPromptSummary {
   byPlatform: { label: string; count: number }[];
 }
 
+export interface AdminDomainInsightsMetrics {
+  visitsScheduled: number;
+  visitsSkipped: number;
+  eventsCreated: number;
+  emailsSent: number;
+  emailsOpened: number;
+  ctaClicks: number;
+  unsubscribes: number;
+  sendRate: number | null;
+  usersOptedIn: number;
+  from: string;
+  to: string;
+  byStatus: { label: string; count: number }[];
+  topDomains: { label: string; count: number }[];
+}
+
+export interface AdminDomainEmailRule {
+  id: string;
+  domain: string;
+  category: string | null;
+  subject: string;
+  headline: string;
+  bodyParagraphs: string[];
+  ctaLabel: string;
+  ctaUrl: string;
+  cooldownDays: number;
+  sendDelayMinutes: number;
+  enabled: boolean;
+}
+
+export interface CreateDomainEmailRulePayload {
+  id: string;
+  domain: string;
+  category?: string;
+  emailSubject: string;
+  emailHeadline: string;
+  emailBodyParagraphs: string[];
+  ctaLabel: string;
+  ctaUrl: string;
+  cooldownDays?: number;
+  sendDelayMinutes?: number;
+  enabled?: boolean;
+}
+
+export type UpdateDomainEmailRulePayload = Partial<{
+  domain: string;
+  category: string | null;
+  emailSubject: string;
+  emailHeadline: string;
+  emailBodyParagraphs: string[];
+  ctaLabel: string;
+  ctaUrl: string;
+  cooldownDays: number;
+  sendDelayMinutes: number;
+  enabled: boolean;
+}>;
+
 export interface AdminMedianMonthlySessionsSummary {
   month: string;
   median_sessions_per_user: number;
@@ -1873,6 +2035,189 @@ export async function adminFetchReviewPromptSummary(params?: {
     }
     const record = raw as { data?: AdminReviewPromptSummary };
     return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchDomainInsightsMetrics(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminDomainInsightsMetrics;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/contextual-email/metrics${suffix}`,
+      { credentials: "include", signal: params?.signal },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load domain insights metrics",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminDomainInsightsMetrics };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminSimulateDomainVisit(payload: {
+  userId: string;
+  domain: string;
+}): Promise<{
+  ok: boolean;
+  data?: { success: boolean; scheduled: boolean; reason?: string };
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/contextual-email/simulate-visit`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Simulate visit failed"),
+      };
+    }
+    return {
+      ok: true,
+      data: raw as { success: boolean; scheduled: boolean; reason?: string },
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminListDomainEmailRules(): Promise<{
+  ok: boolean;
+  data?: AdminDomainEmailRule[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/domain-email-rules`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load domain rules"),
+      };
+    }
+    const record = raw as { data?: AdminDomainEmailRule[] };
+    return { ok: true, data: record.data ?? [] };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminCreateDomainEmailRule(
+  payload: CreateDomainEmailRulePayload,
+): Promise<{ ok: boolean; data?: AdminDomainEmailRule; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/domain-email-rules`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to create rule"),
+      };
+    }
+    const record = raw as { data?: AdminDomainEmailRule };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminUpdateDomainEmailRule(
+  id: string,
+  payload: UpdateDomainEmailRulePayload,
+): Promise<{ ok: boolean; data?: AdminDomainEmailRule; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/domain-email-rules/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to update rule"),
+      };
+    }
+    const record = raw as { data?: AdminDomainEmailRule };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminDeleteDomainEmailRule(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/domain-email-rules/${encodeURIComponent(id)}`,
+      { method: "DELETE", credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to delete rule"),
+      };
+    }
+    return { ok: true };
   } catch (e) {
     return {
       ok: false,

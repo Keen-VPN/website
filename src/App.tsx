@@ -22,6 +22,9 @@ const MagicLinkRequest = lazy(() => import("./pages/MagicLinkRequest"));
 const MagicLinkVerify = lazy(() => import("./pages/MagicLinkVerify"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const Reactivate = lazy(() => import("./pages/Reactivate"));
+const ContextualEmailUnsubscribe = lazy(
+  () => import("./pages/ContextualEmailUnsubscribe"),
+);
 const ReferralLanding = lazy(() => import("./pages/ReferralLanding"));
 const Referrals = lazy(() => import("./pages/Referrals"));
 const Subscribe = lazy(() => import("./pages/Subscribe"));
@@ -38,6 +41,9 @@ const MembershipTransferAdmin = lazy(
 );
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
 const AdminOverview = lazy(() => import("./pages/admin/AdminOverview"));
+const AdminDomainInsights = lazy(
+  () => import("./pages/admin/AdminDomainInsights"),
+);
 const AdminProductEvents = lazy(
   () => import("./pages/admin/AdminProductEvents"),
 );
@@ -82,6 +88,10 @@ const App = () => (
               <Route path="/auth/magic" element={<MagicLinkVerify />} />
               <Route path="/auth/verify-email" element={<VerifyEmail />} />
               <Route path="/reactivate" element={<Reactivate />} />
+              <Route
+                path="/email/unsubscribe"
+                element={<ContextualEmailUnsubscribe />}
+              />
               <Route path="/r/:token" element={<ReferralLanding />} />
               <Route
                 path="/referrals"
@@ -148,6 +158,10 @@ const App = () => (
                   element={<AdminUserSessions />}
                 />
                 <Route path="product-events" element={<AdminProductEvents />} />
+                <Route
+                  path="domain-insights"
+                  element={<AdminDomainInsights />}
+                />
                 <Route
                   path="connection-engagement"
                   element={<AdminConnectionEngagement />}
