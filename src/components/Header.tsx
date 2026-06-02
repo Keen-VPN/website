@@ -109,6 +109,9 @@ const Header = () => {
                   <DropdownMenuItem asChild>
                     <Link to="/referrals">Referrals</Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/perks">Perks</Link>
+                  </DropdownMenuItem>
                   {subscription?.status !== "active" && (
                     <DropdownMenuItem asChild>
                       <Link to="/subscribe">Subscribe</Link>
@@ -241,6 +244,16 @@ const Header = () => {
                       asChild
                     >
                       <Link to="/referrals">Referrals</Link>
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                      }}
+                      variant="outline"
+                      className="w-full"
+                      asChild
+                    >
+                      <Link to="/perks">Perks</Link>
                     </Button>
                     {subscription?.status !== "active" && (
                       <Button
