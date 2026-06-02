@@ -517,13 +517,19 @@ export default function AdminPerks() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <h3 className="text-lg font-semibold">Perks catalog</h3>
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
               <Switch
+                id="admin-perks-show-inactive"
                 checked={showInactive}
                 onCheckedChange={setShowInactive}
               />
-              Show inactive
-            </label>
+              <Label
+                htmlFor="admin-perks-show-inactive"
+                className="text-sm font-normal text-muted-foreground"
+              >
+                Show inactive
+              </Label>
+            </div>
           </div>
           {canWrite ? (
             <Button type="button" variant="outline" onClick={openCreate}>
@@ -881,24 +887,30 @@ export default function AdminPerks() {
               </div>
             </div>
             <div className="flex flex-wrap gap-6">
-              <label className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2">
                 <Switch
+                  id="admin-perk-featured"
                   checked={form.isFeatured}
                   onCheckedChange={(checked) =>
                     setForm((prev) => ({ ...prev, isFeatured: checked }))
                   }
                 />
-                Featured
-              </label>
-              <label className="flex items-center gap-2 text-sm">
+                <Label htmlFor="admin-perk-featured" className="text-sm font-normal">
+                  Featured
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
                 <Switch
+                  id="admin-perk-active"
                   checked={form.isActive}
                   onCheckedChange={(checked) =>
                     setForm((prev) => ({ ...prev, isActive: checked }))
                   }
                 />
-                Active
-              </label>
+                <Label htmlFor="admin-perk-active" className="text-sm font-normal">
+                  Active
+                </Label>
+              </div>
             </div>
           </div>
           <DialogFooter>

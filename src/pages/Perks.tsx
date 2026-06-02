@@ -127,13 +127,22 @@ const Perks = () => {
   }, [user, authLoading, navigate, loadPerks]);
 
   useEffect(() => {
-    if (!user || initialLoad || fetchError || pageViewRecorded.current) return;
+    if (
+      !user ||
+      initialLoad ||
+      loading ||
+      refreshing ||
+      fetchError ||
+      pageViewRecorded.current
+    ) {
+      return;
+    }
     const session = getSessionToken();
     if (!session) return;
     pageViewRecorded.current = true;
     trackPerksEvent("perk_viewed", { source: "perks_page" });
     void recordPerkEvent(session, "perk_viewed", { source: "perks_page" });
-  }, [user, initialLoad, fetchError]);
+  }, [user, initialLoad, loading, refreshing, fetchError]);
 
   const featuredPerks = useMemo(
     () => perks.filter((perk) => perk.isFeatured),
