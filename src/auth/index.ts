@@ -37,6 +37,9 @@ export {
   verifyEmailOtp,
   fetchSubscriptionStatusWithSession,
   fetchReferralDashboard,
+  fetchPerks,
+  claimPerk,
+  recordPerkEvent,
   upgradeSubscriptionToAnnual,
   recordSubscriptionProductEvent,
   cancelSubscription,
@@ -74,6 +77,10 @@ export type {
   AdminSubscriptionListItem,
   AdminRetriggerStripeCancelResponse,
   CreateAdminUserPayload,
+  PerkCategory,
+  PerkItem,
+  PerkAccessTier,
+  PerksListPayload,
 } from './backend';
 
 export {
