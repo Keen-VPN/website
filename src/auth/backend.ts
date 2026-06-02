@@ -330,6 +330,174 @@ export async function fetchReferralDashboard(
   }
 }
 
+export type PerkAccessTier = "free" | "paid" | "annual";
+
+export type PerkCategory =
+  | "privacy_security"
+  | "ai_productivity"
+  | "developer_tools"
+  | "startup_growth"
+  | "remote_work";
+
+export type PerkRedemptionType =
+  | "external_link"
+  | "coupon_code"
+  | "invite_only";
+
+export interface PerkItem {
+  id: string;
+  title: string;
+  partnerName: string | null;
+  category: PerkCategory;
+  description: string;
+  imageUrl: string | null;
+  offerText: string;
+  redemptionType: PerkRedemptionType;
+  accessLevel: "free" | "paid" | "annual";
+  isFeatured: boolean;
+  accessible: boolean;
+  redeemed: boolean;
+  ctaLabel: string;
+}
+
+export interface PerksListPayload {
+  userAccessTier: PerkAccessTier;
+  categories: PerkCategory[];
+  perks: PerkItem[];
+}
+
+export async function fetchPerks(
+  sessionToken: string,
+  options?: { category?: string; search?: string },
+): Promise<{ success: boolean; data?: PerksListPayload; error?: string }> {
+  try {
+    const params = new URLSearchParams();
+    if (options?.category) params.set("category", options.category);
+    if (options?.search?.trim()) params.set("search", options.search.trim());
+    const query = params.toString();
+    const url = `${BACKEND_URL}/perks${query ? `?${query}` : ""}`;
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Failed to load perks"),
+      };
+    }
+    const payload =
+      data && typeof data === "object" && !Array.isArray(data)
+        ? (data as Record<string, unknown>)
+        : {};
+    const inner = payload["data"];
+    if (!inner || typeof inner !== "object" || Array.isArray(inner)) {
+      return { success: false, error: "Invalid perks response" };
+    }
+    return { success: true, data: inner as PerksListPayload };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to load perks",
+    };
+  }
+}
+
+export async function claimPerk(
+  sessionToken: string,
+  perkId: string,
+): Promise<{
+  success: boolean;
+  redemptionType?: PerkRedemptionType;
+  redemptionUrl?: string;
+  couponCode?: string;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/perks/${encodeURIComponent(perkId)}/claim`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Failed to claim perk"),
+      };
+    }
+    const payload =
+      data && typeof data === "object" && !Array.isArray(data)
+        ? (data as Record<string, unknown>)
+        : {};
+    if (payload["success"] === false) {
+      const err = payload["error"];
+      return {
+        success: false,
+        error: typeof err === "string" ? err : "Unable to claim this perk",
+      };
+    }
+    return {
+      success: true,
+      redemptionType: payload["redemptionType"] as PerkRedemptionType | undefined,
+      redemptionUrl:
+        typeof payload["redemptionUrl"] === "string"
+          ? payload["redemptionUrl"]
+          : undefined,
+      couponCode:
+        typeof payload["couponCode"] === "string"
+          ? payload["couponCode"]
+          : undefined,
+      message:
+        typeof payload["message"] === "string" ? payload["message"] : undefined,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to claim perk",
+    };
+  }
+}
+
+export async function recordPerkEvent(
+  sessionToken: string,
+  eventName: "perk_viewed" | "perk_clicked" | "perk_claimed",
+  payload?: { perkId?: string; platform?: string; source?: string },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/perks/events`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({
+        eventName,
+        perkId: payload?.perkId,
+        platform: payload?.platform ?? "web",
+        source: payload?.source ?? "perks_page",
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Failed to record perk event"),
+      };
+    }
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to record perk event",
+    };
+  }
+}
+
 /**
  * Verify session token with the backend.
  * Returns unauthorized: true when the backend explicitly rejects the token
@@ -2218,6 +2386,236 @@ export async function adminDeleteDomainEmailRule(
       };
     }
     return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export interface AdminPerk {
+  id: string;
+  title: string;
+  partnerName: string | null;
+  category: PerkCategory;
+  description: string;
+  imageUrl: string | null;
+  offerText: string;
+  redemptionType: PerkRedemptionType;
+  redemptionUrl: string | null;
+  couponCode: string | null;
+  accessLevel: "free" | "paid" | "annual";
+  isFeatured: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAdminPerkPayload {
+  id: string;
+  title: string;
+  partnerName?: string;
+  category: PerkCategory;
+  description: string;
+  imageUrl?: string;
+  offerText: string;
+  redemptionType?: PerkRedemptionType;
+  redemptionUrl?: string;
+  couponCode?: string;
+  accessLevel?: "free" | "paid" | "annual";
+  isFeatured?: boolean;
+  isActive?: boolean;
+  sortOrder?: number;
+  startsAt?: string;
+  endsAt?: string;
+}
+
+export type UpdateAdminPerkPayload = Partial<{
+  title: string;
+  partnerName: string | null;
+  category: PerkCategory;
+  description: string;
+  imageUrl: string | null;
+  offerText: string;
+  redemptionType: PerkRedemptionType;
+  redemptionUrl: string | null;
+  couponCode: string | null;
+  accessLevel: "free" | "paid" | "annual";
+  isFeatured: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  startsAt: string | null;
+  endsAt: string | null;
+}>;
+
+export interface AdminPerksMetrics {
+  from: string;
+  to: string;
+  pageViews: number;
+  clicks: number;
+  claimEvents: number;
+  redemptions: number;
+  clickThroughRate: number | null;
+  claimRate: number | null;
+  byPerk: {
+    perkId: string;
+    title: string;
+    viewed: number;
+    clicked: number;
+    claimed: number;
+    redemptions: number;
+    clickRate: number | null;
+    claimRate: number | null;
+  }[];
+}
+
+export async function adminFetchPerksMetrics(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{ ok: boolean; data?: AdminPerksMetrics; error?: string }> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/perks/metrics${suffix}`,
+      { credentials: "include", signal: params?.signal },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load perk metrics"),
+      };
+    }
+    const record = raw as { data?: AdminPerksMetrics };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminListPerks(options?: {
+  includeInactive?: boolean;
+}): Promise<{ ok: boolean; data?: AdminPerk[]; error?: string }> {
+  try {
+    const params = new URLSearchParams();
+    params.set(
+      "includeInactive",
+      options?.includeInactive === false ? "false" : "true",
+    );
+    const query = params.toString();
+    const response = await fetch(`${BACKEND_URL}/admin/perks?${query}`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load perks"),
+      };
+    }
+    const record = raw as { data?: AdminPerk[] };
+    return { ok: true, data: record.data ?? [] };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminCreatePerk(
+  payload: CreateAdminPerkPayload,
+): Promise<{ ok: boolean; data?: AdminPerk; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/perks`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to create perk"),
+      };
+    }
+    const record = raw as { data?: AdminPerk };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminUpdatePerk(
+  id: string,
+  payload: UpdateAdminPerkPayload,
+): Promise<{ ok: boolean; data?: AdminPerk; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/perks/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to update perk"),
+      };
+    }
+    const record = raw as { data?: AdminPerk };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminDeletePerk(
+  id: string,
+): Promise<{ ok: boolean; softDeleted?: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/perks/${encodeURIComponent(id)}`,
+      { method: "DELETE", credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to delete perk"),
+      };
+    }
+    const record = raw as {
+      softDeleted?: boolean;
+      message?: string;
+    };
+    return {
+      ok: true,
+      softDeleted: record.softDeleted,
+      message: record.message,
+    };
   } catch (e) {
     return {
       ok: false,

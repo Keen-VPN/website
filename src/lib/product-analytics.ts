@@ -66,6 +66,26 @@ export function trackSwitchPageEvent(
   window.dispatchEvent(new CustomEvent("keen_switch_page", { detail }));
 }
 
+export type PerkAnalyticsEventName =
+  | "perk_viewed"
+  | "perk_clicked"
+  | "perk_claimed";
+
+export function trackPerksEvent(
+  eventName: PerkAnalyticsEventName,
+  payload: ProductAnalyticsPayload = {},
+): void {
+  if (typeof window === "undefined") return;
+
+  const detail = {
+    ...payload,
+    event: eventName,
+  };
+
+  window.dataLayer?.push(detail);
+  window.dispatchEvent(new CustomEvent("keen_perks", { detail }));
+}
+
 export type ServerPageEventName =
   | "servers_page_viewed"
   | "server_location_searched"

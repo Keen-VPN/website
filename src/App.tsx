@@ -27,6 +27,7 @@ const ContextualEmailUnsubscribe = lazy(
 );
 const ReferralLanding = lazy(() => import("./pages/ReferralLanding"));
 const Referrals = lazy(() => import("./pages/Referrals"));
+const Perks = lazy(() => import("./pages/Perks"));
 const Subscribe = lazy(() => import("./pages/Subscribe"));
 const Account = lazy(() => import("./pages/Account"));
 const UpgradeAnnual = lazy(() => import("./pages/UpgradeAnnual"));
@@ -44,6 +45,7 @@ const AdminOverview = lazy(() => import("./pages/admin/AdminOverview"));
 const AdminDomainInsights = lazy(
   () => import("./pages/admin/AdminDomainInsights"),
 );
+const AdminPerks = lazy(() => import("./pages/admin/AdminPerks"));
 const AdminProductEvents = lazy(
   () => import("./pages/admin/AdminProductEvents"),
 );
@@ -98,6 +100,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Referrals />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/perks"
+                element={
+                  <ProtectedRoute>
+                    <Perks />
                   </ProtectedRoute>
                 }
               />
@@ -162,6 +172,7 @@ const App = () => (
                   path="domain-insights"
                   element={<AdminDomainInsights />}
                 />
+                <Route path="perks" element={<AdminPerks />} />
                 <Route
                   path="connection-engagement"
                   element={<AdminConnectionEngagement />}
