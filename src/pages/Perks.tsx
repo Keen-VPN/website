@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ExternalLink,
@@ -63,6 +63,11 @@ const Perks = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const loadRequestId = useRef(0);
+  const pageViewRecorded = useRef(false);
+  const initialLoadRef = useRef(true);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -76,15 +81,24 @@ const Perks = () => {
         "No active session found. Sign out and sign in again to view perks.",
       );
       setLoading(false);
+      setInitialLoad(false);
       return;
     }
 
-    setLoading(true);
+    const requestId = ++loadRequestId.current;
+    if (initialLoadRef.current) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     setFetchError(null);
+
     const res = await fetchPerks(session, {
       category: selectedCategory === "all" ? undefined : selectedCategory,
       search: debouncedSearch || undefined,
     });
+
+    if (requestId !== loadRequestId.current) return;
 
     if (res.success && res.data) {
       setPerks(res.data.perks);
@@ -98,6 +112,9 @@ const Perks = () => {
       );
     }
     setLoading(false);
+    setRefreshing(false);
+    initialLoadRef.current = false;
+    setInitialLoad(false);
   }, [selectedCategory, debouncedSearch]);
 
   useEffect(() => {
@@ -110,12 +127,13 @@ const Perks = () => {
   }, [user, authLoading, navigate, loadPerks]);
 
   useEffect(() => {
-    if (!user || loading || fetchError) return;
+    if (!user || initialLoad || fetchError || pageViewRecorded.current) return;
     const session = getSessionToken();
     if (!session) return;
+    pageViewRecorded.current = true;
     trackPerksEvent("perk_viewed", { source: "perks_page" });
     void recordPerkEvent(session, "perk_viewed", { source: "perks_page" });
-  }, [user, loading, fetchError]);
+  }, [user, initialLoad, fetchError]);
 
   const featuredPerks = useMemo(
     () => perks.filter((perk) => perk.isFeatured),
@@ -192,7 +210,7 @@ const Perks = () => {
     void loadPerks();
   };
 
-  if (authLoading || loading) {
+  if (authLoading || (initialLoad && loading)) {
     return (
       <div className="flex min-h-screen flex-col">
         <Header />
@@ -244,7 +262,10 @@ const Perks = () => {
                     className="pl-9"
                   />
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {refreshing ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : null}
                   <Button
                     size="sm"
                     variant={selectedCategory === "all" ? "default" : "outline"}
@@ -318,6 +339,34 @@ const Perks = () => {
   );
 };
 
+function PerkLogo({ title, imageUrl }: { title: string; imageUrl: string | null }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const initials =
+    title
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "?";
+
+  if (imageUrl && !imageFailed) {
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        className="h-14 w-14 shrink-0 rounded-xl border border-border/60 bg-background object-contain p-1.5"
+        onError={() => setImageFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-sm font-semibold text-primary">
+      {initials}
+    </div>
+  );
+}
+
 function PerkCard({
   perk,
   claiming,
@@ -328,68 +377,71 @@ function PerkCard({
   onClaim: () => void;
 }) {
   const locked = !perk.accessible && !perk.redeemed;
+  const upgradeHref =
+    perk.accessLevel === "annual" ? "/upgrade-annual" : "/subscribe";
+  const upgradeLabel =
+    perk.accessLevel === "annual" ? "Upgrade to annual" : "Subscribe to unlock";
 
   return (
     <Card
-      className={`border-border/60 bg-card/80 backdrop-blur ${perk.isFeatured ? "ring-1 ring-primary/30" : ""}`}
+      className={`relative overflow-hidden border-border/60 bg-card/80 backdrop-blur ${perk.isFeatured ? "ring-1 ring-primary/30" : ""}`}
     >
+      {locked ? (
+        <div className="pointer-events-none absolute inset-0 z-10 bg-background/55 backdrop-blur-[1px]" />
+      ) : null}
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0 flex-1">
             {perk.partnerName ? (
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {perk.partnerName}
               </p>
             ) : null}
             <CardTitle className="text-lg">{perk.title}</CardTitle>
-            <CardDescription className="mt-1 line-clamp-2">
+            <CardDescription className="mt-1 line-clamp-3">
               {perk.description}
             </CardDescription>
           </div>
-          {perk.imageUrl ? (
-            <img
-              src={perk.imageUrl}
-              alt=""
-              className="h-12 w-12 shrink-0 rounded-lg object-contain"
-            />
-          ) : null}
+          <PerkLogo title={perk.title} imageUrl={perk.imageUrl} />
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="relative space-y-4">
         <div className="flex flex-wrap gap-2">
           <Badge variant="secondary">
             {CATEGORY_LABELS[perk.category]}
           </Badge>
           <Badge variant="outline">{ACCESS_BADGE[perk.accessLevel]}</Badge>
+          {locked ? (
+            <Badge variant="outline" className="border-amber-500/40 text-amber-700">
+              Locked
+            </Badge>
+          ) : null}
           {perk.redeemed ? (
             <Badge className="bg-green-600">Claimed</Badge>
           ) : null}
         </div>
-        <p className="text-sm font-medium text-primary">{perk.offerText}</p>
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+          <p className="text-sm font-medium text-primary">{perk.offerText}</p>
+        </div>
         {locked ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Lock className="h-4 w-4 shrink-0" />
-            <span>
-              {perk.accessLevel === "annual" ? (
-                <>
-                  Annual plan required.{" "}
-                  <Link to="/upgrade-annual" className="text-primary underline">
-                    Upgrade
-                  </Link>
-                </>
-              ) : (
-                <>
-                  Subscription required.{" "}
-                  <Link to="/subscribe" className="text-primary underline">
-                    Subscribe
-                  </Link>
-                </>
-              )}
-            </span>
+          <div className="relative z-20 rounded-lg border border-border/70 bg-background/95 p-3">
+            <div className="flex items-start gap-2 text-sm text-muted-foreground">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="space-y-2">
+                <p>
+                  {perk.accessLevel === "annual"
+                    ? "This perk is reserved for annual members."
+                    : "Subscribe to unlock this partner offer."}
+                </p>
+                <Button size="sm" asChild>
+                  <Link to={upgradeHref}>{upgradeLabel}</Link>
+                </Button>
+              </div>
+            </div>
           </div>
         ) : null}
         <Button
-          className="w-full"
+          className="relative z-20 w-full"
           disabled={locked || perk.redeemed || claiming}
           onClick={onClaim}
         >

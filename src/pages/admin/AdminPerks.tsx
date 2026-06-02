@@ -249,9 +249,9 @@ export default function AdminPerks() {
   }, [loadPerks]);
 
   useEffect(() => {
-    void loadMetrics(fromInput, toInput);
+    void loadMetrics("", "");
     return () => metricsRequest.current?.abort();
-  }, [fromInput, toInput, loadMetrics]);
+  }, [loadMetrics]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -288,7 +288,7 @@ export default function AdminPerks() {
   const deletePerk = async (perk: AdminPerk) => {
     if (
       !window.confirm(
-        `Delete perk "${perk.title}"? This cannot be undone.`,
+        `Remove "${perk.title}"? Perks with redemption history will be deactivated instead of permanently deleted.`,
       )
     ) {
       return;
@@ -298,12 +298,30 @@ export default function AdminPerks() {
       setError(res.error ?? "Failed to delete perk");
       return;
     }
+    if (res.softDeleted && res.message) {
+      setError(null);
+      window.alert(res.message);
+    }
     void loadPerks();
+  };
+
+  const validateFormDates = (): string | null => {
+    if (form.startsAt.trim() && form.endsAt.trim() && form.startsAt > form.endsAt) {
+      return "Start date must be before end date.";
+    }
+    return null;
   };
 
   const savePerk = async () => {
     setSaving(true);
     setDialogError(null);
+
+    const dateError = validateFormDates();
+    if (dateError) {
+      setSaving(false);
+      setDialogError(dateError);
+      return;
+    }
 
     if (editingId) {
       const res = await adminUpdatePerk(editingId, {

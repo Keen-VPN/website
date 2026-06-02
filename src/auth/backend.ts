@@ -2509,14 +2509,14 @@ export async function adminListPerks(options?: {
 }): Promise<{ ok: boolean; data?: AdminPerk[]; error?: string }> {
   try {
     const params = new URLSearchParams();
-    if (options?.includeInactive === false) {
-      params.set("includeInactive", "false");
-    }
-    const query = params.toString();
-    const response = await fetch(
-      `${BACKEND_URL}/admin/perks${query ? `?${query}` : ""}`,
-      { credentials: "include" },
+    params.set(
+      "includeInactive",
+      options?.includeInactive === false ? "false" : "true",
     );
+    const query = params.toString();
+    const response = await fetch(`${BACKEND_URL}/admin/perks?${query}`, {
+      credentials: "include",
+    });
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
@@ -2594,7 +2594,7 @@ export async function adminUpdatePerk(
 
 export async function adminDeletePerk(
   id: string,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; softDeleted?: boolean; message?: string; error?: string }> {
   try {
     const response = await fetch(
       `${BACKEND_URL}/admin/perks/${encodeURIComponent(id)}`,
@@ -2607,7 +2607,15 @@ export async function adminDeletePerk(
         error: extractBackendErrorMessage(raw, "Failed to delete perk"),
       };
     }
-    return { ok: true };
+    const record = raw as {
+      softDeleted?: boolean;
+      message?: string;
+    };
+    return {
+      ok: true,
+      softDeleted: record.softDeleted,
+      message: record.message,
+    };
   } catch (e) {
     return {
       ok: false,
