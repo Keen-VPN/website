@@ -218,41 +218,24 @@ const Perks = () => {
         title: "Offer opened",
         description: "Complete redemption on the partner site.",
       });
-    } else if (res.redemptionType === "coupon_code" && res.couponCode) {
-      const partner =
-        perk.partnerName?.trim() || perk.title;
-      let copied = false;
-      try {
-        await navigator.clipboard.writeText(res.couponCode);
-        copied = true;
-      } catch {
-        copied = false;
-      }
-
-      if (res.redemptionUrl) {
-        if (!isSafeHttpUrl(res.redemptionUrl)) {
-          toast({
-            title: copied ? "Code copied" : "Your offer code",
-            description: copied
-              ? `${res.couponCode} — partner link could not be opened safely. Contact support.`
-              : res.couponCode,
-            variant: copied ? "default" : "destructive",
-          });
-        } else {
-          window.open(res.redemptionUrl, "_blank", "noopener,noreferrer");
-          toast({
-            title: copied ? "Code copied" : "Your offer code",
-            description: copied
-              ? `${res.couponCode} copied. We opened ${partner} — paste the code at checkout.`
-              : `${res.couponCode} — complete redemption on ${partner}.`,
-          });
-        }
+    } else if (res.redemptionType === "coupon_code") {
+      const partner = perk.partnerName?.trim() || perk.title;
+      if (res.redemptionUrl && isSafeHttpUrl(res.redemptionUrl)) {
+        window.open(res.redemptionUrl, "_blank", "noopener,noreferrer");
+        toast({
+          title: "Offer claimed",
+          description: `Opened ${partner}. Use the copy button for your code.`,
+        });
+      } else if (res.redemptionUrl) {
+        toast({
+          title: "Offer claimed",
+          description: "Partner link could not be opened safely. Contact support.",
+          variant: "destructive",
+        });
       } else {
         toast({
-          title: copied ? "Code copied" : "Your offer code",
-          description: copied
-            ? `Use code ${res.couponCode} at checkout.`
-            : res.couponCode,
+          title: "Offer claimed",
+          description: "Use the copy button for your code at checkout.",
         });
       }
     } else if (res.message) {
@@ -275,18 +258,6 @@ const Perks = () => {
         description: code,
       });
     }
-  };
-
-  const handleOpenPartner = (url: string) => {
-    if (!isSafeHttpUrl(url)) {
-      toast({
-        title: "Invalid link",
-        description: "This partner link could not be opened safely.",
-        variant: "destructive",
-      });
-      return;
-    }
-    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   if (authLoading || (initialLoad && loading)) {
@@ -381,7 +352,6 @@ const Perks = () => {
                         claiming={claimingId === perk.id}
                         onClaim={() => void handleClaim(perk)}
                         onCopyCode={(code) => void handleCopyCode(code)}
-                        onOpenPartner={handleOpenPartner}
                       />
                     ))}
                   </div>
@@ -407,7 +377,6 @@ const Perks = () => {
                         claiming={claimingId === perk.id}
                         onClaim={() => void handleClaim(perk)}
                         onCopyCode={(code) => void handleCopyCode(code)}
-                        onOpenPartner={handleOpenPartner}
                       />
                     ))}
                   </div>
@@ -455,24 +424,19 @@ function PerkCard({
   claiming,
   onClaim,
   onCopyCode,
-  onOpenPartner,
 }: {
   perk: PerkItem;
   claiming: boolean;
   onClaim: () => void;
   onCopyCode: (code: string) => void;
-  onOpenPartner: (url: string) => void;
 }) {
   const locked = !perk.accessible && !perk.redeemed;
-  const claimedCouponCode = perk.couponCode?.trim() || undefined;
-  const showClaimedCoupon =
-    perk.redeemed &&
-    perk.redemptionType === "coupon_code" &&
-    claimedCouponCode !== undefined;
-  const partnerRedemptionUrl =
-    perk.redemptionUrl && isSafeHttpUrl(perk.redemptionUrl)
-      ? perk.redemptionUrl
-      : undefined;
+  const couponCode = perk.couponCode?.trim() || undefined;
+  const isCouponCard =
+    perk.redemptionType === "coupon_code" && couponCode !== undefined;
+  const couponOpensPartner =
+    isCouponCard &&
+    Boolean(perk.redemptionUrl && isSafeHttpUrl(perk.redemptionUrl));
   const upgradeHref =
     perk.accessLevel === "annual" ? "/upgrade-annual" : "/subscribe";
   const upgradeLabel =
@@ -519,38 +483,6 @@ function PerkCard({
         <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
           <p className="text-sm font-medium text-primary">{perk.offerText}</p>
         </div>
-        {showClaimedCoupon && claimedCouponCode ? (
-          <div className="relative z-20 space-y-3 rounded-lg border border-green-600/30 bg-green-600/5 px-3 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Your code
-            </p>
-            <p className="font-mono text-base font-semibold tracking-wide text-foreground">
-              {claimedCouponCode}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => onCopyCode(claimedCouponCode)}
-              >
-                <Copy className="mr-1.5 h-3.5 w-3.5" />
-                Copy code
-              </Button>
-              {partnerRedemptionUrl ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onOpenPartner(partnerRedemptionUrl)}
-                >
-                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                  Open partner site
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
         {locked ? (
           <div className="relative z-20 rounded-lg border border-border/70 bg-background/95 p-3">
             <div className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -568,18 +500,54 @@ function PerkCard({
             </div>
           </div>
         ) : null}
-        <Button
-          className="relative z-20 w-full"
-          disabled={locked || perk.redeemed || claiming}
-          onClick={onClaim}
-        >
-          {claiming ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : perk.redemptionType === "external_link" && !perk.redeemed ? (
-            <ExternalLink className="mr-2 h-4 w-4" />
-          ) : null}
-          {perk.ctaLabel}
-        </Button>
+        {isCouponCard && couponCode ? (
+          <div className="relative z-20 flex h-10 gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-0.5 rounded-md border border-input bg-muted/40 px-2">
+              <span
+                className="min-w-0 flex-1 truncate font-mono text-sm font-semibold tracking-wide"
+                title={couponCode}
+              >
+                {couponCode}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                disabled={locked}
+                onClick={() => onCopyCode(couponCode)}
+                aria-label="Copy coupon code"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button
+              className="h-10 shrink-0 px-4 sm:min-w-[8.5rem]"
+              disabled={locked || perk.redeemed || claiming}
+              onClick={onClaim}
+            >
+              {claiming ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : couponOpensPartner && !perk.redeemed ? (
+                <ExternalLink className="mr-2 h-4 w-4" />
+              ) : null}
+              {perk.ctaLabel}
+            </Button>
+          </div>
+        ) : (
+          <Button
+            className="relative z-20 h-10 w-full"
+            disabled={locked || perk.redeemed || claiming}
+            onClick={onClaim}
+          >
+            {claiming ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : perk.redemptionType === "external_link" && !perk.redeemed ? (
+              <ExternalLink className="mr-2 h-4 w-4" />
+            ) : null}
+            {perk.ctaLabel}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
