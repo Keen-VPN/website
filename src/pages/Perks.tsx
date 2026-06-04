@@ -218,16 +218,40 @@ const Perks = () => {
         description: "Complete redemption on the partner site.",
       });
     } else if (res.redemptionType === "coupon_code" && res.couponCode) {
+      const partner =
+        perk.partnerName?.trim() || perk.title;
+      let copied = false;
       try {
         await navigator.clipboard.writeText(res.couponCode);
-        toast({
-          title: "Code copied",
-          description: `Use code ${res.couponCode} at checkout.`,
-        });
+        copied = true;
       } catch {
+        copied = false;
+      }
+
+      if (res.redemptionUrl) {
+        if (!isSafeHttpUrl(res.redemptionUrl)) {
+          toast({
+            title: copied ? "Code copied" : "Your offer code",
+            description: copied
+              ? `${res.couponCode} — partner link could not be opened safely. Contact support.`
+              : res.couponCode,
+            variant: copied ? "default" : "destructive",
+          });
+        } else {
+          window.open(res.redemptionUrl, "_blank", "noopener,noreferrer");
+          toast({
+            title: copied ? "Code copied" : "Your offer code",
+            description: copied
+              ? `${res.couponCode} copied. We opened ${partner} — paste the code at checkout.`
+              : `${res.couponCode} — complete redemption on ${partner}.`,
+          });
+        }
+      } else {
         toast({
-          title: "Your offer code",
-          description: res.couponCode,
+          title: copied ? "Code copied" : "Your offer code",
+          description: copied
+            ? `Use code ${res.couponCode} at checkout.`
+            : res.couponCode,
         });
       }
     } else if (res.message) {

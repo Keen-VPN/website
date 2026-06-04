@@ -845,19 +845,42 @@ export default function AdminPerks() {
               </div>
             ) : null}
             {form.redemptionType === "coupon_code" ? (
-              <div>
-                <Label htmlFor="perk-coupon">Coupon code</Label>
-                <Input
-                  id="perk-coupon"
-                  value={form.couponCode}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      couponCode: e.target.value,
-                    }))
-                  }
-                  className="mt-1"
-                />
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="perk-coupon">Coupon code</Label>
+                  <Input
+                    id="perk-coupon"
+                    value={form.couponCode}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        couponCode: e.target.value,
+                      }))
+                    }
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="perk-coupon-url">
+                    Redemption URL (recommended)
+                  </Label>
+                  <Input
+                    id="perk-coupon-url"
+                    value={form.redemptionUrl}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        redemptionUrl: e.target.value,
+                      }))
+                    }
+                    placeholder="https://github.com/…"
+                    className="mt-1"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Members copy the code and can open this page to redeem it
+                    (e.g. partner checkout or billing).
+                  </p>
+                </div>
               </div>
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
