@@ -358,6 +358,9 @@ export interface PerkItem {
   accessible: boolean;
   redeemed: boolean;
   ctaLabel: string;
+  /** Present on claimed coupon perks so the code stays visible on the card. */
+  couponCode?: string;
+  redemptionUrl?: string;
 }
 
 export interface PerksListPayload {
