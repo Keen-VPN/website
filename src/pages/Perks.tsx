@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  Copy,
   ExternalLink,
   Gift,
   Loader2,
@@ -261,6 +262,33 @@ const Perks = () => {
     void loadPerks();
   };
 
+  const handleCopyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      toast({
+        title: "Code copied",
+        description: code,
+      });
+    } catch {
+      toast({
+        title: "Your code",
+        description: code,
+      });
+    }
+  };
+
+  const handleOpenPartner = (url: string) => {
+    if (!isSafeHttpUrl(url)) {
+      toast({
+        title: "Invalid link",
+        description: "This partner link could not be opened safely.",
+        variant: "destructive",
+      });
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   if (authLoading || (initialLoad && loading)) {
     return (
       <div className="flex min-h-screen flex-col">
@@ -352,6 +380,8 @@ const Perks = () => {
                         perk={perk}
                         claiming={claimingId === perk.id}
                         onClaim={() => void handleClaim(perk)}
+                        onCopyCode={(code) => void handleCopyCode(code)}
+                        onOpenPartner={handleOpenPartner}
                       />
                     ))}
                   </div>
@@ -376,6 +406,8 @@ const Perks = () => {
                         perk={perk}
                         claiming={claimingId === perk.id}
                         onClaim={() => void handleClaim(perk)}
+                        onCopyCode={(code) => void handleCopyCode(code)}
+                        onOpenPartner={handleOpenPartner}
                       />
                     ))}
                   </div>
@@ -422,12 +454,25 @@ function PerkCard({
   perk,
   claiming,
   onClaim,
+  onCopyCode,
+  onOpenPartner,
 }: {
   perk: PerkItem;
   claiming: boolean;
   onClaim: () => void;
+  onCopyCode: (code: string) => void;
+  onOpenPartner: (url: string) => void;
 }) {
   const locked = !perk.accessible && !perk.redeemed;
+  const claimedCouponCode = perk.couponCode?.trim() || undefined;
+  const showClaimedCoupon =
+    perk.redeemed &&
+    perk.redemptionType === "coupon_code" &&
+    claimedCouponCode !== undefined;
+  const partnerRedemptionUrl =
+    perk.redemptionUrl && isSafeHttpUrl(perk.redemptionUrl)
+      ? perk.redemptionUrl
+      : undefined;
   const upgradeHref =
     perk.accessLevel === "annual" ? "/upgrade-annual" : "/subscribe";
   const upgradeLabel =
@@ -474,6 +519,38 @@ function PerkCard({
         <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
           <p className="text-sm font-medium text-primary">{perk.offerText}</p>
         </div>
+        {showClaimedCoupon && claimedCouponCode ? (
+          <div className="relative z-20 space-y-3 rounded-lg border border-green-600/30 bg-green-600/5 px-3 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Your code
+            </p>
+            <p className="font-mono text-base font-semibold tracking-wide text-foreground">
+              {claimedCouponCode}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => onCopyCode(claimedCouponCode)}
+              >
+                <Copy className="mr-1.5 h-3.5 w-3.5" />
+                Copy code
+              </Button>
+              {partnerRedemptionUrl ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onOpenPartner(partnerRedemptionUrl)}
+                >
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                  Open partner site
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
         {locked ? (
           <div className="relative z-20 rounded-lg border border-border/70 bg-background/95 p-3">
             <div className="flex items-start gap-2 text-sm text-muted-foreground">
