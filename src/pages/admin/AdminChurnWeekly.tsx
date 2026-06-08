@@ -49,6 +49,7 @@ function currentIsoWeek(): { isoYear: number; isoWeek: number; label: string } {
 
 function isoWeeksInYear(isoYear: number): number {
   const dec28 = new Date(Date.UTC(isoYear, 11, 28));
+  if (isoYear >= 0 && isoYear < 100) dec28.setUTCFullYear(isoYear);
   const utc = new Date(
     Date.UTC(dec28.getUTCFullYear(), dec28.getUTCMonth(), dec28.getUTCDate()),
   );
