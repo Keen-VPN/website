@@ -309,10 +309,13 @@ export default function AdminConnectionEngagement() {
     [],
   );
 
+  // Reload monthly data when switching back from weekly; uses filter state at switch time.
+  // Filter changes are applied explicitly via Refresh — not on every keystroke.
   useEffect(() => {
     if (view !== "monthly") return;
     void load(monthInput, minDurationInput, excludeExtension);
     return () => activeRequest.current?.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- monthInput/minDurationInput/excludeExtension omitted: re-fetch on tab switch only
   }, [load, view]);
 
   const applyFilters = () => {
