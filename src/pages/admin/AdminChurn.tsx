@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AdminChurnWeekly from "./AdminChurnWeekly";
 import {
   CartesianGrid,
   Line,
@@ -102,7 +103,10 @@ const trendChartConfig = {
   },
 } satisfies ChartConfig;
 
+type ChurnView = "monthly" | "weekly";
+
 export default function AdminChurn() {
+  const [view, setView] = useState<ChurnView>("weekly");
   const initial = currentMonthYear();
   const [month, setMonth] = useState(initial.month);
   const [year, setYear] = useState(initial.year);
@@ -153,11 +157,12 @@ export default function AdminChurn() {
   }, []);
 
   useEffect(() => {
+    if (view !== "monthly") return;
     void load(month, year);
     return () => {
       loadGeneration.current += 1;
     };
-  }, [load, month, year]);
+  }, [load, month, year, view]);
 
   const chartRows = useMemo(
     () =>
@@ -177,11 +182,41 @@ export default function AdminChurn() {
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Churn analytics</h2>
           <p className="text-sm text-muted-foreground">
-            Monthly subscriber loss and revenue impact. Internal test accounts
-            are excluded.
+            Weekly retention metrics and monthly revenue impact. Internal test
+            accounts are excluded.
           </p>
         </div>
-        <div className="flex flex-wrap items-end gap-2">
+        <div className="inline-flex rounded-lg border border-border p-1">
+          <button
+            type="button"
+            className={`rounded-md px-3 py-1.5 text-sm ${
+              view === "weekly"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setView("weekly")}
+          >
+            Weekly
+          </button>
+          <button
+            type="button"
+            className={`rounded-md px-3 py-1.5 text-sm ${
+              view === "monthly"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setView("monthly")}
+          >
+            Monthly
+          </button>
+        </div>
+      </div>
+
+      {view === "weekly" ? <AdminChurnWeekly /> : null}
+
+      {view !== "monthly" ? null : (
+        <>
+      <div className="flex flex-wrap items-end justify-end gap-2">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">Report month</span>
             <input
@@ -208,7 +243,6 @@ export default function AdminChurn() {
           >
             Refresh
           </Button>
-        </div>
       </div>
 
       {error ? (
@@ -351,6 +385,8 @@ export default function AdminChurn() {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   );
 }

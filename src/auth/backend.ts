@@ -1885,6 +1885,62 @@ export interface AdminChurnTrendReport {
   points: AdminChurnTrendPoint[];
 }
 
+export type AdminChurnSubscriptionSource = "all" | "stripe" | "apple_iap";
+
+export interface AdminWeeklyChurnSubscriptionSourceBreakdown {
+  subscriptionType: string;
+  activeAtWeekStart: number;
+  churned: number;
+  churnRate: number;
+  autoRenewDisabled: number;
+  subscriptionExpirations: number;
+}
+
+export interface AdminWeeklyChurnClientPlatformBreakdown {
+  clientPlatform: string;
+  churned: number;
+  autoRenewDisabled: number;
+  subscriptionExpirations: number;
+}
+
+export interface AdminWeeklyChurnReport {
+  isoYear: number;
+  isoWeek: number;
+  weekLabel: string;
+  weekRangeLabel: string;
+  startOfWeekActiveUsers: number;
+  churned: number;
+  churnRate: number;
+  autoRenewDisabled: number;
+  autoRenewDisabledRate: number;
+  subscriptionExpirations: number;
+  subscriptionExpirationsRate: number;
+  subscriptionSourceFilter: string | null;
+  bySubscriptionSource: AdminWeeklyChurnSubscriptionSourceBreakdown[];
+  byClientPlatform: AdminWeeklyChurnClientPlatformBreakdown[];
+}
+
+export interface AdminWeeklyChurnTrendPoint {
+  isoYear: number;
+  isoWeek: number;
+  weekLabel: string;
+  weekRangeLabel: string;
+  startOfWeekActiveUsers: number;
+  churned: number;
+  churnRate: number;
+  autoRenewDisabled: number;
+  autoRenewDisabledRate: number;
+  subscriptionExpirations: number;
+  subscriptionExpirationsRate: number;
+}
+
+export interface AdminWeeklyChurnTrendReport {
+  from: string;
+  to: string;
+  subscriptionSourceFilter: string | null;
+  points: AdminWeeklyChurnTrendPoint[];
+}
+
 /** Response body from POST /admin/subscription/stripe/retrigger-cancel-at-period-end */
 export interface AdminRetriggerStripeCancelResponse {
   success: boolean;
@@ -2718,6 +2774,72 @@ export async function adminFetchChurnReport(params: {
       };
     }
     const record = raw as { data?: AdminChurnReport };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchWeeklyChurnReport(params: {
+  week: number;
+  year: number;
+  source?: AdminChurnSubscriptionSource;
+}): Promise<{ ok: boolean; data?: AdminWeeklyChurnReport; error?: string }> {
+  try {
+    const query = new URLSearchParams();
+    query.set("week", String(params.week));
+    query.set("year", String(params.year));
+    if (params.source && params.source !== "all") {
+      query.set("source", params.source);
+    }
+    const response = await fetch(
+      `${BACKEND_URL}/admin/churn/weekly?${query.toString()}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load weekly churn report"),
+      };
+    }
+    const record = raw as { data?: AdminWeeklyChurnReport };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchWeeklyChurnTrend(params: {
+  from: string;
+  to: string;
+  source?: AdminChurnSubscriptionSource;
+}): Promise<{ ok: boolean; data?: AdminWeeklyChurnTrendReport; error?: string }> {
+  try {
+    const query = new URLSearchParams();
+    query.set("from", params.from);
+    query.set("to", params.to);
+    if (params.source && params.source !== "all") {
+      query.set("source", params.source);
+    }
+    const response = await fetch(
+      `${BACKEND_URL}/admin/churn/weekly/trend?${query.toString()}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load weekly churn trend"),
+      };
+    }
+    const record = raw as { data?: AdminWeeklyChurnTrendReport };
     return { ok: true, data: record.data };
   } catch (e) {
     return {
