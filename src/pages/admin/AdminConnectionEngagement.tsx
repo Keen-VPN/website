@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AdminConnectionEngagementWeekly from "./AdminConnectionEngagementWeekly";
 import {
   Bar,
   BarChart,
@@ -246,7 +247,10 @@ function HistogramChart({
 }
 
 
+type EngagementView = "weekly" | "monthly";
+
 export default function AdminConnectionEngagement() {
+  const [view, setView] = useState<EngagementView>("weekly");
   const [report, setReport] = useState<AdminMedianMonthlySessionsReport | null>(
     null,
   );
@@ -305,12 +309,14 @@ export default function AdminConnectionEngagement() {
     [],
   );
 
-  // Initial fetch uses literals that match useState defaults (not monthInput state).
-  // Same pattern as AdminProductEvents — load takes explicit args; [] deps is intentional.
+  // Reload monthly data when switching back from weekly; uses filter state at switch time.
+  // Filter changes are applied explicitly via Refresh — not on every keystroke.
   useEffect(() => {
-    void load(currentMonthValue(), "10", false);
+    if (view !== "monthly") return;
+    void load(monthInput, minDurationInput, excludeExtension);
     return () => activeRequest.current?.abort();
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- monthInput/minDurationInput/excludeExtension omitted: re-fetch on tab switch only
+  }, [load, view]);
 
   const applyFilters = () => {
     void load(monthInput, minDurationInput, excludeExtension);
@@ -326,11 +332,37 @@ export default function AdminConnectionEngagement() {
         <div>
           <h2 className="text-2xl font-bold">Connection engagement</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Median VPN sessions per user (calendar month, UTC). Typical usage
-            is better reflected by the median than the average.
+            Weekly session KPIs and monthly median usage (UTC). Internal test
+            accounts are excluded.
           </p>
         </div>
+        <div className="inline-flex rounded-lg border border-border p-1">
+          <button
+            type="button"
+            className={`rounded-md px-3 py-1.5 text-sm ${
+              view === "weekly"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setView("weekly")}
+          >
+            Weekly KPIs
+          </button>
+          <button
+            type="button"
+            className={`rounded-md px-3 py-1.5 text-sm ${
+              view === "monthly"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setView("monthly")}
+          >
+            Monthly median
+          </button>
+        </div>
         <div className="flex flex-wrap gap-2">
+          {view === "monthly" ? (
+            <>
           <button
             type="button"
             onClick={() => {
@@ -355,16 +387,24 @@ export default function AdminConnectionEngagement() {
           >
             Export JSON
           </button>
-          <button
-            type="button"
-            onClick={applyFilters}
-            className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
-          >
-            Refresh
-          </button>
+            </>
+          ) : null}
+          {view === "monthly" ? (
+            <button
+              type="button"
+              onClick={applyFilters}
+              className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
+            >
+              Refresh
+            </button>
+          ) : null}
         </div>
       </div>
 
+      {view === "weekly" ? <AdminConnectionEngagementWeekly /> : null}
+
+      {view !== "monthly" ? null : (
+        <>
       {error ? (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
@@ -511,6 +551,8 @@ export default function AdminConnectionEngagement() {
           loading={loading}
         />
       </div>
+        </>
+      )}
     </div>
   );
 }

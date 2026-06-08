@@ -1813,6 +1813,55 @@ export interface AdminEngagementSegment {
   total_sessions: number;
 }
 
+export type AdminEngagementSubscriptionTier =
+  | "all"
+  | "free"
+  | "paid"
+  | "unknown";
+
+export interface AdminWeeklySessionKpiSummary {
+  iso_year: number;
+  iso_week: number;
+  week_label: string;
+  week_range_label: string;
+  active_users: number;
+  median_connections_per_user: number;
+  total_connections: number;
+  median_connection_seconds: number;
+  total_connection_seconds: number;
+  filters: {
+    min_duration_seconds: number;
+    exclude_email_patterns: string[];
+    exclude_platforms: string[];
+    include_platforms: string[];
+    subscription_tier: string;
+  };
+}
+
+export interface AdminWeeklySessionKpiReport {
+  summary: AdminWeeklySessionKpiSummary;
+  week_over_week: {
+    previous_week: string;
+    active_users: number;
+    median_connections_per_user: number;
+    total_connections: number;
+    median_connection_seconds: number;
+    total_connection_seconds: number;
+    delta_active_users: number;
+    delta_median_connections: number;
+  } | null;
+  segments: {
+    platform: AdminEngagementSegment[];
+    subscription_tier: AdminEngagementSegment[];
+  };
+}
+
+export interface AdminWeeklySessionKpiTrendReport {
+  from: string;
+  to: string;
+  points: AdminWeeklySessionKpiSummary[];
+}
+
 export interface AdminSubscriptionListItem {
   id: string;
   status: string;
@@ -2191,6 +2240,119 @@ export async function adminFetchMedianMonthlySessions(params?: {
       };
     }
     const record = raw as { data?: AdminMedianMonthlySessionsReport };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchWeeklySessionKpis(params?: {
+  year?: number;
+  week?: number;
+  minDurationSeconds?: number;
+  excludePlatforms?: string;
+  includePlatforms?: string;
+  subscriptionTier?: AdminEngagementSubscriptionTier;
+  includeWow?: boolean;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminWeeklySessionKpiReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.year != null) query.set("year", String(params.year));
+    if (params?.week != null) query.set("week", String(params.week));
+    appendAdminMinDurationSeconds(query, params?.minDurationSeconds);
+    if (params?.excludePlatforms) {
+      query.set("exclude_platforms", params.excludePlatforms);
+    }
+    if (params?.includePlatforms) {
+      query.set("include_platforms", params.includePlatforms);
+    }
+    if (params?.subscriptionTier && params.subscriptionTier !== "all") {
+      query.set("subscription_tier", params.subscriptionTier);
+    }
+    if (params?.includeWow === false) {
+      query.set("include_wow", "false");
+    }
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/connection-engagement/weekly-kpis${suffix}`,
+      {
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load weekly session KPIs",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminWeeklySessionKpiReport };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchWeeklySessionKpiTrend(params: {
+  from: string;
+  to: string;
+  minDurationSeconds?: number;
+  excludePlatforms?: string;
+  includePlatforms?: string;
+  subscriptionTier?: AdminEngagementSubscriptionTier;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminWeeklySessionKpiTrendReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    query.set("from", params.from);
+    query.set("to", params.to);
+    appendAdminMinDurationSeconds(query, params.minDurationSeconds);
+    if (params.excludePlatforms) {
+      query.set("exclude_platforms", params.excludePlatforms);
+    }
+    if (params.includePlatforms) {
+      query.set("include_platforms", params.includePlatforms);
+    }
+    if (params.subscriptionTier && params.subscriptionTier !== "all") {
+      query.set("subscription_tier", params.subscriptionTier);
+    }
+    const response = await fetch(
+      `${BACKEND_URL}/admin/connection-engagement/weekly-kpis/trend?${query.toString()}`,
+      {
+        credentials: "include",
+        signal: params.signal,
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load weekly session KPI trend",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminWeeklySessionKpiTrendReport };
     return { ok: true, data: record.data };
   } catch (e) {
     return {
