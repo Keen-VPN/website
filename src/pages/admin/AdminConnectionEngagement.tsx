@@ -254,7 +254,7 @@ export default function AdminConnectionEngagement() {
   const [report, setReport] = useState<AdminMedianMonthlySessionsReport | null>(
     null,
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [monthInput, setMonthInput] = useState(currentMonthValue);
   const [minDurationInput, setMinDurationInput] = useState("10");

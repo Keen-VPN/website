@@ -28,97 +28,24 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-
-function currentIsoWeek(): { isoYear: number; isoWeek: number; label: string } {
-  const now = new Date();
-  const utc = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  const dayNum = utc.getUTCDay() || 7;
-  utc.setUTCDate(utc.getUTCDate() + 4 - dayNum);
-  const isoYear = utc.getUTCFullYear();
-  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
-  const isoWeek = Math.ceil(
-    ((utc.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7,
-  );
-  return {
-    isoYear,
-    isoWeek,
-    label: `${isoYear}-W${String(isoWeek).padStart(2, "0")}`,
-  };
-}
-
-function isoWeeksInYear(isoYear: number): number {
-  const dec28 = new Date(Date.UTC(isoYear, 11, 28));
-  if (isoYear >= 0 && isoYear < 100) dec28.setUTCFullYear(isoYear);
-  const utc = new Date(
-    Date.UTC(dec28.getUTCFullYear(), dec28.getUTCMonth(), dec28.getUTCDate()),
-  );
-  const dayNum = utc.getUTCDay() || 7;
-  utc.setUTCDate(utc.getUTCDate() + 4 - dayNum);
-  const weekYear = utc.getUTCFullYear();
-  const yearStart = new Date(Date.UTC(weekYear, 0, 1));
-  const isoWeek = Math.ceil(
-    ((utc.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7,
-  );
-  return weekYear === isoYear ? isoWeek : 52;
-}
-
-function parseWeekInput(value: string): { isoYear: number; isoWeek: number } | null {
-  const match = /^(\d{4})-W(\d{2})$/.exec(value);
-  if (!match) return null;
-  const isoYear = Number(match[1]);
-  const isoWeek = Number(match[2]);
-  if (isoWeek < 1 || isoWeek > isoWeeksInYear(isoYear)) return null;
-  return { isoYear, isoWeek };
-}
-
-function compareIsoWeek(
-  a: { isoYear: number; isoWeek: number },
-  b: { isoYear: number; isoWeek: number },
-): number {
-  if (a.isoYear !== b.isoYear) return a.isoYear - b.isoYear;
-  return a.isoWeek - b.isoWeek;
-}
-
-function weekStartDate(isoYear: number, isoWeek: number): Date {
-  const jan4 = new Date(Date.UTC(isoYear, 0, 4));
-  const dayOfWeek = jan4.getUTCDay() || 7;
-  const week1Monday = new Date(jan4);
-  week1Monday.setUTCDate(jan4.getUTCDate() - (dayOfWeek - 1));
-  const weekStart = new Date(week1Monday);
-  weekStart.setUTCDate(week1Monday.getUTCDate() + (isoWeek - 1) * 7);
-  return weekStart;
-}
-
-function dateToWeekLabel(date: Date): string {
-  const utc = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-  );
-  const dayNum = utc.getUTCDay() || 7;
-  utc.setUTCDate(utc.getUTCDate() + 4 - dayNum);
-  const isoYear = utc.getUTCFullYear();
-  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
-  const isoWeek = Math.ceil(
-    ((utc.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7,
-  );
-  return `${isoYear}-W${String(isoWeek).padStart(2, "0")}`;
-}
-
-function trendWindowStart(isoYear: number, isoWeek: number, span = 8): string {
-  const start = weekStartDate(isoYear, isoWeek);
-  start.setUTCDate(start.getUTCDate() - (span - 1) * 7);
-  return dateToWeekLabel(start);
-}
+import {
+  compareIsoWeek,
+  currentIsoWeek,
+  formatIsoWeekLabel,
+  parseWeekInput,
+  trendWindowStart,
+} from "@/lib/iso-week";
 
 function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  if (seconds < 3600) {
-    const mins = Math.round(seconds / 60);
+  if (!Number.isFinite(seconds) || seconds <= 0) return "0s";
+  const rounded = Math.round(seconds);
+  if (rounded < 60) return `${rounded}s`;
+  if (rounded < 3600) {
+    const mins = Math.round(rounded / 60);
     return mins >= 60 ? "1h" : `${mins}m`;
   }
-  let hours = Math.floor(seconds / 3600);
-  let mins = Math.round((seconds % 3600) / 60);
+  let hours = Math.floor(rounded / 3600);
+  let mins = Math.round((rounded % 3600) / 60);
   if (mins >= 60) {
     hours += 1;
     mins = 0;
@@ -247,7 +174,7 @@ export default function AdminConnectionEngagementWeekly() {
       const excludePlatforms = targetExcludeExtension ? "ios_extension" : undefined;
       const includePlatforms = targetPlatform || undefined;
       const from = trendWindowStart(targetYear, targetWeek, 8);
-      const to = `${targetYear}-W${String(targetWeek).padStart(2, "0")}`;
+      const to = formatIsoWeekLabel(targetYear, targetWeek);
 
       const [reportRes, trendRes] = await Promise.all([
         adminFetchWeeklySessionKpis({
@@ -293,10 +220,12 @@ export default function AdminConnectionEngagementWeekly() {
     [],
   );
 
+  // Week/platform/tier changes reload immediately; min duration and exclude extension use Apply.
   useEffect(() => {
     void load(isoYear, isoWeek, minDuration, excludeExtension, platform, subscriptionTier);
     return () => activeRequest.current?.abort();
-  }, [load, isoYear, isoWeek, platform, subscriptionTier, minDuration, excludeExtension]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- minDuration/excludeExtension omitted: Apply button only
+  }, [load, isoYear, isoWeek, platform, subscriptionTier]);
 
   const applyFilters = () => {
     void load(isoYear, isoWeek, minDuration, excludeExtension, platform, subscriptionTier);
@@ -313,7 +242,7 @@ export default function AdminConnectionEngagementWeekly() {
   );
 
   const wow = report?.week_over_week;
-  const weekInputValue = `${isoYear}-W${String(isoWeek).padStart(2, "0")}`;
+  const weekInputValue = formatIsoWeekLabel(isoYear, isoWeek);
 
   return (
     <div className="space-y-6">
@@ -359,7 +288,13 @@ export default function AdminConnectionEngagementWeekly() {
           <select
             className="rounded-md border border-border bg-background px-3 py-2"
             value={platform}
-            onChange={(e) => setPlatform(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              setPlatform(value);
+              if (value === "ios_extension") {
+                setExcludeExtension(false);
+              }
+            }}
           >
             {PLATFORM_OPTIONS.map((opt) => (
               <option key={opt.label} value={opt.value}>
@@ -398,6 +333,7 @@ export default function AdminConnectionEngagementWeekly() {
           <input
             type="checkbox"
             checked={excludeExtension}
+            disabled={platform === "ios_extension"}
             onChange={(e) => setExcludeExtension(e.target.checked)}
           />
           <span className="text-muted-foreground">Exclude iOS extension</span>
