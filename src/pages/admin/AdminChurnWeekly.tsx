@@ -47,10 +47,28 @@ function currentIsoWeek(): { isoYear: number; isoWeek: number; label: string } {
   };
 }
 
+function isoWeeksInYear(isoYear: number): number {
+  const dec28 = new Date(Date.UTC(isoYear, 11, 28));
+  const utc = new Date(
+    Date.UTC(dec28.getUTCFullYear(), dec28.getUTCMonth(), dec28.getUTCDate()),
+  );
+  const dayNum = utc.getUTCDay() || 7;
+  utc.setUTCDate(utc.getUTCDate() + 4 - dayNum);
+  const weekYear = utc.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(weekYear, 0, 1));
+  const isoWeek = Math.ceil(
+    ((utc.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7,
+  );
+  return weekYear === isoYear ? isoWeek : 52;
+}
+
 function parseWeekInput(value: string): { isoYear: number; isoWeek: number } | null {
   const match = /^(\d{4})-W(\d{2})$/.exec(value);
   if (!match) return null;
-  return { isoYear: Number(match[1]), isoWeek: Number(match[2]) };
+  const isoYear = Number(match[1]);
+  const isoWeek = Number(match[2]);
+  if (isoWeek < 1 || isoWeek > isoWeeksInYear(isoYear)) return null;
+  return { isoYear, isoWeek };
 }
 
 function compareIsoWeek(
@@ -227,8 +245,9 @@ export default function AdminChurnWeekly() {
         <div>
           <h3 className="text-lg font-semibold tracking-tight">Weekly churn</h3>
           <p className="text-sm text-muted-foreground">
-            ISO week (Monday UTC). Churn rate = lost subscribers ÷ active at
-            week start. Internal test accounts are excluded.
+            ISO week (Monday UTC). Churn rate = net lost subscribers ÷ active at
+            week start (users who switch billing source are not counted as
+            churned). Internal test accounts are excluded.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
