@@ -309,11 +309,9 @@ export default function AdminConnectionEngagement() {
     [],
   );
 
-  // Initial fetch uses literals that match useState defaults (not monthInput state).
-  // Same pattern as AdminProductEvents — load takes explicit args; [] deps is intentional.
   useEffect(() => {
     if (view !== "monthly") return;
-    void load(currentMonthValue(), "10", false);
+    void load(monthInput, minDurationInput, excludeExtension);
     return () => activeRequest.current?.abort();
   }, [load, view]);
 
@@ -360,6 +358,8 @@ export default function AdminConnectionEngagement() {
           </button>
         </div>
         <div className="flex flex-wrap gap-2">
+          {view === "monthly" ? (
+            <>
           <button
             type="button"
             onClick={() => {
@@ -384,6 +384,8 @@ export default function AdminConnectionEngagement() {
           >
             Export JSON
           </button>
+            </>
+          ) : null}
           {view === "monthly" ? (
             <button
               type="button"

@@ -113,9 +113,16 @@ function trendWindowStart(isoYear: number, isoWeek: number, span = 8): string {
 
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.round((seconds % 3600) / 60);
+  if (seconds < 3600) {
+    const mins = Math.round(seconds / 60);
+    return mins >= 60 ? "1h" : `${mins}m`;
+  }
+  let hours = Math.floor(seconds / 3600);
+  let mins = Math.round((seconds % 3600) / 60);
+  if (mins >= 60) {
+    hours += 1;
+    mins = 0;
+  }
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 
@@ -208,7 +215,8 @@ export default function AdminConnectionEngagementWeekly() {
   const [trend, setTrend] = useState<AdminWeeklySessionKpiTrendReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const loadGeneration = useRef(0);
+  const [trendWarning, setTrendWarning] = useState<string | null>(null);
+  const activeRequest = useRef<AbortController | null>(null);
 
   const load = useCallback(
     async (
@@ -219,9 +227,13 @@ export default function AdminConnectionEngagementWeekly() {
       targetPlatform: string,
       targetTier: AdminEngagementSubscriptionTier,
     ) => {
-      const generation = ++loadGeneration.current;
+      activeRequest.current?.abort();
+      const controller = new AbortController();
+      activeRequest.current = controller;
+
       setLoading(true);
       setError(null);
+      setTrendWarning(null);
       setReport(null);
       setTrend(null);
 
@@ -245,6 +257,7 @@ export default function AdminConnectionEngagementWeekly() {
           excludePlatforms,
           includePlatforms,
           subscriptionTier: targetTier,
+          signal: controller.signal,
         }),
         adminFetchWeeklySessionKpiTrend({
           from,
@@ -253,32 +266,41 @@ export default function AdminConnectionEngagementWeekly() {
           excludePlatforms,
           includePlatforms,
           subscriptionTier: targetTier,
+          signal: controller.signal,
         }),
       ]);
 
-      if (generation !== loadGeneration.current) return;
+      if (controller.signal.aborted || activeRequest.current !== controller) {
+        return;
+      }
 
       if (!reportRes.ok || !reportRes.data) {
         setError(reportRes.error ?? "Failed to load weekly session KPIs");
         setLoading(false);
+        activeRequest.current = null;
         return;
       }
 
       setReport(reportRes.data);
       if (trendRes.ok && trendRes.data) {
         setTrend(trendRes.data);
+      } else if (!trendRes.ok) {
+        setTrendWarning(trendRes.error ?? "Failed to load weekly trend");
       }
       setLoading(false);
+      activeRequest.current = null;
     },
     [],
   );
 
   useEffect(() => {
     void load(isoYear, isoWeek, minDuration, excludeExtension, platform, subscriptionTier);
-    return () => {
-      loadGeneration.current += 1;
-    };
-  }, [load, isoYear, isoWeek, minDuration, excludeExtension, platform, subscriptionTier]);
+    return () => activeRequest.current?.abort();
+  }, [load, isoYear, isoWeek, platform, subscriptionTier, minDuration, excludeExtension]);
+
+  const applyFilters = () => {
+    void load(isoYear, isoWeek, minDuration, excludeExtension, platform, subscriptionTier);
+  };
 
   const chartRows = useMemo(
     () =>
@@ -306,6 +328,12 @@ export default function AdminConnectionEngagementWeekly() {
       {error ? (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
+        </div>
+      ) : null}
+
+      {trendWarning ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          {trendWarning}
         </div>
       ) : null}
 
@@ -378,18 +406,9 @@ export default function AdminConnectionEngagementWeekly() {
           type="button"
           variant="outline"
           disabled={loading}
-          onClick={() =>
-            void load(
-              isoYear,
-              isoWeek,
-              minDuration,
-              excludeExtension,
-              platform,
-              subscriptionTier,
-            )
-          }
+          onClick={applyFilters}
         >
-          Refresh
+          Apply
         </Button>
       </div>
 
@@ -454,6 +473,8 @@ export default function AdminConnectionEngagementWeekly() {
         <CardContent>
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading trend…</p>
+          ) : trendWarning ? (
+            <p className="text-sm text-muted-foreground">Trend chart unavailable.</p>
           ) : chartRows.length === 0 ? (
             <p className="text-sm text-muted-foreground">No trend data.</p>
           ) : (
