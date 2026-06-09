@@ -4,6 +4,10 @@ import {
   getReferralTokenFromStorage,
   clearReferralTokenStorage,
 } from "./referral-token";
+import {
+  clearUtmAttributionStorage,
+  getUtmAttributionAuthPayload,
+} from "@/lib/utm-attribution";
 
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "/api";
@@ -193,6 +197,7 @@ export async function loginWithFirebaseToken(
         idToken,
         ...(provider ? { provider } : {}),
         ...(referralToken ? { referralToken } : {}),
+        ...getUtmAttributionAuthPayload(),
       }),
     });
     const data: unknown = await response.json().catch(() => ({}));
@@ -204,6 +209,7 @@ export async function loginWithFirebaseToken(
     const normalized = normalizeBackendAuthResponse(data as RawBackendAuthResponse);
     if (normalized.success ?? true) {
       clearReferralTokenStorage();
+      clearUtmAttributionStorage();
     }
     return { ...normalized, success: normalized.success ?? true };
   } catch (error) {
@@ -233,6 +239,7 @@ export async function authenticateWithBackend(
     const referralToken = getReferralTokenFromStorage();
     const endpoint =
       provider === "apple" ? "/auth/apple/signin" : "/auth/google/signin";
+    const utmPayload = getUtmAttributionAuthPayload();
     const body =
       provider === "apple"
         ? {
@@ -241,10 +248,12 @@ export async function authenticateWithBackend(
             email: additionalData?.email,
             fullName: additionalData?.fullName,
             ...(referralToken ? { referralToken } : {}),
+            ...utmPayload,
           }
         : {
             idToken: accessToken, // Backend expects 'idToken' parameter for Google
             ...(referralToken ? { referralToken } : {}),
+            ...utmPayload,
           };
 
     const response = await fetch(`${BACKEND_URL}${endpoint}`, {
@@ -267,6 +276,7 @@ export async function authenticateWithBackend(
     const normalized = normalizeBackendAuthResponse(data as RawBackendAuthResponse);
     if (normalized.success ?? true) {
       clearReferralTokenStorage();
+      clearUtmAttributionStorage();
     }
     return { ...normalized, success: normalized.success ?? true };
   } catch (error) {
@@ -891,6 +901,7 @@ export async function verifyEmailOtp(
         email,
         code,
         ...(referralToken ? { referralToken } : {}),
+        ...getUtmAttributionAuthPayload(),
       }),
     });
     const data: unknown = await response.json().catch(() => ({}));
@@ -907,6 +918,7 @@ export async function verifyEmailOtp(
     });
     if (normalized.success ?? true) {
       clearReferralTokenStorage();
+      clearUtmAttributionStorage();
     }
     return { ...normalized, success: normalized.success ?? true };
   } catch (error) {
@@ -2242,6 +2254,65 @@ export async function adminFetchMedianMonthlySessions(params?: {
     const record = raw as { data?: AdminMedianMonthlySessionsReport };
     return { ok: true, data: record.data };
   } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export interface AdminUtmSignupRow {
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  signups: number;
+}
+
+export interface AdminUtmSignupReport {
+  from: string;
+  to: string;
+  total_signups: number;
+  rows: AdminUtmSignupRow[];
+}
+
+export async function adminFetchUtmSignupReport(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminUtmSignupReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/utm-attribution/signups${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(data, "Failed to load UTM sign-up report"),
+      };
+    }
+    const record = data as { success?: boolean; data?: AdminUtmSignupReport };
+    if (!record.success || !record.data) {
+      return { ok: false, error: "Invalid UTM sign-up report response" };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
     return {
       ok: false,
       error: e instanceof Error ? e.message : "Network error",
