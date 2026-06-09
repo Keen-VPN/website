@@ -13,6 +13,7 @@ import {
   TrendingDown,
   Mail,
   Gift,
+  Megaphone,
 } from "lucide-react";
 
 function linkClass(isActive: boolean) {
@@ -105,6 +106,13 @@ export default function AdminSidebarLayout() {
             >
               <TrendingDown className="h-4 w-4" />
               Churn
+            </NavLink>
+            <NavLink
+              to="/admin/utm-attribution"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Megaphone className="h-4 w-4" />
+              UTM Attribution
             </NavLink>
             <NavLink
               to="/admin/users"

@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import UtmCapture from "@/components/UtmCapture";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
 import AdminSidebarLayout from "@/components/admin/AdminSidebarLayout";
@@ -60,6 +61,9 @@ const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
 const AdminUserSessions = lazy(
   () => import("./pages/admin/AdminUserSessions"),
 );
+const AdminUtmAttribution = lazy(
+  () => import("./pages/admin/AdminUtmAttribution"),
+);
 
 const queryClient = new QueryClient();
 
@@ -76,6 +80,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <UtmCapture />
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />
@@ -184,6 +189,7 @@ const App = () => (
                 <Route path="subscriptions" element={<AdminSubscriptions />} />
                 <Route path="churn" element={<AdminChurn />} />
                 <Route path="users" element={<AdminUsers />} />
+                <Route path="utm-attribution" element={<AdminUtmAttribution />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
