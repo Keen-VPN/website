@@ -27,8 +27,18 @@ function trimParam(value: string | null): string | undefined {
   return trimmed ? trimmed.slice(0, 500) : undefined;
 }
 
-function hasStoredUtmValue(record: StoredUtmAttribution): boolean {
-  return UTM_PARAM_KEYS.some((key) => Boolean(record[key]?.trim()));
+function storedUtmParam(
+  record: Record<string, unknown>,
+  key: (typeof UTM_PARAM_KEYS)[number],
+): string | undefined {
+  const value = record[key];
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function hasStoredUtmValue(record: Record<string, unknown>): boolean {
+  return UTM_PARAM_KEYS.some((key) => Boolean(storedUtmParam(record, key)));
 }
 
 function isValidStoredUtmAttribution(
@@ -42,8 +52,8 @@ function isValidStoredUtmAttribution(
   if (typeof record.captured_at !== "string" || !record.captured_at.trim()) {
     return false;
   }
-  const normalized = record as StoredUtmAttribution;
-  return hasStoredUtmValue(normalized);
+  if (!hasStoredUtmValue(record)) return false;
+  return true;
 }
 
 export function getStoredUtmAttribution(): StoredUtmAttribution | null {
@@ -58,6 +68,11 @@ export function getStoredUtmAttribution(): StoredUtmAttribution | null {
     }
     return parsed;
   } catch {
+    try {
+      localStorage.removeItem(UTM_ATTRIBUTION_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
     return null;
   }
 }

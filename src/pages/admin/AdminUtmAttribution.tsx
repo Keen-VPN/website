@@ -26,6 +26,11 @@ export default function AdminUtmAttribution() {
   const activeRequest = useRef<AbortController | null>(null);
 
   const load = useCallback(async (from: string, to: string) => {
+    if (!from.trim() || !to.trim()) {
+      setLoading(false);
+      return;
+    }
+
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
@@ -110,7 +115,7 @@ export default function AdminUtmAttribution() {
           Total attributed sign-ups
         </p>
         <p className="text-3xl font-semibold">
-          {loading ? "—" : (report?.total_signups ?? 0)}
+          {loading || error ? "—" : (report?.total_signups ?? 0)}
         </p>
       </div>
 
@@ -132,14 +137,14 @@ export default function AdminUtmAttribution() {
                 </td>
               </tr>
             ) : null}
-            {!loading && (report?.rows.length ?? 0) === 0 ? (
+            {!loading && !error && (report?.rows.length ?? 0) === 0 ? (
               <tr>
                 <td className="p-3 text-muted-foreground" colSpan={4}>
                   No attributed sign-ups in this range.
                 </td>
               </tr>
             ) : null}
-            {!loading
+            {!loading && !error
               ? (report?.rows ?? []).map((row, index) => (
                   <tr
                     key={`${index}\u0000${row.utm_source}\u0000${row.utm_campaign}\u0000${row.utm_medium}`}
