@@ -10,6 +10,10 @@ export interface StoredUtmAttribution {
   captured_at: string;
 }
 
+export interface UtmAttributionAuthPayload {
+  utmAttribution?: StoredUtmAttribution;
+}
+
 const UTM_PARAM_KEYS = [
   "utm_source",
   "utm_medium",
@@ -23,13 +27,35 @@ function trimParam(value: string | null): string | undefined {
   return trimmed ? trimmed.slice(0, 500) : undefined;
 }
 
+function hasStoredUtmValue(record: StoredUtmAttribution): boolean {
+  return UTM_PARAM_KEYS.some((key) => Boolean(record[key]?.trim()));
+}
+
+function isValidStoredUtmAttribution(
+  value: unknown,
+): value is StoredUtmAttribution {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  if (typeof record.landing_path !== "string" || !record.landing_path.trim()) {
+    return false;
+  }
+  if (typeof record.captured_at !== "string" || !record.captured_at.trim()) {
+    return false;
+  }
+  const normalized = record as StoredUtmAttribution;
+  return hasStoredUtmValue(normalized);
+}
+
 export function getStoredUtmAttribution(): StoredUtmAttribution | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(UTM_ATTRIBUTION_STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as StoredUtmAttribution;
-    if (!parsed || typeof parsed !== "object") return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isValidStoredUtmAttribution(parsed)) {
+      localStorage.removeItem(UTM_ATTRIBUTION_STORAGE_KEY);
+      return null;
+    }
     return parsed;
   } catch {
     return null;
@@ -62,9 +88,7 @@ export function captureUtmFromSearch(
   if (typeof window === "undefined") return;
   if (getStoredUtmAttribution()) return;
 
-  const params = new URLSearchParams(
-    search.startsWith("?") ? search : `?${search}`,
-  );
+  const params = new URLSearchParams(search);
   const captured: StoredUtmAttribution = {
     landing_path: landingPath.slice(0, 500),
     captured_at: new Date().toISOString(),
@@ -83,9 +107,7 @@ export function captureUtmFromSearch(
   setStoredUtmAttribution(captured);
 }
 
-export function getUtmAttributionAuthPayload():
-  | { utmAttribution: StoredUtmAttribution }
-  | Record<string, never> {
+export function getUtmAttributionAuthPayload(): UtmAttributionAuthPayload {
   const stored = getStoredUtmAttribution();
   if (!stored) return {};
   return { utmAttribution: stored };

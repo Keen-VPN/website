@@ -140,8 +140,11 @@ export default function AdminUtmAttribution() {
               </tr>
             ) : null}
             {!loading
-              ? (report?.rows ?? []).map((row) => (
-                  <tr key={`${row.utm_source}-${row.utm_campaign}-${row.utm_medium}`} className="border-t border-border">
+              ? (report?.rows ?? []).map((row, index) => (
+                  <tr
+                    key={`${index}\u0000${row.utm_source}\u0000${row.utm_campaign}\u0000${row.utm_medium}`}
+                    className="border-t border-border"
+                  >
                     <td className="p-3">{row.utm_source}</td>
                     <td className="p-3">{row.utm_campaign}</td>
                     <td className="p-3">{row.utm_medium}</td>

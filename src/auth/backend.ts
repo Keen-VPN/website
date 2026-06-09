@@ -597,6 +597,7 @@ export async function verifyMagicLink(
       body: JSON.stringify({
         token,
         ...(referralToken ? { referralToken } : {}),
+        ...getUtmAttributionAuthPayload(),
       }),
     });
     const data: unknown = await response.json().catch(() => ({}));
@@ -613,6 +614,7 @@ export async function verifyMagicLink(
     });
     if (normalized.success ?? true) {
       clearReferralTokenStorage();
+      clearUtmAttributionStorage();
     }
     return normalized;
   } catch (error) {
@@ -2304,8 +2306,8 @@ export async function adminFetchUtmSignupReport(params?: {
         error: extractBackendErrorMessage(data, "Failed to load UTM sign-up report"),
       };
     }
-    const record = data as { success?: boolean; data?: AdminUtmSignupReport };
-    if (!record.success || !record.data) {
+    const record = data as { data?: AdminUtmSignupReport };
+    if (!record.data) {
       return { ok: false, error: "Invalid UTM sign-up report response" };
     }
     return { ok: true, data: record.data };
