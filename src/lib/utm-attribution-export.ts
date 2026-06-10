@@ -52,8 +52,8 @@ export function buildUtmFunnelCsv(report: AdminUtmFunnelReport): string {
   lines.push(
     csvRow([
       "utm_source",
-      "utm_medium",
       "utm_campaign",
+      "utm_medium",
       "signup_started",
       "signups_completed",
       "trials",
@@ -69,8 +69,8 @@ export function buildUtmFunnelCsv(report: AdminUtmFunnelReport): string {
     lines.push(
       csvRow([
         row.utm_source,
-        row.utm_medium,
         row.utm_campaign,
+        row.utm_medium,
         row.signup_started,
         row.signups_completed,
         row.trials,

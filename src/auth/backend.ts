@@ -2277,15 +2277,28 @@ export interface AdminUtmSignupReport {
   rows: AdminUtmSignupRow[];
 }
 
+const SIGNUP_STARTED_SESSION_KEY = "keen_signup_started_tracked";
+
 /** Fire-and-forget: records signup_started with stored first-touch UTMs (pre-account). */
 export async function recordSignupStarted(): Promise<void> {
   const payload = getUtmAttributionAuthPayload();
   if (!payload.utmAttribution) return;
+
+  if (typeof window !== "undefined") {
+    try {
+      if (sessionStorage.getItem(SIGNUP_STARTED_SESSION_KEY)) return;
+      sessionStorage.setItem(SIGNUP_STARTED_SESSION_KEY, "1");
+    } catch {
+      /* private mode / blocked storage */
+    }
+  }
+
   try {
     await fetch(`${BACKEND_URL}/marketing-attribution/signup-started`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      keepalive: true,
     });
   } catch {
     /* non-fatal */
