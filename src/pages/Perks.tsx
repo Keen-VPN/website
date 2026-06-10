@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Copy,
@@ -19,6 +26,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -57,6 +71,49 @@ function isSafeHttpUrl(url: string): boolean {
   }
 }
 
+function descriptionHasMoreThanPreview(description: string): boolean {
+  const normalized = description.trim();
+  if (!normalized) return false;
+  const lineCount = normalized.split("\n").length;
+  return normalized.length > 180 || lineCount > 3;
+}
+
+function linkifyDescription(text: string): ReactNode[] {
+  const urlPattern = /https?:\/\/[^\s]+/g;
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = urlPattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    const url = match[0];
+    if (isSafeHttpUrl(url)) {
+      nodes.push(
+        <a
+          key={`${match.index}-${url}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="break-all text-primary underline underline-offset-2 hover:text-primary/80"
+        >
+          {url}
+        </a>,
+      );
+    } else {
+      nodes.push(url);
+    }
+    lastIndex = match.index + url.length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes.length > 0 ? nodes : [text];
+}
+
 const Perks = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -73,6 +130,7 @@ const Perks = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [detailsPerk, setDetailsPerk] = useState<PerkItem | null>(null);
   const [initialLoad, setInitialLoad] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const loadRequestId = useRef(0);
@@ -352,6 +410,7 @@ const Perks = () => {
                         claiming={claimingId === perk.id}
                         onClaim={() => void handleClaim(perk)}
                         onCopyCode={(code) => void handleCopyCode(code)}
+                        onViewDetails={() => setDetailsPerk(perk)}
                       />
                     ))}
                   </div>
@@ -377,6 +436,7 @@ const Perks = () => {
                         claiming={claimingId === perk.id}
                         onClaim={() => void handleClaim(perk)}
                         onCopyCode={(code) => void handleCopyCode(code)}
+                        onViewDetails={() => setDetailsPerk(perk)}
                       />
                     ))}
                   </div>
@@ -386,6 +446,18 @@ const Perks = () => {
           )}
         </div>
       </main>
+      <PerkDetailsDialog
+        perk={detailsPerk}
+        open={detailsPerk !== null}
+        claiming={detailsPerk ? claimingId === detailsPerk.id : false}
+        onOpenChange={(open) => {
+          if (!open) setDetailsPerk(null);
+        }}
+        onClaim={() => {
+          if (detailsPerk) void handleClaim(detailsPerk);
+        }}
+        onCopyCode={(code) => void handleCopyCode(code)}
+      />
       <Footer />
     </div>
   );
@@ -419,16 +491,153 @@ function PerkLogo({ title, imageUrl }: { title: string; imageUrl: string | null 
   );
 }
 
+function PerkDetailsDialog({
+  perk,
+  open,
+  claiming,
+  onOpenChange,
+  onClaim,
+  onCopyCode,
+}: {
+  perk: PerkItem | null;
+  open: boolean;
+  claiming: boolean;
+  onOpenChange: (open: boolean) => void;
+  onClaim: () => void;
+  onCopyCode: (code: string) => void;
+}) {
+  if (!perk) return null;
+
+  const locked = !perk.accessible && !perk.redeemed;
+  const couponCode = perk.couponCode?.trim() || undefined;
+  const isCouponCard =
+    perk.redemptionType === "coupon_code" && couponCode !== undefined;
+  const couponOpensPartner =
+    isCouponCard &&
+    Boolean(perk.redemptionUrl && isSafeHttpUrl(perk.redemptionUrl));
+  const upgradeHref =
+    perk.accessLevel === "annual" ? "/upgrade-annual" : "/subscribe";
+  const upgradeLabel =
+    perk.accessLevel === "annual" ? "Upgrade to annual" : "Subscribe to unlock";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[min(90vh,720px)] max-w-lg overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-start gap-3 pr-6">
+            <div className="min-w-0 flex-1">
+              {perk.partnerName ? (
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {perk.partnerName}
+                </p>
+              ) : null}
+              <DialogTitle className="text-left text-xl">{perk.title}</DialogTitle>
+            </div>
+            <PerkLogo title={perk.title} imageUrl={perk.imageUrl} />
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary">{CATEGORY_LABELS[perk.category]}</Badge>
+            <Badge variant="outline">{ACCESS_BADGE[perk.accessLevel]}</Badge>
+            {locked ? (
+              <Badge variant="outline" className="border-amber-500/40 text-amber-700">
+                Locked
+              </Badge>
+            ) : null}
+            {perk.redeemed ? <Badge className="bg-green-600">Claimed</Badge> : null}
+          </div>
+
+          <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+            <p className="text-sm font-medium text-primary">{perk.offerText}</p>
+          </div>
+
+          <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              How it works
+            </p>
+            <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+              {linkifyDescription(perk.description)}
+            </div>
+          </div>
+
+          {locked ? (
+            <div className="rounded-lg border border-border/70 bg-background p-3">
+              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="space-y-2">
+                  <p>
+                    {perk.accessLevel === "annual"
+                      ? "This perk is reserved for annual members."
+                      : "Subscribe to unlock this partner offer."}
+                  </p>
+                  <Button size="sm" asChild>
+                    <Link to={upgradeHref}>{upgradeLabel}</Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {isCouponCard && couponCode ? (
+            <div className="flex h-10 gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-0.5 rounded-md border border-input bg-muted/40 px-2">
+                <span
+                  className="min-w-0 flex-1 truncate font-mono text-sm font-semibold tracking-wide"
+                  title={couponCode}
+                >
+                  {couponCode}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  disabled={locked}
+                  onClick={() => onCopyCode(couponCode)}
+                  aria-label="Copy coupon code"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+          {!locked ? (
+            <Button disabled={perk.redeemed || claiming} onClick={onClaim}>
+              {claiming ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (perk.redemptionType === "external_link" || couponOpensPartner) &&
+                !perk.redeemed ? (
+                <ExternalLink className="mr-2 h-4 w-4" />
+              ) : null}
+              {perk.ctaLabel}
+            </Button>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function PerkCard({
   perk,
   claiming,
   onClaim,
   onCopyCode,
+  onViewDetails,
 }: {
   perk: PerkItem;
   claiming: boolean;
   onClaim: () => void;
   onCopyCode: (code: string) => void;
+  onViewDetails: () => void;
 }) {
   const locked = !perk.accessible && !perk.redeemed;
   const couponCode = perk.couponCode?.trim() || undefined;
@@ -461,6 +670,16 @@ function PerkCard({
             <CardDescription className="mt-1 line-clamp-3">
               {perk.description}
             </CardDescription>
+            {descriptionHasMoreThanPreview(perk.description) ? (
+              <Button
+                type="button"
+                variant="link"
+                className="relative z-20 h-auto p-0 text-sm"
+                onClick={onViewDetails}
+              >
+                View details
+              </Button>
+            ) : null}
           </div>
           <PerkLogo title={perk.title} imageUrl={perk.imageUrl} />
         </div>
