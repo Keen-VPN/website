@@ -2287,19 +2287,30 @@ export async function recordSignupStarted(): Promise<void> {
   if (typeof window !== "undefined") {
     try {
       if (sessionStorage.getItem(SIGNUP_STARTED_SESSION_KEY)) return;
-      sessionStorage.setItem(SIGNUP_STARTED_SESSION_KEY, "1");
     } catch {
       /* private mode / blocked storage */
     }
   }
 
   try {
-    await fetch(`${BACKEND_URL}/marketing-attribution/signup-started`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      keepalive: true,
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/marketing-attribution/signup-started`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      },
+    );
+    if (!response.ok) return;
+
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem(SIGNUP_STARTED_SESSION_KEY, "1");
+      } catch {
+        /* private mode / blocked storage */
+      }
+    }
   } catch {
     /* non-fatal */
   }
