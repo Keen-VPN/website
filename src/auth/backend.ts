@@ -2279,6 +2279,8 @@ export interface AdminUtmSignupReport {
 
 const SIGNUP_STARTED_SESSION_KEY = "keen_signup_started_tracked";
 
+let signupStartedInFlight: Promise<void> | null = null;
+
 /** Fire-and-forget: records signup_started with stored first-touch UTMs (pre-account). */
 export async function recordSignupStarted(): Promise<void> {
   const payload = getUtmAttributionAuthPayload();
@@ -2292,28 +2294,38 @@ export async function recordSignupStarted(): Promise<void> {
     }
   }
 
-  try {
-    const response = await fetch(
-      `${BACKEND_URL}/marketing-attribution/signup-started`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        keepalive: true,
-      },
-    );
-    if (!response.ok) return;
-
-    if (typeof window !== "undefined") {
-      try {
-        sessionStorage.setItem(SIGNUP_STARTED_SESSION_KEY, "1");
-      } catch {
-        /* private mode / blocked storage */
-      }
-    }
-  } catch {
-    /* non-fatal */
+  if (signupStartedInFlight) {
+    return signupStartedInFlight;
   }
+
+  signupStartedInFlight = (async () => {
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/marketing-attribution/signup-started`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          keepalive: true,
+        },
+      );
+      if (!response.ok) return;
+
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.setItem(SIGNUP_STARTED_SESSION_KEY, "1");
+        } catch {
+          /* private mode / blocked storage */
+        }
+      }
+    } catch {
+      /* non-fatal */
+    } finally {
+      signupStartedInFlight = null;
+    }
+  })();
+
+  return signupStartedInFlight;
 }
 
 export interface AdminUtmFunnelRow {
