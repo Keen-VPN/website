@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +44,15 @@ export default function AdminBroadcastEmail() {
   const [previewing, setPreviewing] = useState(false);
   const [sending, setSending] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const audienceRequestIdRef = useRef(0);
+
+  const composeReady = useMemo(
+    () =>
+      subject.trim().length > 0 &&
+      headline.trim().length > 0 &&
+      body.trim().length > 0,
+    [subject, headline, body],
+  );
 
   const composePayload = useCallback(
     () => ({
@@ -58,26 +67,40 @@ export default function AdminBroadcastEmail() {
     [audience, subject, headline, body, preheader, ctaLabel, ctaUrl],
   );
 
-  const refreshAudience = useCallback(async () => {
-    setLoadingAudience(true);
-    const result = await adminFetchBroadcastAudience(audience);
-    setLoadingAudience(false);
-    if (!result.ok || !result.data) {
-      toast({
-        title: "Could not load audience",
-        description: result.error ?? "Try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setRecipientCount(result.data.totalRecipients);
-    setOptedInCount(result.data.optedInCount);
-  }, [audience, toast]);
+  const refreshAudience = useCallback(
+    async (targetAudience: BroadcastEmailAudience) => {
+      const requestId = ++audienceRequestIdRef.current;
+      setLoadingAudience(true);
+      setRecipientCount(null);
+      setOptedInCount(null);
+
+      const result = await adminFetchBroadcastAudience(targetAudience);
+      if (requestId !== audienceRequestIdRef.current) {
+        return;
+      }
+
+      setLoadingAudience(false);
+      if (!result.ok || !result.data) {
+        setRecipientCount(null);
+        setOptedInCount(null);
+        toast({
+          title: "Could not load audience",
+          description: result.error ?? "Try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setRecipientCount(result.data.totalRecipients);
+      setOptedInCount(result.data.optedInCount);
+    },
+    [toast],
+  );
 
   useEffect(() => {
     if (!canBroadcast) return;
-    void refreshAudience();
-  }, [canBroadcast, refreshAudience]);
+    void refreshAudience(audience);
+  }, [canBroadcast, audience, refreshAudience]);
 
   const handleExport = async () => {
     setExporting(true);
@@ -218,7 +241,7 @@ export default function AdminBroadcastEmail() {
             ) : null}
             <Button
               variant="outline"
-              onClick={() => void refreshAudience()}
+              onClick={() => void refreshAudience(audience)}
               disabled={loadingAudience}
             >
               Refresh count
@@ -304,7 +327,7 @@ export default function AdminBroadcastEmail() {
         <Button
           variant="outline"
           onClick={() => void handlePreview()}
-          disabled={previewing || !subject || !headline || !body}
+          disabled={previewing || !composeReady}
         >
           {previewing ? "Sending preview…" : "Send preview to me"}
         </Button>
@@ -313,9 +336,7 @@ export default function AdminBroadcastEmail() {
           disabled={
             sending ||
             loadingAudience ||
-            !subject ||
-            !headline ||
-            !body ||
+            !composeReady ||
             recipientCount == null
           }
         >
