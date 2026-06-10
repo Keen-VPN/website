@@ -72,14 +72,40 @@ function isSafeHttpUrl(url: string): boolean {
 }
 
 function descriptionHasMoreThanPreview(description: string): boolean {
-  return description.trim().length > 0;
+  const normalized = description.trim();
+  if (!normalized) return false;
+  const lineCount = normalized.split("\n").length;
+  // Multi-step or long copy likely exceeds line-clamp-3; skip short one-liners.
+  return lineCount > 1 || normalized.length > 200;
 }
 
-const TRAILING_URL_PUNCTUATION = /[.,;:!?)]+$/;
-
 function normalizeMatchedUrl(raw: string): { href: string; display: string } {
-  const trailing = raw.match(TRAILING_URL_PUNCTUATION)?.[0] ?? "";
-  const href = trailing ? raw.slice(0, -trailing.length) : raw;
+  let href = raw;
+  let suffix = "";
+
+  while (href.length > 0) {
+    const last = href.at(-1);
+    if (!last) break;
+
+    if (". ,;:!?".includes(last)) {
+      suffix = last + suffix;
+      href = href.slice(0, -1);
+      continue;
+    }
+
+    if (last === ")") {
+      const openCount = (href.match(/\(/g) ?? []).length;
+      const closeCount = (href.match(/\)/g) ?? []).length;
+      if (closeCount > openCount) {
+        suffix = ")" + suffix;
+        href = href.slice(0, -1);
+        continue;
+      }
+    }
+
+    break;
+  }
+
   return { href, display: raw };
 }
 
