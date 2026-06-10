@@ -79,7 +79,11 @@ function descriptionHasMoreThanPreview(description: string): boolean {
   return lineCount > 1 || normalized.length > 200;
 }
 
-function normalizeMatchedUrl(raw: string): { href: string; display: string } {
+function normalizeMatchedUrl(raw: string): {
+  href: string;
+  display: string;
+  suffix: string;
+} {
   let href = raw;
   let suffix = "";
 
@@ -106,7 +110,7 @@ function normalizeMatchedUrl(raw: string): { href: string; display: string } {
     break;
   }
 
-  return { href, display: raw };
+  return { href, display: href, suffix };
 }
 
 function linkifyDescription(text: string): ReactNode[] {
@@ -119,7 +123,7 @@ function linkifyDescription(text: string): ReactNode[] {
     if (match.index > lastIndex) {
       nodes.push(text.slice(lastIndex, match.index));
     }
-    const { href, display } = normalizeMatchedUrl(match[0]);
+    const { href, display, suffix } = normalizeMatchedUrl(match[0]);
     if (isSafeHttpUrl(href)) {
       nodes.push(
         <a
@@ -132,8 +136,11 @@ function linkifyDescription(text: string): ReactNode[] {
           {display}
         </a>,
       );
+      if (suffix) {
+        nodes.push(suffix);
+      }
     } else {
-      nodes.push(display);
+      nodes.push(display + suffix);
     }
     lastIndex = match.index + match[0].length;
   }
@@ -493,8 +500,8 @@ const Perks = () => {
       </main>
       <PerkDetailsDialog
         perk={detailsPerk}
-        open={detailsPerkId !== null}
-        claiming={detailsPerkId ? claimingId === detailsPerkId : false}
+        open={detailsPerk !== null}
+        claiming={detailsPerk ? claimingId === detailsPerk.id : false}
         onOpenChange={(open) => {
           if (!open) setDetailsPerkId(null);
         }}
