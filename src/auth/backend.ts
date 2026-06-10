@@ -2338,8 +2338,8 @@ export interface AdminUtmFunnelRow {
   subscriptions: number;
   revenue: number;
   signup_to_completed_rate: number;
-  signup_to_trial_rate: number;
-  signup_to_paid_rate: number;
+  signup_completed_to_trial_rate: number;
+  signup_completed_to_paid_rate: number;
 }
 
 export interface AdminUtmFunnelReport {
@@ -2352,8 +2352,8 @@ export interface AdminUtmFunnelReport {
     subscriptions: number;
     revenue: number;
     signup_to_completed_rate: number;
-    signup_to_trial_rate: number;
-    signup_to_paid_rate: number;
+    signup_completed_to_trial_rate: number;
+    signup_completed_to_paid_rate: number;
   };
   rows: AdminUtmFunnelRow[];
 }

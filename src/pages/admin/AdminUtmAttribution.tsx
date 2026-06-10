@@ -181,7 +181,8 @@ export default function AdminUtmAttribution() {
           <p className="text-xs text-muted-foreground">
             {loading || error
               ? ""
-              : formatRate(totals?.signup_to_trial_rate ?? 0) + " of sign-ups"}
+              : formatRate(totals?.signup_completed_to_trial_rate ?? 0) +
+                  " of attributed sign-ups"}
           </p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
@@ -192,7 +193,8 @@ export default function AdminUtmAttribution() {
           <p className="text-xs text-muted-foreground">
             {loading || error
               ? ""
-              : formatRate(totals?.signup_to_paid_rate ?? 0) + " of sign-ups"}
+              : formatRate(totals?.signup_completed_to_paid_rate ?? 0) +
+                  " of attributed sign-ups"}
           </p>
         </div>
       </div>
@@ -225,8 +227,8 @@ export default function AdminUtmAttribution() {
                 <th className="p-3 text-right">Paid</th>
                 <th className="p-3 text-right">Revenue</th>
                 <th className="p-3 text-right">→ Sign-up</th>
-                <th className="p-3 text-right">→ Trial</th>
-                <th className="p-3 text-right">→ Paid</th>
+                <th className="p-3 text-right">Completed → trial</th>
+                <th className="p-3 text-right">Completed → paid</th>
               </tr>
             </thead>
             <tbody>
@@ -264,10 +266,10 @@ export default function AdminUtmAttribution() {
                         {formatRate(row.signup_to_completed_rate)}
                       </td>
                       <td className="p-3 text-right">
-                        {formatRate(row.signup_to_trial_rate)}
+                        {formatRate(row.signup_completed_to_trial_rate)}
                       </td>
                       <td className="p-3 text-right">
-                        {formatRate(row.signup_to_paid_rate)}
+                        {formatRate(row.signup_completed_to_paid_rate)}
                       </td>
                     </tr>
                   ))

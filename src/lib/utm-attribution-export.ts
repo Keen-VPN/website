@@ -60,8 +60,8 @@ export function buildUtmFunnelCsv(report: AdminUtmFunnelReport): string {
       "subscriptions",
       "revenue",
       "signup_to_completed_rate",
-      "signup_to_trial_rate",
-      "signup_to_paid_rate",
+      "signup_completed_to_trial_rate",
+      "signup_completed_to_paid_rate",
     ]),
   );
 
@@ -77,8 +77,8 @@ export function buildUtmFunnelCsv(report: AdminUtmFunnelReport): string {
         row.subscriptions,
         row.revenue,
         row.signup_to_completed_rate,
-        row.signup_to_trial_rate,
-        row.signup_to_paid_rate,
+        row.signup_completed_to_trial_rate,
+        row.signup_completed_to_paid_rate,
       ]),
     );
   }
