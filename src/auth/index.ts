@@ -30,6 +30,8 @@ export {
   skipContactEmailPrompt,
   getEmailPreferences,
   updateEmailPreferences,
+  getUserProfileInformation,
+  updateUserProfileInformation,
   confirmContextualEmailUnsubscribe,
   sendContactEmailVerification,
   confirmContactEmailVerification,

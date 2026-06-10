@@ -58,6 +58,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
+import { UserInformationCard } from "@/components/UserInformationCard";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
 import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
@@ -1072,6 +1073,12 @@ const Account = () => {
                 providers={linkedProviders}
                 onUpdate={() => { refreshLinkedProviders(); refreshSubscription(); }}
               />
+            </div>
+          )}
+
+          {hasSessionToken && (
+            <div className="mt-8">
+              <UserInformationCard sessionToken={getSessionToken() ?? ""} />
             </div>
           )}
 
