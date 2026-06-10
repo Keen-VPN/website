@@ -64,6 +64,12 @@ const AdminUserSessions = lazy(
 const AdminUtmAttribution = lazy(
   () => import("./pages/admin/AdminUtmAttribution"),
 );
+const AdminUserProfiles = lazy(
+  () => import("./pages/admin/AdminUserProfiles"),
+);
+const AdminSignupSources = lazy(
+  () => import("./pages/admin/AdminSignupSources"),
+);
 
 const queryClient = new QueryClient();
 
@@ -178,6 +184,8 @@ const App = () => (
                   element={<AdminDomainInsights />}
                 />
                 <Route path="perks" element={<AdminPerks />} />
+                <Route path="user-profiles" element={<AdminUserProfiles />} />
+                <Route path="signup-sources" element={<AdminSignupSources />} />
                 <Route
                   path="connection-engagement"
                   element={<AdminConnectionEngagement />}

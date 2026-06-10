@@ -14,6 +14,7 @@ import {
   Mail,
   Gift,
   Megaphone,
+  UserCircle,
 } from "lucide-react";
 
 function linkClass(isActive: boolean) {
@@ -85,6 +86,20 @@ export default function AdminSidebarLayout() {
             >
               <Gift className="h-4 w-4" />
               Perks
+            </NavLink>
+            <NavLink
+              to="/admin/user-profiles"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <UserCircle className="h-4 w-4" />
+              User Profiles
+            </NavLink>
+            <NavLink
+              to="/admin/signup-sources"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Megaphone className="h-4 w-4" />
+              Signup Sources
             </NavLink>
             <NavLink
               to="/admin/connection-engagement"
