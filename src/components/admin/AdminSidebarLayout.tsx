@@ -27,7 +27,7 @@ function linkClass(isActive: boolean) {
 }
 
 export default function AdminSidebarLayout() {
-  const { admin, logout } = useAdminAuth();
+  const { admin, logout, can } = useAdminAuth();
   const navigate = useNavigate();
 
   const signOut = async () => {
@@ -80,6 +80,15 @@ export default function AdminSidebarLayout() {
               <Mail className="h-4 w-4" />
               Domain Insights
             </NavLink>
+            {can("emails.broadcast") ? (
+              <NavLink
+                to="/admin/broadcast-email"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                <Mail className="h-4 w-4" />
+                Broadcast Email
+              </NavLink>
+            ) : null}
             <NavLink
               to="/admin/perks"
               className={({ isActive }) => linkClass(isActive)}
