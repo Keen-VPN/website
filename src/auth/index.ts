@@ -35,6 +35,7 @@ export {
   getSignupSourceStatus,
   updateSignupSource,
   adminFetchSignupSourceSummary,
+  adminFetchUserProfileSummary,
   confirmContextualEmailUnsubscribe,
   sendContactEmailVerification,
   confirmContactEmailVerification,
@@ -86,6 +87,15 @@ export type {
   PerkItem,
   PerkAccessTier,
   PerksListPayload,
+  ProfileQuestionOption,
+  ProfileQuestion,
+  UserProfileInformationResponse,
+  SignupSourceOption,
+  SignupSourceStatusResponse,
+  AdminSignupSourceSummary,
+  AdminUserProfileAnswerDistribution,
+  AdminUserProfileQuestionSummary,
+  AdminUserProfileSummary,
 } from './backend';
 
 export {

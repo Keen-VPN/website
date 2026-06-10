@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   adminFetchSignupSourceSummary,
   type AdminSignupSourceSummary,
-} from "@/auth/backend";
+} from "@/auth";
 
 function StatCard({
   label,

@@ -16,7 +16,7 @@ import {
   getSignupSourceStatus,
   updateSignupSource,
   type SignupSourceOption,
-} from "@/auth/backend";
+} from "@/auth";
 
 interface SignupSourceDialogProps {
   open: boolean;

@@ -3,7 +3,7 @@ import {
   adminFetchUserProfileSummary,
   type AdminUserProfileQuestionSummary,
   type AdminUserProfileSummary,
-} from "@/auth/backend";
+} from "@/auth";
 
 function formatPercent(numerator: number, denominator: number) {
   if (denominator <= 0) return "—";

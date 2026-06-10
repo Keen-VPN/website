@@ -530,13 +530,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    let cancelled = false;
     signupSourceCheckedRef.current = true;
 
     void getSignupSourceStatus(token).then((response) => {
+      if (cancelled) {
+        return;
+      }
       if (response.success && response.shouldPrompt) {
         setSignupSourceDialogOpen(true);
       }
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [hasSessionToken]);
 
   // ============================================================================
@@ -896,7 +904,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshLinkedProviders,
   }), [user, subscription, trial, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, refreshLinkedProviders]);
 
-  const sessionTokenForSignupSource = getSessionToken();
+  const sessionTokenForSignupSource = React.useMemo(() => {
+    if (!hasSessionToken || !signupSourceDialogOpen) {
+      return null;
+    }
+    return getSessionToken();
+  }, [hasSessionToken, signupSourceDialogOpen]);
 
   return (
     <AuthContext.Provider value={value}>
