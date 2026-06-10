@@ -77,13 +77,12 @@ export function UserInformationCard({ sessionToken }: UserInformationCardProps) 
     }
 
     setAnswers((current) => {
-      const next = { ...current };
       if (previous) {
-        next[questionKey] = previous;
-      } else {
-        delete next[questionKey];
+        return { ...current, [questionKey]: previous };
       }
-      return next;
+      return Object.fromEntries(
+        Object.entries(current).filter(([key]) => key !== questionKey),
+      );
     });
 
     toast({
