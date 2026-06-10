@@ -72,10 +72,15 @@ function isSafeHttpUrl(url: string): boolean {
 }
 
 function descriptionHasMoreThanPreview(description: string): boolean {
-  const normalized = description.trim();
-  if (!normalized) return false;
-  const lineCount = normalized.split("\n").length;
-  return normalized.length > 180 || lineCount > 3;
+  return description.trim().length > 0;
+}
+
+const TRAILING_URL_PUNCTUATION = /[.,;:!?)]+$/;
+
+function normalizeMatchedUrl(raw: string): { href: string; display: string } {
+  const trailing = raw.match(TRAILING_URL_PUNCTUATION)?.[0] ?? "";
+  const href = trailing ? raw.slice(0, -trailing.length) : raw;
+  return { href, display: raw };
 }
 
 function linkifyDescription(text: string): ReactNode[] {
@@ -88,23 +93,23 @@ function linkifyDescription(text: string): ReactNode[] {
     if (match.index > lastIndex) {
       nodes.push(text.slice(lastIndex, match.index));
     }
-    const url = match[0];
-    if (isSafeHttpUrl(url)) {
+    const { href, display } = normalizeMatchedUrl(match[0]);
+    if (isSafeHttpUrl(href)) {
       nodes.push(
         <a
-          key={`${match.index}-${url}`}
-          href={url}
+          key={`${match.index}-${href}`}
+          href={href}
           target="_blank"
           rel="noopener noreferrer"
           className="break-all text-primary underline underline-offset-2 hover:text-primary/80"
         >
-          {url}
+          {display}
         </a>,
       );
     } else {
-      nodes.push(url);
+      nodes.push(display);
     }
-    lastIndex = match.index + url.length;
+    lastIndex = match.index + match[0].length;
   }
 
   if (lastIndex < text.length) {
@@ -130,7 +135,7 @@ const Perks = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
-  const [detailsPerk, setDetailsPerk] = useState<PerkItem | null>(null);
+  const [detailsPerkId, setDetailsPerkId] = useState<string | null>(null);
   const [initialLoad, setInitialLoad] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const loadRequestId = useRef(0);
@@ -216,6 +221,20 @@ const Perks = () => {
     () => perks.filter((perk) => perk.isFeatured),
     [perks],
   );
+
+  const detailsPerk = useMemo(
+    () =>
+      detailsPerkId
+        ? (perks.find((perk) => perk.id === detailsPerkId) ?? null)
+        : null,
+    [detailsPerkId, perks],
+  );
+
+  useEffect(() => {
+    if (detailsPerkId && !detailsPerk) {
+      setDetailsPerkId(null);
+    }
+  }, [detailsPerkId, detailsPerk]);
 
   const handleClaim = async (perk: PerkItem) => {
     if (!perk.accessible || perk.redeemed) return;
@@ -410,7 +429,7 @@ const Perks = () => {
                         claiming={claimingId === perk.id}
                         onClaim={() => void handleClaim(perk)}
                         onCopyCode={(code) => void handleCopyCode(code)}
-                        onViewDetails={() => setDetailsPerk(perk)}
+                        onViewDetails={() => setDetailsPerkId(perk.id)}
                       />
                     ))}
                   </div>
@@ -436,7 +455,7 @@ const Perks = () => {
                         claiming={claimingId === perk.id}
                         onClaim={() => void handleClaim(perk)}
                         onCopyCode={(code) => void handleCopyCode(code)}
-                        onViewDetails={() => setDetailsPerk(perk)}
+                        onViewDetails={() => setDetailsPerkId(perk.id)}
                       />
                     ))}
                   </div>
@@ -448,10 +467,10 @@ const Perks = () => {
       </main>
       <PerkDetailsDialog
         perk={detailsPerk}
-        open={detailsPerk !== null}
-        claiming={detailsPerk ? claimingId === detailsPerk.id : false}
+        open={detailsPerkId !== null}
+        claiming={detailsPerkId ? claimingId === detailsPerkId : false}
         onOpenChange={(open) => {
-          if (!open) setDetailsPerk(null);
+          if (!open) setDetailsPerkId(null);
         }}
         onClaim={() => {
           if (detailsPerk) void handleClaim(detailsPerk);
@@ -506,23 +525,23 @@ function PerkDetailsDialog({
   onClaim: () => void;
   onCopyCode: (code: string) => void;
 }) {
-  if (!perk) return null;
-
-  const locked = !perk.accessible && !perk.redeemed;
-  const couponCode = perk.couponCode?.trim() || undefined;
+  const locked = perk ? !perk.accessible && !perk.redeemed : false;
+  const couponCode = perk?.couponCode?.trim() || undefined;
   const isCouponCard =
-    perk.redemptionType === "coupon_code" && couponCode !== undefined;
+    perk?.redemptionType === "coupon_code" && couponCode !== undefined;
   const couponOpensPartner =
     isCouponCard &&
-    Boolean(perk.redemptionUrl && isSafeHttpUrl(perk.redemptionUrl));
+    Boolean(perk?.redemptionUrl && isSafeHttpUrl(perk.redemptionUrl));
   const upgradeHref =
-    perk.accessLevel === "annual" ? "/upgrade-annual" : "/subscribe";
+    perk?.accessLevel === "annual" ? "/upgrade-annual" : "/subscribe";
   const upgradeLabel =
-    perk.accessLevel === "annual" ? "Upgrade to annual" : "Subscribe to unlock";
+    perk?.accessLevel === "annual" ? "Upgrade to annual" : "Subscribe to unlock";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[min(90vh,720px)] max-w-lg overflow-y-auto">
+        {!perk ? null : (
+          <>
         <DialogHeader>
           <div className="flex items-start gap-3 pr-6">
             <div className="min-w-0 flex-1">
@@ -621,6 +640,8 @@ function PerkDetailsDialog({
             </Button>
           ) : null}
         </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
