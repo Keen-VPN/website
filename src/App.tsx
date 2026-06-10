@@ -37,6 +37,7 @@ const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const PaymentCancel = lazy(() => import("./pages/PaymentCancel"));
 const AuthDebug = lazy(() => import("./pages/AuthDebug"));
 const AppleDebug = lazy(() => import("./pages/AppleDebug"));
+const MyIPAddress = lazy(() => import("./pages/MyIPAddress"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const MembershipTransferAdmin = lazy(
   () => import("./pages/admin/MembershipTransferAdmin"),
@@ -99,6 +100,7 @@ const App = () => (
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/support" element={<Support />} />
+              <Route path="/my-ip-address" element={<MyIPAddress />} />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/signin/magic" element={<MagicLinkRequest />} />
               <Route path="/auth/magic" element={<MagicLinkVerify />} />
