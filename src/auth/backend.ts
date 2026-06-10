@@ -3899,6 +3899,152 @@ export async function unlinkProvider(
   return response.json();
 }
 
+export type BroadcastEmailAudience = "all_deliverable" | "opted_in";
+
+export interface AdminBroadcastAudienceSummary {
+  audience: BroadcastEmailAudience;
+  totalRecipients: number;
+  optedInCount: number;
+}
+
+export interface AdminBroadcastComposePayload {
+  audience?: BroadcastEmailAudience;
+  subject: string;
+  headline: string;
+  body: string;
+  preheader?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+}
+
+export async function adminFetchBroadcastAudience(
+  audience: BroadcastEmailAudience = "all_deliverable",
+): Promise<{
+  ok: boolean;
+  data?: AdminBroadcastAudienceSummary;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams({ audience });
+    const response = await fetch(
+      `${BACKEND_URL}/admin/broadcast-email/audience?${query.toString()}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load broadcast audience"),
+      };
+    }
+    const record = raw as { data?: AdminBroadcastAudienceSummary };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminExportBroadcastAudienceCsv(
+  audience: BroadcastEmailAudience = "all_deliverable",
+): Promise<{ ok: boolean; blob?: Blob; error?: string }> {
+  try {
+    const query = new URLSearchParams({ audience });
+    const response = await fetch(
+      `${BACKEND_URL}/admin/broadcast-email/audience/export?${query.toString()}`,
+      { credentials: "include" },
+    );
+    if (!response.ok) {
+      const raw: unknown = await response.json().catch(() => ({}));
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to export audience"),
+      };
+    }
+    const blob = await response.blob();
+    return { ok: true, blob };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminSendBroadcastPreview(
+  payload: AdminBroadcastComposePayload,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/broadcast-email/preview`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to send preview"),
+      };
+    }
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminSendBroadcastEmail(
+  payload: AdminBroadcastComposePayload & {
+    confirmRecipientCount: number;
+    sendImmediately?: boolean;
+  },
+): Promise<{
+  ok: boolean;
+  data?: {
+    broadcastId: string;
+    recipientCount: number;
+    syncedContactCount: number;
+    sendImmediately: boolean;
+  };
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/broadcast-email/send`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to send broadcast"),
+      };
+    }
+    const record = raw as {
+      data?: {
+        broadcastId: string;
+        recipientCount: number;
+        syncedContactCount: number;
+        sendImmediately: boolean;
+      };
+    };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
 export async function getLinkedProviders(
   sessionToken: string,
 ): Promise<{
