@@ -30,6 +30,7 @@ import {
   useDebounce,
   verifyEmailOtp,
 } from "@/auth";
+import { recordSignupStarted } from "@/auth/backend";
 import GoogleIcon from "@/components/ui/google-icon";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -98,10 +99,12 @@ const SignIn = () => {
 
   // Debounce sign-in to prevent double-clicks
   const [handleGoogleSignIn, isGoogleDebouncing] = useDebounce(async () => {
+    void recordSignupStarted();
     await signIn("google");
   }, 2000);
 
   const [handleAppleSignIn, isAppleDebouncing] = useDebounce(async () => {
+    void recordSignupStarted();
     await signIn("apple");
   }, 2000);
 
@@ -115,6 +118,7 @@ const SignIn = () => {
   const sendOtp = async () => {
     if (!emailForOtp) return;
 
+    void recordSignupStarted();
     setOtpLoading(true);
     setOtpMessage("");
     const result = await requestEmailOtp(emailForOtp);

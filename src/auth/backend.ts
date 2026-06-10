@@ -2277,6 +2277,96 @@ export interface AdminUtmSignupReport {
   rows: AdminUtmSignupRow[];
 }
 
+/** Fire-and-forget: records signup_started with stored first-touch UTMs (pre-account). */
+export async function recordSignupStarted(): Promise<void> {
+  const payload = getUtmAttributionAuthPayload();
+  if (!payload.utmAttribution) return;
+  try {
+    await fetch(`${BACKEND_URL}/marketing-attribution/signup-started`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    /* non-fatal */
+  }
+}
+
+export interface AdminUtmFunnelRow {
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  signup_started: number;
+  signups_completed: number;
+  trials: number;
+  subscriptions: number;
+  revenue: number;
+  signup_to_completed_rate: number;
+  signup_to_trial_rate: number;
+  signup_to_paid_rate: number;
+}
+
+export interface AdminUtmFunnelReport {
+  from: string;
+  to: string;
+  totals: {
+    signup_started: number;
+    signups_completed: number;
+    trials: number;
+    subscriptions: number;
+    revenue: number;
+    signup_to_completed_rate: number;
+    signup_to_trial_rate: number;
+    signup_to_paid_rate: number;
+  };
+  rows: AdminUtmFunnelRow[];
+}
+
+export async function adminFetchUtmFunnelReport(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminUtmFunnelReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/utm-attribution/funnel${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(data, "Failed to load UTM funnel report"),
+      };
+    }
+    const record = data as { data?: AdminUtmFunnelReport };
+    if (!record.data) {
+      return { ok: false, error: "Invalid UTM funnel report response" };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
 export async function adminFetchUtmSignupReport(params?: {
   from?: string;
   to?: string;
