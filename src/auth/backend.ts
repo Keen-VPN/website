@@ -921,6 +921,139 @@ export async function updateUserProfileInformation(
   }
 }
 
+export interface SignupSourceOption {
+  value: string;
+  label: string;
+}
+
+export interface SignupSourceStatusResponse {
+  success: boolean;
+  question: string;
+  options: SignupSourceOption[];
+  source: string | null;
+  otherText: string | null;
+  shouldPrompt: boolean;
+  capturedAt: string | null;
+  error?: string;
+}
+
+export async function getSignupSourceStatus(
+  sessionToken: string,
+): Promise<SignupSourceStatusResponse> {
+  const empty: SignupSourceStatusResponse = {
+    success: false,
+    question: "How did you hear about KeenVPN?",
+    options: [],
+    source: null,
+    otherText: null,
+    shouldPrompt: false,
+    capturedAt: null,
+  };
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/signup-source`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ...empty,
+        error: extractBackendErrorMessage(data, "Failed to fetch signup source"),
+      };
+    }
+    return data as SignupSourceStatusResponse;
+  } catch (error) {
+    return {
+      ...empty,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch signup source",
+    };
+  }
+}
+
+export async function updateSignupSource(
+  sessionToken: string,
+  payload: {
+    source?: string;
+    otherText?: string;
+    skipped?: boolean;
+  },
+): Promise<SignupSourceStatusResponse> {
+  const empty: SignupSourceStatusResponse = {
+    success: false,
+    question: "How did you hear about KeenVPN?",
+    options: [],
+    source: null,
+    otherText: null,
+    shouldPrompt: false,
+    capturedAt: null,
+  };
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/signup-source`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ...payload, platform: "web" }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ...empty,
+        error: extractBackendErrorMessage(data, "Failed to save signup source"),
+      };
+    }
+    return data as SignupSourceStatusResponse;
+  } catch (error) {
+    return {
+      ...empty,
+      error:
+        error instanceof Error ? error.message : "Failed to save signup source",
+    };
+  }
+}
+
+export interface AdminSignupSourceSummary {
+  totalUsers: number;
+  responsesCaptured: number;
+  responsesSkipped: number;
+  unansweredCount: number;
+  distribution: { value: string; label: string; count: number }[];
+  options: { value: string; label: string; count: number }[];
+  trends: { day: string; source: string; label: string; count: number }[];
+  analyticsEvents: { eventName: string; count: number }[];
+}
+
+export async function adminFetchSignupSourceSummary(params?: {
+  signal?: AbortSignal;
+}): Promise<{ ok: boolean; data?: AdminSignupSourceSummary; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/signup-sources/summary`, {
+      credentials: "include",
+      signal: params?.signal,
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load signup source summary"),
+      };
+    }
+    const record = raw as { data?: AdminSignupSourceSummary };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
 export interface ContextualEmailUnsubscribeResponse {
   success: boolean;
   redirectUrl?: string;

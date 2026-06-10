@@ -95,6 +95,13 @@ export default function AdminSidebarLayout() {
               User Profiles
             </NavLink>
             <NavLink
+              to="/admin/signup-sources"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Megaphone className="h-4 w-4" />
+              Signup Sources
+            </NavLink>
+            <NavLink
               to="/admin/connection-engagement"
               className={({ isActive }) => linkClass(isActive)}
             >
