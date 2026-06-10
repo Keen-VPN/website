@@ -144,7 +144,10 @@ export default function AdminBroadcastEmail() {
     if (recipientCount == null || recipientCount < 1) {
       toast({
         title: "No recipients",
-        description: "Refresh the audience preview before sending.",
+        description:
+          recipientCount === 0
+            ? "No deliverable recipients match this audience filter."
+            : "Refresh the audience preview before sending.",
         variant: "destructive",
       });
       return;
@@ -337,7 +340,8 @@ export default function AdminBroadcastEmail() {
             sending ||
             loadingAudience ||
             !composeReady ||
-            recipientCount == null
+            recipientCount == null ||
+            recipientCount < 1
           }
         >
           {sending ? "Sending…" : "Send broadcast"}
