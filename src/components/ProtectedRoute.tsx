@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from "@/contexts/AuthContext";
+import { buildSignInUrl } from "@/auth";
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -34,7 +35,13 @@ const ProtectedRoute = ({ children, requireSubscription = false }: ProtectedRout
   }
 
   if (!user) {
-    return <Navigate to={isASWeb ? "/signin?asweb=1" : "/signin"} replace />;
+    const redirectTarget = `${location.pathname}${location.search}${location.hash}`;
+    return (
+      <Navigate
+        to={buildSignInUrl({ redirect: redirectTarget, asweb: isASWeb })}
+        replace
+      />
+    );
   }
 
   if (requireSubscription && (!subscription || subscription.status !== 'active')) {

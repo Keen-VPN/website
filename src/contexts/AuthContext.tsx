@@ -29,6 +29,7 @@ import {
   consumePendingMembershipTransfer,
   consumePendingMembershipTransferReturnUrl,
 } from "@/auth/membership-transfer-flow";
+import { consumePostLoginRedirect } from "@/auth/post-login-redirect";
 import { clearStripeCheckoutReturn } from "@/lib/keenvpn-deep-links";
 
 // ============================================================================
@@ -130,6 +131,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const transferUrl = consumePendingMembershipTransferReturnUrl();
     if (transferUrl) {
       return transferUrl;
+    }
+    const redirectUrl = consumePostLoginRedirect();
+    if (redirectUrl) {
+      return redirectUrl;
     }
     return accountUrl();
   }, [accountUrl, isASWebSession]);
