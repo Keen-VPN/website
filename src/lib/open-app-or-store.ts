@@ -2,6 +2,8 @@ import { getSessionToken } from "@/auth";
 import type { SubscriptionData } from "@/auth/types";
 import { detectDevice, isAppDeepLinkSupported } from "@/lib/device-detection";
 import {
+  isNativeAppWebSession,
+  openKeenVpnAppStore,
   openKeenVpnNativeApp,
   OPEN_APP_DEEP_LINK,
   resolveNativeAppHandoffDeepLink,
@@ -20,12 +22,14 @@ export function getAppStoreInstallButtonLabel(): string {
   return "Download KeenVPN App";
 }
 
-/** Paying subscribers on iOS/macOS: open the native app instead of the App Store. */
+/** True only when opened from the native app and a deep link is supported on this device. */
 export function shouldOpenNativeAppFirst(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
   return (
-    hasManageableSubscription(subscription) && isAppDeepLinkSupported()
+    isNativeAppWebSession() &&
+    hasManageableSubscription(subscription) &&
+    isAppDeepLinkSupported()
   );
 }
 
@@ -44,6 +48,7 @@ function openKeenVpnNativeAppWithAppStoreFallback(
   deepLink?: string,
 ): void {
   const link = deepLink ?? resolveOpenAppDeepLink();
+  const resolvedStoreUrl = resolveAppStoreUrl(appStoreUrl);
   let didLeavePage = false;
 
   const markLeft = () => {
@@ -64,34 +69,34 @@ function openKeenVpnNativeAppWithAppStoreFallback(
   document.addEventListener("visibilitychange", onVisibilityChange);
   window.addEventListener("pagehide", markLeft);
 
-  openKeenVpnNativeApp(link);
+  openKeenVpnNativeApp(link, resolvedStoreUrl);
 
   window.setTimeout(() => {
     cleanup();
     if (!didLeavePage) {
-      window.open(resolveAppStoreUrl(appStoreUrl), "_blank", "noopener,noreferrer");
+      openKeenVpnAppStore(resolvedStoreUrl);
     }
   }, APP_OPEN_FALLBACK_MS);
 }
 
+/**
+ * Opens the native app when this page was launched from the app; otherwise App Store / download.
+ */
 export function openAppOrAppStore(
   subscription: SubscriptionData | null | undefined,
   appStoreUrl: string,
 ): void {
-  const deepLink = resolveOpenAppDeepLink();
+  const storeUrl = resolveAppStoreUrl(appStoreUrl);
 
-  if (shouldOpenNativeAppFirst(subscription)) {
-    openKeenVpnNativeAppWithAppStoreFallback(appStoreUrl, deepLink);
+  if (!isNativeAppWebSession()) {
+    openKeenVpnAppStore(storeUrl);
     return;
   }
 
-  // Logged-in on iOS/macOS: hand off session even when subscription is web-only / trial.
-  if (getSessionToken() && isAppDeepLinkSupported()) {
-    openKeenVpnNativeAppWithAppStoreFallback(appStoreUrl, deepLink);
-    return;
-  }
-
-  window.open(resolveAppStoreUrl(appStoreUrl), "_blank", "noopener,noreferrer");
+  openKeenVpnNativeAppWithAppStoreFallback(
+    appStoreUrl,
+    resolveOpenAppDeepLink(),
+  );
 }
 
 export function getAppDownloadButtonLabel(

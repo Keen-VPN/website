@@ -16,7 +16,11 @@ import {
   getUnsupportedDeviceName,
 } from "@/lib/device-detection";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
-import { PAYMENT_SUCCESS_DEEP_LINK } from "@/lib/keenvpn-deep-links";
+import {
+  isNativeAppWebSession,
+  openKeenVpnNativeApp,
+  PAYMENT_SUCCESS_DEEP_LINK,
+} from "@/lib/keenvpn-deep-links";
 import {
   getAppStoreInstallButtonLabel,
   resolveAppStoreUrl,
@@ -24,14 +28,24 @@ import {
 
 const PaymentSuccess = () => {
   const deepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
+  const fromNativeApp = useMemo(() => isNativeAppWebSession(), []);
   const unsupportedDevice = useMemo(() => getUnsupportedDeviceName(), []);
   const appStoreUrl = useAppStoreUrl();
 
   // Always "Download" + App Store — not getAppDownloadButtonLabel (that shows "Open" for subscribers).
   const downloadButtonLabel = useMemo(() => getAppStoreInstallButtonLabel(), []);
 
+  const resolvedAppStoreUrl = useMemo(
+    () => resolveAppStoreUrl(appStoreUrl),
+    [appStoreUrl],
+  );
+
   const openAppStore = () => {
-    window.open(resolveAppStoreUrl(appStoreUrl), "_blank", "noopener,noreferrer");
+    window.open(resolvedAppStoreUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const openNativeApp = () => {
+    openKeenVpnNativeApp(PAYMENT_SUCCESS_DEEP_LINK, resolvedAppStoreUrl);
   };
 
   return (
@@ -64,36 +78,37 @@ const PaymentSuccess = () => {
             </div>
 
             <div className="space-y-3">
-              {deepLinkSupported ? (
+              {fromNativeApp && deepLinkSupported ? (
                 <>
                   <Button
-                    asChild
+                    type="button"
                     className="w-full bg-gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
                     size="lg"
+                    onClick={openNativeApp}
                   >
-                    <a href={PAYMENT_SUCCESS_DEEP_LINK}>
-                      <Smartphone className="mr-2 h-5 w-5" />
-                      Return to KeenVPN App
-                    </a>
+                    <Smartphone className="mr-2 h-5 w-5" />
+                    Return to KeenVPN App
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    Tap the button above to open KeenVPN. If nothing happens,
-                    open the app manually — your subscription is already active.
+                    Tap the button above to return to KeenVPN. Your subscription
+                    is already active.
                   </p>
-                  <div className="border-t border-border/60 pt-3">
-                    <p className="mb-2 text-sm text-muted-foreground">
-                      Don&apos;t have the app installed yet?
-                    </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={openAppStore}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      {downloadButtonLabel}
-                    </Button>
-                  </div>
+                </>
+              ) : deepLinkSupported ? (
+                <>
+                  <Button
+                    type="button"
+                    className="w-full bg-gradient-primary text-primary-foreground shadow-glow hover:opacity-90"
+                    size="lg"
+                    onClick={openAppStore}
+                  >
+                    <Download className="mr-2 h-5 w-5" />
+                    {downloadButtonLabel}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    After installing, sign in with the same account you used for
+                    checkout. Your subscription will be ready to use.
+                  </p>
                 </>
               ) : (
                 <>

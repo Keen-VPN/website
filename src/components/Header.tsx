@@ -11,9 +11,10 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 import {
-  getAppDownloadButtonLabel,
-  openAppOrAppStore,
+  getAppStoreInstallButtonLabel,
+  resolveAppStoreUrl,
 } from "@/lib/open-app-or-store";
+import { openKeenVpnAppStore } from "@/lib/keenvpn-deep-links";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -21,8 +22,9 @@ const Header = () => {
   const navigate = useNavigate();
   const { user, subscription, logout } = useAuth();
   const appStoreUrl = useAppStoreUrl();
-  const downloadAppLabel = getAppDownloadButtonLabel(subscription);
-  const handleDownloadApp = () => openAppOrAppStore(subscription, appStoreUrl);
+  const downloadAppLabel = getAppStoreInstallButtonLabel();
+  const handleDownloadApp = () =>
+    openKeenVpnAppStore(resolveAppStoreUrl(appStoreUrl));
 
   const isActive = (path: string) => location.pathname === path;
 

@@ -10,18 +10,17 @@ import {
   UserRound,
   Zap,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 import {
-  getAppDownloadButtonLabel,
-  openAppOrAppStore,
+  getAppStoreInstallButtonLabel,
+  resolveAppStoreUrl,
 } from "@/lib/open-app-or-store";
+import { openKeenVpnAppStore } from "@/lib/keenvpn-deep-links";
 import { Link } from "react-router-dom";
 
 const Hero = () => {
-  const { subscription } = useAuth();
   const appStoreUrl = useAppStoreUrl();
-  const downloadAppLabel = getAppDownloadButtonLabel(subscription);
+  const downloadAppLabel = getAppStoreInstallButtonLabel();
 
   return (
     <section className="relative bg-gradient-hero overflow-hidden pt-28 pb-14 md:pt-32 md:pb-20">
@@ -56,7 +55,9 @@ const Hero = () => {
             <Button
               size="lg"
               className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-lg px-8 py-6 font-semibold transition-all hover:scale-105"
-              onClick={() => openAppOrAppStore(subscription, appStoreUrl)}
+              onClick={() =>
+                openKeenVpnAppStore(resolveAppStoreUrl(appStoreUrl))
+              }
             >
               <Download className="h-5 w-5" />
               {downloadAppLabel}
