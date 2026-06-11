@@ -23,7 +23,10 @@ import {
   consumePendingMembershipTransferReturnUrl,
 } from "@/auth/membership-transfer-flow";
 import {
+  capturePostLoginRedirectFromSearch,
+  clearPostLoginRedirect,
   clearRetentionWinbackTokenStorage,
+  consumePostLoginRedirect,
   requestEmailOtp,
   RETENTION_WINBACK_TOKEN_STORAGE_KEY,
   storeSessionToken,
@@ -49,6 +52,11 @@ const SignIn = () => {
   const [otpLoading, setOtpLoading] = React.useState(false);
 
   const emailForOtp = otpEmail.trim().toLowerCase();
+
+  React.useEffect(() => {
+    capturePostLoginRedirectFromSearch(window.location.search);
+  }, []);
+
   const postOtpLoginUrl = React.useCallback(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const isASWebSession =
@@ -61,6 +69,7 @@ const SignIn = () => {
       // can surprise the user on a later full-browser login.
       consumePendingMembershipTransfer();
       clearRetentionWinbackTokenStorage();
+      clearPostLoginRedirect();
       return "/account?asweb=1";
     }
     if (sessionStorage.getItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY)) {
@@ -69,6 +78,10 @@ const SignIn = () => {
     const transferUrl = consumePendingMembershipTransferReturnUrl();
     if (transferUrl) {
       return transferUrl;
+    }
+    const redirectUrl = consumePostLoginRedirect();
+    if (redirectUrl) {
+      return redirectUrl;
     }
     return "/account";
   }, []);
