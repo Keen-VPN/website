@@ -50,6 +50,8 @@ export default function ServerLocationsMap({ locations }: Props) {
         zoom={2}
         minZoom={2}
         maxZoom={8}
+        maxBounds={[[-85, -200], [85, 200]]}
+        maxBoundsViscosity={1.0}
         scrollWheelZoom={false}
         className="server-locations-map z-0 h-[min(420px,60vh)] w-full"
         aria-label="Interactive map of KeenVPN server locations"
