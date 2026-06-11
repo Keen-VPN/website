@@ -1,5 +1,6 @@
 export const POST_LOGIN_REDIRECT_PARAM = "redirect";
 const STORAGE_KEY = "keenvpn_post_login_redirect";
+const AUTH_REDIRECT_PENDING_KEY = "auth_redirect_pending";
 
 const BLOCKED_PATH_PREFIXES = ["/signin", "/auth"];
 
@@ -35,17 +36,32 @@ export function sanitizePostLoginRedirect(
   }
 }
 
+export function clearPostLoginRedirect(
+  storage: Pick<Storage, "removeItem"> = sessionStorage,
+): void {
+  storage.removeItem(STORAGE_KEY);
+}
+
 export function capturePostLoginRedirectFromSearch(
   search: string,
-  storage: Pick<Storage, "setItem"> = sessionStorage,
+  storage: Pick<Storage, "setItem" | "removeItem" | "getItem"> = sessionStorage,
 ): void {
   const raw = new URLSearchParams(search).get(POST_LOGIN_REDIRECT_PARAM);
-  if (!raw) return;
+  if (!raw) {
+    // Keep stored redirect during OAuth round-trips that drop query params.
+    if (storage.getItem(AUTH_REDIRECT_PENDING_KEY) !== "true") {
+      storage.removeItem(STORAGE_KEY);
+    }
+    return;
+  }
 
   const safe = sanitizePostLoginRedirect(raw);
   if (safe) {
     storage.setItem(STORAGE_KEY, safe);
+    return;
   }
+
+  storage.removeItem(STORAGE_KEY);
 }
 
 export function consumePostLoginRedirect(

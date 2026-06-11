@@ -29,7 +29,10 @@ import {
   consumePendingMembershipTransfer,
   consumePendingMembershipTransferReturnUrl,
 } from "@/auth/membership-transfer-flow";
-import { consumePostLoginRedirect } from "@/auth/post-login-redirect";
+import {
+  clearPostLoginRedirect,
+  consumePostLoginRedirect,
+} from "@/auth/post-login-redirect";
 import { clearStripeCheckoutReturn } from "@/lib/keenvpn-deep-links";
 
 // ============================================================================
@@ -123,6 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // redirects (win-back token + membership transfer) so they cannot hijack ASWeb.
       consumePendingMembershipTransfer();
       clearRetentionWinbackTokenStorage();
+      clearPostLoginRedirect();
       return '/account?asweb=1';
     }
     if (sessionStorage.getItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY)) {

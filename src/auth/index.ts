@@ -106,6 +106,7 @@ export {
   POST_LOGIN_REDIRECT_PARAM,
   buildSignInUrl,
   capturePostLoginRedirectFromSearch,
+  clearPostLoginRedirect,
   consumePostLoginRedirect,
   sanitizePostLoginRedirect,
 } from './post-login-redirect';

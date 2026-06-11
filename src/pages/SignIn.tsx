@@ -24,6 +24,7 @@ import {
 } from "@/auth/membership-transfer-flow";
 import {
   capturePostLoginRedirectFromSearch,
+  clearPostLoginRedirect,
   clearRetentionWinbackTokenStorage,
   consumePostLoginRedirect,
   requestEmailOtp,
@@ -68,6 +69,7 @@ const SignIn = () => {
       // can surprise the user on a later full-browser login.
       consumePendingMembershipTransfer();
       clearRetentionWinbackTokenStorage();
+      clearPostLoginRedirect();
       return "/account?asweb=1";
     }
     if (sessionStorage.getItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY)) {

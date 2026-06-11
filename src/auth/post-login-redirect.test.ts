@@ -22,24 +22,56 @@ describe("sanitizePostLoginRedirect", () => {
   });
 });
 
+function createStorage() {
+  const values = new Map<string, string>();
+  return {
+    setItem(key: string, value: string) {
+      values.set(key, value);
+    },
+    getItem(key: string) {
+      return values.get(key) ?? null;
+    },
+    removeItem(key: string) {
+      values.delete(key);
+    },
+  };
+}
+
 describe("post-login redirect storage", () => {
   it("captures and consumes a redirect from sign-in query params", () => {
-    const storage = {
-      _value: null as string | null,
-      setItem(_key: string, value: string) {
-        this._value = value;
-      },
-      getItem() {
-        return this._value;
-      },
-      removeItem() {
-        this._value = null;
-      },
-    };
+    const storage = createStorage();
 
     capturePostLoginRedirectFromSearch("?redirect=%2Fperks", storage);
     expect(consumePostLoginRedirect(storage)).toBe("/perks");
     expect(consumePostLoginRedirect(storage)).toBeNull();
+  });
+
+  it("clears stale redirect when sign-in has no redirect param", () => {
+    const storage = createStorage();
+    storage.setItem("keenvpn_post_login_redirect", "/perks");
+
+    capturePostLoginRedirectFromSearch("", storage);
+
+    expect(storage.getItem("keenvpn_post_login_redirect")).toBeNull();
+  });
+
+  it("keeps stored redirect during oauth round-trips without query params", () => {
+    const storage = createStorage();
+    storage.setItem("keenvpn_post_login_redirect", "/perks");
+    storage.setItem("auth_redirect_pending", "true");
+
+    capturePostLoginRedirectFromSearch("", storage);
+
+    expect(storage.getItem("keenvpn_post_login_redirect")).toBe("/perks");
+  });
+
+  it("clears redirect when query param is invalid", () => {
+    const storage = createStorage();
+    storage.setItem("keenvpn_post_login_redirect", "/perks");
+
+    capturePostLoginRedirectFromSearch("?redirect=https%3A%2F%2Fevil.com", storage);
+
+    expect(storage.getItem("keenvpn_post_login_redirect")).toBeNull();
   });
 });
 
