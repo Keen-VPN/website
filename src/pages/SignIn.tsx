@@ -53,7 +53,19 @@ const SignIn = () => {
 
   const emailForOtp = otpEmail.trim().toLowerCase();
 
+  const isASWebSession = React.useMemo(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return (
+      urlParams.get("asweb") === "1" ||
+      sessionStorage.getItem("asweb_session") === "1"
+    );
+  }, []);
+
   React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("asweb") === "1") {
+      sessionStorage.setItem("asweb_session", "1");
+    }
     capturePostLoginRedirectFromSearch(window.location.search);
   }, []);
 
@@ -213,9 +225,13 @@ const SignIn = () => {
 
           <Card className="border-accent/50 shadow-glow">
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl">Continue with</CardTitle>
+              <CardTitle className="text-2xl">
+                {isASWebSession ? "Sign in with Google" : "Continue with"}
+              </CardTitle>
               <CardDescription>
-                Choose your preferred sign-in method
+                {isASWebSession
+                  ? "Use your Google account to continue in the KeenVPN app"
+                  : "Choose your preferred sign-in method"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -241,25 +257,27 @@ const SignIn = () => {
                 )}
               </Button>
 
-              <Button
-                onClick={handleAppleSignIn}
-                disabled={isLoading}
-                className="w-full bg-black text-white hover:bg-gray-800"
-                size="lg"
-              >
-                {isAppleDebouncing ||
-                (providerLoading && !isGoogleDebouncing) ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    {isAppleDebouncing ? "Please wait..." : "Authenticating..."}
-                  </>
-                ) : (
-                  <>
-                    <Apple className="mr-2 h-5 w-5" />
-                    Continue with Apple
-                  </>
-                )}
-              </Button>
+              {!isASWebSession ? (
+                <Button
+                  onClick={handleAppleSignIn}
+                  disabled={isLoading}
+                  className="w-full bg-black text-white hover:bg-gray-800"
+                  size="lg"
+                >
+                  {isAppleDebouncing ||
+                  (providerLoading && !isGoogleDebouncing) ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      {isAppleDebouncing ? "Please wait..." : "Authenticating..."}
+                    </>
+                  ) : (
+                    <>
+                      <Apple className="mr-2 h-5 w-5" />
+                      Continue with Apple
+                    </>
+                  )}
+                </Button>
+              ) : null}
 
               <div className="relative py-2">
                 <div className="absolute inset-0 flex items-center">

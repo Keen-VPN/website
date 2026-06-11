@@ -8,6 +8,7 @@ import {
   clearUtmAttributionStorage,
   getUtmAttributionAuthPayload,
 } from "@/lib/utm-attribution";
+import { buildAuthDeepLink } from "@/lib/keenvpn-deep-links";
 
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL || "/api";
@@ -3725,8 +3726,8 @@ const APP_TOKEN_KEY = "token";
 
 export function storeSessionToken(sessionToken: string): void {
   localStorage.setItem(SESSION_TOKEN_KEY, sessionToken);
-  // Also store for app deeplink
-  localStorage.setItem(APP_TOKEN_KEY, `vpnkeen://auth?token=${sessionToken}`);
+  // Also store for app deeplink (token is URL-encoded for safe query parsing)
+  localStorage.setItem(APP_TOKEN_KEY, buildAuthDeepLink(sessionToken));
 }
 
 export function getSessionToken(): string | null {

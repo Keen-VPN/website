@@ -60,7 +60,11 @@ import { LinkedAccounts } from "@/components/LinkedAccounts";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
 import { UserInformationCard } from "@/components/UserInformationCard";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
-import { isAppDeepLinkSupported, getUnsupportedDeviceName } from "@/lib/device-detection";
+import {
+  detectDevice,
+  isAppDeepLinkSupported,
+  getUnsupportedDeviceName,
+} from "@/lib/device-detection";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 import {
   getAppDownloadButtonLabel,
@@ -84,11 +88,13 @@ import {
 import {
   PAYMENT_SUCCESS_DEEP_LINK,
   RETURN_TO_APP_LABEL,
+  buildAuthDeepLink,
   clearStripeCheckoutReturn,
   dismissStripePostCheckoutUi,
   markStripeAutoOpenDone,
   isStripeCheckoutReturn,
   markStripeCheckoutReturn,
+  maybeAutoReturnToKeenVpnAppAfterAuth,
   returnToKeenVpnAppAfterPayment,
   shouldAutoOpenAppAfterStripeCheckout,
   shouldShowStripePostCheckoutUi,
@@ -133,6 +139,7 @@ const Account = () => {
   );
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
+  const isMacOS = useMemo(() => detectDevice() === "macos", []);
   const unsupportedDeviceName = useMemo(() => getUnsupportedDeviceName(), []);
 
   // ASWebAuthenticationSession detection
@@ -146,6 +153,9 @@ const Account = () => {
     }
     return detected;
   }, []);
+  const macSessionToken = hasSessionToken ? getSessionToken() : null;
+  const showOpenMacAppButton =
+    isMacOS && Boolean(macSessionToken) && !isASWeb;
   const hasStripeSessionId = useMemo(() => {
     const urlParams = new URLSearchParams(location.search);
     return Boolean(urlParams.get("session_id"));
@@ -220,7 +230,7 @@ const Account = () => {
     // Only mark auto-open done — keep banner/buttons if the deep link fails (app not installed).
     const timer = window.setTimeout(() => {
       markStripeAutoOpenDone();
-      returnToKeenVpnAppAfterPayment();
+      returnToKeenVpnAppAfterPayment(getSessionToken());
     }, 700);
 
     return () => window.clearTimeout(timer);
@@ -247,6 +257,32 @@ const Account = () => {
     }, 200);
     return () => clearInterval(id);
   }, [isASWeb, sessionToken]);
+
+  // Auto-return to the macOS app after ASWeb Google login (fallback if AuthContext handoff missed).
+  useEffect(() => {
+    if (
+      !isASWeb ||
+      !sessionToken ||
+      !isDeepLinkSupported ||
+      showPostCheckoutUi ||
+      hasStripeSessionId ||
+      isStripeCheckoutReturn()
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      maybeAutoReturnToKeenVpnAppAfterAuth(sessionToken);
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    isASWeb,
+    sessionToken,
+    isDeepLinkSupported,
+    showPostCheckoutUi,
+    hasStripeSessionId,
+  ]);
 
   // On first account view, ensure subscription is hydrated before rendering
   // "No active subscription". This avoids a false empty state that required reload.
@@ -702,7 +738,7 @@ const Account = () => {
                         onClick={(event) => {
                           event.preventDefault();
                           markStripeAutoOpenDone();
-                          returnToKeenVpnAppAfterPayment();
+                          returnToKeenVpnAppAfterPayment(getSessionToken());
                         }}
                       >
                         <Smartphone className="mr-2 h-5 w-5" />
@@ -761,7 +797,7 @@ const Account = () => {
                         className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
                         size="lg"
                       >
-                        <a href={`vpnkeen://auth?token=${sessionToken}`}>
+                        <a href={buildAuthDeepLink(sessionToken)}>
                           Return to KeenVPN App
                         </a>
                       </Button>
@@ -950,7 +986,7 @@ const Account = () => {
                             onClick={(event) => {
                               event.preventDefault();
                               markStripeAutoOpenDone();
-                              returnToKeenVpnAppAfterPayment();
+                              returnToKeenVpnAppAfterPayment(getSessionToken());
                             }}
                           >
                             <Smartphone className="mr-2 h-5 w-5" />
@@ -978,6 +1014,14 @@ const Account = () => {
                         <History className="h-4 w-4 mr-2" />
                         View Billing History
                       </Button>
+
+                      {showOpenMacAppButton && macSessionToken ? (
+                        <Button asChild variant="outline" className="w-full">
+                          <a href={buildAuthDeepLink(macSessionToken)}>
+                            Open KeenVPN App
+                          </a>
+                        </Button>
+                      ) : null}
 
                       <Button
                         onClick={handleRefreshSubscription}
@@ -1040,6 +1084,13 @@ const Account = () => {
                       <History className="h-4 w-4 mr-2" />
                       Manage Subscriptions
                     </Button>
+                    {showOpenMacAppButton && macSessionToken ? (
+                      <Button asChild variant="outline" className="w-full">
+                        <a href={buildAuthDeepLink(macSessionToken)}>
+                          Open KeenVPN App
+                        </a>
+                      </Button>
+                    ) : null}
                     <Button
                       onClick={() => navigate("/subscribe")}
                       className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
