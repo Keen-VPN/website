@@ -25,6 +25,9 @@ const AUDIENCE_OPTIONS: { value: BroadcastEmailAudience; label: string }[] = [
   { value: "opted_in", label: "Opted in to tips & offers only" },
 ];
 
+const DEFAULT_CTA_LABEL = "View perks";
+const DEFAULT_CTA_URL = "https://vpnkeen.com/perks";
+
 export default function AdminBroadcastEmail() {
   const { admin, can } = useAdminAuth();
   const { toast } = useToast();
@@ -39,8 +42,8 @@ export default function AdminBroadcastEmail() {
   const [headline, setHeadline] = useState("");
   const [body, setBody] = useState("");
   const [preheader, setPreheader] = useState("");
-  const [ctaLabel, setCtaLabel] = useState("View perks");
-  const [ctaUrl, setCtaUrl] = useState("https://vpnkeen.com/perks");
+  const [ctaLabel, setCtaLabel] = useState(DEFAULT_CTA_LABEL);
+  const [ctaUrl, setCtaUrl] = useState(DEFAULT_CTA_URL);
   const [previewing, setPreviewing] = useState(false);
   const [sending, setSending] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -53,6 +56,15 @@ export default function AdminBroadcastEmail() {
       body.trim().length > 0,
     [subject, headline, body],
   );
+
+  const resetComposeForm = useCallback(() => {
+    setSubject("");
+    setHeadline("");
+    setBody("");
+    setPreheader("");
+    setCtaLabel(DEFAULT_CTA_LABEL);
+    setCtaUrl(DEFAULT_CTA_URL);
+  }, []);
 
   const composePayload = useCallback(
     () => ({
@@ -175,6 +187,7 @@ export default function AdminBroadcastEmail() {
       return;
     }
 
+    resetComposeForm();
     toast({
       title: "Broadcast queued in Resend",
       description: `Broadcast ${result.data.broadcastId} — ${result.data.syncedContactCount.toLocaleString()} contacts synced.`,

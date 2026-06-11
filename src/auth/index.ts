@@ -103,6 +103,15 @@ export {
 } from './hooks';
 
 export {
+  POST_LOGIN_REDIRECT_PARAM,
+  buildSignInUrl,
+  capturePostLoginRedirectFromSearch,
+  clearPostLoginRedirect,
+  consumePostLoginRedirect,
+  sanitizePostLoginRedirect,
+} from './post-login-redirect';
+
+export {
   RETENTION_WINBACK_TOKEN_STORAGE_KEY,
   clearRetentionWinbackTokenStorage,
   getRetentionWinbackTokenFromStorage,
