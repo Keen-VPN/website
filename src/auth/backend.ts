@@ -3999,6 +3999,26 @@ export async function adminSendBroadcastPreview(
   }
 }
 
+export type BroadcastEmailJobStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed";
+
+export interface BroadcastEmailJobStatusPayload {
+  jobId: string;
+  status: BroadcastEmailJobStatus;
+  audience: string;
+  recipientCount: number;
+  syncedContactCount: number;
+  broadcastId: string | null;
+  sendImmediately: boolean;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
 export async function adminSendBroadcastEmail(
   payload: AdminBroadcastComposePayload & {
     confirmRecipientCount: number;
@@ -4007,9 +4027,9 @@ export async function adminSendBroadcastEmail(
 ): Promise<{
   ok: boolean;
   data?: {
-    broadcastId: string;
+    jobId: string;
+    status: BroadcastEmailJobStatus;
     recipientCount: number;
-    syncedContactCount: number;
     sendImmediately: boolean;
   };
   error?: string;
@@ -4030,12 +4050,42 @@ export async function adminSendBroadcastEmail(
     }
     const record = raw as {
       data?: {
-        broadcastId: string;
+        jobId: string;
+        status: BroadcastEmailJobStatus;
         recipientCount: number;
-        syncedContactCount: number;
         sendImmediately: boolean;
       };
     };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchBroadcastEmailJob(jobId: string): Promise<{
+  ok: boolean;
+  data?: BroadcastEmailJobStatusPayload;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/broadcast-email/jobs/${encodeURIComponent(jobId)}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load broadcast job"),
+      };
+    }
+    const record = raw as { data?: BroadcastEmailJobStatusPayload };
     return { ok: true, data: record.data };
   } catch (e) {
     return {

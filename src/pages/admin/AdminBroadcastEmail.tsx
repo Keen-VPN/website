@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   adminExportBroadcastAudienceCsv,
   adminFetchBroadcastAudience,
+  adminFetchBroadcastEmailJob,
   adminSendBroadcastEmail,
   adminSendBroadcastPreview,
   type BroadcastEmailAudience,
@@ -27,6 +28,12 @@ const AUDIENCE_OPTIONS: { value: BroadcastEmailAudience; label: string }[] = [
 
 const DEFAULT_CTA_LABEL = "View perks";
 const DEFAULT_CTA_URL = "https://vpnkeen.com/perks";
+const BROADCAST_JOB_POLL_INTERVAL_MS = 2000;
+const BROADCAST_JOB_POLL_TIMEOUT_MS = 15 * 60 * 1000;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
 
 export default function AdminBroadcastEmail() {
   const { admin, can } = useAdminAuth();
@@ -46,8 +53,16 @@ export default function AdminBroadcastEmail() {
   const [ctaUrl, setCtaUrl] = useState(DEFAULT_CTA_URL);
   const [previewing, setPreviewing] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sendProgress, setSendProgress] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const audienceRequestIdRef = useRef(0);
+  const broadcastPollActiveRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      broadcastPollActiveRef.current = false;
+    };
+  }, []);
 
   const composeReady = useMemo(
     () =>
@@ -171,14 +186,17 @@ export default function AdminBroadcastEmail() {
     if (!confirmed) return;
 
     setSending(true);
+    setSendProgress("Queueing broadcast…");
+
     const result = await adminSendBroadcastEmail({
       ...composePayload(),
       confirmRecipientCount: recipientCount,
       sendImmediately: true,
     });
-    setSending(false);
 
-    if (!result.ok || !result.data) {
+    if (!result.ok || !result.data?.jobId) {
+      setSending(false);
+      setSendProgress(null);
       toast({
         title: "Broadcast failed",
         description: result.error ?? "Try again.",
@@ -187,11 +205,86 @@ export default function AdminBroadcastEmail() {
       return;
     }
 
-    resetComposeForm();
-    toast({
-      title: "Broadcast queued in Resend",
-      description: `Broadcast ${result.data.broadcastId} — ${result.data.syncedContactCount.toLocaleString()} contacts synced.`,
-    });
+    const jobId = result.data.jobId;
+    const deadline = Date.now() + BROADCAST_JOB_POLL_TIMEOUT_MS;
+    let completed = false;
+    broadcastPollActiveRef.current = true;
+
+    while (Date.now() < deadline) {
+      if (!broadcastPollActiveRef.current) {
+        return;
+      }
+
+      await sleep(BROADCAST_JOB_POLL_INTERVAL_MS);
+      if (!broadcastPollActiveRef.current) {
+        return;
+      }
+
+      const statusResult = await adminFetchBroadcastEmailJob(jobId);
+      if (!broadcastPollActiveRef.current) {
+        return;
+      }
+
+      if (!statusResult.ok || !statusResult.data) {
+        setSendProgress("Waiting for broadcast status…");
+        continue;
+      }
+
+      const job = statusResult.data;
+      if (job.status === "pending") {
+        setSendProgress("Preparing broadcast…");
+        continue;
+      }
+      if (job.status === "processing") {
+        setSendProgress(
+          `Syncing contacts to Resend… ${job.syncedContactCount.toLocaleString()} / ${job.recipientCount.toLocaleString()}`,
+        );
+        continue;
+      }
+      if (job.status === "failed") {
+        broadcastPollActiveRef.current = false;
+        setSending(false);
+        setSendProgress(null);
+        toast({
+          title: "Broadcast failed",
+          description:
+            job.errorMessage ?? "Check server logs for the latest sync error.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (job.status === "completed") {
+        completed = true;
+        broadcastPollActiveRef.current = false;
+        setSending(false);
+        setSendProgress(null);
+        resetComposeForm();
+        toast({
+          title: "Broadcast queued in Resend",
+          description: job.broadcastId
+            ? `Broadcast ${job.broadcastId} — ${job.syncedContactCount.toLocaleString()} contacts synced.`
+            : `${job.syncedContactCount.toLocaleString()} contacts synced.`,
+        });
+        break;
+      }
+    }
+
+    if (!broadcastPollActiveRef.current) {
+      return;
+    }
+
+    broadcastPollActiveRef.current = false;
+
+    if (!completed) {
+      setSending(false);
+      setSendProgress(null);
+      toast({
+        title: "Broadcast still processing",
+        description:
+          "This large send is still running in the background. Refresh this page and check Netlify logs if needed.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (!canBroadcast) {
@@ -360,6 +453,10 @@ export default function AdminBroadcastEmail() {
           {sending ? "Sending…" : "Send broadcast"}
         </Button>
       </div>
+
+      {sendProgress ? (
+        <p className="text-sm text-muted-foreground">{sendProgress}</p>
+      ) : null}
 
       <p className="text-xs text-muted-foreground">
         Requires `RESEND_BROADCAST_SEGMENT_ID` on the backend. Recipients are
