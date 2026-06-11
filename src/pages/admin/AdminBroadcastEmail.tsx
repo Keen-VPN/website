@@ -56,6 +56,13 @@ export default function AdminBroadcastEmail() {
   const [sendProgress, setSendProgress] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const audienceRequestIdRef = useRef(0);
+  const broadcastPollActiveRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      broadcastPollActiveRef.current = false;
+    };
+  }, []);
 
   const composeReady = useMemo(
     () =>
@@ -201,19 +208,26 @@ export default function AdminBroadcastEmail() {
     const jobId = result.data.jobId;
     const deadline = Date.now() + BROADCAST_JOB_POLL_TIMEOUT_MS;
     let completed = false;
+    broadcastPollActiveRef.current = true;
 
     while (Date.now() < deadline) {
-      await sleep(BROADCAST_JOB_POLL_INTERVAL_MS);
-      const statusResult = await adminFetchBroadcastEmailJob(jobId);
-      if (!statusResult.ok || !statusResult.data) {
-        setSending(false);
-        setSendProgress(null);
-        toast({
-          title: "Broadcast status unavailable",
-          description: statusResult.error ?? "Try again.",
-          variant: "destructive",
-        });
+      if (!broadcastPollActiveRef.current) {
         return;
+      }
+
+      await sleep(BROADCAST_JOB_POLL_INTERVAL_MS);
+      if (!broadcastPollActiveRef.current) {
+        return;
+      }
+
+      const statusResult = await adminFetchBroadcastEmailJob(jobId);
+      if (!broadcastPollActiveRef.current) {
+        return;
+      }
+
+      if (!statusResult.ok || !statusResult.data) {
+        setSendProgress("Waiting for broadcast status…");
+        continue;
       }
 
       const job = statusResult.data;
@@ -228,6 +242,7 @@ export default function AdminBroadcastEmail() {
         continue;
       }
       if (job.status === "failed") {
+        broadcastPollActiveRef.current = false;
         setSending(false);
         setSendProgress(null);
         toast({
@@ -240,6 +255,7 @@ export default function AdminBroadcastEmail() {
       }
       if (job.status === "completed") {
         completed = true;
+        broadcastPollActiveRef.current = false;
         setSending(false);
         setSendProgress(null);
         resetComposeForm();
@@ -253,13 +269,19 @@ export default function AdminBroadcastEmail() {
       }
     }
 
+    if (!broadcastPollActiveRef.current) {
+      return;
+    }
+
+    broadcastPollActiveRef.current = false;
+
     if (!completed) {
       setSending(false);
       setSendProgress(null);
       toast({
         title: "Broadcast still processing",
         description:
-          "This large send is still running in the background. Check Netlify logs or retry status in a few minutes.",
+          "This large send is still running in the background. Refresh this page and check Netlify logs if needed.",
         variant: "destructive",
       });
     }
