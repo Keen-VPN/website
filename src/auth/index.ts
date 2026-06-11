@@ -30,6 +30,12 @@ export {
   skipContactEmailPrompt,
   getEmailPreferences,
   updateEmailPreferences,
+  getUserProfileInformation,
+  updateUserProfileInformation,
+  getSignupSourceStatus,
+  updateSignupSource,
+  adminFetchSignupSourceSummary,
+  adminFetchUserProfileSummary,
   confirmContextualEmailUnsubscribe,
   sendContactEmailVerification,
   confirmContactEmailVerification,
@@ -81,11 +87,29 @@ export type {
   PerkItem,
   PerkAccessTier,
   PerksListPayload,
+  ProfileQuestionOption,
+  ProfileQuestion,
+  UserProfileInformationResponse,
+  SignupSourceOption,
+  SignupSourceStatusResponse,
+  AdminSignupSourceSummary,
+  AdminUserProfileAnswerDistribution,
+  AdminUserProfileQuestionSummary,
+  AdminUserProfileSummary,
 } from './backend';
 
 export {
   useDebounce
 } from './hooks';
+
+export {
+  POST_LOGIN_REDIRECT_PARAM,
+  buildSignInUrl,
+  capturePostLoginRedirectFromSearch,
+  clearPostLoginRedirect,
+  consumePostLoginRedirect,
+  sanitizePostLoginRedirect,
+} from './post-login-redirect';
 
 export {
   RETENTION_WINBACK_TOKEN_STORAGE_KEY,

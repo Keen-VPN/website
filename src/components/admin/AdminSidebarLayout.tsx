@@ -14,6 +14,7 @@ import {
   Mail,
   Gift,
   Megaphone,
+  UserCircle,
 } from "lucide-react";
 
 function linkClass(isActive: boolean) {
@@ -26,7 +27,7 @@ function linkClass(isActive: boolean) {
 }
 
 export default function AdminSidebarLayout() {
-  const { admin, logout } = useAdminAuth();
+  const { admin, logout, can } = useAdminAuth();
   const navigate = useNavigate();
 
   const signOut = async () => {
@@ -79,12 +80,35 @@ export default function AdminSidebarLayout() {
               <Mail className="h-4 w-4" />
               Domain Insights
             </NavLink>
+            {can("emails.broadcast") ? (
+              <NavLink
+                to="/admin/broadcast-email"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                <Mail className="h-4 w-4" />
+                Broadcast Email
+              </NavLink>
+            ) : null}
             <NavLink
               to="/admin/perks"
               className={({ isActive }) => linkClass(isActive)}
             >
               <Gift className="h-4 w-4" />
               Perks
+            </NavLink>
+            <NavLink
+              to="/admin/user-profiles"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <UserCircle className="h-4 w-4" />
+              User Profiles
+            </NavLink>
+            <NavLink
+              to="/admin/signup-sources"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Megaphone className="h-4 w-4" />
+              Signup Sources
             </NavLink>
             <NavLink
               to="/admin/connection-engagement"

@@ -58,6 +58,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
+import { UserInformationCard } from "@/components/UserInformationCard";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
 import {
   detectDevice,
@@ -1123,6 +1124,12 @@ const Account = () => {
                 providers={linkedProviders}
                 onUpdate={() => { refreshLinkedProviders(); refreshSubscription(); }}
               />
+            </div>
+          )}
+
+          {hasSessionToken && (
+            <div className="mt-8">
+              <UserInformationCard sessionToken={getSessionToken() ?? ""} />
             </div>
           )}
 

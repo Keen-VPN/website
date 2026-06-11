@@ -37,6 +37,7 @@ const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const PaymentCancel = lazy(() => import("./pages/PaymentCancel"));
 const AuthDebug = lazy(() => import("./pages/AuthDebug"));
 const AppleDebug = lazy(() => import("./pages/AppleDebug"));
+const MyIPAddress = lazy(() => import("./pages/MyIPAddress"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const MembershipTransferAdmin = lazy(
   () => import("./pages/admin/MembershipTransferAdmin"),
@@ -64,6 +65,15 @@ const AdminUserSessions = lazy(
 const AdminUtmAttribution = lazy(
   () => import("./pages/admin/AdminUtmAttribution"),
 );
+const AdminBroadcastEmail = lazy(
+  () => import("./pages/admin/AdminBroadcastEmail"),
+);
+const AdminUserProfiles = lazy(
+  () => import("./pages/admin/AdminUserProfiles"),
+);
+const AdminSignupSources = lazy(
+  () => import("./pages/admin/AdminSignupSources"),
+);
 
 const queryClient = new QueryClient();
 
@@ -90,6 +100,7 @@ const App = () => (
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/support" element={<Support />} />
+              <Route path="/my-ip-address" element={<MyIPAddress />} />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/signin/magic" element={<MagicLinkRequest />} />
               <Route path="/auth/magic" element={<MagicLinkVerify />} />
@@ -178,6 +189,8 @@ const App = () => (
                   element={<AdminDomainInsights />}
                 />
                 <Route path="perks" element={<AdminPerks />} />
+                <Route path="user-profiles" element={<AdminUserProfiles />} />
+                <Route path="signup-sources" element={<AdminSignupSources />} />
                 <Route
                   path="connection-engagement"
                   element={<AdminConnectionEngagement />}
@@ -190,6 +203,7 @@ const App = () => (
                 <Route path="churn" element={<AdminChurn />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="utm-attribution" element={<AdminUtmAttribution />} />
+                <Route path="broadcast-email" element={<AdminBroadcastEmail />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

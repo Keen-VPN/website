@@ -817,6 +817,244 @@ export async function updateEmailPreferences(
   }
 }
 
+export interface ProfileQuestionOption {
+  value: string;
+  label: string;
+}
+
+export interface ProfileQuestion {
+  key: string;
+  label: string;
+  category: string;
+  options: ProfileQuestionOption[];
+}
+
+export interface UserProfileInformationResponse {
+  success: boolean;
+  questions: ProfileQuestion[];
+  answers: Record<string, string>;
+  isComplete: boolean;
+  completedAt: string | null;
+  updatedAt: string | null;
+  error?: string;
+}
+
+export async function getUserProfileInformation(
+  sessionToken: string,
+): Promise<UserProfileInformationResponse> {
+  const empty: UserProfileInformationResponse = {
+    success: false,
+    questions: [],
+    answers: {},
+    isComplete: false,
+    completedAt: null,
+    updatedAt: null,
+  };
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/profile-information`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ...empty,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to fetch profile information",
+        ),
+      };
+    }
+    return data as UserProfileInformationResponse;
+  } catch (error) {
+    return {
+      ...empty,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch profile information",
+    };
+  }
+}
+
+export async function updateUserProfileInformation(
+  sessionToken: string,
+  answers: Record<string, string>,
+): Promise<UserProfileInformationResponse> {
+  const empty: UserProfileInformationResponse = {
+    success: false,
+    questions: [],
+    answers: {},
+    isComplete: false,
+    completedAt: null,
+    updatedAt: null,
+  };
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/profile-information`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ answers, platform: "web" }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ...empty,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to update profile information",
+        ),
+      };
+    }
+    return data as UserProfileInformationResponse;
+  } catch (error) {
+    return {
+      ...empty,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to update profile information",
+    };
+  }
+}
+
+export interface SignupSourceOption {
+  value: string;
+  label: string;
+}
+
+export interface SignupSourceStatusResponse {
+  success: boolean;
+  question: string;
+  options: SignupSourceOption[];
+  source: string | null;
+  otherText: string | null;
+  shouldPrompt: boolean;
+  capturedAt: string | null;
+  error?: string;
+}
+
+export async function getSignupSourceStatus(
+  sessionToken: string,
+): Promise<SignupSourceStatusResponse> {
+  const empty: SignupSourceStatusResponse = {
+    success: false,
+    question: "How did you hear about KeenVPN?",
+    options: [],
+    source: null,
+    otherText: null,
+    shouldPrompt: false,
+    capturedAt: null,
+  };
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/signup-source`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ...empty,
+        error: extractBackendErrorMessage(data, "Failed to fetch signup source"),
+      };
+    }
+    return data as SignupSourceStatusResponse;
+  } catch (error) {
+    return {
+      ...empty,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch signup source",
+    };
+  }
+}
+
+export async function updateSignupSource(
+  sessionToken: string,
+  payload: {
+    source?: string;
+    otherText?: string;
+    skipped?: boolean;
+  },
+): Promise<SignupSourceStatusResponse> {
+  const empty: SignupSourceStatusResponse = {
+    success: false,
+    question: "How did you hear about KeenVPN?",
+    options: [],
+    source: null,
+    otherText: null,
+    shouldPrompt: false,
+    capturedAt: null,
+  };
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/signup-source`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ...payload, platform: "web" }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ...empty,
+        error: extractBackendErrorMessage(data, "Failed to save signup source"),
+      };
+    }
+    return data as SignupSourceStatusResponse;
+  } catch (error) {
+    return {
+      ...empty,
+      error:
+        error instanceof Error ? error.message : "Failed to save signup source",
+    };
+  }
+}
+
+export interface AdminSignupSourceSummary {
+  totalUsers: number;
+  responsesCaptured: number;
+  responsesSkipped: number;
+  unansweredCount: number;
+  distribution: { value: string; label: string; count: number }[];
+  options: { value: string; label: string; count: number }[];
+  trends: { day: string; source: string; label: string; count: number }[];
+  analyticsEvents: { eventName: string; count: number }[];
+}
+
+export async function adminFetchSignupSourceSummary(params?: {
+  signal?: AbortSignal;
+}): Promise<{ ok: boolean; data?: AdminSignupSourceSummary; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/signup-sources/summary`, {
+      credentials: "include",
+      signal: params?.signal,
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load signup source summary"),
+      };
+    }
+    const record = raw as { data?: AdminSignupSourceSummary };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
 export interface ContextualEmailUnsubscribeResponse {
   success: boolean;
   redirectUrl?: string;
@@ -1728,6 +1966,29 @@ export interface AdminReviewPromptSummary {
   byPlatform: { label: string; count: number }[];
 }
 
+export interface AdminUserProfileAnswerDistribution {
+  value: string;
+  label: string;
+  count: number;
+}
+
+export interface AdminUserProfileQuestionSummary {
+  key: string;
+  label: string;
+  category: string;
+  answeredCount: number;
+  skippedCount: number;
+  distribution: AdminUserProfileAnswerDistribution[];
+}
+
+export interface AdminUserProfileSummary {
+  totalUsers: number;
+  profilesStarted: number;
+  profilesCompleted: number;
+  questions: AdminUserProfileQuestionSummary[];
+  analyticsEvents: { eventName: string; count: number }[];
+}
+
 export interface AdminDomainInsightsMetrics {
   visitsScheduled: number;
   visitsSkipped: number;
@@ -2623,6 +2884,35 @@ export async function adminFetchReviewPromptSummary(params?: {
       };
     }
     const record = raw as { data?: AdminReviewPromptSummary };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchUserProfileSummary(params?: {
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminUserProfileSummary;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/user-profiles/summary`, {
+      credentials: "include",
+      signal: params?.signal,
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load user profile summary"),
+      };
+    }
+    const record = raw as { data?: AdminUserProfileSummary };
     return { ok: true, data: record.data };
   } catch (e) {
     return {
@@ -3608,6 +3898,202 @@ export async function unlinkProvider(
     throw new Error(extractBackendErrorMessage(errorData, `Failed to unlink provider: ${response.status}`));
   }
   return response.json();
+}
+
+export type BroadcastEmailAudience = "all_deliverable" | "opted_in";
+
+export interface AdminBroadcastAudienceSummary {
+  audience: BroadcastEmailAudience;
+  totalRecipients: number;
+  optedInCount: number;
+}
+
+export interface AdminBroadcastComposePayload {
+  audience?: BroadcastEmailAudience;
+  subject: string;
+  headline: string;
+  body: string;
+  preheader?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+}
+
+export async function adminFetchBroadcastAudience(
+  audience: BroadcastEmailAudience = "all_deliverable",
+): Promise<{
+  ok: boolean;
+  data?: AdminBroadcastAudienceSummary;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams({ audience });
+    const response = await fetch(
+      `${BACKEND_URL}/admin/broadcast-email/audience?${query.toString()}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load broadcast audience"),
+      };
+    }
+    const record = raw as { data?: AdminBroadcastAudienceSummary };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminExportBroadcastAudienceCsv(
+  audience: BroadcastEmailAudience = "all_deliverable",
+): Promise<{ ok: boolean; blob?: Blob; error?: string }> {
+  try {
+    const query = new URLSearchParams({ audience });
+    const response = await fetch(
+      `${BACKEND_URL}/admin/broadcast-email/audience/export?${query.toString()}`,
+      { credentials: "include" },
+    );
+    if (!response.ok) {
+      const raw: unknown = await response.json().catch(() => ({}));
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to export audience"),
+      };
+    }
+    const blob = await response.blob();
+    return { ok: true, blob };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminSendBroadcastPreview(
+  payload: AdminBroadcastComposePayload,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/broadcast-email/preview`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to send preview"),
+      };
+    }
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export type BroadcastEmailJobStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed";
+
+export interface BroadcastEmailJobStatusPayload {
+  jobId: string;
+  status: BroadcastEmailJobStatus;
+  audience: string;
+  recipientCount: number;
+  syncedContactCount: number;
+  broadcastId: string | null;
+  sendImmediately: boolean;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export async function adminSendBroadcastEmail(
+  payload: AdminBroadcastComposePayload & {
+    confirmRecipientCount: number;
+    sendImmediately?: boolean;
+  },
+): Promise<{
+  ok: boolean;
+  data?: {
+    jobId: string;
+    status: BroadcastEmailJobStatus;
+    recipientCount: number;
+    sendImmediately: boolean;
+  };
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/broadcast-email/send`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to send broadcast"),
+      };
+    }
+    const record = raw as {
+      data?: {
+        jobId: string;
+        status: BroadcastEmailJobStatus;
+        recipientCount: number;
+        sendImmediately: boolean;
+      };
+    };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchBroadcastEmailJob(jobId: string): Promise<{
+  ok: boolean;
+  data?: BroadcastEmailJobStatusPayload;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/broadcast-email/jobs/${encodeURIComponent(jobId)}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load broadcast job"),
+      };
+    }
+    const record = raw as { data?: BroadcastEmailJobStatusPayload };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
 }
 
 export async function getLinkedProviders(

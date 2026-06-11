@@ -21,12 +21,18 @@ import {
   RETENTION_WINBACK_TOKEN_STORAGE_KEY,
   type SubscriptionData,
   type TrialData,
-  type SignInResult
+  type SignInResult,
+  getSignupSourceStatus,
 } from '@/auth';
+import { SignupSourceDialog } from '@/components/SignupSourceDialog';
 import {
   consumePendingMembershipTransfer,
   consumePendingMembershipTransferReturnUrl,
 } from "@/auth/membership-transfer-flow";
+import {
+  clearPostLoginRedirect,
+  consumePostLoginRedirect,
+} from "@/auth/post-login-redirect";
 import {
   clearStripeCheckoutReturn,
   maybeAutoReturnToKeenVpnAppAfterAuth,
@@ -95,6 +101,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
   /** Guards against duplicate authenticateWithBackend calls (signIn + onAuthStateChanged or double-click). */
   const backendAuthInProgressRef = useRef(false);
+  const signupSourceCheckedRef = useRef(false);
+  const [signupSourceDialogOpen, setSignupSourceDialogOpen] = useState(false);
   const { toast, dismiss: dismissToast } = useToast();
 
   // Check if user came from ASWebAuthenticationSession (macOS desktop app)
@@ -121,6 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // redirects (win-back token + membership transfer) so they cannot hijack ASWeb.
       consumePendingMembershipTransfer();
       clearRetentionWinbackTokenStorage();
+      clearPostLoginRedirect();
       return '/account?asweb=1';
     }
     if (sessionStorage.getItem(RETENTION_WINBACK_TOKEN_STORAGE_KEY)) {
@@ -129,6 +138,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const transferUrl = consumePendingMembershipTransferReturnUrl();
     if (transferUrl) {
       return transferUrl;
+    }
+    const redirectUrl = consumePostLoginRedirect();
+    if (redirectUrl) {
+      return redirectUrl;
     }
     return accountUrl();
   }, [accountUrl, isASWebSession]);
@@ -524,6 +537,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!hasSessionToken || signupSourceCheckedRef.current) {
+      return;
+    }
+
+    const token = getSessionToken();
+    if (!token) {
+      return;
+    }
+
+    let cancelled = false;
+    signupSourceCheckedRef.current = true;
+
+    void getSignupSourceStatus(token).then((response) => {
+      if (cancelled) {
+        return;
+      }
+      if (response.success && response.shouldPrompt) {
+        setSignupSourceDialogOpen(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasSessionToken]);
+
   // ============================================================================
   // Sign In
   // ============================================================================
@@ -826,6 +866,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await firebaseSignOut();
       clearSessionToken();
       clearStripeCheckoutReturn();
+      signupSourceCheckedRef.current = false;
+      setSignupSourceDialogOpen(false);
       setHasSessionToken(false);
       setUser(null);
       setSubscription(null);
@@ -891,9 +933,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshLinkedProviders,
   }), [user, subscription, trial, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, refreshLinkedProviders]);
 
+  const sessionTokenForSignupSource = React.useMemo(() => {
+    if (!hasSessionToken || !signupSourceDialogOpen) {
+      return null;
+    }
+    return getSessionToken();
+  }, [hasSessionToken, signupSourceDialogOpen]);
+
   return (
     <AuthContext.Provider value={value}>
       {children}
+      {signupSourceDialogOpen && sessionTokenForSignupSource ? (
+        <SignupSourceDialog
+          open={signupSourceDialogOpen}
+          sessionToken={sessionTokenForSignupSource}
+          onCompleted={() => setSignupSourceDialogOpen(false)}
+        />
+      ) : null}
     </AuthContext.Provider>
   );
 };
