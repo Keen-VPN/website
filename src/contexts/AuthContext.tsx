@@ -27,7 +27,10 @@ import {
   consumePendingMembershipTransfer,
   consumePendingMembershipTransferReturnUrl,
 } from "@/auth/membership-transfer-flow";
-import { clearStripeCheckoutReturn } from "@/lib/keenvpn-deep-links";
+import {
+  clearStripeCheckoutReturn,
+  maybeAutoReturnToKeenVpnAppAfterAuth,
+} from "@/lib/keenvpn-deep-links";
 
 // ============================================================================
 // Context Types
@@ -292,8 +295,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
               // Check if this is from ASWebAuthenticationSession (macOS desktop app)
               if (isASWebSession()) {
+                maybeAutoReturnToKeenVpnAppAfterAuth(backendResponse.sessionToken);
                 if (window.location.pathname !== '/account') {
-                  console.log('🔐 ASWebAuthenticationSession (redirect) - redirecting to /account for manual deeplink');
+                  console.log('🔐 ASWebAuthenticationSession (redirect) - redirecting to /account for app callback fallback');
                   window.location.href = '/account?asweb=1';
                 }
                 return;
@@ -391,7 +395,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Check if this is from ASWebAuthenticationSession (macOS desktop app)
             if (isASWebSession() && window.location.pathname === '/signin') {
-              console.log('🔐 ASWebSession detected - user already logged in on signin, redirecting to account');
+              console.log('🔐 ASWebSession detected - user already logged in on signin, returning to app');
+              maybeAutoReturnToKeenVpnAppAfterAuth(sessionToken);
               window.location.href = '/account?asweb=1';
               setLoading(false);
               return;
@@ -462,6 +467,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 refreshLinkedProviders(backendResponse.sessionToken);
 
                 if (window.location.pathname === '/signin') {
+                  if (isASWebSession()) {
+                    maybeAutoReturnToKeenVpnAppAfterAuth(backendResponse.sessionToken);
+                  }
                   window.location.href = postLoginUrl();
                   return;
                 }
@@ -660,6 +668,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setTrial(response.trial ?? null);
           void fetchSubscriptionFromBackend(token);
           if (window.location.pathname === '/signin') {
+            if (isASWebSession()) {
+              maybeAutoReturnToKeenVpnAppAfterAuth(token);
+            }
             window.location.href = postLoginUrl();
             setIsAuthenticating(false);
             return { success: true };
@@ -710,12 +721,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAuthenticating(false);
 
         dismissToast();
-        toast({
-          title: "Welcome back!",
-          description: "Redirecting to your account...",
-        });
 
-        // After any successful login, always land on account.
+        if (isASWebSession()) {
+          maybeAutoReturnToKeenVpnAppAfterAuth(backendResponse.sessionToken);
+          toast({
+            title: "Welcome back!",
+            description: "Returning to KeenVPN...",
+          });
+        } else {
+          toast({
+            title: "Welcome back!",
+            description: "Redirecting to your account...",
+          });
+        }
+
+        // After any successful login, always land on account (fallback if app handoff fails).
         if (window.location.pathname !== '/account') {
           window.location.href = postLoginUrl();
         }
@@ -874,7 +894,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={value}>
       {children}
-
     </AuthContext.Provider>
   );
 };

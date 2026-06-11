@@ -18,6 +18,8 @@ export const AUTH_DEEP_LINK_PREFIX = `${KEENVPN_URL_SCHEME}://auth`;
 
 export const RETURN_TO_APP_LABEL = "Return to KeenVPN App";
 
+const ASWEB_AUTH_AUTO_OPEN_DONE_KEY = "keenvpn_asweb_auth_auto_open_done";
+
 const STRIPE_CHECKOUT_RETURN_KEY = "keenvpn_stripe_checkout_return";
 const STRIPE_AUTO_OPEN_DONE_KEY = "keenvpn_stripe_auto_open_done";
 const STRIPE_POST_CHECKOUT_UI_DISMISSED_KEY = "keenvpn_stripe_post_checkout_ui_dismissed";
@@ -136,12 +138,93 @@ export function openKeenVpnNativeApp(deepLink: string = PAYMENT_SUCCESS_DEEP_LIN
   window.setTimeout(() => anchor.remove(), 100);
 }
 
+/** Build auth callback URL with a URL-encoded session token. */
+export function buildAuthDeepLink(sessionToken: string): string {
+  return `${AUTH_DEEP_LINK_PREFIX}?token=${encodeURIComponent(sessionToken)}`;
+}
+
+/**
+ * Prefer `vpnkeen://auth?token=…` when the web session has a backend token so the
+ * native app can sign in. Falls back to purpose-specific links when logged out.
+ */
+export function resolveNativeAppHandoffDeepLink(
+  sessionToken: string | null | undefined,
+  fallback: string = OPEN_APP_DEEP_LINK,
+): string {
+  const token = sessionToken?.trim();
+  return token ? buildAuthDeepLink(token) : fallback;
+}
+
 /**
  * Return to the native app after Stripe checkout. Does not hide post-checkout UI;
  * callers should dismiss explicitly (e.g. "Continue on web") so users can retry the deep link.
  */
 export function returnToKeenVpnAppAfterPayment(
-  deepLink: string = PAYMENT_SUCCESS_DEEP_LINK,
+  sessionToken?: string | null,
 ): void {
-  openKeenVpnNativeApp(deepLink);
+  openKeenVpnNativeApp(
+    resolveNativeAppHandoffDeepLink(sessionToken, PAYMENT_SUCCESS_DEEP_LINK),
+  );
+}
+
+/** True when the page was opened from macOS ASWebAuthenticationSession (Google login). */
+export function isAsWebAuthSession(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    return (
+      urlParams.get("asweb") === "1" ||
+      sessionStorage.getItem("asweb_session") === "1"
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Prevent duplicate programmatic auth handoffs for the same session token. */
+export function shouldAutoOpenAppAfterAsWebAuth(sessionToken: string): boolean {
+  if (!sessionToken) {
+    return false;
+  }
+  try {
+    return sessionStorage.getItem(ASWEB_AUTH_AUTO_OPEN_DONE_KEY) !== sessionToken;
+  } catch {
+    return false;
+  }
+}
+
+export function markAsWebAuthAutoOpenDone(sessionToken: string): void {
+  if (!sessionToken) {
+    return;
+  }
+  try {
+    sessionStorage.setItem(ASWEB_AUTH_AUTO_OPEN_DONE_KEY, sessionToken);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Hand off session token to the native app after ASWeb Google login. */
+export function returnToKeenVpnAppAfterAuth(sessionToken: string): void {
+  openKeenVpnNativeApp(buildAuthDeepLink(sessionToken));
+}
+
+/**
+ * Auto-return to KeenVPN after web OAuth when opened from ASWebAuthenticationSession.
+ * Returns true when a handoff was attempted.
+ */
+export function maybeAutoReturnToKeenVpnAppAfterAuth(
+  sessionToken: string,
+): boolean {
+  if (!sessionToken || !isAsWebAuthSession()) {
+    return false;
+  }
+  if (!shouldAutoOpenAppAfterAsWebAuth(sessionToken)) {
+    return false;
+  }
+  markAsWebAuthAutoOpenDone(sessionToken);
+  returnToKeenVpnAppAfterAuth(sessionToken);
+  return true;
 }
