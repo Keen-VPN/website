@@ -508,11 +508,11 @@ export default function AdminConnectionEngagement() {
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
             {(
               [
-                ["p25", summary.percentiles.p25],
-                ["p50", summary.percentiles.p50],
-                ["p75", summary.percentiles.p75],
-                ["p90", summary.percentiles.p90],
-                ["p95", summary.percentiles.p95],
+                ["25%", summary.percentiles.p25],
+                ["50%", summary.percentiles.p50],
+                ["75%", summary.percentiles.p75],
+                ["90%", summary.percentiles.p90],
+                ["95%", summary.percentiles.p95],
               ] as const
             ).map(([label, value]) => (
               <div key={label} className="rounded-md bg-muted/40 px-3 py-2">
