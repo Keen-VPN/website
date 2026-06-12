@@ -255,6 +255,11 @@ const Perks = () => {
     [perks],
   );
 
+  const featuredIds = useMemo(
+    () => new Set(featuredPerks.map((p) => p.id)),
+    [featuredPerks],
+  );
+
   const detailsPerk = useMemo(
     () =>
       detailsPerkId
@@ -469,31 +474,43 @@ const Perks = () => {
                 </section>
               ) : null}
 
-              <section>
-                <h2 className="mb-4 text-lg font-semibold">
-                  {selectedCategory === "all"
-                    ? "All perks"
-                    : CATEGORY_LABELS[selectedCategory]}
-                </h2>
-                {perks.length === 0 ? (
-                  <p className="text-muted-foreground">
-                    No perks match your filters.
-                  </p>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {perks.map((perk) => (
-                      <PerkCard
-                        key={perk.id}
-                        perk={perk}
-                        claiming={claimingId === perk.id}
-                        onClaim={() => void handleClaim(perk)}
-                        onCopyCode={(code) => void handleCopyCode(code)}
-                        onViewDetails={() => setDetailsPerkId(perk.id)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
+              {(() => {
+                const showFeaturedSection =
+                  featuredPerks.length > 0 &&
+                  selectedCategory === "all" &&
+                  !debouncedSearch;
+                const sectionPerks = showFeaturedSection
+                  ? perks.filter((p) => !featuredIds.has(p.id))
+                  : perks;
+
+                return (
+                  <section>
+                    <h2 className="mb-4 text-lg font-semibold">
+                      {selectedCategory === "all"
+                        ? "All perks"
+                        : CATEGORY_LABELS[selectedCategory]}
+                    </h2>
+                    {sectionPerks.length === 0 ? (
+                      <p className="text-muted-foreground">
+                        No perks match your filters.
+                      </p>
+                    ) : (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {sectionPerks.map((perk) => (
+                          <PerkCard
+                            key={perk.id}
+                            perk={perk}
+                            claiming={claimingId === perk.id}
+                            onClaim={() => void handleClaim(perk)}
+                            onCopyCode={(code) => void handleCopyCode(code)}
+                            onViewDetails={() => setDetailsPerkId(perk.id)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })()}
             </>
           )}
         </div>
