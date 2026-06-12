@@ -53,16 +53,62 @@ function formatDuration(seconds: number): string {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 
-const trendChartConfig = {
-  activeUsers: {
+type EngagementTrendMetric =
+  | "active_users"
+  | "median_connections"
+  | "total_connections"
+  | "median_connection_time"
+  | "total_connection_time";
+
+const ENGAGEMENT_TREND_METRICS: {
+  value: EngagementTrendMetric;
+  label: string;
+  dataKey: string;
+  color: string;
+  formatValue: (value: number) => string;
+  allowDecimals: boolean;
+}[] = [
+  {
+    value: "active_users",
     label: "Active users",
+    dataKey: "activeUsers",
     color: "hsl(var(--primary))",
+    formatValue: (value) => String(Math.round(value)),
+    allowDecimals: false,
   },
-  totalConnections: {
-    label: "Total connections",
+  {
+    value: "median_connections",
+    label: "Median connections",
+    dataKey: "medianConnections",
     color: "hsl(var(--chart-2))",
+    formatValue: (value) => value.toFixed(2),
+    allowDecimals: true,
   },
-} satisfies ChartConfig;
+  {
+    value: "total_connections",
+    label: "Total connections",
+    dataKey: "totalConnections",
+    color: "hsl(var(--chart-3))",
+    formatValue: (value) => String(Math.round(value)),
+    allowDecimals: false,
+  },
+  {
+    value: "median_connection_time",
+    label: "Median connection time",
+    dataKey: "medianConnectionSeconds",
+    color: "hsl(var(--chart-4))",
+    formatValue: formatDuration,
+    allowDecimals: true,
+  },
+  {
+    value: "total_connection_time",
+    label: "Total connection time",
+    dataKey: "totalConnectionSeconds",
+    color: "hsl(var(--chart-5))",
+    formatValue: formatDuration,
+    allowDecimals: false,
+  },
+];
 
 const PLATFORM_OPTIONS = [
   { value: "", label: "All platforms" },
@@ -143,6 +189,8 @@ export default function AdminConnectionEngagementWeekly() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [trendWarning, setTrendWarning] = useState<string | null>(null);
+  const [trendMetric, setTrendMetric] =
+    useState<EngagementTrendMetric>("active_users");
   const activeRequest = useRef<AbortController | null>(null);
 
   const load = useCallback(
@@ -236,9 +284,27 @@ export default function AdminConnectionEngagementWeekly() {
       (trend?.points ?? []).map((p) => ({
         label: p.week_label,
         activeUsers: p.active_users,
+        medianConnections: p.median_connections_per_user,
         totalConnections: p.total_connections,
+        medianConnectionSeconds: p.median_connection_seconds,
+        totalConnectionSeconds: p.total_connection_seconds,
       })),
     [trend],
+  );
+
+  const selectedTrendMetric =
+    ENGAGEMENT_TREND_METRICS.find((option) => option.value === trendMetric) ??
+    ENGAGEMENT_TREND_METRICS[0];
+
+  const trendChartConfig = useMemo(
+    () =>
+      ({
+        [selectedTrendMetric.dataKey]: {
+          label: selectedTrendMetric.label,
+          color: selectedTrendMetric.color,
+        },
+      }) satisfies ChartConfig,
+    [selectedTrendMetric],
   );
 
   const wow = report?.week_over_week;
@@ -402,9 +468,31 @@ export default function AdminConnectionEngagementWeekly() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>8-week trend</CardTitle>
-          <CardDescription>Active users and total connections over time.</CardDescription>
+        <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <CardTitle>8-week trend</CardTitle>
+            <CardDescription>
+              {selectedTrendMetric.label} over time for the selected filters.
+            </CardDescription>
+          </div>
+          <div
+            className="flex flex-wrap gap-1 rounded-lg border border-border p-1"
+            role="group"
+            aria-label="Trend metric"
+          >
+            {ENGAGEMENT_TREND_METRICS.map((option) => (
+              <Button
+                key={option.value}
+                type="button"
+                size="sm"
+                variant={trendMetric === option.value ? "default" : "ghost"}
+                className="h-8"
+                onClick={() => setTrendMetric(option.value)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -418,19 +506,27 @@ export default function AdminConnectionEngagementWeekly() {
               <LineChart data={chartRows} margin={{ left: 8, right: 8, top: 8, bottom: 0 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                <YAxis tickLine={false} axisLine={false} allowDecimals={false} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Line
-                  type="monotone"
-                  dataKey="activeUsers"
-                  stroke="var(--color-activeUsers)"
-                  strokeWidth={2}
-                  dot={false}
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={selectedTrendMetric.allowDecimals}
+                  tickFormatter={(value) =>
+                    selectedTrendMetric.formatValue(Number(value))
+                  }
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value) =>
+                        selectedTrendMetric.formatValue(Number(value))
+                      }
+                    />
+                  }
                 />
                 <Line
                   type="monotone"
-                  dataKey="totalConnections"
-                  stroke="var(--color-totalConnections)"
+                  dataKey={selectedTrendMetric.dataKey}
+                  stroke={`var(--color-${selectedTrendMetric.dataKey})`}
                   strokeWidth={2}
                   dot={false}
                 />

@@ -20,6 +20,7 @@ import {
   fetchSubscriptionPlans,
   createCheckoutSession,
   getSessionToken,
+  recordSignupStarted,
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
 import { enterprisePlan } from "@/constants/pricing";
@@ -361,6 +362,7 @@ const Subscribe = () => {
   }, [planIdParam]);
 
   const handleSignIn = async () => {
+    await recordSignupStarted();
     const result = await signIn();
     if (result.success && result.shouldRedirect) {
       navigate(result.shouldRedirect);

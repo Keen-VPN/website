@@ -94,6 +94,7 @@ export type {
   SignupSourceStatusResponse,
   AdminSignupSourceSummary,
   AdminUserProfileAnswerDistribution,
+  AdminUserProfileAudience,
   AdminUserProfileQuestionSummary,
   AdminUserProfileSummary,
 } from './backend';

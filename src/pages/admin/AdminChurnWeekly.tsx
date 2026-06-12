@@ -50,29 +50,59 @@ function friendlyProvider(raw: string): string {
   }
 }
 
-function friendlyClientPlatform(raw: string): string {
+function friendlyClientPlatform(raw: string): { label: string; hint?: string } {
   switch (raw.toLowerCase()) {
     case "macos":
-      return "macOS";
+      return { label: "macOS" };
     case "ios":
-      return "iOS";
+      return { label: "iOS" };
+    case "no_vpn_sessions":
+      return {
+        label: "No VPN sessions",
+        hint: "No qualifying VPN sessions in the prior 90 days",
+      };
+    case "other_platform":
+      return {
+        label: "Other / unrecognized",
+        hint: "Had sessions, but not mostly iOS or macOS",
+      };
     case "unknown":
-      return "Unknown";
+      return {
+        label: "No VPN sessions",
+        hint: "Legacy bucket — no qualifying VPN sessions in the prior 90 days",
+      };
     default:
-      return raw;
+      return { label: raw };
   }
 }
 
-const trendChartConfig = {
-  churnRate: {
-    label: "Weekly churn %",
+type ChurnTrendMetric = "churned" | "auto_renew_off" | "expirations";
+
+const CHURN_TREND_METRICS: {
+  value: ChurnTrendMetric;
+  label: string;
+  dataKey: "churnRate" | "autoRenewDisabledRate" | "subscriptionExpirationsRate";
+  color: string;
+}[] = [
+  {
+    value: "churned",
+    label: "Churned",
+    dataKey: "churnRate",
     color: "hsl(var(--destructive))",
   },
-  autoRenewDisabledRate: {
-    label: "Auto-renew off %",
+  {
+    value: "auto_renew_off",
+    label: "Auto-renew off",
+    dataKey: "autoRenewDisabledRate",
     color: "hsl(var(--primary))",
   },
-} satisfies ChartConfig;
+  {
+    value: "expirations",
+    label: "Expirations",
+    dataKey: "subscriptionExpirationsRate",
+    color: "hsl(var(--chart-2))",
+  },
+];
 
 const SOURCE_OPTIONS: { value: AdminChurnSubscriptionSource; label: string }[] = [
   { value: "all", label: "All sources" },
@@ -85,6 +115,7 @@ export default function AdminChurnWeekly() {
   const [isoYear, setIsoYear] = useState(initial.isoYear);
   const [isoWeek, setIsoWeek] = useState(initial.isoWeek);
   const [source, setSource] = useState<AdminChurnSubscriptionSource>("all");
+  const [trendMetric, setTrendMetric] = useState<ChurnTrendMetric>("churned");
   const [report, setReport] = useState<AdminWeeklyChurnReport | null>(null);
   const [trend, setTrend] = useState<AdminWeeklyChurnTrendReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -155,8 +186,24 @@ export default function AdminChurnWeekly() {
         label: p.weekLabel,
         churnRate: p.churnRate,
         autoRenewDisabledRate: p.autoRenewDisabledRate,
+        subscriptionExpirationsRate: p.subscriptionExpirationsRate,
       })),
     [trend],
+  );
+
+  const selectedTrendMetric = CHURN_TREND_METRICS.find(
+    (option) => option.value === trendMetric,
+  ) ?? CHURN_TREND_METRICS[0];
+
+  const trendChartConfig = useMemo(
+    () =>
+      ({
+        [selectedTrendMetric.dataKey]: {
+          label: `${selectedTrendMetric.label} %`,
+          color: selectedTrendMetric.color,
+        },
+      }) satisfies ChartConfig,
+    [selectedTrendMetric],
   );
 
   const weekInputValue = `${isoYear}-W${String(isoWeek).padStart(2, "0")}`;
@@ -167,9 +214,9 @@ export default function AdminChurnWeekly() {
         <div>
           <h3 className="text-lg font-semibold tracking-tight">Weekly churn</h3>
           <p className="text-sm text-muted-foreground">
-            ISO week (Monday UTC). Churn rate = net lost subscribers ÷ active at
-            week start (users who switch billing source are not counted as
-            churned). Internal test accounts are excluded.
+            ISO week (Monday UTC). Churn = subscribers lost this week (cancellations
+            + account deletions) ÷ active at week start. Users who switch billing
+            source are not counted as churned. Internal test accounts are excluded.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -232,7 +279,11 @@ export default function AdminChurnWeekly() {
         <SummaryCard
           title="Weekly churn"
           value={report ? `${report.churned} (${pct(report.churnRate)})` : "—"}
-          subtitle="Subscribers lost this week"
+          subtitle={
+            report
+              ? `Lost this week: ${report.churnedFromCancellation} cancelled, ${report.accountsDeleted} deleted account${report.accountsDeleted === 1 ? "" : "s"}`
+              : "Subscribers lost this week"
+          }
           loading={loading}
         />
         <SummaryCard
@@ -310,7 +361,9 @@ export default function AdminChurnWeekly() {
           <CardHeader>
             <CardTitle>Churn by client platform</CardTitle>
             <CardDescription>
-              Dominant VPN app platform (90-day session lookback).
+              Primary VPN app used in the 90 days before week end. &quot;No VPN
+              sessions&quot; means the subscriber had no recorded VPN connections in
+              that window (not the same as account deletion).
             </CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
@@ -330,7 +383,19 @@ export default function AdminChurnWeekly() {
                     className="border-t border-border/60"
                   >
                     <td className="py-2 pr-4">
-                      {friendlyClientPlatform(row.clientPlatform)}
+                      {(() => {
+                        const platform = friendlyClientPlatform(row.clientPlatform);
+                        return (
+                          <div>
+                            <span>{platform.label}</span>
+                            {platform.hint ? (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {platform.hint}
+                              </p>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="py-2 pr-4 text-right tabular-nums">{row.churned}</td>
                     <td className="py-2 pr-4 text-right tabular-nums">
@@ -348,12 +413,32 @@ export default function AdminChurnWeekly() {
       ) : null}
 
       <Card>
-        <CardHeader>
-          <CardTitle>8-week trend</CardTitle>
-          <CardDescription>
-            Weekly churn vs auto-renew disabled (% of active subscribers at week
-            start).
-          </CardDescription>
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle>8-week trend</CardTitle>
+            <CardDescription>
+              {selectedTrendMetric.label} as % of active subscribers at week
+              start.
+            </CardDescription>
+          </div>
+          <div
+            className="flex flex-wrap gap-1 rounded-lg border border-border p-1"
+            role="group"
+            aria-label="Trend metric"
+          >
+            {CHURN_TREND_METRICS.map((option) => (
+              <Button
+                key={option.value}
+                type="button"
+                size="sm"
+                variant={trendMetric === option.value ? "default" : "ghost"}
+                className="h-8"
+                onClick={() => setTrendMetric(option.value)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -369,15 +454,8 @@ export default function AdminChurnWeekly() {
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Line
                   type="monotone"
-                  dataKey="churnRate"
-                  stroke="var(--color-churnRate)"
-                  strokeWidth={2}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="autoRenewDisabledRate"
-                  stroke="var(--color-autoRenewDisabledRate)"
+                  dataKey={selectedTrendMetric.dataKey}
+                  stroke={`var(--color-${selectedTrendMetric.dataKey})`}
                   strokeWidth={2}
                   dot={false}
                 />

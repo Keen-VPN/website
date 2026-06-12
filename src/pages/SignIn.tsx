@@ -124,12 +124,12 @@ const SignIn = () => {
 
   // Debounce sign-in to prevent double-clicks
   const [handleGoogleSignIn, isGoogleDebouncing] = useDebounce(async () => {
-    void recordSignupStarted();
+    await recordSignupStarted();
     await signIn("google");
   }, 2000);
 
   const [handleAppleSignIn, isAppleDebouncing] = useDebounce(async () => {
-    void recordSignupStarted();
+    await recordSignupStarted();
     await signIn("apple");
   }, 2000);
 
@@ -143,7 +143,7 @@ const SignIn = () => {
   const sendOtp = async () => {
     if (!emailForOtp) return;
 
-    void recordSignupStarted();
+    await recordSignupStarted();
     setOtpLoading(true);
     setOtpMessage("");
     const result = await requestEmailOtp(emailForOtp);
