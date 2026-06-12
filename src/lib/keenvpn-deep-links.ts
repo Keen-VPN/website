@@ -1,3 +1,10 @@
+import {
+  APP_STORE_URLS,
+  isAppleAppStoreUrl,
+  toNativeAppStoreSchemeUrl,
+} from "@/constants/app-store-urls";
+import { detectDevice } from "@/lib/device-detection";
+
 /**
  * KeenVPN native app deep links (iOS + macOS only).
  * Registered schemes: vpnkeen, keenvpn (iOS). Prefer vpnkeen for web → app handoff.
@@ -17,6 +24,8 @@ export const PAYMENT_CANCEL_DEEP_LINK = `${KEENVPN_URL_SCHEME}://cancel`;
 export const AUTH_DEEP_LINK_PREFIX = `${KEENVPN_URL_SCHEME}://auth`;
 
 export const RETURN_TO_APP_LABEL = "Return to KeenVPN App";
+
+const ASWEB_AUTH_AUTO_OPEN_DONE_KEY = "keenvpn_asweb_auth_auto_open_done";
 
 const STRIPE_CHECKOUT_RETURN_KEY = "keenvpn_stripe_checkout_return";
 const STRIPE_AUTO_OPEN_DONE_KEY = "keenvpn_stripe_auto_open_done";
@@ -110,15 +119,49 @@ export function clearStripeCheckoutReturn(): void {
   }
 }
 
+function resolveAppStoreDownloadUrl(downloadPageUrl?: string): string {
+  const device = detectDevice();
+  if (downloadPageUrl && isAppleAppStoreUrl(downloadPageUrl)) {
+    return downloadPageUrl;
+  }
+  if (device === "ios") return APP_STORE_URLS.ios;
+  if (device === "macos") return APP_STORE_URLS.macos;
+  if (downloadPageUrl && /^https?:\/\//i.test(downloadPageUrl)) {
+    return downloadPageUrl;
+  }
+  return APP_STORE_URLS.fallback;
+}
+
+/** Opens the platform App Store page — never uses vpnkeen:// custom schemes. */
+export function openKeenVpnAppStore(downloadPageUrl?: string): void {
+  const webUrl = resolveAppStoreDownloadUrl(downloadPageUrl);
+  const url = toNativeAppStoreSchemeUrl(webUrl);
+
+  // Native store schemes open the App Store app; https links stay in the browser.
+  if (/^(macappstore|itms-apps):/i.test(url)) {
+    window.location.assign(url);
+    return;
+  }
+
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+/** @deprecated Use {@link openKeenVpnAppStore} */
+export const openKeenVpnDownloadPage = openKeenVpnAppStore;
+
 /**
  * Programmatic handoff to the native KeenVPN app via custom URL scheme.
- *
- * Uses both a hidden iframe and a synthetic anchor click: Safari / ASWebAuthenticationSession
- * often ignores anchor-only navigation for custom schemes, while the iframe can still reach
- * the OS handler. Anchor remains the primary path in normal Safari tabs. Iframe creation is
- * wrapped in try/catch for environments that block iframes.
+ * Only allowed when {@link isNativeAppWebSession} — otherwise opens the App Store.
  */
-export function openKeenVpnNativeApp(deepLink: string = PAYMENT_SUCCESS_DEEP_LINK): void {
+export function openKeenVpnNativeApp(
+  deepLink: string = PAYMENT_SUCCESS_DEEP_LINK,
+  downloadPageUrl?: string,
+): void {
+  if (!isNativeAppWebSession()) {
+    openKeenVpnAppStore(downloadPageUrl);
+    return;
+  }
+
   try {
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";
@@ -136,12 +179,104 @@ export function openKeenVpnNativeApp(deepLink: string = PAYMENT_SUCCESS_DEEP_LIN
   window.setTimeout(() => anchor.remove(), 100);
 }
 
+/** Build auth callback URL with a URL-encoded session token. */
+export function buildAuthDeepLink(sessionToken: string): string {
+  return `${AUTH_DEEP_LINK_PREFIX}?token=${encodeURIComponent(sessionToken)}`;
+}
+
+/**
+ * Deep link for return-to-app handoffs. Only call when {@link isNativeAppWebSession}.
+ * Attaches session token when available so the native app can sign in.
+ */
+export function resolveNativeAppHandoffDeepLink(
+  sessionToken: string | null | undefined,
+  fallback: string = OPEN_APP_DEEP_LINK,
+): string {
+  const token = sessionToken?.trim();
+  return token ? buildAuthDeepLink(token) : fallback;
+}
+
 /**
  * Return to the native app after Stripe checkout. Does not hide post-checkout UI;
  * callers should dismiss explicitly (e.g. "Continue on web") so users can retry the deep link.
  */
 export function returnToKeenVpnAppAfterPayment(
-  deepLink: string = PAYMENT_SUCCESS_DEEP_LINK,
+  sessionToken?: string | null,
+  downloadPageUrl?: string,
 ): void {
-  openKeenVpnNativeApp(deepLink);
+  openKeenVpnNativeApp(
+    resolveNativeAppHandoffDeepLink(sessionToken, PAYMENT_SUCCESS_DEEP_LINK),
+    downloadPageUrl,
+  );
+}
+
+/**
+ * True when this browser tab was opened from the native KeenVPN app
+ * (ASWebAuthenticationSession / in-app browser with `?asweb=1`).
+ */
+export function isNativeAppWebSession(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    return (
+      urlParams.get("asweb") === "1" ||
+      sessionStorage.getItem("asweb_session") === "1"
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** @deprecated Use {@link isNativeAppWebSession} */
+export const isAsWebAuthSession = isNativeAppWebSession;
+
+/** Prevent duplicate programmatic auth handoffs for the same session token. */
+export function shouldAutoOpenAppAfterAsWebAuth(sessionToken: string): boolean {
+  if (!sessionToken) {
+    return false;
+  }
+  try {
+    return sessionStorage.getItem(ASWEB_AUTH_AUTO_OPEN_DONE_KEY) !== sessionToken;
+  } catch {
+    return false;
+  }
+}
+
+export function markAsWebAuthAutoOpenDone(sessionToken: string): void {
+  if (!sessionToken) {
+    return;
+  }
+  try {
+    sessionStorage.setItem(ASWEB_AUTH_AUTO_OPEN_DONE_KEY, sessionToken);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Hand off session token to the native app after ASWeb Google login. */
+export function returnToKeenVpnAppAfterAuth(
+  sessionToken: string,
+  downloadPageUrl?: string,
+): void {
+  openKeenVpnNativeApp(buildAuthDeepLink(sessionToken), downloadPageUrl);
+}
+
+/**
+ * Auto-return to KeenVPN after web OAuth when opened from ASWebAuthenticationSession.
+ * Returns true when a handoff was attempted.
+ */
+export function maybeAutoReturnToKeenVpnAppAfterAuth(
+  sessionToken: string,
+): boolean {
+  if (!sessionToken || !isNativeAppWebSession()) {
+    return false;
+  }
+  if (!shouldAutoOpenAppAfterAsWebAuth(sessionToken)) {
+    return false;
+  }
+  markAsWebAuthAutoOpenDone(sessionToken);
+  returnToKeenVpnAppAfterAuth(sessionToken);
+  return true;
 }
