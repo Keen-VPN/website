@@ -61,7 +61,6 @@ import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
 import { UserInformationCard } from "@/components/UserInformationCard";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
 import {
-  detectDevice,
   isAppDeepLinkSupported,
   getUnsupportedDeviceName,
 } from "@/lib/device-detection";
@@ -138,7 +137,6 @@ const Account = () => {
   );
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
-  const isMacOS = useMemo(() => detectDevice() === "macos", []);
   const unsupportedDeviceName = useMemo(() => getUnsupportedDeviceName(), []);
 
   // ASWebAuthenticationSession detection
