@@ -143,9 +143,9 @@ const SignIn = () => {
   const sendOtp = async () => {
     if (!emailForOtp) return;
 
-    await recordSignupStarted();
     setOtpLoading(true);
     setOtpMessage("");
+    await recordSignupStarted();
     const result = await requestEmailOtp(emailForOtp);
     setOtpLoading(false);
 

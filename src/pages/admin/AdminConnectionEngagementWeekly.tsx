@@ -487,6 +487,7 @@ export default function AdminConnectionEngagementWeekly() {
                 size="sm"
                 variant={trendMetric === option.value ? "default" : "ghost"}
                 className="h-8"
+                aria-pressed={trendMetric === option.value}
                 onClick={() => setTrendMetric(option.value)}
               >
                 {option.label}
