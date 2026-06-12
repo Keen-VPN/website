@@ -1,3 +1,10 @@
+import {
+  APP_STORE_URLS,
+  isAppleAppStoreUrl,
+  toNativeAppStoreSchemeUrl,
+} from "@/constants/app-store-urls";
+import { detectDevice } from "@/lib/device-detection";
+
 /**
  * KeenVPN native app deep links (iOS + macOS only).
  * Registered schemes: vpnkeen, keenvpn (iOS). Prefer vpnkeen for web → app handoff.
@@ -112,15 +119,49 @@ export function clearStripeCheckoutReturn(): void {
   }
 }
 
+function resolveAppStoreDownloadUrl(downloadPageUrl?: string): string {
+  const device = detectDevice();
+  if (downloadPageUrl && isAppleAppStoreUrl(downloadPageUrl)) {
+    return downloadPageUrl;
+  }
+  if (device === "ios") return APP_STORE_URLS.ios;
+  if (device === "macos") return APP_STORE_URLS.macos;
+  if (downloadPageUrl && /^https?:\/\//i.test(downloadPageUrl)) {
+    return downloadPageUrl;
+  }
+  return APP_STORE_URLS.fallback;
+}
+
+/** Opens the platform App Store page — never uses vpnkeen:// custom schemes. */
+export function openKeenVpnAppStore(downloadPageUrl?: string): void {
+  const webUrl = resolveAppStoreDownloadUrl(downloadPageUrl);
+  const url = toNativeAppStoreSchemeUrl(webUrl);
+
+  // Native store schemes open the App Store app; https links stay in the browser.
+  if (/^(macappstore|itms-apps):/i.test(url)) {
+    window.location.assign(url);
+    return;
+  }
+
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+/** @deprecated Use {@link openKeenVpnAppStore} */
+export const openKeenVpnDownloadPage = openKeenVpnAppStore;
+
 /**
  * Programmatic handoff to the native KeenVPN app via custom URL scheme.
- *
- * Uses both a hidden iframe and a synthetic anchor click: Safari / ASWebAuthenticationSession
- * often ignores anchor-only navigation for custom schemes, while the iframe can still reach
- * the OS handler. Anchor remains the primary path in normal Safari tabs. Iframe creation is
- * wrapped in try/catch for environments that block iframes.
+ * Only allowed when {@link isNativeAppWebSession} — otherwise opens the App Store.
  */
-export function openKeenVpnNativeApp(deepLink: string = PAYMENT_SUCCESS_DEEP_LINK): void {
+export function openKeenVpnNativeApp(
+  deepLink: string = PAYMENT_SUCCESS_DEEP_LINK,
+  downloadPageUrl?: string,
+): void {
+  if (!isNativeAppWebSession()) {
+    openKeenVpnAppStore(downloadPageUrl);
+    return;
+  }
+
   try {
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";
@@ -144,8 +185,8 @@ export function buildAuthDeepLink(sessionToken: string): string {
 }
 
 /**
- * Prefer `vpnkeen://auth?token=…` when the web session has a backend token so the
- * native app can sign in. Falls back to purpose-specific links when logged out.
+ * Deep link for return-to-app handoffs. Only call when {@link isNativeAppWebSession}.
+ * Attaches session token when available so the native app can sign in.
  */
 export function resolveNativeAppHandoffDeepLink(
   sessionToken: string | null | undefined,
@@ -161,14 +202,19 @@ export function resolveNativeAppHandoffDeepLink(
  */
 export function returnToKeenVpnAppAfterPayment(
   sessionToken?: string | null,
+  downloadPageUrl?: string,
 ): void {
   openKeenVpnNativeApp(
     resolveNativeAppHandoffDeepLink(sessionToken, PAYMENT_SUCCESS_DEEP_LINK),
+    downloadPageUrl,
   );
 }
 
-/** True when the page was opened from macOS ASWebAuthenticationSession (Google login). */
-export function isAsWebAuthSession(): boolean {
+/**
+ * True when this browser tab was opened from the native KeenVPN app
+ * (ASWebAuthenticationSession / in-app browser with `?asweb=1`).
+ */
+export function isNativeAppWebSession(): boolean {
   if (typeof window === "undefined") {
     return false;
   }
@@ -182,6 +228,9 @@ export function isAsWebAuthSession(): boolean {
     return false;
   }
 }
+
+/** @deprecated Use {@link isNativeAppWebSession} */
+export const isAsWebAuthSession = isNativeAppWebSession;
 
 /** Prevent duplicate programmatic auth handoffs for the same session token. */
 export function shouldAutoOpenAppAfterAsWebAuth(sessionToken: string): boolean {
@@ -207,8 +256,11 @@ export function markAsWebAuthAutoOpenDone(sessionToken: string): void {
 }
 
 /** Hand off session token to the native app after ASWeb Google login. */
-export function returnToKeenVpnAppAfterAuth(sessionToken: string): void {
-  openKeenVpnNativeApp(buildAuthDeepLink(sessionToken));
+export function returnToKeenVpnAppAfterAuth(
+  sessionToken: string,
+  downloadPageUrl?: string,
+): void {
+  openKeenVpnNativeApp(buildAuthDeepLink(sessionToken), downloadPageUrl);
 }
 
 /**
@@ -218,7 +270,7 @@ export function returnToKeenVpnAppAfterAuth(sessionToken: string): void {
 export function maybeAutoReturnToKeenVpnAppAfterAuth(
   sessionToken: string,
 ): boolean {
-  if (!sessionToken || !isAsWebAuthSession()) {
+  if (!sessionToken || !isNativeAppWebSession()) {
     return false;
   }
   if (!shouldAutoOpenAppAfterAsWebAuth(sessionToken)) {

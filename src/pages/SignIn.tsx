@@ -190,6 +190,7 @@ const SignIn = () => {
       return;
     }
 
+    setOtpCode("");
     storeSessionToken(result.sessionToken);
     localStorage.setItem("auth_provider", "email");
     sessionStorage.setItem("auth_provider", "email");
