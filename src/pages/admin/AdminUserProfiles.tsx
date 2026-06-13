@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   adminFetchUserProfileSummary,
+  type AdminUserProfileAudience,
   type AdminUserProfileQuestionSummary,
   type AdminUserProfileSummary,
 } from "@/auth";
+import { Button } from "@/components/ui/button";
 
 function formatPercent(numerator: number, denominator: number) {
   if (denominator <= 0) return "—";
@@ -16,6 +18,24 @@ function categoryLabel(category: string) {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 }
+
+const AUDIENCE_OPTIONS: {
+  value: AdminUserProfileAudience;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "all",
+    label: "All users",
+    description: "Every registered account",
+  },
+  {
+    value: "billing",
+    label: "Paying & trial",
+    description:
+      "Users with an active or trialing subscription, linked subscription members, or a Stripe customer on file",
+  },
+];
 
 function QuestionBreakdown({
   question,
@@ -85,20 +105,25 @@ function QuestionBreakdown({
 }
 
 export default function AdminUserProfiles() {
+  const [audience, setAudience] = useState<AdminUserProfileAudience>("billing");
   const [summary, setSummary] = useState<AdminUserProfileSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (targetAudience: AdminUserProfileAudience) => {
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
 
     setLoading(true);
     setError(null);
+    setSummary(null);
 
-    const res = await adminFetchUserProfileSummary({ signal: controller.signal });
+    const res = await adminFetchUserProfileSummary({
+      audience: targetAudience,
+      signal: controller.signal,
+    });
 
     if (controller.signal.aborted || activeRequest.current !== controller) {
       return;
@@ -116,9 +141,13 @@ export default function AdminUserProfiles() {
   }, []);
 
   useEffect(() => {
-    void load();
+    void load(audience);
     return () => activeRequest.current?.abort();
-  }, [load]);
+  }, [load, audience]);
+
+  const selectedAudience =
+    AUDIENCE_OPTIONS.find((option) => option.value === audience) ??
+    AUDIENCE_OPTIONS[0];
 
   const completionRate = summary
     ? formatPercent(summary.profilesCompleted, summary.totalUsers)
@@ -130,7 +159,7 @@ export default function AdminUserProfiles() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold">User profiles</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -138,13 +167,37 @@ export default function AdminUserProfiles() {
             responses are shown here.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
-        >
+        <Button type="button" variant="outline" onClick={() => void load(audience)}>
           Refresh
-        </button>
+        </Button>
+      </div>
+
+      <div className="space-y-3 rounded-lg border border-border p-4">
+        <div>
+          <p className="text-sm font-medium">Audience</p>
+          <p className="text-sm text-muted-foreground">
+            {selectedAudience.description}
+          </p>
+        </div>
+        <div
+          className="flex flex-wrap gap-1 rounded-lg border border-border p-1"
+          role="group"
+          aria-label="Profile audience"
+        >
+          {AUDIENCE_OPTIONS.map((option) => (
+            <Button
+              key={option.value}
+              type="button"
+              size="sm"
+              variant={audience === option.value ? "default" : "ghost"}
+              className="h-8"
+              aria-pressed={audience === option.value}
+              onClick={() => setAudience(option.value)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {error ? (
@@ -153,11 +206,29 @@ export default function AdminUserProfiles() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <div className="rounded-lg border border-border p-4">
-          <p className="text-sm text-muted-foreground">Total users</p>
+          <p className="text-sm text-muted-foreground">Users in audience</p>
           <p className="mt-1 text-3xl font-semibold">
             {summary?.totalUsers ?? (loading ? "…" : 0)}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border p-4">
+          <p className="text-sm text-muted-foreground">Trial users</p>
+          <p className="mt-1 text-3xl font-semibold">
+            {summary?.trialUsers ?? (loading ? "…" : 0)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Active trialing subscription
+          </p>
+        </div>
+        <div className="rounded-lg border border-border p-4">
+          <p className="text-sm text-muted-foreground">Paid users</p>
+          <p className="mt-1 text-3xl font-semibold">
+            {summary?.paidUsers ?? (loading ? "…" : 0)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Active paid subscription
           </p>
         </div>
         <div className="rounded-lg border border-border p-4">
@@ -166,7 +237,7 @@ export default function AdminUserProfiles() {
             {summary?.profilesStarted ?? (loading ? "…" : 0)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {loading ? "" : `${startRate} of users`}
+            {loading ? "" : `${startRate} of audience`}
           </p>
         </div>
         <div className="rounded-lg border border-border p-4">
@@ -175,7 +246,7 @@ export default function AdminUserProfiles() {
             {summary?.profilesCompleted ?? (loading ? "…" : 0)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {loading ? "" : `${completionRate} of users`}
+            {loading ? "" : `${completionRate} of audience`}
           </p>
         </div>
         <div className="rounded-lg border border-border p-4">
@@ -195,7 +266,7 @@ export default function AdminUserProfiles() {
         <div>
           <h3 className="text-lg font-semibold">Question breakdown</h3>
           <p className="text-sm text-muted-foreground">
-            Answer distributions across all users who responded to each question.
+            Answer distributions for the selected audience.
           </p>
         </div>
 
@@ -217,7 +288,7 @@ export default function AdminUserProfiles() {
         <div>
           <h3 className="text-lg font-semibold">Profile funnel events</h3>
           <p className="text-sm text-muted-foreground">
-            Server-side product events for profile interactions.
+            Server-side product events for profile interactions in this audience.
           </p>
         </div>
 

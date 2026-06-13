@@ -1981,8 +1981,13 @@ export interface AdminUserProfileQuestionSummary {
   distribution: AdminUserProfileAnswerDistribution[];
 }
 
+export type AdminUserProfileAudience = "all" | "billing";
+
 export interface AdminUserProfileSummary {
+  audience: AdminUserProfileAudience;
   totalUsers: number;
+  trialUsers: number;
+  paidUsers: number;
   profilesStarted: number;
   profilesCompleted: number;
   questions: AdminUserProfileQuestionSummary[];
@@ -2179,6 +2184,8 @@ export interface AdminChurnReport {
   startOfMonthActiveUsers: number;
   hardChurned: number;
   hardChurnRate: number;
+  churnedFromCancellation: number;
+  accountsDeleted: number;
   softChurned: number;
   softChurnRate: number;
   trialChurned: number;
@@ -2236,6 +2243,8 @@ export interface AdminWeeklyChurnReport {
   startOfWeekActiveUsers: number;
   churned: number;
   churnRate: number;
+  churnedFromCancellation: number;
+  accountsDeleted: number;
   autoRenewDisabled: number;
   autoRenewDisabledRate: number;
   subscriptionExpirations: number;
@@ -2253,6 +2262,8 @@ export interface AdminWeeklyChurnTrendPoint {
   startOfWeekActiveUsers: number;
   churned: number;
   churnRate: number;
+  churnedFromCancellation: number;
+  accountsDeleted: number;
   autoRenewDisabled: number;
   autoRenewDisabledRate: number;
   subscriptionExpirations: number;
@@ -2543,7 +2554,7 @@ const SIGNUP_STARTED_SESSION_KEY = "keen_signup_started_tracked";
 
 let signupStartedInFlight: Promise<void> | null = null;
 
-/** Fire-and-forget: records signup_started with stored first-touch UTMs (pre-account). */
+/** Records signup_started with stored first-touch UTMs (pre-account). */
 export async function recordSignupStarted(): Promise<void> {
   const payload = getUtmAttributionAuthPayload();
   if (!payload.utmAttribution) return;
@@ -2572,6 +2583,13 @@ export async function recordSignupStarted(): Promise<void> {
         },
       );
       if (!response.ok) return;
+
+      const data: unknown = await response.json().catch(() => ({}));
+      const tracked =
+        typeof data === "object" &&
+        data !== null &&
+        (data as { tracked?: boolean }).tracked === true;
+      if (!tracked) return;
 
       if (typeof window !== "undefined") {
         try {
@@ -2894,6 +2912,7 @@ export async function adminFetchReviewPromptSummary(params?: {
 }
 
 export async function adminFetchUserProfileSummary(params?: {
+  audience?: AdminUserProfileAudience;
   signal?: AbortSignal;
 }): Promise<{
   ok: boolean;
@@ -2901,10 +2920,18 @@ export async function adminFetchUserProfileSummary(params?: {
   error?: string;
 }> {
   try {
-    const response = await fetch(`${BACKEND_URL}/admin/user-profiles/summary`, {
+    const query = new URLSearchParams();
+    if (params?.audience && params.audience !== "all") {
+      query.set("audience", params.audience);
+    }
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/user-profiles/summary${suffix}`,
+      {
       credentials: "include",
       signal: params?.signal,
-    });
+      },
+    );
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
