@@ -33,7 +33,7 @@ const AUDIENCE_OPTIONS: {
     value: "billing",
     label: "Paying & trial",
     description:
-      "Users with an active or trialing subscription, or a Stripe customer on file (added payment method)",
+      "Users with an active or trialing subscription, linked subscription members, or a Stripe customer on file",
   },
 ];
 
@@ -118,6 +118,7 @@ export default function AdminUserProfiles() {
 
     setLoading(true);
     setError(null);
+    setSummary(null);
 
     const res = await adminFetchUserProfileSummary({
       audience: targetAudience,
@@ -190,6 +191,7 @@ export default function AdminUserProfiles() {
               size="sm"
               variant={audience === option.value ? "default" : "ghost"}
               className="h-8"
+              aria-pressed={audience === option.value}
               onClick={() => setAudience(option.value)}
             >
               {option.label}
