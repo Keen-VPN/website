@@ -261,7 +261,11 @@ export default function AdminChurn() {
         <SummaryCard
           title="Lost subscribers"
           value={report ? `${report.hardChurned} (${pct(report.hardChurnRate)})` : "—"}
-          subtitle="Cancelled or expired this month"
+          subtitle={
+            report
+              ? `Lost this month: ${report.churnedFromCancellation} cancelled, ${report.accountsDeleted} deleted account${report.accountsDeleted === 1 ? "" : "s"}`
+              : "Cancelled, expired, or deleted account this month"
+          }
           loading={loading}
         />
         <SummaryCard
