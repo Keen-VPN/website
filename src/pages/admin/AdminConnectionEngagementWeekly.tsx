@@ -98,7 +98,7 @@ const ENGAGEMENT_TREND_METRICS: {
     dataKey: "medianConnectionSeconds",
     color: "hsl(var(--chart-4))",
     formatValue: formatDuration,
-    allowDecimals: true,
+    allowDecimals: false,
   },
   {
     value: "total_connection_time",
