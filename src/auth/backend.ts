@@ -3582,6 +3582,7 @@ export async function adminListPerkRequests(options?: {
 }): Promise<{
   ok: boolean;
   data?: AdminPerkRequestAggregate[];
+  highDemandThreshold?: number;
   error?: string;
 }> {
   try {
@@ -3599,8 +3600,15 @@ export async function adminListPerkRequests(options?: {
         error: extractBackendErrorMessage(raw, "Failed to load perk requests"),
       };
     }
-    const record = raw as { data?: AdminPerkRequestAggregate[] };
-    return { ok: true, data: record.data ?? [] };
+    const record = raw as {
+      data?: AdminPerkRequestAggregate[];
+      highDemandThreshold?: number;
+    };
+    return {
+      ok: true,
+      data: record.data ?? [],
+      highDemandThreshold: record.highDemandThreshold,
+    };
   } catch (e) {
     return {
       ok: false,
