@@ -249,6 +249,7 @@ export default function AdminPerks() {
   const [fromInput, setFromInput] = useState("");
   const [toInput, setToInput] = useState("");
   const metricsRequest = useRef<AbortController | null>(null);
+  const historyRequestRef = useRef(0);
 
   const loadMetrics = useCallback(async (fromValue: string, toValue: string) => {
     metricsRequest.current?.abort();
@@ -308,11 +309,13 @@ export default function AdminPerks() {
   }, []);
 
   const openPerkHistory = async (perk: AdminPerk) => {
+    const requestId = ++historyRequestRef.current;
     setHistoryPerk(perk);
     setHistoryDialogOpen(true);
     setLoadingPerkHistory(true);
     setPerkHistory([]);
     const res = await adminFetchPerkReactivations(perk.id);
+    if (requestId !== historyRequestRef.current) return;
     if (res.ok) {
       setPerkHistory(res.data ?? []);
     }
@@ -334,9 +337,12 @@ export default function AdminPerks() {
 
   useEffect(() => {
     void loadPerks();
+  }, [loadPerks]);
+
+  useEffect(() => {
     void loadExpired();
     void loadReactivationHistory();
-  }, [loadPerks, loadExpired, loadReactivationHistory]);
+  }, [loadExpired, loadReactivationHistory]);
 
   useEffect(() => {
     void loadMetrics("", "");

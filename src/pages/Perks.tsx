@@ -220,7 +220,7 @@ const Perks = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
-  const [actionPerkId, setActionPerkId] = useState<string | null>(null);
+  const [actionPerkIds, setActionPerkIds] = useState<Set<string>>(new Set());
   const [detailsPerkId, setDetailsPerkId] = useState<string | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestSubmitting, setRequestSubmitting] = useState(false);
@@ -438,9 +438,13 @@ const Perks = () => {
     action: () => Promise<{ success: boolean; error?: string }>,
     successMessage: string,
   ) => {
-    setActionPerkId(perkId);
+    setActionPerkIds((prev) => new Set(prev).add(perkId));
     const res = await action();
-    setActionPerkId(null);
+    setActionPerkIds((prev) => {
+      const next = new Set(prev);
+      next.delete(perkId);
+      return next;
+    });
     if (!res.success) {
       toast({
         title: "Action failed",
@@ -453,20 +457,33 @@ const Perks = () => {
     void loadPerks();
   };
 
-  const handleSnooze = (perk: PerkItem) => {
+  const requireSession = (): string | null => {
     const session = getSessionToken();
+    if (!session) {
+      toast({
+        title: "Sign in required",
+        description: "Sign in again to update your perk preferences.",
+        variant: "destructive",
+      });
+      return null;
+    }
+    return session;
+  };
+
+  const handleSnooze = (perk: PerkItem) => {
+    const session = requireSession();
     if (!session) return;
     void runPerkAction(perk.id, () => snoozePerk(session, perk.id), "Perk snoozed for 7 days");
   };
 
   const handleDismiss = (perk: PerkItem) => {
-    const session = getSessionToken();
+    const session = requireSession();
     if (!session) return;
     void runPerkAction(perk.id, () => dismissPerk(session, perk.id), "Moved to Not Interested");
   };
 
   const handleRestore = (perk: PerkItem) => {
-    const session = getSessionToken();
+    const session = requireSession();
     if (!session) return;
     void runPerkAction(perk.id, () => restorePerk(session, perk.id), "Perk restored to New");
   };
@@ -591,7 +608,7 @@ const Perks = () => {
                         perk={perk}
                         tab={selectedTab}
                         claiming={claimingId === perk.id}
-                        acting={actionPerkId === perk.id}
+                        acting={actionPerkIds.has(perk.id)}
                         onClaim={() => void handleClaim(perk)}
                         onCopyCode={(code) => void handleCopyCode(code)}
                         onViewDetails={() => setDetailsPerkId(perk.id)}
@@ -623,7 +640,7 @@ const Perks = () => {
                           perk={perk}
                           tab={selectedTab}
                           claiming={claimingId === perk.id}
-                          acting={actionPerkId === perk.id}
+                          acting={actionPerkIds.has(perk.id)}
                           onClaim={() => void handleClaim(perk)}
                           onCopyCode={(code) => void handleCopyCode(code)}
                           onViewDetails={() => setDetailsPerkId(perk.id)}
@@ -1040,7 +1057,7 @@ function PerkCard({
             </Button>
           </div>
         ) : null}
-        {tab === "snoozed" || tab === "not_interested" ? (
+        {(tab === "snoozed" || tab === "not_interested") ? (
           <Button
             type="button"
             variant="outline"
@@ -1115,13 +1132,18 @@ function RequestPerkDialog({
           <div className="space-y-2">
             <Label>Category (optional)</Label>
             <Select
-              value={category || undefined}
-              onValueChange={(value) => setCategory(value as PerkRequestCategory)}
+              value={category || "__none__"}
+              onValueChange={(value) =>
+                setCategory(
+                  value === "__none__" ? "" : (value as PerkRequestCategory),
+                )
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="__none__">None</SelectItem>
                 {REQUEST_CATEGORIES.map((item) => (
                   <SelectItem key={item.value} value={item.value}>
                     {item.label}

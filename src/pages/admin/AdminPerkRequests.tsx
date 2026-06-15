@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,15 @@ import { adminListPerkRequests } from "@/auth/backend";
 
 const HIGH_DEMAND_THRESHOLD = 25;
 
+function isSafeHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 type SortOption = "popular" | "newest" | "category" | "high_demand";
 
 export default function AdminPerkRequests() {
@@ -21,11 +30,14 @@ export default function AdminPerkRequests() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadSeq = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     setLoading(true);
     setError(null);
     const res = await adminListPerkRequests({ sort });
+    if (seq !== loadSeq.current) return;
     if (res.ok && res.data) {
       setRows(res.data);
     } else {
@@ -121,7 +133,7 @@ export default function AdminPerkRequests() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {row.websiteUrl ? (
+                    {row.websiteUrl && isSafeHttpUrl(row.websiteUrl) ? (
                       <a
                         href={row.websiteUrl}
                         target="_blank"
@@ -130,6 +142,8 @@ export default function AdminPerkRequests() {
                       >
                         {row.websiteUrl}
                       </a>
+                    ) : row.websiteUrl ? (
+                      <span className="text-muted-foreground">{row.websiteUrl}</span>
                     ) : (
                       "—"
                     )}
