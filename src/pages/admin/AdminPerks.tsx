@@ -19,12 +19,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  adminClonePerk,
   adminCreatePerk,
   adminDeletePerk,
+  adminFetchAllPerkReactivations,
+  adminFetchPerkReactivations,
   adminFetchPerksMetrics,
+  adminListExpiredPerks,
   adminListPerks,
+  adminReactivatePerk,
   adminUpdatePerk,
   type AdminPerk,
+  type AdminPerkReactivation,
   type AdminPerksMetrics,
   type CreateAdminPerkPayload,
   type PerkCategory,
@@ -174,12 +180,60 @@ function dateInputToIsoExclusiveEnd(value: string) {
   return date.toISOString();
 }
 
+function formatAdminDate(value: string | null | undefined) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString();
+}
+
+function formatAdminDateTime(value: string | null | undefined) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString();
+}
+
+function adminDisplayName(
+  admin: AdminPerkReactivation["adminUser"],
+): string {
+  if (!admin) return "—";
+  return admin.name?.trim() || admin.email;
+}
+
+function statusLabel(status: AdminPerk["status"]) {
+  switch (status) {
+    case "active":
+      return "Active";
+    case "scheduled":
+      return "Scheduled";
+    case "expired":
+      return "Expired";
+    case "cooling_off":
+      return "Cooling off";
+    case "eligible_for_readd":
+      return "Eligible";
+    default:
+      return status;
+  }
+}
+
 export default function AdminPerks() {
   const { can } = useAdminAuth();
   const canWrite = can("subscriptions.write");
 
   const [perks, setPerks] = useState<AdminPerk[]>([]);
+  const [expiredPerks, setExpiredPerks] = useState<AdminPerk[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingExpired, setLoadingExpired] = useState(true);
+  const [reactivationHistory, setReactivationHistory] = useState<
+    AdminPerkReactivation[]
+  >([]);
+  const [loadingReactivations, setLoadingReactivations] = useState(true);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyPerk, setHistoryPerk] = useState<AdminPerk | null>(null);
+  const [perkHistory, setPerkHistory] = useState<AdminPerkReactivation[]>([]);
+  const [loadingPerkHistory, setLoadingPerkHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(true);
 
@@ -195,6 +249,7 @@ export default function AdminPerks() {
   const [fromInput, setFromInput] = useState("");
   const [toInput, setToInput] = useState("");
   const metricsRequest = useRef<AbortController | null>(null);
+  const historyRequestRef = useRef(0);
 
   const loadMetrics = useCallback(async (fromValue: string, toValue: string) => {
     metricsRequest.current?.abort();
@@ -231,6 +286,42 @@ export default function AdminPerks() {
     metricsRequest.current = null;
   }, []);
 
+  const loadExpired = useCallback(async () => {
+    setLoadingExpired(true);
+    const res = await adminListExpiredPerks();
+    if (res.ok) {
+      setExpiredPerks(res.data ?? []);
+    } else {
+      setExpiredPerks([]);
+    }
+    setLoadingExpired(false);
+  }, []);
+
+  const loadReactivationHistory = useCallback(async () => {
+    setLoadingReactivations(true);
+    const res = await adminFetchAllPerkReactivations({ limit: 50 });
+    if (res.ok) {
+      setReactivationHistory(res.data ?? []);
+    } else {
+      setReactivationHistory([]);
+    }
+    setLoadingReactivations(false);
+  }, []);
+
+  const openPerkHistory = async (perk: AdminPerk) => {
+    const requestId = ++historyRequestRef.current;
+    setHistoryPerk(perk);
+    setHistoryDialogOpen(true);
+    setLoadingPerkHistory(true);
+    setPerkHistory([]);
+    const res = await adminFetchPerkReactivations(perk.id);
+    if (requestId !== historyRequestRef.current) return;
+    if (res.ok) {
+      setPerkHistory(res.data ?? []);
+    }
+    setLoadingPerkHistory(false);
+  };
+
   const loadPerks = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -247,6 +338,11 @@ export default function AdminPerks() {
   useEffect(() => {
     void loadPerks();
   }, [loadPerks]);
+
+  useEffect(() => {
+    void loadExpired();
+    void loadReactivationHistory();
+  }, [loadExpired, loadReactivationHistory]);
 
   useEffect(() => {
     void loadMetrics("", "");
@@ -366,6 +462,38 @@ export default function AdminPerks() {
 
     setDialogOpen(false);
     void loadPerks();
+    void loadExpired();
+  };
+
+  const reactivatePerk = async (perk: AdminPerk) => {
+    if (perk.status !== "eligible_for_readd") {
+      window.alert("This perk is still in its cooling-off period.");
+      return;
+    }
+    const res = await adminReactivatePerk(perk.id);
+    if (!res.ok) {
+      setError(res.error ?? "Failed to reactivate perk");
+      return;
+    }
+    void loadPerks();
+    void loadExpired();
+    void loadReactivationHistory();
+  };
+
+  const clonePerk = async (perk: AdminPerk) => {
+    const newId = window.prompt(
+      `Clone "${perk.title}" as a new perk. Enter a unique perk ID:`,
+      `${perk.id}_v2`,
+    );
+    if (!newId?.trim()) return;
+    const res = await adminClonePerk(perk.id, { newId: newId.trim() });
+    if (!res.ok) {
+      setError(res.error ?? "Failed to clone perk");
+      return;
+    }
+    void loadPerks();
+    void loadExpired();
+    void loadReactivationHistory();
   };
 
   return (
@@ -442,21 +570,63 @@ export default function AdminPerks() {
             </p>
           </div>
           <div className="rounded-lg border border-border p-4">
-            <p className="text-sm text-muted-foreground">Clicks</p>
-            <p className="mt-1 text-3xl font-semibold">
-              {metrics?.clicks ?? (loadingMetrics ? "…" : 0)}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border p-4">
             <p className="text-sm text-muted-foreground">Redemptions</p>
             <p className="mt-1 text-3xl font-semibold">
               {metrics?.redemptions ?? (loadingMetrics ? "…" : 0)}
             </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {loadingMetrics ? "" : `Redeem rate ${formatPercent(metrics?.claimRate)}`}
+            </p>
           </div>
           <div className="rounded-lg border border-border p-4">
-            <p className="text-sm text-muted-foreground">Click → claim rate</p>
+            <p className="text-sm text-muted-foreground">Snooze rate</p>
             <p className="mt-1 text-3xl font-semibold">
-              {loadingMetrics ? "…" : formatPercent(metrics?.claimRate)}
+              {loadingMetrics ? "…" : formatPercent(metrics?.snoozeRate)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {metrics?.lifecycle?.snoozedNow ?? 0} currently snoozed
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Not interested rate</p>
+            <p className="mt-1 text-3xl font-semibold">
+              {loadingMetrics ? "…" : formatPercent(metrics?.notInterestedRate)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {metrics?.lifecycle?.notInterestedNow ?? 0} marked not interested
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Completed (all time)</p>
+            <p className="mt-1 text-2xl font-semibold">
+              {metrics?.lifecycle?.completedTotal ?? (loadingMetrics ? "…" : 0)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Expiring in 7 days</p>
+            <p className="mt-1 text-2xl font-semibold">
+              {metrics?.lifecycle?.expiringIn7Days ?? (loadingMetrics ? "…" : 0)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Expiring in 30 days</p>
+            <p className="mt-1 text-2xl font-semibold">
+              {metrics?.lifecycle?.expiringIn30Days ?? (loadingMetrics ? "…" : 0)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Expired catalog</p>
+            <p className="mt-1 text-2xl font-semibold">
+              {metrics?.lifecycle?.expiredCatalog ?? (loadingMetrics ? "…" : 0)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Snoozes in window</p>
+            <p className="mt-1 text-2xl font-semibold">
+              {metrics?.lifecycle?.snoozesInWindow ?? (loadingMetrics ? "…" : 0)}
             </p>
           </div>
         </div>
@@ -546,6 +716,8 @@ export default function AdminPerks() {
                 <th className="px-3 py-2 font-medium">Category</th>
                 <th className="px-3 py-2 font-medium">Access</th>
                 <th className="px-3 py-2 font-medium">Redemption</th>
+                <th className="px-3 py-2 font-medium">Expires</th>
+                <th className="px-3 py-2 font-medium">Status</th>
                 <th className="px-3 py-2 font-medium">Featured</th>
                 <th className="px-3 py-2 font-medium">Active</th>
                 {canWrite ? (
@@ -557,7 +729,7 @@ export default function AdminPerks() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={canWrite ? 7 : 6}
+                    colSpan={canWrite ? 9 : 8}
                     className="px-3 py-4 text-muted-foreground"
                   >
                     Loading perks…
@@ -566,7 +738,7 @@ export default function AdminPerks() {
               ) : perks.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={canWrite ? 7 : 6}
+                    colSpan={canWrite ? 9 : 8}
                     className="px-3 py-4 text-muted-foreground"
                   >
                     No perks configured.
@@ -590,6 +762,17 @@ export default function AdminPerks() {
                     <td className="px-3 py-2 capitalize">{perk.accessLevel}</td>
                     <td className="px-3 py-2">
                       {perk.redemptionType.replace(/_/g, " ")}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div>{formatAdminDate(perk.endsAt)}</div>
+                      {perk.daysRemaining != null ? (
+                        <div className="text-xs text-muted-foreground">
+                          {perk.daysRemaining}d left
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2 capitalize">
+                      {statusLabel(perk.status)}
                     </td>
                     <td className="px-3 py-2">
                       <Switch
@@ -638,6 +821,229 @@ export default function AdminPerks() {
           </table>
         </div>
       </section>
+
+      <section className="space-y-4">
+        <h3 className="text-lg font-semibold">Expired &amp; reactivation</h3>
+        <p className="text-sm text-muted-foreground">
+          Perks enter a 7-day cooling-off period after expiration. Only admins
+          with <code className="text-xs">subscriptions.write</code> can
+          reactivate or clone once status is Eligible.
+        </p>
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <thead className="border-b border-border bg-muted/40">
+              <tr>
+                <th className="px-3 py-2 font-medium">Perk</th>
+                <th className="px-3 py-2 font-medium">Ended</th>
+                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 font-medium">Eligible from</th>
+                <th className="px-3 py-2 font-medium">Reactivations</th>
+                <th className="px-3 py-2 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loadingExpired ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-4 text-muted-foreground">
+                    Loading expired perks…
+                  </td>
+                </tr>
+              ) : expiredPerks.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-4 text-muted-foreground">
+                    No expired perks.
+                  </td>
+                </tr>
+              ) : (
+                expiredPerks.map((perk) => (
+                  <tr key={perk.id} className="border-b border-border/60">
+                    <td className="px-3 py-2 font-medium">{perk.title}</td>
+                    <td className="px-3 py-2">
+                      {formatAdminDate(perk.endsAt ?? perk.lastExpiredAt)}
+                    </td>
+                    <td className="px-3 py-2">{statusLabel(perk.status)}</td>
+                    <td className="px-3 py-2">
+                      {formatAdminDate(perk.eligibleForReactivationAt)}
+                    </td>
+                    <td className="px-3 py-2">{perk.reactivationCount}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => void openPerkHistory(perk)}
+                        >
+                          History
+                        </Button>
+                        {canWrite ? (
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={perk.status !== "eligible_for_readd"}
+                              onClick={() => void reactivatePerk(perk)}
+                            >
+                              Reactivate
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={perk.status !== "eligible_for_readd"}
+                              onClick={() => void clonePerk(perk)}
+                            >
+                              Clone
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">Reactivation history</h3>
+            <p className="text-sm text-muted-foreground">
+              Audit log of admin reactivations and clones (most recent first).
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void loadReactivationHistory()}
+          >
+            Refresh
+          </Button>
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[960px] text-left text-sm">
+            <thead className="border-b border-border bg-muted/40">
+              <tr>
+                <th className="px-3 py-2 font-medium">When</th>
+                <th className="px-3 py-2 font-medium">Perk</th>
+                <th className="px-3 py-2 font-medium">Action</th>
+                <th className="px-3 py-2 font-medium">New window</th>
+                <th className="px-3 py-2 font-medium">Admin</th>
+                <th className="px-3 py-2 font-medium">Clone ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loadingReactivations ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-4 text-muted-foreground">
+                    Loading reactivation history…
+                  </td>
+                </tr>
+              ) : reactivationHistory.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-4 text-muted-foreground">
+                    No reactivations recorded yet.
+                  </td>
+                </tr>
+              ) : (
+                reactivationHistory.map((row) => (
+                  <tr key={row.id} className="border-b border-border/60">
+                    <td className="px-3 py-2">
+                      {formatAdminDateTime(row.reactivatedAt)}
+                    </td>
+                    <td className="px-3 py-2 font-medium">
+                      {row.perkTitle ?? row.perkId}
+                    </td>
+                    <td className="px-3 py-2 capitalize">{row.action}</td>
+                    <td className="px-3 py-2">
+                      {formatAdminDate(row.newStartsAt)}
+                      {" – "}
+                      {formatAdminDate(row.newEndsAt)}
+                    </td>
+                    <td className="px-3 py-2">{adminDisplayName(row.adminUser)}</td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {row.clonedPerkId ?? "—"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <Dialog
+        open={historyDialogOpen}
+        onOpenChange={(open) => {
+          setHistoryDialogOpen(open);
+          if (!open) {
+            setHistoryPerk(null);
+            setPerkHistory([]);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Reactivation history
+              {historyPerk ? ` — ${historyPerk.title}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-border bg-muted/40">
+                <tr>
+                  <th className="px-3 py-2 font-medium">When</th>
+                  <th className="px-3 py-2 font-medium">Action</th>
+                  <th className="px-3 py-2 font-medium">New window</th>
+                  <th className="px-3 py-2 font-medium">Admin</th>
+                  <th className="px-3 py-2 font-medium">Clone ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingPerkHistory ? (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-4 text-muted-foreground">
+                      Loading…
+                    </td>
+                  </tr>
+                ) : perkHistory.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-4 text-muted-foreground">
+                      No reactivations for this perk yet.
+                    </td>
+                  </tr>
+                ) : (
+                  perkHistory.map((row) => (
+                    <tr key={row.id} className="border-b border-border/60">
+                      <td className="px-3 py-2">
+                        {formatAdminDateTime(row.reactivatedAt)}
+                      </td>
+                      <td className="px-3 py-2 capitalize">{row.action}</td>
+                      <td className="px-3 py-2">
+                        {formatAdminDate(row.newStartsAt)}
+                        {" – "}
+                        {formatAdminDate(row.newEndsAt)}
+                      </td>
+                      <td className="px-3 py-2">
+                        {adminDisplayName(row.adminUser)}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs">
+                        {row.clonedPerkId ?? "—"}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={dialogOpen}

@@ -36,15 +36,31 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   claimPerk,
+  dismissPerk,
   fetchPerks,
   getSessionToken,
   recordPerkEvent,
+  restorePerk,
+  snoozePerk,
+  submitPerkRequest,
   type PerkCategory,
   type PerkItem,
+  type PerkRequestCategory,
+  type PerkUserTab,
 } from "@/auth";
 import { trackPerksEvent } from "@/lib/product-analytics";
 
@@ -61,6 +77,41 @@ const ACCESS_BADGE: Record<string, string> = {
   paid: "Paid members",
   annual: "Annual members",
 };
+
+const PERK_TABS: { value: PerkUserTab; label: string }[] = [
+  { value: "new", label: "New" },
+  { value: "completed", label: "Completed" },
+  { value: "snoozed", label: "Snoozed" },
+  { value: "not_interested", label: "Not Interested" },
+];
+
+const REQUEST_CATEGORIES: { value: PerkRequestCategory; label: string }[] = [
+  { value: "finance", label: "Finance" },
+  { value: "software", label: "Software" },
+  { value: "travel", label: "Travel" },
+  { value: "shopping", label: "Shopping" },
+  { value: "food", label: "Food" },
+  { value: "entertainment", label: "Entertainment" },
+  { value: "other", label: "Other" },
+];
+
+function formatExpirationLabel(perk: PerkItem): string | null {
+  if (perk.daysRemaining === null && !perk.endsAt) return null;
+  if (perk.daysRemaining !== null && perk.daysRemaining <= 0) {
+    return "Expired";
+  }
+  if (perk.daysRemaining !== null && perk.daysRemaining <= 45) {
+    return `Expires in ${perk.daysRemaining} day${perk.daysRemaining === 1 ? "" : "s"}`;
+  }
+  if (perk.endsAt) {
+    return `Expires ${new Date(perk.endsAt).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })}`;
+  }
+  return null;
+}
 
 function isSafeHttpUrl(url: string): boolean {
   try {
@@ -88,7 +139,7 @@ function normalizeMatchedUrl(raw: string): {
   let suffix = "";
 
   while (href.length > 0) {
-    const last = href.at(-1);
+    const last = href[href.length - 1];
     if (!last) break;
 
     if (". ,;:!?".includes(last)) {
@@ -163,12 +214,16 @@ const Perks = () => {
   const [selectedCategory, setSelectedCategory] = useState<
     PerkCategory | "all"
   >("all");
+  const [selectedTab, setSelectedTab] = useState<PerkUserTab>("new");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [actionPerkIds, setActionPerkIds] = useState<Set<string>>(new Set());
   const [detailsPerkId, setDetailsPerkId] = useState<string | null>(null);
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const loadRequestId = useRef(0);
@@ -202,6 +257,7 @@ const Perks = () => {
     const res = await fetchPerks(session, {
       category: selectedCategory === "all" ? undefined : selectedCategory,
       search: debouncedSearch || undefined,
+      tab: selectedTab,
     });
 
     if (requestId !== loadRequestId.current) return;
@@ -221,7 +277,7 @@ const Perks = () => {
     setRefreshing(false);
     initialLoadRef.current = false;
     setInitialLoad(false);
-  }, [selectedCategory, debouncedSearch]);
+  }, [selectedCategory, debouncedSearch, selectedTab]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -262,10 +318,11 @@ const Perks = () => {
 
   const showFeaturedSection = useMemo(
     () =>
+      selectedTab === "new" &&
       featuredPerks.length > 0 &&
       selectedCategory === "all" &&
       !debouncedSearch,
-    [featuredPerks.length, selectedCategory, debouncedSearch],
+    [featuredPerks.length, selectedCategory, debouncedSearch, selectedTab],
   );
 
   const allSectionPerks = useMemo(
@@ -376,6 +433,61 @@ const Perks = () => {
     void loadPerks();
   };
 
+  const runPerkAction = async (
+    perkId: string,
+    action: () => Promise<{ success: boolean; error?: string }>,
+    successMessage: string,
+  ) => {
+    setActionPerkIds((prev) => new Set(prev).add(perkId));
+    const res = await action();
+    setActionPerkIds((prev) => {
+      const next = new Set(prev);
+      next.delete(perkId);
+      return next;
+    });
+    if (!res.success) {
+      toast({
+        title: "Action failed",
+        description: res.error || "Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({ title: successMessage });
+    void loadPerks();
+  };
+
+  const requireSession = (): string | null => {
+    const session = getSessionToken();
+    if (!session) {
+      toast({
+        title: "Sign in required",
+        description: "Sign in again to update your perk preferences.",
+        variant: "destructive",
+      });
+      return null;
+    }
+    return session;
+  };
+
+  const handleSnooze = (perk: PerkItem) => {
+    const session = requireSession();
+    if (!session) return;
+    void runPerkAction(perk.id, () => snoozePerk(session, perk.id), "Perk snoozed for 7 days");
+  };
+
+  const handleDismiss = (perk: PerkItem) => {
+    const session = requireSession();
+    if (!session) return;
+    void runPerkAction(perk.id, () => dismissPerk(session, perk.id), "Moved to Not Interested");
+  };
+
+  const handleRestore = (perk: PerkItem) => {
+    const session = requireSession();
+    if (!session) return;
+    void runPerkAction(perk.id, () => restorePerk(session, perk.id), "Perk restored to New");
+  };
+
   const handleCopyCode = async (code: string) => {
     try {
       await navigator.clipboard.writeText(code);
@@ -433,6 +545,20 @@ const Perks = () => {
             </Alert>
           ) : (
             <>
+              <Tabs
+                value={selectedTab}
+                onValueChange={(value) => setSelectedTab(value as PerkUserTab)}
+                className="mb-6"
+              >
+                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 md:grid-cols-4">
+                  {PERK_TABS.map((tab) => (
+                    <TabsTrigger key={tab.value} value={tab.value} className="text-xs sm:text-sm">
+                      {tab.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+
               <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="relative max-w-sm flex-1">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -480,10 +606,15 @@ const Perks = () => {
                       <PerkCard
                         key={perk.id}
                         perk={perk}
+                        tab={selectedTab}
                         claiming={claimingId === perk.id}
+                        acting={actionPerkIds.has(perk.id)}
                         onClaim={() => void handleClaim(perk)}
                         onCopyCode={(code) => void handleCopyCode(code)}
                         onViewDetails={() => setDetailsPerkId(perk.id)}
+                        onSnooze={() => handleSnooze(perk)}
+                        onDismiss={() => handleDismiss(perk)}
+                        onRestore={() => handleRestore(perk)}
                       />
                     ))}
                   </div>
@@ -507,20 +638,64 @@ const Perks = () => {
                         <PerkCard
                           key={perk.id}
                           perk={perk}
+                          tab={selectedTab}
                           claiming={claimingId === perk.id}
+                          acting={actionPerkIds.has(perk.id)}
                           onClaim={() => void handleClaim(perk)}
                           onCopyCode={(code) => void handleCopyCode(code)}
                           onViewDetails={() => setDetailsPerkId(perk.id)}
+                          onSnooze={() => handleSnooze(perk)}
+                          onDismiss={() => handleDismiss(perk)}
+                          onRestore={() => handleRestore(perk)}
                         />
                       ))}
                     </div>
                   )}
                 </section>
               ) : null}
+
+              {selectedTab === "new" ? (
+                <Card className="mt-8 border-dashed border-primary/30 bg-primary/5">
+                  <CardHeader>
+                    <CardTitle>Is there a service you&apos;d like to get a discount on?</CardTitle>
+                    <CardDescription>
+                      Let us know and we&apos;ll see if we can secure a KeenVPN discount.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button onClick={() => setRequestOpen(true)}>Request Perk</Button>
+                  </CardContent>
+                </Card>
+              ) : null}
             </>
           )}
         </div>
       </main>
+      <RequestPerkDialog
+        open={requestOpen}
+        submitting={requestSubmitting}
+        onOpenChange={setRequestOpen}
+        onSubmit={async (payload) => {
+          const session = getSessionToken();
+          if (!session) return;
+          setRequestSubmitting(true);
+          const res = await submitPerkRequest(session, payload);
+          setRequestSubmitting(false);
+          if (!res.success) {
+            toast({
+              title: "Could not submit request",
+              description: res.error || "Please try again.",
+              variant: "destructive",
+            });
+            return;
+          }
+          toast({
+            title: "Request submitted",
+            description: "Thanks — we'll review partner opportunities.",
+          });
+          setRequestOpen(false);
+        }}
+      />
       <PerkDetailsDialog
         perk={detailsPerk}
         open={detailsPerk !== null}
@@ -705,18 +880,29 @@ function PerkDetailsDialog({
 
 function PerkCard({
   perk,
+  tab,
   claiming,
+  acting,
   onClaim,
   onCopyCode,
   onViewDetails,
+  onSnooze,
+  onDismiss,
+  onRestore,
 }: {
   perk: PerkItem;
+  tab: PerkUserTab;
   claiming: boolean;
+  acting: boolean;
   onClaim: () => void;
   onCopyCode: (code: string) => void;
   onViewDetails: () => void;
+  onSnooze: () => void;
+  onDismiss: () => void;
+  onRestore: () => void;
 }) {
   const locked = !perk.accessible && !perk.redeemed;
+  const expirationLabel = formatExpirationLabel(perk);
   const couponCode = perk.couponCode?.trim() || undefined;
   const isCouponCard =
     perk.redemptionType === "coupon_code" && couponCode !== undefined;
@@ -774,6 +960,11 @@ function PerkCard({
           ) : null}
           {perk.redeemed ? (
             <Badge className="bg-green-600">Claimed</Badge>
+          ) : null}
+          {expirationLabel ? (
+            <Badge variant="outline" className="border-amber-500/40 text-amber-800">
+              {expirationLabel}
+            </Badge>
           ) : null}
         </div>
         <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
@@ -844,8 +1035,154 @@ function PerkCard({
             {perk.ctaLabel}
           </Button>
         )}
+        {tab === "new" && !locked && !perk.redeemed ? (
+          <div className="relative z-20 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={acting}
+              onClick={onSnooze}
+            >
+              Snooze
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={acting}
+              onClick={onDismiss}
+            >
+              Not Interested
+            </Button>
+          </div>
+        ) : null}
+        {(tab === "snoozed" || tab === "not_interested") ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="relative z-20"
+            disabled={acting}
+            onClick={onRestore}
+          >
+            Restore to New
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function RequestPerkDialog({
+  open,
+  submitting,
+  onOpenChange,
+  onSubmit,
+}: {
+  open: boolean;
+  submitting: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (payload: {
+    serviceName: string;
+    websiteUrl?: string;
+    category?: PerkRequestCategory;
+    notes?: string;
+  }) => Promise<void>;
+}) {
+  const [serviceName, setServiceName] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [category, setCategory] = useState<PerkRequestCategory | "">("");
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    if (!open) {
+      setServiceName("");
+      setWebsiteUrl("");
+      setCategory("");
+      setNotes("");
+    }
+  }, [open]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Request a perk</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="request-service">Service name</Label>
+            <Input
+              id="request-service"
+              value={serviceName}
+              onChange={(e) => setServiceName(e.target.value)}
+              placeholder="e.g. Notion"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="request-website">Website URL (optional)</Label>
+            <Input
+              id="request-website"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              placeholder="https://"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Category (optional)</Label>
+            <Select
+              value={category || "__none__"}
+              onValueChange={(value) =>
+                setCategory(
+                  value === "__none__" ? "" : (value as PerkRequestCategory),
+                )
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">None</SelectItem>
+                {REQUEST_CATEGORIES.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="request-notes">Additional notes (optional)</Label>
+            <Textarea
+              id="request-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!serviceName.trim() || submitting}
+            onClick={() =>
+              void onSubmit({
+                serviceName: serviceName.trim(),
+                websiteUrl: websiteUrl.trim() || undefined,
+                category: category || undefined,
+                notes: notes.trim() || undefined,
+              })
+            }
+          >
+            {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Submit request
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
