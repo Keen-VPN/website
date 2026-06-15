@@ -239,6 +239,7 @@ export default function AdminPerks() {
   const [expiredPerks, setExpiredPerks] = useState<AdminPerk[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingExpired, setLoadingExpired] = useState(true);
+  const [expiredError, setExpiredError] = useState<string | null>(null);
   const [reactivationHistory, setReactivationHistory] = useState<
     AdminPerkReactivation[]
   >([]);
@@ -247,6 +248,7 @@ export default function AdminPerks() {
   const [historyPerk, setHistoryPerk] = useState<AdminPerk | null>(null);
   const [perkHistory, setPerkHistory] = useState<AdminPerkReactivation[]>([]);
   const [loadingPerkHistory, setLoadingPerkHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(true);
 
@@ -301,11 +303,13 @@ export default function AdminPerks() {
 
   const loadExpired = useCallback(async () => {
     setLoadingExpired(true);
+    setExpiredError(null);
     const res = await adminListExpiredPerks();
     if (res.ok) {
       setExpiredPerks(res.data ?? []);
     } else {
       setExpiredPerks([]);
+      setExpiredError(res.error ?? "Failed to load expired perks");
     }
     setLoadingExpired(false);
   }, []);
@@ -326,11 +330,14 @@ export default function AdminPerks() {
     setHistoryPerk(perk);
     setHistoryDialogOpen(true);
     setLoadingPerkHistory(true);
+    setHistoryError(null);
     setPerkHistory([]);
     const res = await adminFetchPerkReactivations(perk.id);
     if (requestId !== historyRequestRef.current) return;
     if (res.ok) {
       setPerkHistory(res.data ?? []);
+    } else {
+      setHistoryError(res.error ?? "Failed to load reactivation history");
     }
     setLoadingPerkHistory(false);
   };
@@ -842,6 +849,9 @@ export default function AdminPerks() {
           with <code className="text-xs">subscriptions.write</code> can
           reactivate or clone once status is Eligible.
         </p>
+        {expiredError ? (
+          <p className="text-sm text-destructive">{expiredError}</p>
+        ) : null}
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="border-b border-border bg-muted/40">
@@ -859,6 +869,12 @@ export default function AdminPerks() {
                 <tr>
                   <td colSpan={6} className="px-3 py-4 text-muted-foreground">
                     Loading expired perks…
+                  </td>
+                </tr>
+              ) : expiredError ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-4 text-destructive">
+                    {expiredError}
                   </td>
                 </tr>
               ) : expiredPerks.length === 0 ? (
@@ -997,6 +1013,7 @@ export default function AdminPerks() {
           if (!open) {
             setHistoryPerk(null);
             setPerkHistory([]);
+            setHistoryError(null);
           }
         }}
       >
@@ -1007,6 +1024,9 @@ export default function AdminPerks() {
               {historyPerk ? ` — ${historyPerk.title}` : ""}
             </DialogTitle>
           </DialogHeader>
+          {historyError ? (
+            <p className="text-sm text-destructive">{historyError}</p>
+          ) : null}
           <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-border bg-muted/40">
@@ -1023,6 +1043,12 @@ export default function AdminPerks() {
                   <tr>
                     <td colSpan={5} className="px-3 py-4 text-muted-foreground">
                       Loading…
+                    </td>
+                  </tr>
+                ) : historyError ? (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-4 text-destructive">
+                      {historyError}
                     </td>
                   </tr>
                 ) : perkHistory.length === 0 ? (

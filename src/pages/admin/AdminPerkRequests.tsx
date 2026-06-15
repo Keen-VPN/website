@@ -9,17 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { adminListPerkRequests } from "@/auth/backend";
-
-const HIGH_DEMAND_THRESHOLD = 25;
-
-function isSafeHttpUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
+import { isSafeHttpUrl } from "@/lib/safe-url";
 
 type SortOption = "popular" | "newest" | "category" | "high_demand";
 
@@ -28,6 +18,7 @@ export default function AdminPerkRequests() {
   const [rows, setRows] = useState<
     Awaited<ReturnType<typeof adminListPerkRequests>>["data"]
   >([]);
+  const [highDemandThreshold, setHighDemandThreshold] = useState(25);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const loadSeq = useRef(0);
@@ -40,6 +31,9 @@ export default function AdminPerkRequests() {
     if (seq !== loadSeq.current) return;
     if (res.ok && res.data) {
       setRows(res.data);
+      if (res.highDemandThreshold) {
+        setHighDemandThreshold(res.highDemandThreshold);
+      }
     } else {
       setRows([]);
       setError(res.error ?? "Failed to load perk requests");
@@ -61,7 +55,7 @@ export default function AdminPerkRequests() {
           <h2 className="text-2xl font-bold">Perk requests</h2>
           <p className="text-sm text-muted-foreground">
             Member-submitted partnership ideas, aggregated by service. Services
-            with {HIGH_DEMAND_THRESHOLD}+ unique requesters are flagged as high
+            with {highDemandThreshold}+ unique requesters are flagged as high
             demand.
           </p>
         </div>
@@ -156,7 +150,7 @@ export default function AdminPerkRequests() {
                     {row.uniqueUsers}
                     {row.isHighDemand ? (
                       <span className="ml-1 text-xs text-amber-700 dark:text-amber-400">
-                        (≥{HIGH_DEMAND_THRESHOLD})
+                        (≥{highDemandThreshold})
                       </span>
                     ) : null}
                   </td>

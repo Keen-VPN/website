@@ -63,6 +63,7 @@ import {
   type PerkUserTab,
 } from "@/auth";
 import { trackPerksEvent } from "@/lib/product-analytics";
+import { isSafeHttpUrl } from "@/lib/safe-url";
 
 const CATEGORY_LABELS: Record<PerkCategory, string> = {
   privacy_security: "Privacy & Security",
@@ -111,15 +112,6 @@ function formatExpirationLabel(perk: PerkItem): string | null {
     })}`;
   }
   return null;
-}
-
-function isSafeHttpUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 function descriptionHasMoreThanPreview(description: string): boolean {
@@ -677,7 +669,14 @@ const Perks = () => {
         onOpenChange={setRequestOpen}
         onSubmit={async (payload) => {
           const session = getSessionToken();
-          if (!session) return;
+          if (!session) {
+            toast({
+              title: "Sign in required",
+              description: "Sign in again to submit perk requests.",
+              variant: "destructive",
+            });
+            return;
+          }
           setRequestSubmitting(true);
           const res = await submitPerkRequest(session, payload);
           setRequestSubmitting(false);
