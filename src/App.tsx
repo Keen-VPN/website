@@ -48,6 +48,7 @@ const AdminDomainInsights = lazy(
   () => import("./pages/admin/AdminDomainInsights"),
 );
 const AdminPerks = lazy(() => import("./pages/admin/AdminPerks"));
+const AdminPerkRequests = lazy(() => import("./pages/admin/AdminPerkRequests"));
 const AdminProductEvents = lazy(
   () => import("./pages/admin/AdminProductEvents"),
 );
@@ -189,6 +190,7 @@ const App = () => (
                   element={<AdminDomainInsights />}
                 />
                 <Route path="perks" element={<AdminPerks />} />
+                <Route path="perk-requests" element={<AdminPerkRequests />} />
                 <Route path="user-profiles" element={<AdminUserProfiles />} />
                 <Route path="signup-sources" element={<AdminSignupSources />} />
                 <Route
