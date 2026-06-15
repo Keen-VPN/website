@@ -97,6 +97,13 @@ export default function AdminSidebarLayout() {
               Perks
             </NavLink>
             <NavLink
+              to="/admin/perk-requests"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Gift className="h-4 w-4" />
+              Perk Requests
+            </NavLink>
+            <NavLink
               to="/admin/user-profiles"
               className={({ isActive }) => linkClass(isActive)}
             >
