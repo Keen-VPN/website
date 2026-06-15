@@ -3346,7 +3346,7 @@ export interface CreateAdminPerkPayload {
   isActive?: boolean;
   sortOrder?: number;
   startsAt?: string;
-  endsAt?: string;
+  endsAt?: string | null;
 }
 
 export type UpdateAdminPerkPayload = Partial<{

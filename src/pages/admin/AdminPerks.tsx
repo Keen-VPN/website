@@ -77,6 +77,30 @@ interface PerkFormState {
   endsAt: string;
 }
 
+function parseSortOrder(value: string): number {
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function optionalIsoDate(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return new Date(`${trimmed}T00:00:00.000Z`).toISOString();
+}
+
+function defaultPerkEndDateInput(startsAt = ""): string {
+  const base = startsAt.trim()
+    ? new Date(`${startsAt.trim()}T00:00:00.000Z`)
+    : new Date();
+  if (Number.isNaN(base.getTime())) {
+    const fallback = new Date();
+    fallback.setUTCDate(fallback.getUTCDate() + 45);
+    return fallback.toISOString().slice(0, 10);
+  }
+  base.setUTCDate(base.getUTCDate() + 45);
+  return base.toISOString().slice(0, 10);
+}
+
 const emptyForm = (): PerkFormState => ({
   id: "",
   title: "",
@@ -93,8 +117,29 @@ const emptyForm = (): PerkFormState => ({
   isActive: true,
   sortOrder: "0",
   startsAt: "",
-  endsAt: "",
+  endsAt: defaultPerkEndDateInput(),
 });
+
+function formToCreatePayload(form: PerkFormState): CreateAdminPerkPayload {
+  return {
+    id: form.id.trim(),
+    title: form.title.trim(),
+    partnerName: form.partnerName.trim() || undefined,
+    category: form.category,
+    description: form.description.trim(),
+    imageUrl: form.imageUrl.trim() || undefined,
+    offerText: form.offerText.trim(),
+    redemptionType: form.redemptionType,
+    redemptionUrl: form.redemptionUrl.trim() || undefined,
+    couponCode: form.couponCode.trim() || undefined,
+    accessLevel: form.accessLevel,
+    isFeatured: form.isFeatured,
+    isActive: form.isActive,
+    sortOrder: parseSortOrder(form.sortOrder),
+    startsAt: optionalIsoDate(form.startsAt),
+    endsAt: form.endsAt.trim() ? optionalIsoDate(form.endsAt) : null,
+  };
+}
 
 function perkToForm(perk: AdminPerk): PerkFormState {
   return {
@@ -114,38 +159,6 @@ function perkToForm(perk: AdminPerk): PerkFormState {
     sortOrder: String(perk.sortOrder),
     startsAt: perk.startsAt ? perk.startsAt.slice(0, 10) : "",
     endsAt: perk.endsAt ? perk.endsAt.slice(0, 10) : "",
-  };
-}
-
-function parseSortOrder(value: string): number {
-  const parsed = Number(value.trim());
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-}
-
-function optionalIsoDate(value: string): string | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  return new Date(`${trimmed}T00:00:00.000Z`).toISOString();
-}
-
-function formToCreatePayload(form: PerkFormState): CreateAdminPerkPayload {
-  return {
-    id: form.id.trim(),
-    title: form.title.trim(),
-    partnerName: form.partnerName.trim() || undefined,
-    category: form.category,
-    description: form.description.trim(),
-    imageUrl: form.imageUrl.trim() || undefined,
-    offerText: form.offerText.trim(),
-    redemptionType: form.redemptionType,
-    redemptionUrl: form.redemptionUrl.trim() || undefined,
-    couponCode: form.couponCode.trim() || undefined,
-    accessLevel: form.accessLevel,
-    isFeatured: form.isFeatured,
-    isActive: form.isActive,
-    sortOrder: parseSortOrder(form.sortOrder),
-    startsAt: optionalIsoDate(form.startsAt),
-    endsAt: optionalIsoDate(form.endsAt),
   };
 }
 
