@@ -1986,6 +1986,7 @@ export type AdminUserProfileAudience = "all" | "billing";
 export interface AdminUserProfileSummary {
   audience: AdminUserProfileAudience;
   totalUsers: number;
+  activeSubscribers: number;
   trialUsers: number;
   paidUsers: number;
   profilesStarted: number;

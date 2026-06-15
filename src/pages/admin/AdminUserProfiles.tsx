@@ -31,9 +31,9 @@ const AUDIENCE_OPTIONS: {
   },
   {
     value: "billing",
-    label: "Paying & trial",
+    label: "Payment on file",
     description:
-      "Users with an active or trialing subscription, linked subscription members, or a Stripe customer on file",
+      "Users who entered payment details: Stripe customer on file (includes trial with card) or current Apple IAP subscriber",
   },
 ];
 
@@ -208,27 +208,23 @@ export default function AdminUserProfiles() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <div className="rounded-lg border border-border p-4">
-          <p className="text-sm text-muted-foreground">Users in audience</p>
+          <p className="text-sm text-muted-foreground">Payment on file</p>
           <p className="mt-1 text-3xl font-semibold">
             {summary?.totalUsers ?? (loading ? "…" : 0)}
           </p>
-        </div>
-        <div className="rounded-lg border border-border p-4">
-          <p className="text-sm text-muted-foreground">Trial users</p>
-          <p className="mt-1 text-3xl font-semibold">
-            {summary?.trialUsers ?? (loading ? "…" : 0)}
-          </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Active trialing subscription
+            Stripe customer or Apple IAP billing
           </p>
         </div>
         <div className="rounded-lg border border-border p-4">
-          <p className="text-sm text-muted-foreground">Paid users</p>
+          <p className="text-sm text-muted-foreground">Active subscribers</p>
           <p className="mt-1 text-3xl font-semibold">
-            {summary?.paidUsers ?? (loading ? "…" : 0)}
+            {summary?.activeSubscribers ?? (loading ? "…" : 0)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Active paid subscription
+            {loading || !summary
+              ? "Currently paying or on trial"
+              : `${summary.paidUsers} paid, ${summary.trialUsers} trial (may overlap)`}
           </p>
         </div>
         <div className="rounded-lg border border-border p-4">
