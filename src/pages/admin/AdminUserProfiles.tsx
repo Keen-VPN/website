@@ -206,14 +206,18 @@ export default function AdminUserProfiles() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         <div className="rounded-lg border border-border p-4">
-          <p className="text-sm text-muted-foreground">Payment on file</p>
+          <p className="text-sm text-muted-foreground">
+            {audience === "billing" ? "Payment on file" : "Users in audience"}
+          </p>
           <p className="mt-1 text-3xl font-semibold">
             {summary?.totalUsers ?? (loading ? "…" : 0)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Stripe customer or Apple IAP billing
+            {audience === "billing"
+              ? "Stripe customer or Apple IAP billing"
+              : "Every registered account"}
           </p>
         </div>
         <div className="rounded-lg border border-border p-4">
