@@ -47,8 +47,8 @@ const Hero = () => {
 
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
               KeenVPN secures your connection and gives you access to
-              cashback offers, partner discounts, and member-only rewards
-              — your membership can pay for itself.
+              cashback offers, partner discounts, and member-only rewards.
+              Your membership can pay for itself.
             </p>
           </div>
 
