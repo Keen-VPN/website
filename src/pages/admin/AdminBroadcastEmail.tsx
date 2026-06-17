@@ -13,13 +13,22 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   adminExportBroadcastAudienceCsv,
-  adminFetchBroadcastAudience,
+  adminPreviewAudienceTargeting,
   adminFetchBroadcastEmailJob,
   adminSendBroadcastEmail,
   adminSendBroadcastPreview,
+  type AudienceTargeting,
+  type AudienceTargetingPreview,
   type BroadcastEmailAudience,
 } from "@/auth/backend";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import {
+  AudienceTargetingPanel,
+} from "@/components/admin/AudienceTargetingPanel";
+import {
+  createDefaultAudienceTargeting,
+  getAudienceTargetingValidationError,
+} from "@/components/admin/audience-targeting.constants";
 
 const AUDIENCE_OPTIONS: { value: BroadcastEmailAudience; label: string }[] = [
   { value: "all_deliverable", label: "All deliverable users" },
@@ -42,7 +51,12 @@ export default function AdminBroadcastEmail() {
 
   const [audience, setAudience] =
     useState<BroadcastEmailAudience>("all_deliverable");
+  const [profileTargeting, setProfileTargeting] = useState<AudienceTargeting>(
+    () => createDefaultAudienceTargeting(),
+  );
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
+  const [totalAudience, setTotalAudience] = useState<number | null>(null);
+  const [matchPercentage, setMatchPercentage] = useState<number | null>(null);
   const [optedInCount, setOptedInCount] = useState<number | null>(null);
   const [loadingAudience, setLoadingAudience] = useState(false);
   const [subject, setSubject] = useState("");
@@ -84,6 +98,7 @@ export default function AdminBroadcastEmail() {
   const composePayload = useCallback(
     () => ({
       audience,
+      profileTargeting,
       subject: subject.trim(),
       headline: headline.trim(),
       body: body.trim(),
@@ -91,47 +106,142 @@ export default function AdminBroadcastEmail() {
       ctaLabel: ctaLabel.trim() || undefined,
       ctaUrl: ctaUrl.trim() || undefined,
     }),
-    [audience, subject, headline, body, preheader, ctaLabel, ctaUrl],
+    [
+      audience,
+      profileTargeting,
+      subject,
+      headline,
+      body,
+      preheader,
+      ctaLabel,
+      ctaUrl,
+    ],
   );
 
   const refreshAudience = useCallback(
-    async (targetAudience: BroadcastEmailAudience) => {
+    async (
+      targetAudience: BroadcastEmailAudience,
+      targeting: AudienceTargeting,
+    ) => {
+      if (getAudienceTargetingValidationError(targeting)) {
+        return;
+      }
+
       const requestId = ++audienceRequestIdRef.current;
       setLoadingAudience(true);
       setRecipientCount(null);
+      setTotalAudience(null);
+      setMatchPercentage(null);
       setOptedInCount(null);
 
-      const result = await adminFetchBroadcastAudience(targetAudience);
+      const result = await adminPreviewAudienceTargeting({
+        context: "broadcast",
+        deliverability: targetAudience,
+        profileTargeting: targeting,
+      });
       if (requestId !== audienceRequestIdRef.current) {
         return;
       }
 
-      setLoadingAudience(false);
       if (!result.ok || !result.data) {
         setRecipientCount(null);
+        setTotalAudience(null);
+        setMatchPercentage(null);
         setOptedInCount(null);
         toast({
           title: "Could not load audience",
           description: result.error ?? "Try again.",
           variant: "destructive",
         });
-        return;
+      } else {
+        setRecipientCount(result.data.matchingRecipients);
+        setTotalAudience(result.data.totalAudience);
+        setMatchPercentage(result.data.matchPercentage);
+        setOptedInCount(result.data.optedInCount ?? null);
       }
-
-      setRecipientCount(result.data.totalRecipients);
-      setOptedInCount(result.data.optedInCount);
+      setLoadingAudience(false);
     },
     [toast],
   );
 
+  const audienceTargetingError = useMemo(
+    () => getAudienceTargetingValidationError(profileTargeting),
+    [profileTargeting],
+  );
+
+  const sharedAudiencePreview = useMemo((): AudienceTargetingPreview | null => {
+    if (
+      audienceTargetingError ||
+      recipientCount == null ||
+      totalAudience == null ||
+      matchPercentage == null
+    ) {
+      return null;
+    }
+    return {
+      context: "broadcast",
+      deliverability: audience,
+      profileTargeting,
+      totalAudience,
+      matchingRecipients: recipientCount,
+      matchPercentage,
+      optedInCount: optedInCount ?? undefined,
+    };
+  }, [
+    audience,
+    audienceTargetingError,
+    matchPercentage,
+    optedInCount,
+    profileTargeting,
+    recipientCount,
+    totalAudience,
+  ]);
+
   useEffect(() => {
     if (!canBroadcast) return;
-    void refreshAudience(audience);
-  }, [canBroadcast, audience, refreshAudience]);
+    if (audienceTargetingError) {
+      audienceRequestIdRef.current += 1;
+      setRecipientCount(null);
+      setTotalAudience(null);
+      setMatchPercentage(null);
+      setOptedInCount(null);
+      setLoadingAudience(false);
+      return;
+    }
+
+    setRecipientCount(null);
+    setTotalAudience(null);
+    setMatchPercentage(null);
+    setOptedInCount(null);
+    setLoadingAudience(true);
+
+    const timer = window.setTimeout(() => {
+      void refreshAudience(audience, profileTargeting);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [
+    canBroadcast,
+    audience,
+    profileTargeting,
+    refreshAudience,
+    audienceTargetingError,
+  ]);
 
   const handleExport = async () => {
+    if (audienceTargetingError) {
+      toast({
+        title: "Invalid audience",
+        description: audienceTargetingError,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setExporting(true);
-    const result = await adminExportBroadcastAudienceCsv(audience);
+    const result = await adminExportBroadcastAudienceCsv(
+      audience,
+      profileTargeting,
+    );
     setExporting(false);
     if (!result.ok || !result.blob) {
       toast({
@@ -150,6 +260,15 @@ export default function AdminBroadcastEmail() {
   };
 
   const handlePreview = async () => {
+    if (audienceTargetingError) {
+      toast({
+        title: "Invalid audience",
+        description: audienceTargetingError,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setPreviewing(true);
     const result = await adminSendBroadcastPreview(composePayload());
     setPreviewing(false);
@@ -168,6 +287,15 @@ export default function AdminBroadcastEmail() {
   };
 
   const handleSend = async () => {
+    if (audienceTargetingError) {
+      toast({
+        title: "Invalid audience",
+        description: audienceTargetingError,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (recipientCount == null || recipientCount < 1) {
       toast({
         title: "No recipients",
@@ -333,11 +461,29 @@ export default function AdminBroadcastEmail() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="rounded-lg border border-border px-4 py-3">
-              <p className="text-xs text-muted-foreground">Recipients</p>
+              <p className="text-xs text-muted-foreground">Expected recipients</p>
               <p className="text-2xl font-semibold tabular-nums">
                 {loadingAudience
                   ? "…"
                   : recipientCount?.toLocaleString() ?? "—"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border px-4 py-3">
+              <p className="text-xs text-muted-foreground">Total audience</p>
+              <p className="text-lg font-medium tabular-nums">
+                {loadingAudience
+                  ? "…"
+                  : totalAudience?.toLocaleString() ?? "—"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border px-4 py-3">
+              <p className="text-xs text-muted-foreground">Match rate</p>
+              <p className="text-lg font-medium tabular-nums">
+                {loadingAudience
+                  ? "…"
+                  : matchPercentage != null
+                    ? `${matchPercentage}%`
+                    : "—"}
               </p>
             </div>
             {audience === "all_deliverable" && optedInCount != null ? (
@@ -350,20 +496,30 @@ export default function AdminBroadcastEmail() {
             ) : null}
             <Button
               variant="outline"
-              onClick={() => void refreshAudience(audience)}
-              disabled={loadingAudience}
+              onClick={() => void refreshAudience(audience, profileTargeting)}
+              disabled={loadingAudience || !!audienceTargetingError}
             >
               Refresh count
             </Button>
             <Button
               variant="outline"
               onClick={() => void handleExport()}
-              disabled={exporting}
+              disabled={exporting || !!audienceTargetingError || loadingAudience}
             >
               {exporting ? "Exporting…" : "Export CSV"}
             </Button>
           </div>
         </div>
+        <AudienceTargetingPanel
+          value={profileTargeting}
+          onChange={setProfileTargeting}
+          context="broadcast"
+          deliverability={audience}
+          sharedPreview={{
+            data: sharedAudiencePreview,
+            loading: loadingAudience,
+          }}
+        />
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5 space-y-4">
@@ -436,7 +592,9 @@ export default function AdminBroadcastEmail() {
         <Button
           variant="outline"
           onClick={() => void handlePreview()}
-          disabled={previewing || !composeReady}
+          disabled={
+            previewing || !composeReady || !!audienceTargetingError
+          }
         >
           {previewing ? "Sending preview…" : "Send preview to me"}
         </Button>
@@ -445,6 +603,7 @@ export default function AdminBroadcastEmail() {
           disabled={
             sending ||
             loadingAudience ||
+            !!audienceTargetingError ||
             !composeReady ||
             recipientCount == null ||
             recipientCount < 1

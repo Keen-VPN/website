@@ -37,6 +37,15 @@ import {
   type PerkRedemptionType,
 } from "@/auth/backend";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import {
+  AudienceTargetingPanel,
+} from "@/components/admin/AudienceTargetingPanel";
+import {
+  cloneAudienceTargeting,
+  createDefaultAudienceTargeting,
+  getAudienceTargetingValidationError,
+} from "@/components/admin/audience-targeting.constants";
+import type { AudienceTargeting } from "@/auth/backend";
 
 const PERK_CATEGORIES: { value: PerkCategory; label: string }[] = [
   { value: "privacy_security", label: "Privacy & Security" },
@@ -75,6 +84,7 @@ interface PerkFormState {
   sortOrder: string;
   startsAt: string;
   endsAt: string;
+  audienceTargeting: AudienceTargeting;
 }
 
 function parseSortOrder(value: string): number {
@@ -118,6 +128,7 @@ const emptyForm = (): PerkFormState => ({
   sortOrder: "0",
   startsAt: "",
   endsAt: defaultPerkEndDateInput(),
+  audienceTargeting: createDefaultAudienceTargeting(),
 });
 
 function formToCreatePayload(form: PerkFormState): CreateAdminPerkPayload {
@@ -138,6 +149,7 @@ function formToCreatePayload(form: PerkFormState): CreateAdminPerkPayload {
     sortOrder: parseSortOrder(form.sortOrder),
     startsAt: optionalIsoDate(form.startsAt),
     endsAt: form.endsAt.trim() ? optionalIsoDate(form.endsAt) : null,
+    audienceTargeting: form.audienceTargeting,
   };
 }
 
@@ -159,6 +171,9 @@ function perkToForm(perk: AdminPerk): PerkFormState {
     sortOrder: String(perk.sortOrder),
     startsAt: perk.startsAt ? perk.startsAt.slice(0, 10) : "",
     endsAt: perk.endsAt ? perk.endsAt.slice(0, 10) : "",
+    audienceTargeting: perk.audienceTargeting
+      ? cloneAudienceTargeting(perk.audienceTargeting)
+      : createDefaultAudienceTargeting(),
   };
 }
 
@@ -439,6 +454,15 @@ export default function AdminPerks() {
       return;
     }
 
+    const audienceError = getAudienceTargetingValidationError(
+      form.audienceTargeting,
+    );
+    if (audienceError) {
+      setSaving(false);
+      setDialogError(audienceError);
+      return;
+    }
+
     if (editingId) {
       const res = await adminUpdatePerk(editingId, {
         title: form.title.trim(),
@@ -460,6 +484,7 @@ export default function AdminPerks() {
         endsAt: form.endsAt.trim()
           ? optionalIsoDate(form.endsAt) ?? null
           : null,
+        audienceTargeting: form.audienceTargeting,
       });
       setSaving(false);
       if (!res.ok) {
@@ -1192,6 +1217,13 @@ export default function AdminPerks() {
                 </Select>
               </div>
             </div>
+            <AudienceTargetingPanel
+              value={form.audienceTargeting}
+              onChange={(audienceTargeting) =>
+                setForm((prev) => ({ ...prev, audienceTargeting }))
+              }
+              context="perks"
+            />
             <div>
               <Label htmlFor="perk-offer">Offer text</Label>
               <Input
