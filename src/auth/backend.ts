@@ -3485,7 +3485,7 @@ export type UpdateAdminPerkPayload = Partial<{
   sortOrder: number;
   startsAt: string | null;
   endsAt: string | null;
-  audienceTargeting?: AudienceTargeting;
+  audienceTargeting: AudienceTargeting;
 }>;
 
 export interface AdminPerksMetrics {
