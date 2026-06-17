@@ -41,7 +41,8 @@ import {
   AudienceTargetingPanel,
 } from "@/components/admin/AudienceTargetingPanel";
 import {
-  DEFAULT_AUDIENCE_TARGETING,
+  cloneAudienceTargeting,
+  createDefaultAudienceTargeting,
   getAudienceTargetingValidationError,
 } from "@/components/admin/audience-targeting.constants";
 import type { AudienceTargeting } from "@/auth/backend";
@@ -127,7 +128,7 @@ const emptyForm = (): PerkFormState => ({
   sortOrder: "0",
   startsAt: "",
   endsAt: defaultPerkEndDateInput(),
-  audienceTargeting: { ...DEFAULT_AUDIENCE_TARGETING },
+  audienceTargeting: createDefaultAudienceTargeting(),
 });
 
 function formToCreatePayload(form: PerkFormState): CreateAdminPerkPayload {
@@ -170,7 +171,9 @@ function perkToForm(perk: AdminPerk): PerkFormState {
     sortOrder: String(perk.sortOrder),
     startsAt: perk.startsAt ? perk.startsAt.slice(0, 10) : "",
     endsAt: perk.endsAt ? perk.endsAt.slice(0, 10) : "",
-    audienceTargeting: perk.audienceTargeting ?? { ...DEFAULT_AUDIENCE_TARGETING },
+    audienceTargeting: perk.audienceTargeting
+      ? cloneAudienceTargeting(perk.audienceTargeting)
+      : createDefaultAudienceTargeting(),
   };
 }
 

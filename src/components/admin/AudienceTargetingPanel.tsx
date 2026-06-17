@@ -158,13 +158,15 @@ export function AudienceTargetingPanel({
       deliverability: context === "broadcast" ? deliverability : undefined,
       profileTargeting: value,
     });
-    if (requestId !== previewRequestIdRef.current) return;
-    setLoadingPreview(false);
+    if (requestId !== previewRequestIdRef.current) {
+      return;
+    }
     if (result.ok && result.data) {
       setPreview(result.data);
     } else {
       setPreview(null);
     }
+    setLoadingPreview(false);
   }, [context, deliverability, usesSharedPreview, value]);
 
   useEffect(() => {

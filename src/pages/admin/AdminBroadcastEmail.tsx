@@ -26,7 +26,7 @@ import {
   AudienceTargetingPanel,
 } from "@/components/admin/AudienceTargetingPanel";
 import {
-  DEFAULT_AUDIENCE_TARGETING,
+  createDefaultAudienceTargeting,
   getAudienceTargetingValidationError,
 } from "@/components/admin/audience-targeting.constants";
 
@@ -51,9 +51,9 @@ export default function AdminBroadcastEmail() {
 
   const [audience, setAudience] =
     useState<BroadcastEmailAudience>("all_deliverable");
-  const [profileTargeting, setProfileTargeting] = useState<AudienceTargeting>({
-    ...DEFAULT_AUDIENCE_TARGETING,
-  });
+  const [profileTargeting, setProfileTargeting] = useState<AudienceTargeting>(
+    () => createDefaultAudienceTargeting(),
+  );
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [totalAudience, setTotalAudience] = useState<number | null>(null);
   const [matchPercentage, setMatchPercentage] = useState<number | null>(null);
@@ -123,6 +123,10 @@ export default function AdminBroadcastEmail() {
       targetAudience: BroadcastEmailAudience,
       targeting: AudienceTargeting,
     ) => {
+      if (getAudienceTargetingValidationError(targeting)) {
+        return;
+      }
+
       const requestId = ++audienceRequestIdRef.current;
       setLoadingAudience(true);
       setRecipientCount(null);
@@ -139,7 +143,6 @@ export default function AdminBroadcastEmail() {
         return;
       }
 
-      setLoadingAudience(false);
       if (!result.ok || !result.data) {
         setRecipientCount(null);
         setTotalAudience(null);
@@ -150,13 +153,13 @@ export default function AdminBroadcastEmail() {
           description: result.error ?? "Try again.",
           variant: "destructive",
         });
-        return;
+      } else {
+        setRecipientCount(result.data.matchingRecipients);
+        setTotalAudience(result.data.totalAudience);
+        setMatchPercentage(result.data.matchPercentage);
+        setOptedInCount(result.data.optedInCount ?? null);
       }
-
-      setRecipientCount(result.data.matchingRecipients);
-      setTotalAudience(result.data.totalAudience);
-      setMatchPercentage(result.data.matchPercentage);
-      setOptedInCount(result.data.optedInCount ?? null);
+      setLoadingAudience(false);
     },
     [toast],
   );
@@ -257,6 +260,15 @@ export default function AdminBroadcastEmail() {
   };
 
   const handlePreview = async () => {
+    if (audienceTargetingError) {
+      toast({
+        title: "Invalid audience",
+        description: audienceTargetingError,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setPreviewing(true);
     const result = await adminSendBroadcastPreview(composePayload());
     setPreviewing(false);
@@ -580,7 +592,9 @@ export default function AdminBroadcastEmail() {
         <Button
           variant="outline"
           onClick={() => void handlePreview()}
-          disabled={previewing || !composeReady}
+          disabled={
+            previewing || !composeReady || !!audienceTargetingError
+          }
         >
           {previewing ? "Sending preview…" : "Send preview to me"}
         </Button>
