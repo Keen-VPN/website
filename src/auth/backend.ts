@@ -4437,45 +4437,22 @@ export interface AdminBroadcastComposePayload {
   ctaUrl?: string;
 }
 
-function buildBroadcastAudienceQuery(
-  audience: BroadcastEmailAudience,
-  profileTargeting?: AudienceTargeting,
-): URLSearchParams {
-  const query = new URLSearchParams({ audience });
-  if (!profileTargeting) {
-    return query;
-  }
-  for (const preset of profileTargeting.presets) {
-    query.append("profileTargeting[presets][]", preset);
-  }
-  if (profileTargeting.customRules) {
-    query.set(
-      "profileTargeting[customRules][logic]",
-      profileTargeting.customRules.logic,
-    );
-    profileTargeting.customRules.rules.forEach((rule, index) => {
-      query.set(
-        `profileTargeting[customRules][rules][${index}][questionKey]`,
-        rule.questionKey,
-      );
-      query.set(
-        `profileTargeting[customRules][rules][${index}][value]`,
-        rule.value,
-      );
-    });
-  }
-  return query;
-}
-
 export async function adminExportBroadcastAudienceCsv(
   audience: BroadcastEmailAudience = "all_deliverable",
   profileTargeting?: AudienceTargeting,
 ): Promise<{ ok: boolean; blob?: Blob; error?: string }> {
   try {
-    const query = buildBroadcastAudienceQuery(audience, profileTargeting);
     const response = await fetch(
-      `${BACKEND_URL}/admin/broadcast-email/audience/export?${query.toString()}`,
-      { credentials: "include" },
+      `${BACKEND_URL}/admin/broadcast-email/audience/export`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audience,
+          ...(profileTargeting ? { profileTargeting } : {}),
+        }),
+      },
     );
     if (!response.ok) {
       const raw: unknown = await response.json().catch(() => ({}));
