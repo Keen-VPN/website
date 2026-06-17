@@ -9,24 +9,14 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
-  adminFetchAudienceTargetingOptions,
   adminPreviewAudienceTargeting,
   type AudienceCustomRule,
+  type AudiencePreset,
   type AudiencePresetId,
   type AudienceTargeting,
   type AudienceTargetingPreview,
 } from "@/auth/backend";
-
-const SEGMENT_PRESETS: AudiencePresetId[] = [
-  "all_users",
-  "has_us_bank_account",
-  "no_us_bank_account",
-  "receives_direct_deposit",
-  "self_employed",
-  "business_owner",
-  "interested_in_starting_business",
-  "custom",
-];
+import { fetchAudienceTargetingOptionsCached } from "@/components/admin/audience-targeting-options.cache";
 
 interface AudienceTargetingPanelProps {
   value: AudienceTargeting;
@@ -50,7 +40,7 @@ export function AudienceTargetingPanel({
   sharedPreview,
 }: AudienceTargetingPanelProps) {
   const usesSharedPreview = sharedPreview !== undefined;
-  const [presetLabels, setPresetLabels] = useState<Record<string, string>>({});
+  const [presetOptions, setPresetOptions] = useState<AudiencePreset[]>([]);
   const [questionOptions, setQuestionOptions] = useState<
     {
       key: string;
@@ -63,14 +53,10 @@ export function AudienceTargetingPanel({
   const previewRequestIdRef = useRef(0);
 
   useEffect(() => {
-    void adminFetchAudienceTargetingOptions().then((result) => {
-      if (!result.ok || !result.data) return;
-      const labels: Record<string, string> = {};
-      for (const preset of result.data.presets) {
-        labels[preset.id] = preset.label;
-      }
-      setPresetLabels(labels);
-      setQuestionOptions(result.data.questions);
+    void fetchAudienceTargetingOptionsCached().then((data) => {
+      if (!data) return;
+      setPresetOptions(data.presets);
+      setQuestionOptions(data.questions);
     });
   }, []);
 
@@ -159,6 +145,7 @@ export function AudienceTargetingPanel({
       return;
     }
     if (value.presets.length === 0) {
+      previewRequestIdRef.current += 1;
       setPreview(null);
       setLoadingPreview(false);
       return;
@@ -200,10 +187,13 @@ export function AudienceTargetingPanel({
     }
     if (usesAllUsers) return "All users";
     if (usesCustom) return "Custom profile rules";
+    const labelsById = Object.fromEntries(
+      presetOptions.map((preset) => [preset.id, preset.label]),
+    );
     return value.presets
-      .map((preset) => presetLabels[preset] ?? preset)
+      .map((preset) => labelsById[preset] ?? preset)
       .join(" OR ");
-  }, [presetLabels, usesAllUsers, usesCustom, value.presets]);
+  }, [presetOptions, usesAllUsers, usesCustom, value.presets]);
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
@@ -216,15 +206,15 @@ export function AudienceTargetingPanel({
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        {SEGMENT_PRESETS.map((preset) => {
-          const checked = value.presets.includes(preset);
+        {presetOptions.map((preset) => {
+          const checked = value.presets.includes(preset.id);
           const presetDisabled =
             disabled ||
-            (usesAllUsers && preset !== "all_users") ||
-            (usesCustom && preset !== "custom" && preset !== "all_users");
+            (usesAllUsers && preset.id !== "all_users") ||
+            (usesCustom && preset.id !== "custom" && preset.id !== "all_users");
           return (
             <label
-              key={preset}
+              key={preset.id}
               className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
                 checked ? "border-primary bg-primary/5" : "border-border"
               } ${presetDisabled ? "opacity-50" : ""}`}
@@ -234,10 +224,10 @@ export function AudienceTargetingPanel({
                 checked={checked}
                 disabled={presetDisabled}
                 onChange={(event) =>
-                  togglePreset(preset, event.target.checked)
+                  togglePreset(preset.id, event.target.checked)
                 }
               />
-              <span>{presetLabels[preset] ?? preset}</span>
+              <span>{preset.label}</span>
             </label>
           );
         })}
