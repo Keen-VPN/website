@@ -3,7 +3,7 @@ import {
   type AudiencePreset,
 } from "@/auth/backend";
 
-export type AudienceTargetingOptions = {
+export interface AudienceTargetingOptions {
   presets: AudiencePreset[];
   questions: {
     key: string;
@@ -11,7 +11,7 @@ export type AudienceTargetingOptions = {
     category: string;
     options: { value: string; label: string }[];
   }[];
-};
+}
 
 let cachedOptions: AudienceTargetingOptions | null = null;
 let inflight: Promise<AudienceTargetingOptions | null> | null = null;
