@@ -3316,12 +3316,12 @@ export async function adminFetchAudienceTargetingOptions(): Promise<{
   ok: boolean;
   data?: {
     presets: AudiencePreset[];
-    questions: Array<{
+    questions: {
       key: string;
       label: string;
       category: string;
-      options: Array<{ value: string; label: string }>;
-    }>;
+      options: { value: string; label: string }[];
+    }[];
   };
   error?: string;
 }> {
@@ -3339,12 +3339,12 @@ export async function adminFetchAudienceTargetingOptions(): Promise<{
     const record = raw as {
       data?: {
         presets: AudiencePreset[];
-        questions: Array<{
+        questions: {
           key: string;
           label: string;
           category: string;
-          options: Array<{ value: string; label: string }>;
-        }>;
+          options: { value: string; label: string }[];
+        }[];
       };
     };
     return { ok: true, data: record.data };

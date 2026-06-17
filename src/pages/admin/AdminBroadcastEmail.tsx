@@ -23,8 +23,8 @@ import {
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
   AudienceTargetingPanel,
-  DEFAULT_AUDIENCE_TARGETING,
 } from "@/components/admin/AudienceTargetingPanel";
+import { DEFAULT_AUDIENCE_TARGETING } from "@/components/admin/audience-targeting.constants";
 
 const AUDIENCE_OPTIONS: { value: BroadcastEmailAudience; label: string }[] = [
   { value: "all_deliverable", label: "All deliverable users" },

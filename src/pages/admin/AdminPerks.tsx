@@ -39,8 +39,8 @@ import {
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
   AudienceTargetingPanel,
-  DEFAULT_AUDIENCE_TARGETING,
 } from "@/components/admin/AudienceTargetingPanel";
+import { DEFAULT_AUDIENCE_TARGETING } from "@/components/admin/audience-targeting.constants";
 import type { AudienceTargeting } from "@/auth/backend";
 
 const PERK_CATEGORIES: { value: PerkCategory; label: string }[] = [

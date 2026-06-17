@@ -28,10 +28,6 @@ const SEGMENT_PRESETS: AudiencePreset[] = [
   "custom",
 ];
 
-export const DEFAULT_AUDIENCE_TARGETING: AudienceTargeting = {
-  presets: ["all_users"],
-};
-
 interface AudienceTargetingPanelProps {
   value: AudienceTargeting;
   onChange: (value: AudienceTargeting) => void;
@@ -49,11 +45,11 @@ export function AudienceTargetingPanel({
 }: AudienceTargetingPanelProps) {
   const [presetLabels, setPresetLabels] = useState<Record<string, string>>({});
   const [questionOptions, setQuestionOptions] = useState<
-    Array<{
+    {
       key: string;
       label: string;
-      options: Array<{ value: string; label: string }>;
-    }>
+      options: { value: string; label: string }[];
+    }[]
   >([]);
   const [preview, setPreview] = useState<AudienceTargetingPreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
