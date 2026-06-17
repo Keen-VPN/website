@@ -197,6 +197,7 @@ export default function AdminBroadcastEmail() {
   useEffect(() => {
     if (!canBroadcast) return;
     if (audienceTargetingError) {
+      audienceRequestIdRef.current += 1;
       setRecipientCount(null);
       setTotalAudience(null);
       setMatchPercentage(null);
@@ -204,6 +205,13 @@ export default function AdminBroadcastEmail() {
       setLoadingAudience(false);
       return;
     }
+
+    setRecipientCount(null);
+    setTotalAudience(null);
+    setMatchPercentage(null);
+    setOptedInCount(null);
+    setLoadingAudience(true);
+
     const timer = window.setTimeout(() => {
       void refreshAudience(audience, profileTargeting);
     }, 300);
@@ -217,6 +225,15 @@ export default function AdminBroadcastEmail() {
   ]);
 
   const handleExport = async () => {
+    if (audienceTargetingError) {
+      toast({
+        title: "Invalid audience",
+        description: audienceTargetingError,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setExporting(true);
     const result = await adminExportBroadcastAudienceCsv(
       audience,
@@ -468,14 +485,14 @@ export default function AdminBroadcastEmail() {
             <Button
               variant="outline"
               onClick={() => void refreshAudience(audience, profileTargeting)}
-              disabled={loadingAudience}
+              disabled={loadingAudience || !!audienceTargetingError}
             >
               Refresh count
             </Button>
             <Button
               variant="outline"
               onClick={() => void handleExport()}
-              disabled={exporting}
+              disabled={exporting || !!audienceTargetingError || loadingAudience}
             >
               {exporting ? "Exporting…" : "Export CSV"}
             </Button>
@@ -572,6 +589,7 @@ export default function AdminBroadcastEmail() {
           disabled={
             sending ||
             loadingAudience ||
+            !!audienceTargetingError ||
             !composeReady ||
             recipientCount == null ||
             recipientCount < 1
