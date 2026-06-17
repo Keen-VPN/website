@@ -123,6 +123,10 @@ export default function AdminBroadcastEmail() {
       targetAudience: BroadcastEmailAudience,
       targeting: AudienceTargeting,
     ) => {
+      if (getAudienceTargetingValidationError(targeting)) {
+        return;
+      }
+
       const requestId = ++audienceRequestIdRef.current;
       setLoadingAudience(true);
       setRecipientCount(null);
@@ -135,42 +139,27 @@ export default function AdminBroadcastEmail() {
         deliverability: targetAudience,
         profileTargeting: targeting,
       });
-      const isStale = () => requestId !== audienceRequestIdRef.current;
-      if (isStale()) {
+      if (requestId !== audienceRequestIdRef.current) {
         return;
       }
 
-      setLoadingAudience(false);
-      if (
-        getAudienceTargetingValidationError(targeting) ||
-        !result.ok ||
-        !result.data
-      ) {
-        if (isStale()) {
-          return;
-        }
+      if (!result.ok || !result.data) {
         setRecipientCount(null);
         setTotalAudience(null);
         setMatchPercentage(null);
         setOptedInCount(null);
-        if (!getAudienceTargetingValidationError(targeting)) {
-          toast({
-            title: "Could not load audience",
-            description: result.error ?? "Try again.",
-            variant: "destructive",
-          });
-        }
-        return;
+        toast({
+          title: "Could not load audience",
+          description: result.error ?? "Try again.",
+          variant: "destructive",
+        });
+      } else {
+        setRecipientCount(result.data.matchingRecipients);
+        setTotalAudience(result.data.totalAudience);
+        setMatchPercentage(result.data.matchPercentage);
+        setOptedInCount(result.data.optedInCount ?? null);
       }
-
-      if (isStale()) {
-        return;
-      }
-
-      setRecipientCount(result.data.matchingRecipients);
-      setTotalAudience(result.data.totalAudience);
-      setMatchPercentage(result.data.matchPercentage);
-      setOptedInCount(result.data.optedInCount ?? null);
+      setLoadingAudience(false);
     },
     [toast],
   );
