@@ -4,6 +4,25 @@ export const DEFAULT_AUDIENCE_TARGETING: AudienceTargeting = {
   presets: ["all_users"],
 };
 
+export function cloneAudienceTargeting(
+  source: AudienceTargeting = DEFAULT_AUDIENCE_TARGETING,
+): AudienceTargeting {
+  const cloned: AudienceTargeting = {
+    presets: [...source.presets],
+  };
+  if (source.customRules) {
+    cloned.customRules = {
+      logic: source.customRules.logic,
+      rules: source.customRules.rules.map((rule) => ({ ...rule })),
+    };
+  }
+  return cloned;
+}
+
+export function createDefaultAudienceTargeting(): AudienceTargeting {
+  return cloneAudienceTargeting(DEFAULT_AUDIENCE_TARGETING);
+}
+
 export function getAudienceTargetingValidationError(
   targeting: AudienceTargeting,
 ): string | null {
