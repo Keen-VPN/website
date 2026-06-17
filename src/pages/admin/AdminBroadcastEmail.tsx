@@ -18,13 +18,17 @@ import {
   adminSendBroadcastEmail,
   adminSendBroadcastPreview,
   type AudienceTargeting,
+  type AudienceTargetingPreview,
   type BroadcastEmailAudience,
 } from "@/auth/backend";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
   AudienceTargetingPanel,
 } from "@/components/admin/AudienceTargetingPanel";
-import { DEFAULT_AUDIENCE_TARGETING } from "@/components/admin/audience-targeting.constants";
+import {
+  DEFAULT_AUDIENCE_TARGETING,
+  getAudienceTargetingValidationError,
+} from "@/components/admin/audience-targeting.constants";
 
 const AUDIENCE_OPTIONS: { value: BroadcastEmailAudience; label: string }[] = [
   { value: "all_deliverable", label: "All deliverable users" },
@@ -157,10 +161,60 @@ export default function AdminBroadcastEmail() {
     [toast],
   );
 
+  const audienceTargetingError = useMemo(
+    () => getAudienceTargetingValidationError(profileTargeting),
+    [profileTargeting],
+  );
+
+  const sharedAudiencePreview = useMemo((): AudienceTargetingPreview | null => {
+    if (
+      audienceTargetingError ||
+      recipientCount == null ||
+      totalAudience == null ||
+      matchPercentage == null
+    ) {
+      return null;
+    }
+    return {
+      context: "broadcast",
+      deliverability: audience,
+      profileTargeting,
+      totalAudience,
+      matchingRecipients: recipientCount,
+      matchPercentage,
+      optedInCount: optedInCount ?? undefined,
+    };
+  }, [
+    audience,
+    audienceTargetingError,
+    matchPercentage,
+    optedInCount,
+    profileTargeting,
+    recipientCount,
+    totalAudience,
+  ]);
+
   useEffect(() => {
     if (!canBroadcast) return;
-    void refreshAudience(audience, profileTargeting);
-  }, [canBroadcast, audience, profileTargeting, refreshAudience]);
+    if (audienceTargetingError) {
+      setRecipientCount(null);
+      setTotalAudience(null);
+      setMatchPercentage(null);
+      setOptedInCount(null);
+      setLoadingAudience(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void refreshAudience(audience, profileTargeting);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [
+    canBroadcast,
+    audience,
+    profileTargeting,
+    refreshAudience,
+    audienceTargetingError,
+  ]);
 
   const handleExport = async () => {
     setExporting(true);
@@ -204,6 +258,15 @@ export default function AdminBroadcastEmail() {
   };
 
   const handleSend = async () => {
+    if (audienceTargetingError) {
+      toast({
+        title: "Invalid audience",
+        description: audienceTargetingError,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (recipientCount == null || recipientCount < 1) {
       toast({
         title: "No recipients",
@@ -423,6 +486,10 @@ export default function AdminBroadcastEmail() {
           onChange={setProfileTargeting}
           context="broadcast"
           deliverability={audience}
+          sharedPreview={{
+            data: sharedAudiencePreview,
+            loading: loadingAudience,
+          }}
         />
       </section>
 

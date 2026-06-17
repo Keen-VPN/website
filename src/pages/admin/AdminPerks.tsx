@@ -40,7 +40,10 @@ import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
   AudienceTargetingPanel,
 } from "@/components/admin/AudienceTargetingPanel";
-import { DEFAULT_AUDIENCE_TARGETING } from "@/components/admin/audience-targeting.constants";
+import {
+  DEFAULT_AUDIENCE_TARGETING,
+  getAudienceTargetingValidationError,
+} from "@/components/admin/audience-targeting.constants";
 import type { AudienceTargeting } from "@/auth/backend";
 
 const PERK_CATEGORIES: { value: PerkCategory; label: string }[] = [
@@ -448,11 +451,12 @@ export default function AdminPerks() {
       return;
     }
 
-    if (form.audienceTargeting.presets.length === 0) {
+    const audienceError = getAudienceTargetingValidationError(
+      form.audienceTargeting,
+    );
+    if (audienceError) {
       setSaving(false);
-      setDialogError(
-        "Choose All users or at least one audience segment before saving.",
-      );
+      setDialogError(audienceError);
       return;
     }
 

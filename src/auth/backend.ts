@@ -3286,6 +3286,8 @@ export interface AudiencePreset {
   label: string;
 }
 
+export type AudiencePresetId = AudiencePreset["id"];
+
 export interface AudienceCustomRule {
   questionKey:
     | "us_bank_account"
@@ -3295,7 +3297,7 @@ export interface AudienceCustomRule {
 }
 
 export interface AudienceTargeting {
-  presets: AudiencePreset["id"][];
+  presets: AudiencePresetId[];
   customRules?: {
     logic: "or" | "and";
     rules: AudienceCustomRule[];
@@ -4424,16 +4426,6 @@ export async function unlinkProvider(
 
 export type BroadcastEmailAudience = "all_deliverable" | "opted_in";
 
-export interface AdminBroadcastAudienceSummary {
-  audience: BroadcastEmailAudience;
-  profileTargeting?: AudienceTargeting;
-  totalRecipients: number;
-  totalAudience: number;
-  matchingRecipients: number;
-  matchPercentage: number;
-  optedInCount: number;
-}
-
 export interface AdminBroadcastComposePayload {
   audience?: BroadcastEmailAudience;
   profileTargeting?: AudienceTargeting;
@@ -4473,37 +4465,6 @@ function buildBroadcastAudienceQuery(
     });
   }
   return query;
-}
-
-export async function adminFetchBroadcastAudience(
-  audience: BroadcastEmailAudience = "all_deliverable",
-  profileTargeting?: AudienceTargeting,
-): Promise<{
-  ok: boolean;
-  data?: AdminBroadcastAudienceSummary;
-  error?: string;
-}> {
-  try {
-    const query = buildBroadcastAudienceQuery(audience, profileTargeting);
-    const response = await fetch(
-      `${BACKEND_URL}/admin/broadcast-email/audience?${query.toString()}`,
-      { credentials: "include" },
-    );
-    const raw: unknown = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return {
-        ok: false,
-        error: extractBackendErrorMessage(raw, "Failed to load broadcast audience"),
-      };
-    }
-    const record = raw as { data?: AdminBroadcastAudienceSummary };
-    return { ok: true, data: record.data };
-  } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "Network error",
-    };
-  }
 }
 
 export async function adminExportBroadcastAudienceCsv(

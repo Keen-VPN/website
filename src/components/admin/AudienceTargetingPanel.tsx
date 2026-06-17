@@ -12,12 +12,12 @@ import {
   adminFetchAudienceTargetingOptions,
   adminPreviewAudienceTargeting,
   type AudienceCustomRule,
-  type AudiencePreset,
+  type AudiencePresetId,
   type AudienceTargeting,
   type AudienceTargetingPreview,
 } from "@/auth/backend";
 
-const SEGMENT_PRESETS: AudiencePreset[] = [
+const SEGMENT_PRESETS: AudiencePresetId[] = [
   "all_users",
   "has_us_bank_account",
   "no_us_bank_account",
@@ -34,6 +34,11 @@ interface AudienceTargetingPanelProps {
   context: "perks" | "broadcast";
   deliverability?: "all_deliverable" | "opted_in";
   disabled?: boolean;
+  /** Parent-owned preview; skips internal fetch when provided. */
+  sharedPreview?: {
+    data: AudienceTargetingPreview | null;
+    loading: boolean;
+  };
 }
 
 export function AudienceTargetingPanel({
@@ -42,7 +47,9 @@ export function AudienceTargetingPanel({
   context,
   deliverability = "all_deliverable",
   disabled = false,
+  sharedPreview,
 }: AudienceTargetingPanelProps) {
+  const usesSharedPreview = sharedPreview !== undefined;
   const [presetLabels, setPresetLabels] = useState<Record<string, string>>({});
   const [questionOptions, setQuestionOptions] = useState<
     {
@@ -70,7 +77,7 @@ export function AudienceTargetingPanel({
   const usesCustom = value.presets.includes("custom");
   const usesAllUsers = value.presets.includes("all_users");
 
-  const togglePreset = (preset: AudiencePreset, checked: boolean) => {
+  const togglePreset = (preset: AudiencePresetId, checked: boolean) => {
     if (disabled) return;
 
     if (preset === "all_users") {
@@ -133,19 +140,24 @@ export function AudienceTargetingPanel({
   };
 
   const removeCustomRule = (index: number) => {
-    const rules = (value.customRules?.rules ?? []).filter(
-      (_, ruleIndex) => ruleIndex !== index,
-    );
+    const rules = value.customRules?.rules ?? [];
+    if (rules.length <= 1) {
+      return;
+    }
+    const nextRules = rules.filter((_, ruleIndex) => ruleIndex !== index);
     onChange({
       presets: ["custom"],
       customRules: {
         logic: value.customRules?.logic ?? "or",
-        rules,
+        rules: nextRules,
       },
     });
   };
 
   const refreshPreview = useCallback(async () => {
+    if (usesSharedPreview) {
+      return;
+    }
     if (value.presets.length === 0) {
       setPreview(null);
       setLoadingPreview(false);
@@ -153,6 +165,7 @@ export function AudienceTargetingPanel({
     }
     const requestId = ++previewRequestIdRef.current;
     setLoadingPreview(true);
+    setPreview(null);
     const result = await adminPreviewAudienceTargeting({
       context,
       deliverability: context === "broadcast" ? deliverability : undefined,
@@ -162,15 +175,24 @@ export function AudienceTargetingPanel({
     setLoadingPreview(false);
     if (result.ok && result.data) {
       setPreview(result.data);
+    } else {
+      setPreview(null);
     }
-  }, [context, deliverability, value]);
+  }, [context, deliverability, usesSharedPreview, value]);
 
   useEffect(() => {
+    if (usesSharedPreview) {
+      return;
+    }
     const timer = window.setTimeout(() => {
       void refreshPreview();
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [refreshPreview]);
+  }, [refreshPreview, usesSharedPreview]);
+
+  const previewData = usesSharedPreview ? sharedPreview.data : preview;
+  const previewLoading = usesSharedPreview ? sharedPreview.loading : loadingPreview;
+  const showPreviewSection = usesSharedPreview || value.presets.length > 0;
 
   const selectedSummary = useMemo(() => {
     if (value.presets.length === 0) {
@@ -304,7 +326,9 @@ export function AudienceTargetingPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  disabled={disabled}
+                  disabled={
+                    disabled || (value.customRules?.rules.length ?? 0) <= 1
+                  }
                   onClick={() => removeCustomRule(index)}
                 >
                   Remove
@@ -325,32 +349,34 @@ export function AudienceTargetingPanel({
         </div>
       ) : null}
 
+      {showPreviewSection ? (
       <div className="rounded-md bg-background/80 p-3 text-sm">
         <div className="font-medium">Audience preview</div>
         <div className="mt-1 text-xs text-muted-foreground">{selectedSummary}</div>
-        {loadingPreview ? (
+        {previewLoading ? (
           <p className="mt-2 text-xs text-muted-foreground">Calculating…</p>
-        ) : preview ? (
+        ) : previewData ? (
           <dl className="mt-2 grid gap-1 text-xs sm:grid-cols-3">
             <div>
               <dt className="text-muted-foreground">Total audience</dt>
               <dd className="font-semibold">
-                {preview.totalAudience.toLocaleString()}
+                {previewData.totalAudience.toLocaleString()}
               </dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Expected recipients</dt>
               <dd className="font-semibold">
-                {preview.matchingRecipients.toLocaleString()}
+                {previewData.matchingRecipients.toLocaleString()}
               </dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Match rate</dt>
-              <dd className="font-semibold">{preview.matchPercentage}%</dd>
+              <dd className="font-semibold">{previewData.matchPercentage}%</dd>
             </div>
           </dl>
         ) : null}
       </div>
+      ) : null}
     </div>
   );
 }
