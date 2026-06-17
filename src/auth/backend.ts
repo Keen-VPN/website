@@ -3273,6 +3273,122 @@ export async function adminDeleteDomainEmailRule(
   }
 }
 
+export interface AudiencePreset {
+  id:
+    | "all_users"
+    | "has_us_bank_account"
+    | "no_us_bank_account"
+    | "receives_direct_deposit"
+    | "self_employed"
+    | "business_owner"
+    | "interested_in_starting_business"
+    | "custom";
+  label: string;
+}
+
+export interface AudienceCustomRule {
+  questionKey:
+    | "us_bank_account"
+    | "direct_deposit_income"
+    | "entrepreneurship_interest_2026";
+  value: string;
+}
+
+export interface AudienceTargeting {
+  presets: AudiencePreset["id"][];
+  customRules?: {
+    logic: "or" | "and";
+    rules: AudienceCustomRule[];
+  };
+}
+
+export interface AudienceTargetingPreview {
+  context: "perks" | "broadcast";
+  totalAudience: number;
+  matchingRecipients: number;
+  matchPercentage: number;
+  profileTargeting: AudienceTargeting;
+  deliverability?: BroadcastEmailAudience;
+  optedInCount?: number;
+}
+
+export async function adminFetchAudienceTargetingOptions(): Promise<{
+  ok: boolean;
+  data?: {
+    presets: AudiencePreset[];
+    questions: Array<{
+      key: string;
+      label: string;
+      category: string;
+      options: Array<{ value: string; label: string }>;
+    }>;
+  };
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/audience-targeting/options`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load audience options"),
+      };
+    }
+    const record = raw as {
+      data?: {
+        presets: AudiencePreset[];
+        questions: Array<{
+          key: string;
+          label: string;
+          category: string;
+          options: Array<{ value: string; label: string }>;
+        }>;
+      };
+    };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminPreviewAudienceTargeting(payload: {
+  context: "perks" | "broadcast";
+  deliverability?: BroadcastEmailAudience;
+  profileTargeting?: AudienceTargeting;
+}): Promise<{
+  ok: boolean;
+  data?: AudienceTargetingPreview;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/audience-targeting/preview`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to preview audience"),
+      };
+    }
+    const record = raw as { data?: AudienceTargetingPreview };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
 export interface AdminPerk {
   id: string;
   title: string;
@@ -3301,6 +3417,7 @@ export interface AdminPerk {
   lastExpiredAt: string | null;
   eligibleForReactivationAt: string | null;
   clonedFromPerkId: string | null;
+  audienceTargeting: AudienceTargeting;
   createdAt: string;
   updatedAt: string;
 }
@@ -3347,6 +3464,7 @@ export interface CreateAdminPerkPayload {
   sortOrder?: number;
   startsAt?: string;
   endsAt?: string | null;
+  audienceTargeting?: AudienceTargeting;
 }
 
 export type UpdateAdminPerkPayload = Partial<{
@@ -3365,6 +3483,7 @@ export type UpdateAdminPerkPayload = Partial<{
   sortOrder: number;
   startsAt: string | null;
   endsAt: string | null;
+  audienceTargeting?: AudienceTargeting;
 }>;
 
 export interface AdminPerksMetrics {
@@ -4307,12 +4426,17 @@ export type BroadcastEmailAudience = "all_deliverable" | "opted_in";
 
 export interface AdminBroadcastAudienceSummary {
   audience: BroadcastEmailAudience;
+  profileTargeting?: AudienceTargeting;
   totalRecipients: number;
+  totalAudience: number;
+  matchingRecipients: number;
+  matchPercentage: number;
   optedInCount: number;
 }
 
 export interface AdminBroadcastComposePayload {
   audience?: BroadcastEmailAudience;
+  profileTargeting?: AudienceTargeting;
   subject: string;
   headline: string;
   body: string;
@@ -4321,15 +4445,46 @@ export interface AdminBroadcastComposePayload {
   ctaUrl?: string;
 }
 
+function buildBroadcastAudienceQuery(
+  audience: BroadcastEmailAudience,
+  profileTargeting?: AudienceTargeting,
+): URLSearchParams {
+  const query = new URLSearchParams({ audience });
+  if (!profileTargeting) {
+    return query;
+  }
+  for (const preset of profileTargeting.presets) {
+    query.append("profileTargeting[presets][]", preset);
+  }
+  if (profileTargeting.customRules) {
+    query.set(
+      "profileTargeting[customRules][logic]",
+      profileTargeting.customRules.logic,
+    );
+    profileTargeting.customRules.rules.forEach((rule, index) => {
+      query.set(
+        `profileTargeting[customRules][rules][${index}][questionKey]`,
+        rule.questionKey,
+      );
+      query.set(
+        `profileTargeting[customRules][rules][${index}][value]`,
+        rule.value,
+      );
+    });
+  }
+  return query;
+}
+
 export async function adminFetchBroadcastAudience(
   audience: BroadcastEmailAudience = "all_deliverable",
+  profileTargeting?: AudienceTargeting,
 ): Promise<{
   ok: boolean;
   data?: AdminBroadcastAudienceSummary;
   error?: string;
 }> {
   try {
-    const query = new URLSearchParams({ audience });
+    const query = buildBroadcastAudienceQuery(audience, profileTargeting);
     const response = await fetch(
       `${BACKEND_URL}/admin/broadcast-email/audience?${query.toString()}`,
       { credentials: "include" },
@@ -4353,9 +4508,10 @@ export async function adminFetchBroadcastAudience(
 
 export async function adminExportBroadcastAudienceCsv(
   audience: BroadcastEmailAudience = "all_deliverable",
+  profileTargeting?: AudienceTargeting,
 ): Promise<{ ok: boolean; blob?: Blob; error?: string }> {
   try {
-    const query = new URLSearchParams({ audience });
+    const query = buildBroadcastAudienceQuery(audience, profileTargeting);
     const response = await fetch(
       `${BACKEND_URL}/admin/broadcast-email/audience/export?${query.toString()}`,
       { credentials: "include" },

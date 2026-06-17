@@ -13,13 +13,18 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   adminExportBroadcastAudienceCsv,
-  adminFetchBroadcastAudience,
+  adminPreviewAudienceTargeting,
   adminFetchBroadcastEmailJob,
   adminSendBroadcastEmail,
   adminSendBroadcastPreview,
+  type AudienceTargeting,
   type BroadcastEmailAudience,
 } from "@/auth/backend";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import {
+  AudienceTargetingPanel,
+  DEFAULT_AUDIENCE_TARGETING,
+} from "@/components/admin/AudienceTargetingPanel";
 
 const AUDIENCE_OPTIONS: { value: BroadcastEmailAudience; label: string }[] = [
   { value: "all_deliverable", label: "All deliverable users" },
@@ -42,7 +47,12 @@ export default function AdminBroadcastEmail() {
 
   const [audience, setAudience] =
     useState<BroadcastEmailAudience>("all_deliverable");
+  const [profileTargeting, setProfileTargeting] = useState<AudienceTargeting>({
+    ...DEFAULT_AUDIENCE_TARGETING,
+  });
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
+  const [totalAudience, setTotalAudience] = useState<number | null>(null);
+  const [matchPercentage, setMatchPercentage] = useState<number | null>(null);
   const [optedInCount, setOptedInCount] = useState<number | null>(null);
   const [loadingAudience, setLoadingAudience] = useState(false);
   const [subject, setSubject] = useState("");
@@ -84,6 +94,7 @@ export default function AdminBroadcastEmail() {
   const composePayload = useCallback(
     () => ({
       audience,
+      profileTargeting,
       subject: subject.trim(),
       headline: headline.trim(),
       body: body.trim(),
@@ -91,17 +102,35 @@ export default function AdminBroadcastEmail() {
       ctaLabel: ctaLabel.trim() || undefined,
       ctaUrl: ctaUrl.trim() || undefined,
     }),
-    [audience, subject, headline, body, preheader, ctaLabel, ctaUrl],
+    [
+      audience,
+      profileTargeting,
+      subject,
+      headline,
+      body,
+      preheader,
+      ctaLabel,
+      ctaUrl,
+    ],
   );
 
   const refreshAudience = useCallback(
-    async (targetAudience: BroadcastEmailAudience) => {
+    async (
+      targetAudience: BroadcastEmailAudience,
+      targeting: AudienceTargeting,
+    ) => {
       const requestId = ++audienceRequestIdRef.current;
       setLoadingAudience(true);
       setRecipientCount(null);
+      setTotalAudience(null);
+      setMatchPercentage(null);
       setOptedInCount(null);
 
-      const result = await adminFetchBroadcastAudience(targetAudience);
+      const result = await adminPreviewAudienceTargeting({
+        context: "broadcast",
+        deliverability: targetAudience,
+        profileTargeting: targeting,
+      });
       if (requestId !== audienceRequestIdRef.current) {
         return;
       }
@@ -109,6 +138,8 @@ export default function AdminBroadcastEmail() {
       setLoadingAudience(false);
       if (!result.ok || !result.data) {
         setRecipientCount(null);
+        setTotalAudience(null);
+        setMatchPercentage(null);
         setOptedInCount(null);
         toast({
           title: "Could not load audience",
@@ -118,20 +149,25 @@ export default function AdminBroadcastEmail() {
         return;
       }
 
-      setRecipientCount(result.data.totalRecipients);
-      setOptedInCount(result.data.optedInCount);
+      setRecipientCount(result.data.matchingRecipients);
+      setTotalAudience(result.data.totalAudience);
+      setMatchPercentage(result.data.matchPercentage);
+      setOptedInCount(result.data.optedInCount ?? null);
     },
     [toast],
   );
 
   useEffect(() => {
     if (!canBroadcast) return;
-    void refreshAudience(audience);
-  }, [canBroadcast, audience, refreshAudience]);
+    void refreshAudience(audience, profileTargeting);
+  }, [canBroadcast, audience, profileTargeting, refreshAudience]);
 
   const handleExport = async () => {
     setExporting(true);
-    const result = await adminExportBroadcastAudienceCsv(audience);
+    const result = await adminExportBroadcastAudienceCsv(
+      audience,
+      profileTargeting,
+    );
     setExporting(false);
     if (!result.ok || !result.blob) {
       toast({
@@ -333,11 +369,29 @@ export default function AdminBroadcastEmail() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="rounded-lg border border-border px-4 py-3">
-              <p className="text-xs text-muted-foreground">Recipients</p>
+              <p className="text-xs text-muted-foreground">Expected recipients</p>
               <p className="text-2xl font-semibold tabular-nums">
                 {loadingAudience
                   ? "…"
                   : recipientCount?.toLocaleString() ?? "—"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border px-4 py-3">
+              <p className="text-xs text-muted-foreground">Total audience</p>
+              <p className="text-lg font-medium tabular-nums">
+                {loadingAudience
+                  ? "…"
+                  : totalAudience?.toLocaleString() ?? "—"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border px-4 py-3">
+              <p className="text-xs text-muted-foreground">Match rate</p>
+              <p className="text-lg font-medium tabular-nums">
+                {loadingAudience
+                  ? "…"
+                  : matchPercentage != null
+                    ? `${matchPercentage}%`
+                    : "—"}
               </p>
             </div>
             {audience === "all_deliverable" && optedInCount != null ? (
@@ -350,7 +404,7 @@ export default function AdminBroadcastEmail() {
             ) : null}
             <Button
               variant="outline"
-              onClick={() => void refreshAudience(audience)}
+              onClick={() => void refreshAudience(audience, profileTargeting)}
               disabled={loadingAudience}
             >
               Refresh count
@@ -364,6 +418,12 @@ export default function AdminBroadcastEmail() {
             </Button>
           </div>
         </div>
+        <AudienceTargetingPanel
+          value={profileTargeting}
+          onChange={setProfileTargeting}
+          context="broadcast"
+          deliverability={audience}
+        />
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5 space-y-4">

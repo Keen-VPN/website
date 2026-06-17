@@ -37,6 +37,11 @@ import {
   type PerkRedemptionType,
 } from "@/auth/backend";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import {
+  AudienceTargetingPanel,
+  DEFAULT_AUDIENCE_TARGETING,
+} from "@/components/admin/AudienceTargetingPanel";
+import type { AudienceTargeting } from "@/auth/backend";
 
 const PERK_CATEGORIES: { value: PerkCategory; label: string }[] = [
   { value: "privacy_security", label: "Privacy & Security" },
@@ -75,6 +80,7 @@ interface PerkFormState {
   sortOrder: string;
   startsAt: string;
   endsAt: string;
+  audienceTargeting: AudienceTargeting;
 }
 
 function parseSortOrder(value: string): number {
@@ -118,6 +124,7 @@ const emptyForm = (): PerkFormState => ({
   sortOrder: "0",
   startsAt: "",
   endsAt: defaultPerkEndDateInput(),
+  audienceTargeting: { ...DEFAULT_AUDIENCE_TARGETING },
 });
 
 function formToCreatePayload(form: PerkFormState): CreateAdminPerkPayload {
@@ -138,6 +145,7 @@ function formToCreatePayload(form: PerkFormState): CreateAdminPerkPayload {
     sortOrder: parseSortOrder(form.sortOrder),
     startsAt: optionalIsoDate(form.startsAt),
     endsAt: form.endsAt.trim() ? optionalIsoDate(form.endsAt) : null,
+    audienceTargeting: form.audienceTargeting,
   };
 }
 
@@ -159,6 +167,7 @@ function perkToForm(perk: AdminPerk): PerkFormState {
     sortOrder: String(perk.sortOrder),
     startsAt: perk.startsAt ? perk.startsAt.slice(0, 10) : "",
     endsAt: perk.endsAt ? perk.endsAt.slice(0, 10) : "",
+    audienceTargeting: perk.audienceTargeting ?? { ...DEFAULT_AUDIENCE_TARGETING },
   };
 }
 
@@ -439,6 +448,14 @@ export default function AdminPerks() {
       return;
     }
 
+    if (form.audienceTargeting.presets.length === 0) {
+      setSaving(false);
+      setDialogError(
+        "Choose All users or at least one audience segment before saving.",
+      );
+      return;
+    }
+
     if (editingId) {
       const res = await adminUpdatePerk(editingId, {
         title: form.title.trim(),
@@ -460,6 +477,7 @@ export default function AdminPerks() {
         endsAt: form.endsAt.trim()
           ? optionalIsoDate(form.endsAt) ?? null
           : null,
+        audienceTargeting: form.audienceTargeting,
       });
       setSaving(false);
       if (!res.ok) {
@@ -1192,6 +1210,13 @@ export default function AdminPerks() {
                 </Select>
               </div>
             </div>
+            <AudienceTargetingPanel
+              value={form.audienceTargeting}
+              onChange={(audienceTargeting) =>
+                setForm((prev) => ({ ...prev, audienceTargeting }))
+              }
+              context="perks"
+            />
             <div>
               <Label htmlFor="perk-offer">Offer text</Label>
               <Input
