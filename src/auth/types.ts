@@ -1,4 +1,4 @@
-import { User as FirebaseUser } from 'firebase/auth';
+import { User as FirebaseUser } from "firebase/auth";
 
 export interface AnnualSavingsData {
   savingsPercent: number;
@@ -19,7 +19,7 @@ export interface SubscriptionData {
   daysSinceSubscriptionStart?: number | null;
   showAnnualUpgradePrompt?: boolean;
   accessRole?: "owner" | "linked" | "member";
-  canManageBilling?: boolean;
+  canManageBilling: boolean;
 }
 
 export interface TrialData {
@@ -58,4 +58,3 @@ export interface BackendAuthResponse {
   /** When true, backend rejected the token (401 or invalid); safe to clear session. When false/undefined on failure, do not clear (e.g. network error). */
   unauthorized?: boolean;
 }
-

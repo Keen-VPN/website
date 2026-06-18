@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PricingPlan, ApiPlan } from "@/lib/pricing";
-import { Check, Loader2, ExternalLink, LayoutGrid } from "lucide-react";
+import { Check, Gift, Loader2, ExternalLink, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
@@ -523,6 +523,12 @@ const Subscribe = () => {
             <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
               {subscribePageTitle}
             </h1>
+            <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-2 mt-2">
+              <Gift className="h-4 w-4 text-primary" />
+              <span className="text-sm text-primary font-medium">
+                Every membership includes access to exclusive rewards and discounts
+              </span>
+            </div>
           </div>
 
           {!user ? (

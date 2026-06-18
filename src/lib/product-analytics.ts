@@ -86,6 +86,29 @@ export function trackPerksEvent(
   window.dispatchEvent(new CustomEvent("keen_perks", { detail }));
 }
 
+export type PerksLandingEventName =
+  | "perks_section_viewed"
+  | "perks_cta_clicked"
+  | "perks_page_visited"
+  | "signup_after_perks_view"
+  | "trial_after_perks_view"
+  | "subscription_after_perks_view";
+
+export function trackPerksLandingEvent(
+  eventName: PerksLandingEventName,
+  payload: ProductAnalyticsPayload = {},
+): void {
+  if (typeof window === "undefined") return;
+
+  const detail = {
+    ...payload,
+    event: eventName,
+  };
+
+  window.dataLayer?.push(detail);
+  window.dispatchEvent(new CustomEvent("keen_perks_landing", { detail }));
+}
+
 export type ServerPageEventName =
   | "servers_page_viewed"
   | "server_location_searched"

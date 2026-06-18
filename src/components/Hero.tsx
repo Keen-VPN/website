@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import {
   CheckCircle2,
   Download,
+  Gift,
   Globe,
   Lock,
   Monitor,
@@ -38,16 +39,16 @@ const Hero = () => {
             </div>
 
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-tight">
-              Fast, secure VPN for
+              Protect your privacy.
               <span className="text-primary block mt-2">
-                everyday browsing
+                Unlock exclusive member perks.
               </span>
             </h1>
 
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
-              Download KeenVPN to protect your connection on public Wi-Fi,
-              keep browsing private, and manage your subscription from your
-              web account.
+              KeenVPN secures your connection and gives you access to
+              cashback offers, partner discounts, and member-only rewards.
+              Your membership can pay for itself.
             </p>
           </div>
 
@@ -92,6 +93,10 @@ const Hero = () => {
             <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-2 text-sm text-muted-foreground">
               <CheckCircle2 className="h-4 w-4 text-primary" />
               Free VPN trial
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card/60 px-3 py-2 text-sm text-muted-foreground">
+              <Gift className="h-4 w-4 text-primary" />
+              Exclusive member perks
             </div>
           </div>
 
