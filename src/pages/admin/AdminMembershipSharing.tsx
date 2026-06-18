@@ -49,15 +49,24 @@ export default function AdminMembershipSharing() {
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const res = await adminListMembershipSharing({ page, limit: 50, search });
-    setLoading(false);
-    if (!res.ok) {
-      setError(res.error ?? "Failed to load membership sharing");
-      return;
+    try {
+      const res = await adminListMembershipSharing({ page, limit: 50, search });
+      if (!res.ok) {
+        setError(res.error ?? "Failed to load membership sharing");
+        return;
+      }
+      const data = res.data as { items?: SharingRow[]; total?: number };
+      setRows(data.items ?? []);
+      setTotal(data.total ?? 0);
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load membership sharing",
+      );
+    } finally {
+      setLoading(false);
     }
-    const data = res.data as { items?: SharingRow[]; total?: number };
-    setRows(data.items ?? []);
-    setTotal(data.total ?? 0);
   }, [page, search]);
 
   useEffect(() => {
@@ -93,7 +102,9 @@ export default function AdminMembershipSharing() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-white">Membership Sharing</h1>
+        <h1 className="text-2xl font-semibold text-white">
+          Membership Sharing
+        </h1>
         <p className="mt-1 text-sm text-slate-400">
           Family and Team subscriptions with linked members ({total} total)
         </p>
@@ -106,7 +117,11 @@ export default function AdminMembershipSharing() {
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm bg-slate-900 border-slate-700"
         />
-        <Button variant="secondary" onClick={() => void refresh()} disabled={loading}>
+        <Button
+          variant="secondary"
+          onClick={() => void refresh()}
+          disabled={loading}
+        >
           Refresh
         </Button>
       </div>
@@ -131,26 +146,40 @@ export default function AdminMembershipSharing() {
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.subscriptionId} className="border-t border-slate-800 align-top">
+              <tr
+                key={row.subscriptionId}
+                className="border-t border-slate-800 align-top"
+              >
                 <td className="px-4 py-3">
-                  <div className="font-medium text-white">{row.owner.email}</div>
+                  <div className="font-medium text-white">
+                    {row.owner.email}
+                  </div>
                   <div className="text-xs text-slate-500">{row.status}</div>
                 </td>
-                <td className="px-4 py-3 text-slate-300">{row.planName ?? "—"}</td>
                 <td className="px-4 py-3 text-slate-300">
-                  {row.seats.activeSeats}/{row.seats.seatLimit} ({row.seats.availableSeats} free)
+                  {row.planName ?? "—"}
+                </td>
+                <td className="px-4 py-3 text-slate-300">
+                  {row.seats.activeSeats}/{row.seats.seatLimit} (
+                  {row.seats.availableSeats} free)
                 </td>
                 <td className="px-4 py-3">
                   <ul className="space-y-2 text-slate-300">
                     {row.members.map((member) => (
-                      <li key={member.userId} className="flex items-center gap-2">
+                      <li
+                        key={member.userId}
+                        className="flex items-center gap-2"
+                      >
                         <span>{member.email}</span>
                         {canWrite ? (
                           <Button
                             size="sm"
                             variant="destructive"
                             onClick={() =>
-                              void handleRevoke(row.subscriptionId, member.userId)
+                              void handleRevoke(
+                                row.subscriptionId,
+                                member.userId,
+                              )
                             }
                           >
                             Revoke
@@ -158,7 +187,9 @@ export default function AdminMembershipSharing() {
                         ) : null}
                       </li>
                     ))}
-                    {row.members.length === 0 ? <li className="text-slate-500">—</li> : null}
+                    {row.members.length === 0 ? (
+                      <li className="text-slate-500">—</li>
+                    ) : null}
                   </ul>
                 </td>
                 <td className="px-4 py-3 text-slate-400">
@@ -193,7 +224,10 @@ export default function AdminMembershipSharing() {
             ))}
             {!loading && rows.length === 0 ? (
               <tr>
-                <td colSpan={canWrite ? 6 : 5} className="px-4 py-8 text-center text-slate-500">
+                <td
+                  colSpan={canWrite ? 6 : 5}
+                  className="px-4 py-8 text-center text-slate-500"
+                >
                   No shareable subscriptions found
                 </td>
               </tr>

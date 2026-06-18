@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Users } from "lucide-react";
@@ -57,7 +63,9 @@ function formatDate(iso: string): string {
   });
 }
 
-export function MembershipSharingCard({ sessionToken }: MembershipSharingCardProps) {
+export function MembershipSharingCard({
+  sessionToken,
+}: MembershipSharingCardProps) {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [loading, setLoading] = useState(true);
@@ -67,17 +75,20 @@ export function MembershipSharingCard({ sessionToken }: MembershipSharingCardPro
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const res = await fetchMembershipSharingDashboard(sessionToken);
-    setLoading(false);
-    if (!res.ok) {
-      if (res.error?.includes("not enabled")) {
-        setDashboard(null);
+    try {
+      const res = await fetchMembershipSharingDashboard(sessionToken);
+      if (!res.ok) {
+        if (res.error?.includes("not enabled")) {
+          setDashboard(null);
+          return;
+        }
+        setError(res.error ?? "Could not load membership sharing.");
         return;
       }
-      setError(res.error ?? "Could not load membership sharing.");
-      return;
+      setDashboard(res.data as DashboardData);
+    } finally {
+      setLoading(false);
     }
-    setDashboard(res.data as DashboardData);
   }, [sessionToken]);
 
   useEffect(() => {
@@ -89,38 +100,47 @@ export function MembershipSharingCard({ sessionToken }: MembershipSharingCardPro
     if (!email) return;
     setSubmitting(true);
     setError(null);
-    const res = await inviteMembershipMember(sessionToken, email);
-    setSubmitting(false);
-    if (!res.ok) {
-      setError(res.error ?? "Could not send invite.");
-      return;
+    try {
+      const res = await inviteMembershipMember(sessionToken, email);
+      if (!res.ok) {
+        setError(res.error ?? "Could not send invite.");
+        return;
+      }
+      setInviteEmail("");
+      setDashboard(res.data as DashboardData);
+    } finally {
+      setSubmitting(false);
     }
-    setInviteEmail("");
-    setDashboard(res.data as DashboardData);
   }
 
   async function handleRevokeMember(userId: string) {
     setSubmitting(true);
     setError(null);
-    const res = await revokeMembershipMember(sessionToken, userId);
-    setSubmitting(false);
-    if (!res.ok) {
-      setError(res.error ?? "Could not remove member.");
-      return;
+    try {
+      const res = await revokeMembershipMember(sessionToken, userId);
+      if (!res.ok) {
+        setError(res.error ?? "Could not remove member.");
+        return;
+      }
+      setDashboard(res.data as DashboardData);
+    } finally {
+      setSubmitting(false);
     }
-    setDashboard(res.data as DashboardData);
   }
 
   async function handleCancelInvite(inviteId: string) {
     setSubmitting(true);
     setError(null);
-    const res = await revokeMembershipInvite(sessionToken, inviteId);
-    setSubmitting(false);
-    if (!res.ok) {
-      setError(res.error ?? "Could not cancel invite.");
-      return;
+    try {
+      const res = await revokeMembershipInvite(sessionToken, inviteId);
+      if (!res.ok) {
+        setError(res.error ?? "Could not cancel invite.");
+        return;
+      }
+      setDashboard(res.data as DashboardData);
+    } finally {
+      setSubmitting(false);
     }
-    setDashboard(res.data as DashboardData);
   }
 
   if (loading) {
@@ -135,7 +155,20 @@ export function MembershipSharingCard({ sessionToken }: MembershipSharingCardPro
   }
 
   if (!dashboard) {
-    return null;
+    if (!error) return null;
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Membership sharing
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-destructive">{error}</p>
+        </CardContent>
+      </Card>
+    );
   }
 
   if (dashboard.role === "member" && dashboard.membership) {
@@ -148,7 +181,10 @@ export function MembershipSharingCard({ sessionToken }: MembershipSharingCardPro
           </CardTitle>
           <CardDescription>
             Premium access through {dashboard.membership.ownerEmail}
-            {dashboard.membership.planName ? ` (${dashboard.membership.planName})` : ""}.
+            {dashboard.membership.planName
+              ? ` (${dashboard.membership.planName})`
+              : ""}
+            .
           </CardDescription>
         </CardHeader>
       </Card>
@@ -164,8 +200,8 @@ export function MembershipSharingCard({ sessionToken }: MembershipSharingCardPro
             Membership sharing
           </CardTitle>
           <CardDescription>
-            Invite family or team members to share your KeenVPN Premium subscription.
-            Available on Family and Team plans.
+            Invite family or team members to share your KeenVPN Premium
+            subscription. Available on Family and Team plans.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -195,13 +231,14 @@ export function MembershipSharingCard({ sessionToken }: MembershipSharingCardPro
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {error ? (
-          <p className="text-sm text-destructive">{error}</p>
-        ) : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         {hasAvailableSeats ? (
           <div className="space-y-2">
-            <label htmlFor="membership-invite-email" className="text-sm font-medium">
+            <label
+              htmlFor="membership-invite-email"
+              className="text-sm font-medium"
+            >
               Invite by email
             </label>
             <div className="flex flex-col gap-2 sm:flex-row">

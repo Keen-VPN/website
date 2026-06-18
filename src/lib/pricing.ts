@@ -48,31 +48,37 @@ export interface PricingPlan {
 }
 
 export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
-  const plansByType = apiPlans.reduce((acc, plan) => {
-    const id = plan.id.toLowerCase();
-    const isPremium = id.includes("premium") && !id.includes("family") && !id.includes("team");
-    const isFamily = id.includes("family");
-    const isTeam = id.includes("team");
-    const key = isPremium
-      ? "premium"
-      : isFamily
-        ? "family"
-        : isTeam
-          ? "team"
-          : "other";
+  const plansByType = apiPlans.reduce(
+    (acc, plan) => {
+      const id = plan.id.toLowerCase();
+      const isPremium =
+        id.includes("premium") &&
+        !id.includes("family") &&
+        !id.includes("team");
+      const isFamily = id.includes("family");
+      const isTeam = id.includes("team");
+      const key = isPremium
+        ? "premium"
+        : isFamily
+          ? "family"
+          : isTeam
+            ? "team"
+            : "other";
 
-    if (!acc[key]) {
-      acc[key] = { monthly: null, annual: null };
-    }
+      if (!acc[key]) {
+        acc[key] = { monthly: null, annual: null };
+      }
 
-    if (plan.period === "month" || plan.billingPeriod === "month") {
-      acc[key].monthly = plan;
-    } else if (plan.period === "year" || plan.billingPeriod === "year") {
-      acc[key].annual = plan;
-    }
+      if (plan.period === "month" || plan.billingPeriod === "month") {
+        acc[key].monthly = plan;
+      } else if (plan.period === "year" || plan.billingPeriod === "year") {
+        acc[key].annual = plan;
+      }
 
-    return acc;
-  }, {} as Record<string, { monthly: ApiPlan | null; annual: ApiPlan | null }>);
+      return acc;
+    },
+    {} as Record<string, { monthly: ApiPlan | null; annual: ApiPlan | null }>,
+  );
 
   const transformedPlans: PricingPlan[] = [];
 
@@ -150,8 +156,8 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       Team: 2,
     };
     return (
-      (order[a.name as keyof typeof order] || 99) -
-      (order[b.name as keyof typeof order] || 99)
+      (order[a.name as keyof typeof order] ?? 99) -
+      (order[b.name as keyof typeof order] ?? 99)
     );
   });
 }

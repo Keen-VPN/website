@@ -26,7 +26,9 @@ export default function MembershipSharingAccept() {
     }
 
     let cancelled = false;
-    void fetch(`${BACKEND_URL}/membership-sharing/invite/${encodeURIComponent(token)}`)
+    void fetch(
+      `${BACKEND_URL}/membership-sharing/invite/${encodeURIComponent(token)}`,
+    )
       .then(async (res) => {
         const data = (await res.json().catch(() => ({}))) as {
           valid?: boolean;
@@ -34,7 +36,7 @@ export default function MembershipSharingAccept() {
           ownerEmail?: string;
         };
         if (cancelled) return;
-        if (!data.valid) {
+        if (!res.ok || !data.valid) {
           setError("This invitation is invalid or has expired.");
           setLoading(false);
           return;
@@ -58,17 +60,23 @@ export default function MembershipSharingAccept() {
   async function handleAccept() {
     const sessionToken = getSessionToken();
     if (!sessionToken) {
-      navigate(`/signin?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      navigate(
+        `/signin?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+      );
       return;
     }
     setLoading(true);
-    const res = await acceptMembershipInvite(sessionToken, token);
-    setLoading(false);
-    if (!res.ok) {
-      setError(res.error ?? "Could not accept invitation.");
-      return;
+    setError(null);
+    try {
+      const res = await acceptMembershipInvite(sessionToken, token);
+      if (!res.ok) {
+        setError(res.error ?? "Could not accept invitation.");
+        return;
+      }
+      setAccepted(true);
+    } finally {
+      setLoading(false);
     }
-    setAccepted(true);
   }
 
   return (
