@@ -37,8 +37,9 @@ const isAnnualPlan = (plan: ApiPlan) => getPlanBillingPeriod(plan) === "year";
 
 const getPlanFamily = (plan: ApiPlan) => {
   const id = plan.id.toLowerCase();
-  if (id.includes("premium")) return "premium";
+  if (id.includes("family")) return "family";
   if (id.includes("team")) return "team";
+  if (id.includes("premium")) return "premium";
   return id.replace(/[-_]?(monthly|month|annual|yearly|year)$/, "");
 };
 

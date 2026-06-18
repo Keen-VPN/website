@@ -31,6 +31,9 @@ const Referrals = lazy(() => import("./pages/Referrals"));
 const Perks = lazy(() => import("./pages/Perks"));
 const Subscribe = lazy(() => import("./pages/Subscribe"));
 const Account = lazy(() => import("./pages/Account"));
+const MembershipSharingAccept = lazy(
+  () => import("./pages/MembershipSharingAccept"),
+);
 const UpgradeAnnual = lazy(() => import("./pages/UpgradeAnnual"));
 const SubscriptionHistory = lazy(() => import("./pages/SubscriptionHistory"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
@@ -41,6 +44,9 @@ const MyIPAddress = lazy(() => import("./pages/MyIPAddress"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const MembershipTransferAdmin = lazy(
   () => import("./pages/admin/MembershipTransferAdmin"),
+);
+const AdminMembershipSharing = lazy(
+  () => import("./pages/admin/AdminMembershipSharing"),
 );
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
 const AdminOverview = lazy(() => import("./pages/admin/AdminOverview"));
@@ -160,6 +166,10 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/account/membership-sharing/accept"
+                element={<MembershipSharingAccept />}
+              />
               <Route path="/success" element={<PaymentSuccess />} />
               <Route path="/cancel" element={<PaymentCancel />} />
               <Route path="/auth/debug" element={<AuthDebug />} />
@@ -200,6 +210,10 @@ const App = () => (
                 <Route
                   path="membership-transfer"
                   element={<MembershipTransferAdmin />}
+                />
+                <Route
+                  path="membership-sharing"
+                  element={<AdminMembershipSharing />}
                 />
                 <Route path="subscriptions" element={<AdminSubscriptions />} />
                 <Route path="churn" element={<AdminChurn />} />

@@ -57,6 +57,7 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
+import { MembershipSharingCard } from "@/components/MembershipSharingCard";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
 import { UserInformationCard } from "@/components/UserInformationCard";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
@@ -135,6 +136,7 @@ const Account = () => {
     subscription,
     trial,
   );
+  const canManageBilling = subscription?.canManageBilling !== false;
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
   const unsupportedDeviceName = useMemo(() => getUnsupportedDeviceName(), []);
@@ -374,8 +376,10 @@ const Account = () => {
     setSubscriptionLoading(false);
   };
 
-  const showStripeUpgradeToAnnual = canUpgradeStripeToAnnual(subscription);
-  const showAppleIapUpgradeToAnnual = canUpgradeAppleIapToAnnual(subscription);
+  const showStripeUpgradeToAnnual =
+    canManageBilling && canUpgradeStripeToAnnual(subscription);
+  const showAppleIapUpgradeToAnnual =
+    canManageBilling && canUpgradeAppleIapToAnnual(subscription);
   // Banner owns the timed promo; inline card is fallback after dismiss or when no banner.
   const showAnnualUpgradeBanner =
     shouldShowAnnualUpgradeOffer(subscription) &&
@@ -975,16 +979,18 @@ const Account = () => {
                         </Button>
                       ) : null}
 
-                      <Button
-                        onClick={() =>
-                          navigate("/account/subscription-history")
-                        }
-                        variant="outline"
-                        className="w-full"
-                      >
-                        <History className="h-4 w-4 mr-2" />
-                        View Billing History
-                      </Button>
+                      {canManageBilling ? (
+                        <Button
+                          onClick={() =>
+                            navigate("/account/subscription-history")
+                          }
+                          variant="outline"
+                          className="w-full"
+                        >
+                          <History className="h-4 w-4 mr-2" />
+                          View Billing History
+                        </Button>
+                      ) : null}
 
                       <Button
                         onClick={handleRefreshSubscription}
@@ -1003,16 +1009,18 @@ const Account = () => {
                         )}
                       </Button>
 
-                      <SubscriptionCancellationControls
-                        subscription={subscription}
-                        cancelling={cancelling}
-                        onCancel={() => void cancelSubscriptionAtPeriodEnd()}
-                        onManageBilling={() => void openBillingPortal()}
-                        portalLoading={portalLoading}
-                        showManageBilling={!showStripeUpgradeToAnnual}
-                      />
+                      {canManageBilling ? (
+                        <SubscriptionCancellationControls
+                          subscription={subscription}
+                          cancelling={cancelling}
+                          onCancel={() => void cancelSubscriptionAtPeriodEnd()}
+                          onManageBilling={() => void openBillingPortal()}
+                          portalLoading={portalLoading}
+                          showManageBilling={!showStripeUpgradeToAnnual}
+                        />
+                      ) : null}
 
-                      {!hasManageableSubscription(subscription) ? (
+                      {!hasManageableSubscription(subscription) && canManageBilling ? (
                         <Button
                           onClick={() => navigate("/subscribe")}
                           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
@@ -1072,6 +1080,12 @@ const Account = () => {
           </div>
 
           {/* Linked Accounts */}
+          {hasSessionToken && (
+            <div className="mt-8">
+              <MembershipSharingCard sessionToken={getSessionToken() ?? ""} />
+            </div>
+          )}
+
           {hasSessionToken && (
             <div className="mt-8">
               <LinkedAccounts

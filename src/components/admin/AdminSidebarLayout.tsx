@@ -67,6 +67,13 @@ export default function AdminSidebarLayout() {
               Membership Transfer
             </NavLink>
             <NavLink
+              to="/admin/membership-sharing"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Users className="h-4 w-4" />
+              Membership Sharing
+            </NavLink>
+            <NavLink
               to="/admin/product-events"
               className={({ isActive }) => linkClass(isActive)}
             >

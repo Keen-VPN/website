@@ -55,6 +55,8 @@ export interface RawSubscription {
   planName?: string;
   cancelAtPeriodEnd?: boolean;
   subscriptionType?: string;
+  accessRole?: "owner" | "linked" | "member";
+  canManageBilling?: boolean;
 }
 
 export interface RawTrial {
@@ -129,6 +131,12 @@ function normalizeBackendAuthResponse(
   }
   if (rawSubscription.subscriptionType !== undefined) {
     normalizedSubscription.subscriptionType = rawSubscription.subscriptionType;
+  }
+  if (rawSubscription.accessRole !== undefined) {
+    normalizedSubscription.accessRole = rawSubscription.accessRole;
+  }
+  if (rawSubscription.canManageBilling !== undefined) {
+    normalizedSubscription.canManageBilling = rawSubscription.canManageBilling;
   }
   if (rawSubscription.currentPeriodStart !== undefined) {
     normalizedSubscription.currentPeriodStart = rawSubscription.currentPeriodStart;
@@ -3807,6 +3815,181 @@ export async function adminListTransferRequests(
   }
   const record = raw as { data?: unknown[] };
   return { success: true, data: record.data };
+}
+
+export async function adminListMembershipSharing(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  const query = new URLSearchParams();
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.search?.trim()) query.set("search", params.search.trim());
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  const response = await fetch(
+    `${BACKEND_URL}/admin/subscription/membership-sharing${suffix}`,
+    { credentials: "include" },
+  );
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: extractBackendErrorMessage(raw, "Failed to list membership sharing"),
+    };
+  }
+  return { ok: true, data: raw };
+}
+
+export async function adminRevokeMembershipMember(
+  subscriptionId: string,
+  memberUserId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const response = await fetch(
+    `${BACKEND_URL}/admin/subscription/membership-sharing/${encodeURIComponent(subscriptionId)}/members/${encodeURIComponent(memberUserId)}/revoke`,
+    { method: "POST", credentials: "include" },
+  );
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: extractBackendErrorMessage(raw, "Failed to revoke member"),
+    };
+  }
+  return { ok: true };
+}
+
+export async function adminUpdateMembershipSeatLimit(
+  subscriptionId: string,
+  seatLimit: number,
+): Promise<{ ok: boolean; error?: string }> {
+  const response = await fetch(
+    `${BACKEND_URL}/admin/subscription/membership-sharing/${encodeURIComponent(subscriptionId)}/seat-limit`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seatLimit }),
+    },
+  );
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: extractBackendErrorMessage(raw, "Failed to update seat limit"),
+    };
+  }
+  return { ok: true };
+}
+
+export async function acceptMembershipInvite(
+  sessionToken: string,
+  token: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const response = await fetch(`${BACKEND_URL}/membership-sharing/accept`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Authorization: `Bearer ${sessionToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token }),
+  });
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: extractBackendErrorMessage(raw, "Failed to accept invitation"),
+    };
+  }
+  return { ok: true };
+}
+
+export async function fetchMembershipSharingDashboard(
+  sessionToken: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  const response = await fetch(`${BACKEND_URL}/membership-sharing/dashboard`, {
+    credentials: "include",
+    headers: { Authorization: `Bearer ${sessionToken}` },
+  });
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (response.status === 404) {
+    return { ok: false, error: "Membership sharing is not enabled" };
+  }
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: extractBackendErrorMessage(raw, "Failed to load membership sharing"),
+    };
+  }
+  return { ok: true, data: raw };
+}
+
+export async function inviteMembershipMember(
+  sessionToken: string,
+  email: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  const response = await fetch(`${BACKEND_URL}/membership-sharing/invite`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Authorization: `Bearer ${sessionToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: extractBackendErrorMessage(raw, "Failed to send invite"),
+    };
+  }
+  return { ok: true, data: raw };
+}
+
+export async function revokeMembershipMember(
+  sessionToken: string,
+  memberUserId: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  const response = await fetch(
+    `${BACKEND_URL}/membership-sharing/members/${encodeURIComponent(memberUserId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    },
+  );
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: extractBackendErrorMessage(raw, "Failed to remove member"),
+    };
+  }
+  return { ok: true, data: raw };
+}
+
+export async function revokeMembershipInvite(
+  sessionToken: string,
+  inviteId: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  const response = await fetch(
+    `${BACKEND_URL}/membership-sharing/invites/${encodeURIComponent(inviteId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    },
+  );
+  const raw: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: extractBackendErrorMessage(raw, "Failed to cancel invite"),
+    };
+  }
+  return { ok: true, data: raw };
 }
 
 export async function adminFetchChurnReport(params: {

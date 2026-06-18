@@ -18,6 +18,8 @@ export interface SubscriptionData {
   subscriptionStartedAt?: string | null;
   daysSinceSubscriptionStart?: number | null;
   showAnnualUpgradePrompt?: boolean;
+  accessRole?: "owner" | "linked" | "member";
+  canManageBilling?: boolean;
 }
 
 export interface TrialData {
