@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -18,6 +18,7 @@ export default function MembershipSharingAccept() {
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
+  const autoAcceptAttemptedRef = useRef(false);
 
   useEffect(() => {
     if (!token) {
@@ -57,14 +58,7 @@ export default function MembershipSharingAccept() {
     };
   }, [navigate, token]);
 
-  async function handleAccept() {
-    const sessionToken = getSessionToken();
-    if (!sessionToken) {
-      navigate(
-        `/signin?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`,
-      );
-      return;
-    }
+  async function acceptWithSessionToken(sessionToken: string) {
     setLoading(true);
     setError(null);
     try {
@@ -78,6 +72,27 @@ export default function MembershipSharingAccept() {
       setLoading(false);
     }
   }
+
+  async function handleAccept() {
+    const sessionToken = getSessionToken();
+    if (!sessionToken) {
+      navigate(
+        `/signin?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+      );
+      return;
+    }
+    await acceptWithSessionToken(sessionToken);
+  }
+
+  useEffect(() => {
+    if (loading || accepted || error || autoAcceptAttemptedRef.current) return;
+
+    const sessionToken = getSessionToken();
+    if (!sessionToken) return;
+
+    autoAcceptAttemptedRef.current = true;
+    void acceptWithSessionToken(sessionToken);
+  }, [accepted, error, loading]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
