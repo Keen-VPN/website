@@ -84,6 +84,7 @@ export default function AdminMembershipSharing() {
   }, [refresh]);
 
   function handleSearch() {
+    if (loading) return;
     setPage(1);
     setSearch(searchDraft.trim());
   }
