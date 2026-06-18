@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Card,
@@ -71,12 +71,18 @@ export function MembershipSharingCard({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadRequestRef = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = loadRequestRef.current + 1;
+    loadRequestRef.current = requestId;
+    const isCurrentRequest = () => loadRequestRef.current === requestId;
+
     setLoading(true);
     setError(null);
     try {
       const res = await fetchMembershipSharingDashboard(sessionToken);
+      if (!isCurrentRequest()) return;
       if (!res.ok) {
         if (res.error?.includes("not enabled")) {
           setDashboard(null);
@@ -87,7 +93,9 @@ export function MembershipSharingCard({
       }
       setDashboard(res.data as DashboardData);
     } finally {
-      setLoading(false);
+      if (isCurrentRequest()) {
+        setLoading(false);
+      }
     }
   }, [sessionToken]);
 

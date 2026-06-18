@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -43,14 +43,20 @@ export default function AdminMembershipSharing() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [seatDraft, setSeatDraft] = useState<Record<string, string>>({});
+  const refreshRequestRef = useRef(0);
 
   const canWrite = can("membership_sharing.write");
 
   const refresh = useCallback(async () => {
+    const requestId = refreshRequestRef.current + 1;
+    refreshRequestRef.current = requestId;
+    const isCurrentRequest = () => refreshRequestRef.current === requestId;
+
     setLoading(true);
     setError(null);
     try {
       const res = await adminListMembershipSharing({ page, limit: 50, search });
+      if (!isCurrentRequest()) return;
       if (!res.ok) {
         setError(res.error ?? "Failed to load membership sharing");
         return;
@@ -59,13 +65,16 @@ export default function AdminMembershipSharing() {
       setRows(data.items ?? []);
       setTotal(data.total ?? 0);
     } catch (error) {
+      if (!isCurrentRequest()) return;
       setError(
         error instanceof Error
           ? error.message
           : "Failed to load membership sharing",
       );
     } finally {
-      setLoading(false);
+      if (isCurrentRequest()) {
+        setLoading(false);
+      }
     }
   }, [page, search]);
 
@@ -114,7 +123,10 @@ export default function AdminMembershipSharing() {
         <Input
           placeholder="Search owner email or name"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           className="max-w-sm bg-slate-900 border-slate-700"
         />
         <Button

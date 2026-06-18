@@ -23,12 +23,6 @@ function getSubscriptionStatus(subscription: SubscriptionState): string {
 export function hasManageableSubscription(
   subscription: SubscriptionState,
 ): boolean {
-  if (
-    typeof subscription !== "string" &&
-    subscription?.canManageBilling !== true
-  ) {
-    return false;
-  }
   const status = getSubscriptionStatus(subscription);
   return Boolean(status && manageableSubscriptionStatuses.has(status));
 }
