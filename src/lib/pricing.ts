@@ -48,23 +48,37 @@ export interface PricingPlan {
 }
 
 export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
-  const plansByType = apiPlans.reduce((acc, plan) => {
-    const isPremium = plan.id.toLowerCase().includes("premium");
-    const isTeam = plan.id.toLowerCase().includes("team");
-    const key = isPremium ? "premium" : isTeam ? "team" : "other";
+  const plansByType = apiPlans.reduce(
+    (acc, plan) => {
+      const id = plan.id.toLowerCase();
+      const isPremium =
+        id.includes("premium") &&
+        !id.includes("family") &&
+        !id.includes("team");
+      const isFamily = id.includes("family");
+      const isTeam = id.includes("team");
+      const key = isPremium
+        ? "premium"
+        : isFamily
+          ? "family"
+          : isTeam
+            ? "team"
+            : "other";
 
-    if (!acc[key]) {
-      acc[key] = { monthly: null, annual: null };
-    }
+      if (!acc[key]) {
+        acc[key] = { monthly: null, annual: null };
+      }
 
-    if (plan.period === "month" || plan.billingPeriod === "month") {
-      acc[key].monthly = plan;
-    } else if (plan.period === "year" || plan.billingPeriod === "year") {
-      acc[key].annual = plan;
-    }
+      if (plan.period === "month" || plan.billingPeriod === "month") {
+        acc[key].monthly = plan;
+      } else if (plan.period === "year" || plan.billingPeriod === "year") {
+        acc[key].annual = plan;
+      }
 
-    return acc;
-  }, {} as Record<string, { monthly: ApiPlan | null; annual: ApiPlan | null }>);
+      return acc;
+    },
+    {} as Record<string, { monthly: ApiPlan | null; annual: ApiPlan | null }>,
+  );
 
   const transformedPlans: PricingPlan[] = [];
 
@@ -72,6 +86,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
     if (!monthly && !annual) return;
 
     const isPremium = type === "premium";
+    const isFamily = type === "family";
     const isTeam = type === "team";
     const monthlyPrice = monthly?.price || annual?.price || 0;
     const annualPrice =
@@ -103,12 +118,20 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
     transformedPlans.push({
       monthlyId: monthly?.id,
       annualId: annual?.id,
-      name: isPremium ? "Individual" : isTeam ? "Team" : "Premium",
+      name: isPremium
+        ? "Individual"
+        : isFamily
+          ? "Family"
+          : isTeam
+            ? "Team"
+            : "Premium",
       description: isPremium
         ? "Perfect for personal use"
-        : isTeam
-          ? "For small teams and organizations (2-50 users)"
-          : "Premium VPN service",
+        : isFamily
+          ? "Share premium with up to 5 members"
+          : isTeam
+            ? "For small teams (up to 10 members)"
+            : "Premium VPN service",
       monthlyPrice,
       annualPrice,
       monthlyPriceDisplay: `$${monthlyPrice}`,
@@ -119,17 +142,22 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       annualSavingsLabel,
       features,
       buttonText: "Start Free Trial",
-      popular: isTeam,
+      popular: isFamily,
       monthlyPriceId: monthly?.priceId,
       annualPriceId: annual?.priceId,
     });
   });
 
   return transformedPlans.sort((a, b) => {
-    const order = { Individual: 0, Premium: 0, Team: 1 };
+    const order: Record<string, number> = {
+      Individual: 0,
+      Premium: 0,
+      Family: 1,
+      Team: 2,
+    };
     return (
-      (order[a.name as keyof typeof order] || 99) -
-      (order[b.name as keyof typeof order] || 99)
+      (order[a.name as keyof typeof order] ?? 99) -
+      (order[b.name as keyof typeof order] ?? 99)
     );
   });
 }

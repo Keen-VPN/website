@@ -10,13 +10,9 @@ import {
 } from "@/lib/utm-attribution";
 import { buildAuthDeepLink } from "@/lib/keenvpn-deep-links";
 
-export const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL || "/api";
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "/api";
 
-function extractBackendErrorMessage(
-  data: unknown,
-  fallback: string,
-): string {
+function extractBackendErrorMessage(data: unknown, fallback: string): string {
   if (!data || typeof data !== "object") return fallback;
 
   // Common shapes:
@@ -32,7 +28,8 @@ function extractBackendErrorMessage(
     if (typeof message === "string" && message.trim()) return message;
   }
   const messageValue = record["message"];
-  if (typeof messageValue === "string" && messageValue.trim()) return messageValue;
+  if (typeof messageValue === "string" && messageValue.trim())
+    return messageValue;
 
   return fallback;
 }
@@ -55,6 +52,8 @@ export interface RawSubscription {
   planName?: string;
   cancelAtPeriodEnd?: boolean;
   subscriptionType?: string;
+  accessRole?: "owner" | "linked" | "member";
+  canManageBilling?: boolean;
 }
 
 export interface RawTrial {
@@ -67,15 +66,19 @@ export interface RawTrial {
   tier?: string | null;
 }
 
-export interface RawBackendAuthResponse
-  extends Omit<BackendAuthResponse, "subscription" | "trial"> {
+export interface RawBackendAuthResponse extends Omit<
+  BackendAuthResponse,
+  "subscription" | "trial"
+> {
   subscription?: RawSubscription | null;
   trial?: RawTrial | null;
 }
 
 const activeSubscriptionStatuses = new Set(["active", "trialing", "past_due"]);
 
-function normalizeTrial(rawTrial: RawTrial | null | undefined): TrialData | null {
+function normalizeTrial(
+  rawTrial: RawTrial | null | undefined,
+): TrialData | null {
   if (!rawTrial) return null;
 
   return {
@@ -117,21 +120,26 @@ function normalizeBackendAuthResponse(
 
   const normalizedSubscription: SubscriptionData = {
     status: (rawSubscription.status ?? "").toLowerCase(),
-    endDate:
-      rawSubscription.endDate ?? rawSubscription.currentPeriodEnd ?? "",
+    endDate: rawSubscription.endDate ?? rawSubscription.currentPeriodEnd ?? "",
     plan: rawSubscription.plan ?? rawSubscription.planName,
+    canManageBilling: rawSubscription.canManageBilling === true,
   };
   if (rawSubscription.customerId !== undefined) {
     normalizedSubscription.customerId = rawSubscription.customerId;
   }
   if (rawSubscription.cancelAtPeriodEnd !== undefined) {
-    normalizedSubscription.cancelAtPeriodEnd = rawSubscription.cancelAtPeriodEnd;
+    normalizedSubscription.cancelAtPeriodEnd =
+      rawSubscription.cancelAtPeriodEnd;
   }
   if (rawSubscription.subscriptionType !== undefined) {
     normalizedSubscription.subscriptionType = rawSubscription.subscriptionType;
   }
+  if (rawSubscription.accessRole !== undefined) {
+    normalizedSubscription.accessRole = rawSubscription.accessRole;
+  }
   if (rawSubscription.currentPeriodStart !== undefined) {
-    normalizedSubscription.currentPeriodStart = rawSubscription.currentPeriodStart;
+    normalizedSubscription.currentPeriodStart =
+      rawSubscription.currentPeriodStart;
   }
   if (rawSubscription.currentPeriodEnd !== undefined) {
     normalizedSubscription.currentPeriodEnd = rawSubscription.currentPeriodEnd;
@@ -153,7 +161,9 @@ function normalizeBackendAuthResponse(
   // paths (sign-in and background status-session refresh) are consistent.
   // Non-active statuses (e.g. "canceled", "incomplete") are treated as null
   // to prevent stale data from showing the wrong CTA label on initial load.
-  const isActionable = activeSubscriptionStatuses.has(normalizedSubscription.status);
+  const isActionable = activeSubscriptionStatuses.has(
+    normalizedSubscription.status,
+  );
 
   return {
     ...responseWithoutRawTrial,
@@ -187,7 +197,7 @@ export interface SubscriptionStatusResult {
  */
 export async function loginWithFirebaseToken(
   idToken: string,
-  provider?: 'google' | 'apple',
+  provider?: "google" | "apple",
 ): Promise<BackendAuthResponse> {
   try {
     const referralToken = getReferralTokenFromStorage();
@@ -207,7 +217,9 @@ export async function loginWithFirebaseToken(
     }
     // Backend /auth/login doesn't currently include `success` (unlike /auth/apple/signin).
     // Default to true only when absent so a future explicit `success: false` is respected.
-    const normalized = normalizeBackendAuthResponse(data as RawBackendAuthResponse);
+    const normalized = normalizeBackendAuthResponse(
+      data as RawBackendAuthResponse,
+    );
     if (normalized.success ?? true) {
       clearReferralTokenStorage();
       clearUtmAttributionStorage();
@@ -216,8 +228,7 @@ export async function loginWithFirebaseToken(
   } catch (error) {
     return {
       success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to authenticate",
+      error: error instanceof Error ? error.message : "Failed to authenticate",
     };
   }
 }
@@ -274,7 +285,9 @@ export async function authenticateWithBackend(
     }
 
     // Some provider responses may omit `success`; treat missing as success on HTTP 200.
-    const normalized = normalizeBackendAuthResponse(data as RawBackendAuthResponse);
+    const normalized = normalizeBackendAuthResponse(
+      data as RawBackendAuthResponse,
+    );
     if (normalized.success ?? true) {
       clearReferralTokenStorage();
       clearUtmAttributionStorage();
@@ -355,11 +368,7 @@ export type PerkRedemptionType =
   | "coupon_code"
   | "invite_only";
 
-export type PerkUserTab =
-  | "new"
-  | "completed"
-  | "snoozed"
-  | "not_interested";
+export type PerkUserTab = "new" | "completed" | "snoozed" | "not_interested";
 
 export type PerkRequestCategory =
   | "finance"
@@ -477,7 +486,9 @@ export async function claimPerk(
     }
     return {
       success: true,
-      redemptionType: payload["redemptionType"] as PerkRedemptionType | undefined,
+      redemptionType: payload["redemptionType"] as
+        | PerkRedemptionType
+        | undefined,
       redemptionUrl:
         typeof payload["redemptionUrl"] === "string"
           ? payload["redemptionUrl"]
@@ -639,7 +650,10 @@ export async function submitPerkRequest(
     if (!response.ok) {
       return {
         success: false,
-        error: extractBackendErrorMessage(data, "Failed to submit perk request"),
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to submit perk request",
+        ),
       };
     }
     return { success: true };
@@ -647,7 +661,9 @@ export async function submitPerkRequest(
     return {
       success: false,
       error:
-        error instanceof Error ? error.message : "Failed to submit perk request",
+        error instanceof Error
+          ? error.message
+          : "Failed to submit perk request",
     };
   }
 }
@@ -683,7 +699,10 @@ export async function verifySessionToken(
           error: data?.error ?? "Session verification failed",
         };
       }
-      return normalizeBackendAuthResponse({ ...data, success: data.success ?? true });
+      return normalizeBackendAuthResponse({
+        ...data,
+        success: data.success ?? true,
+      });
     }
     return {
       success: false,
@@ -700,9 +719,12 @@ export async function verifySessionToken(
   }
 }
 
-export async function requestMagicLink(
-  email: string,
-): Promise<{ success: boolean; message?: string; error?: string; rateLimited?: boolean }> {
+export async function requestMagicLink(email: string): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+  rateLimited?: boolean;
+}> {
   try {
     const response = await fetch(`${BACKEND_URL}/auth/magic-link`, {
       method: "POST",
@@ -722,7 +744,8 @@ export async function requestMagicLink(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to send magic link",
+      error:
+        error instanceof Error ? error.message : "Failed to send magic link",
     };
   }
 }
@@ -745,7 +768,10 @@ export async function verifyMagicLink(
     if (!response.ok) {
       return {
         success: false,
-        error: extractBackendErrorMessage(data, "Magic link verification failed"),
+        error: extractBackendErrorMessage(
+          data,
+          "Magic link verification failed",
+        ),
         unauthorized: response.status === 401,
       };
     }
@@ -762,7 +788,9 @@ export async function verifyMagicLink(
     return {
       success: false,
       error:
-        error instanceof Error ? error.message : "Magic link verification failed",
+        error instanceof Error
+          ? error.message
+          : "Magic link verification failed",
       unauthorized: false,
     };
   }
@@ -791,7 +819,10 @@ export async function getContactEmailStatus(
         shouldPrompt: false,
         contactEmail: null,
         isVerified: false,
-        error: extractBackendErrorMessage(data, "Failed to fetch contact email status"),
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to fetch contact email status",
+        ),
       };
     }
     return data as ContactEmailStatusResponse;
@@ -801,14 +832,15 @@ export async function getContactEmailStatus(
       shouldPrompt: false,
       contactEmail: null,
       isVerified: false,
-      error: error instanceof Error ? error.message : "Failed to fetch contact email status",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch contact email status",
     };
   }
 }
 
-export async function requestEmailOtp(
-  email: string,
-): Promise<{
+export async function requestEmailOtp(email: string): Promise<{
   success: boolean;
   message?: string;
   expiresInMinutes?: number;
@@ -859,11 +891,18 @@ export async function saveContactEmail(
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      return { success: false, error: extractBackendErrorMessage(data, "Failed to save contact email") };
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Failed to save contact email"),
+      };
     }
     return data as { success: boolean; message?: string };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : "Failed to save contact email" };
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to save contact email",
+    };
   }
 }
 
@@ -881,11 +920,17 @@ export async function skipContactEmailPrompt(
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      return { success: false, error: extractBackendErrorMessage(data, "Failed to skip for now") };
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Failed to skip for now"),
+      };
     }
     return { success: true };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : "Failed to skip for now" };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to skip for now",
+    };
   }
 }
 
@@ -910,7 +955,10 @@ export async function getEmailPreferences(
         success: false,
         contextualEngagementOptIn: false,
         contextualEngagementOptInAt: null,
-        error: extractBackendErrorMessage(data, "Failed to fetch email preferences"),
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to fetch email preferences",
+        ),
       };
     }
     return data as EmailPreferencesResponse;
@@ -919,7 +967,10 @@ export async function getEmailPreferences(
       success: false,
       contextualEngagementOptIn: false,
       contextualEngagementOptInAt: null,
-      error: error instanceof Error ? error.message : "Failed to fetch email preferences",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch email preferences",
     };
   }
 }
@@ -943,7 +994,10 @@ export async function updateEmailPreferences(
         success: false,
         contextualEngagementOptIn: false,
         contextualEngagementOptInAt: null,
-        error: extractBackendErrorMessage(data, "Failed to update email preferences"),
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to update email preferences",
+        ),
       };
     }
     return data as EmailPreferencesResponse;
@@ -952,7 +1006,10 @@ export async function updateEmailPreferences(
       success: false,
       contextualEngagementOptIn: false,
       contextualEngagementOptInAt: null,
-      error: error instanceof Error ? error.message : "Failed to update email preferences",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to update email preferences",
     };
   }
 }
@@ -1100,7 +1157,10 @@ export async function getSignupSourceStatus(
     if (!response.ok) {
       return {
         ...empty,
-        error: extractBackendErrorMessage(data, "Failed to fetch signup source"),
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to fetch signup source",
+        ),
       };
     }
     return data as SignupSourceStatusResponse;
@@ -1174,15 +1234,21 @@ export async function adminFetchSignupSourceSummary(params?: {
   signal?: AbortSignal;
 }): Promise<{ ok: boolean; data?: AdminSignupSourceSummary; error?: string }> {
   try {
-    const response = await fetch(`${BACKEND_URL}/admin/signup-sources/summary`, {
-      credentials: "include",
-      signal: params?.signal,
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/admin/signup-sources/summary`,
+      {
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
         ok: false,
-        error: extractBackendErrorMessage(raw, "Failed to load signup source summary"),
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load signup source summary",
+        ),
       };
     }
     const record = raw as { data?: AdminSignupSourceSummary };
@@ -1205,11 +1271,14 @@ export async function confirmContextualEmailUnsubscribe(
   token: string,
 ): Promise<ContextualEmailUnsubscribeResponse> {
   try {
-    const response = await fetch(`${BACKEND_URL}/contextual-email/unsubscribe`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/contextual-email/unsubscribe`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      },
+    );
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
@@ -1242,11 +1311,23 @@ export async function sendContactEmailVerification(
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      return { success: false, error: extractBackendErrorMessage(data, "Failed to send verification email") };
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to send verification email",
+        ),
+      };
     }
     return data as { success: boolean; message?: string };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : "Failed to send verification email" };
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to send verification email",
+    };
   }
 }
 
@@ -1261,11 +1342,23 @@ export async function confirmContactEmailVerification(
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      return { success: false, error: extractBackendErrorMessage(data, "Verification link is invalid or expired") };
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Verification link is invalid or expired",
+        ),
+      };
     }
     return data as { success: boolean; message?: string };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : "Verification link is invalid or expired" };
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Verification link is invalid or expired",
+    };
   }
 }
 
@@ -1342,8 +1435,11 @@ export async function fetchSubscriptionStatusWithSession(
 
     const annualSavings =
       data && typeof data === "object" && "annualSavings" in data
-        ? (data as { annualSavings?: SubscriptionStatusResult["annualSavings"] })
-            .annualSavings ?? null
+        ? ((
+            data as {
+              annualSavings?: SubscriptionStatusResult["annualSavings"];
+            }
+          ).annualSavings ?? null)
         : null;
 
     return {
@@ -1372,7 +1468,10 @@ export async function fetchSubscriptionStatusWithSession(
 
 export async function recordSubscriptionProductEvent(
   sessionToken: string,
-  eventName: "annual_plan_viewed" | "annual_upgrade_clicked" | "annual_upgrade_completed",
+  eventName:
+    | "annual_plan_viewed"
+    | "annual_upgrade_clicked"
+    | "annual_upgrade_completed",
   payload?: { platform?: string; source?: string },
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -1391,7 +1490,9 @@ export async function recordSubscriptionProductEvent(
 
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(extractBackendErrorMessage(data, "Failed to record event"));
+      throw new Error(
+        extractBackendErrorMessage(data, "Failed to record event"),
+      );
     }
     return data;
   } catch (error) {
@@ -1460,7 +1561,9 @@ interface ReactivateRetentionWinbackOfferResult {
 const WINBACK_ALREADY_REDEEMED_MESSAGE =
   "Your 30 extra days free were already applied.";
 
-function messageIfNonEmpty(record: Record<string, unknown>): string | undefined {
+function messageIfNonEmpty(
+  record: Record<string, unknown>,
+): string | undefined {
   const raw = record.message;
   return typeof raw === "string" && raw.trim().length > 0 ? raw : undefined;
 }
@@ -1493,14 +1596,14 @@ export async function previewRetentionWinbackOffer(
     if (!parsed || Object.keys(parsed).length === 0) {
       return {
         success: false,
-        error: extractBackendErrorMessage(
-          data,
-          "Unexpected server response.",
-        ),
+        error: extractBackendErrorMessage(data, "Unexpected server response."),
       };
     }
     if (parsed.success === false) {
-      return { ...parsed, success: false } as PreviewRetentionWinbackOfferResult;
+      return {
+        ...parsed,
+        success: false,
+      } as PreviewRetentionWinbackOfferResult;
     }
     if (parsed.success === true) {
       return { ...parsed, success: true } as PreviewRetentionWinbackOfferResult;
@@ -1576,10 +1679,7 @@ export async function reactivateRetentionWinbackOffer(
     if (!parsed || Object.keys(parsed).length === 0) {
       return {
         success: false,
-        error: extractBackendErrorMessage(
-          data,
-          "Could not reactivate offer",
-        ),
+        error: extractBackendErrorMessage(data, "Could not reactivate offer"),
       };
     }
     if (parsed.success === true) {
@@ -1610,8 +1710,7 @@ export async function reactivateRetentionWinbackOffer(
       return {
         ...parsed,
         success: true,
-        message:
-          messageIfNonEmpty(parsed) ?? WINBACK_ALREADY_REDEEMED_MESSAGE,
+        message: messageIfNonEmpty(parsed) ?? WINBACK_ALREADY_REDEEMED_MESSAGE,
       } as ReactivateRetentionWinbackOfferResult;
     }
     if (parsed.requiresAppleSettings === true) {
@@ -1622,10 +1721,7 @@ export async function reactivateRetentionWinbackOffer(
     }
     return {
       success: false,
-      error: extractBackendErrorMessage(
-        parsed,
-        "Unexpected server response.",
-      ),
+      error: extractBackendErrorMessage(parsed, "Unexpected server response."),
     };
   } catch (error) {
     return {
@@ -1663,7 +1759,7 @@ export async function createCheckoutSession(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${sessionToken}`,
+        Authorization: `Bearer ${sessionToken}`,
       },
       body: JSON.stringify({
         planId,
@@ -1782,7 +1878,9 @@ export async function createBillingPortalSession(
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(extractBackendErrorMessage(data, "Failed to open billing portal"));
+      throw new Error(
+        extractBackendErrorMessage(data, "Failed to open billing portal"),
+      );
     }
 
     if (data?.url) {
@@ -1827,22 +1925,30 @@ export interface MembershipTransferRequestData {
   reviewedBySystem?: boolean;
 }
 
-export async function fetchMembershipTransferRequest(sessionToken: string): Promise<{
+export async function fetchMembershipTransferRequest(
+  sessionToken: string,
+): Promise<{
   success: boolean;
   data: MembershipTransferRequestData | null;
   error?: string;
 }> {
   try {
-    const response = await fetch(`${BACKEND_URL}/subscription/transfer-request`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${sessionToken}` },
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/subscription/transfer-request`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
         success: false,
         data: null,
-        error: extractBackendErrorMessage(raw, "Could not load transfer request"),
+        error: extractBackendErrorMessage(
+          raw,
+          "Could not load transfer request",
+        ),
       };
     }
     const record = raw as { data?: MembershipTransferRequestData | null };
@@ -1867,7 +1973,11 @@ export interface MembershipTransferPresignData {
 export async function requestMembershipTransferPresignedUpload(
   sessionToken: string,
   contentType: "image/jpeg" | "image/png" | "image/webp",
-): Promise<{ success: boolean; data?: MembershipTransferPresignData; error?: string }> {
+): Promise<{
+  success: boolean;
+  data?: MembershipTransferPresignData;
+  error?: string;
+}> {
   try {
     const response = await fetch(
       `${BACKEND_URL}/subscription/transfer-request/presigned-upload`,
@@ -1908,7 +2018,11 @@ export async function putMembershipTransferProofToPresignedUrl(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const h = new Headers(headers);
-    const response = await fetch(uploadUrl, { method: "PUT", body: file, headers: h });
+    const response = await fetch(uploadUrl, {
+      method: "PUT",
+      body: file,
+      headers: h,
+    });
     if (!response.ok) {
       return { ok: false, error: `Upload failed (${response.status})` };
     }
@@ -1946,7 +2060,10 @@ export async function submitMembershipTransferRequest(
         ct === "image/jpeg" || ct === "image/png" || ct === "image/webp"
           ? ct
           : ("image/jpeg" as const);
-      const presign = await requestMembershipTransferPresignedUpload(sessionToken, allowed);
+      const presign = await requestMembershipTransferPresignedUpload(
+        sessionToken,
+        allowed,
+      );
       if (!presign.success || !presign.data) {
         return { success: false, error: presign.error ?? "Presign failed" };
       }
@@ -2606,9 +2723,12 @@ export async function adminFetchUsersOverview(params?: {
       query.set("exclude_platforms", params.excludePlatforms);
     }
     const suffix = query.toString() ? `?${query.toString()}` : "";
-    const response = await fetch(`${BACKEND_URL}/admin/users/overview${suffix}`, {
-      credentials: "include",
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/overview${suffix}`,
+      {
+        credentials: "include",
+      },
+    );
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
@@ -2805,7 +2925,10 @@ export async function adminFetchUtmFunnelReport(params?: {
     if (!response.ok) {
       return {
         ok: false,
-        error: extractBackendErrorMessage(data, "Failed to load UTM funnel report"),
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load UTM funnel report",
+        ),
       };
     }
     const record = data as { data?: AdminUtmFunnelReport };
@@ -2850,7 +2973,10 @@ export async function adminFetchUtmSignupReport(params?: {
     if (!response.ok) {
       return {
         ok: false,
-        error: extractBackendErrorMessage(data, "Failed to load UTM sign-up report"),
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load UTM sign-up report",
+        ),
       };
     }
     const record = data as { data?: AdminUtmSignupReport };
@@ -2996,15 +3122,21 @@ export async function adminFetchIpAddressClickSummary(params?: {
     if (params?.from) query.set("from", params.from);
     if (params?.to) query.set("to", params.to);
     const suffix = query.toString() ? `?${query.toString()}` : "";
-    const response = await fetch(`${BACKEND_URL}/admin/product-events/ip-address-clicks${suffix}`, {
-      credentials: "include",
-      signal: params?.signal,
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/admin/product-events/ip-address-clicks${suffix}`,
+      {
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
         ok: false,
-        error: extractBackendErrorMessage(raw, "Failed to load IP address clicks"),
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load IP address clicks",
+        ),
       };
     }
     const record = raw as { data?: AdminIpAddressClickSummary };
@@ -3031,15 +3163,21 @@ export async function adminFetchReviewPromptSummary(params?: {
     if (params?.from) query.set("from", params.from);
     if (params?.to) query.set("to", params.to);
     const suffix = query.toString() ? `?${query.toString()}` : "";
-    const response = await fetch(`${BACKEND_URL}/admin/product-events/review-prompts${suffix}`, {
-      credentials: "include",
-      signal: params?.signal,
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/admin/product-events/review-prompts${suffix}`,
+      {
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
         ok: false,
-        error: extractBackendErrorMessage(raw, "Failed to load review prompt metrics"),
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load review prompt metrics",
+        ),
       };
     }
     const record = raw as { data?: AdminReviewPromptSummary };
@@ -3069,15 +3207,18 @@ export async function adminFetchUserProfileSummary(params?: {
     const response = await fetch(
       `${BACKEND_URL}/admin/user-profiles/summary${suffix}`,
       {
-      credentials: "include",
-      signal: params?.signal,
+        credentials: "include",
+        signal: params?.signal,
       },
     );
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
         ok: false,
-        error: extractBackendErrorMessage(raw, "Failed to load user profile summary"),
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load user profile summary",
+        ),
       };
     }
     const record = raw as { data?: AdminUserProfileSummary };
@@ -3328,14 +3469,20 @@ export async function adminFetchAudienceTargetingOptions(): Promise<{
   error?: string;
 }> {
   try {
-    const response = await fetch(`${BACKEND_URL}/admin/audience-targeting/options`, {
-      credentials: "include",
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/admin/audience-targeting/options`,
+      {
+        credentials: "include",
+      },
+    );
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
         ok: false,
-        error: extractBackendErrorMessage(raw, "Failed to load audience options"),
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load audience options",
+        ),
       };
     }
     const record = raw as {
@@ -3368,12 +3515,15 @@ export async function adminPreviewAudienceTargeting(payload: {
   error?: string;
 }> {
   try {
-    const response = await fetch(`${BACKEND_URL}/admin/audience-targeting/preview`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/admin/audience-targeting/preview`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
@@ -3640,9 +3790,12 @@ export async function adminUpdatePerk(
   }
 }
 
-export async function adminDeletePerk(
-  id: string,
-): Promise<{ ok: boolean; softDeleted?: boolean; message?: string; error?: string }> {
+export async function adminDeletePerk(id: string): Promise<{
+  ok: boolean;
+  softDeleted?: boolean;
+  message?: string;
+  error?: string;
+}> {
   try {
     const response = await fetch(
       `${BACKEND_URL}/admin/perks/${encodeURIComponent(id)}`,
@@ -3916,9 +4069,12 @@ export async function adminListTransferRequests(
   status?: string,
 ): Promise<{ success: boolean; data?: unknown[]; error?: string }> {
   const q = status ? `?status=${encodeURIComponent(status)}` : "";
-  const response = await fetch(`${BACKEND_URL}/admin/subscription/transfer-requests${q}`, {
-    credentials: "include",
-  });
+  const response = await fetch(
+    `${BACKEND_URL}/admin/subscription/transfer-requests${q}`,
+    {
+      credentials: "include",
+    },
+  );
   const raw: unknown = await response.json().catch(() => ({}));
   if (!response.ok) {
     return {
@@ -3928,6 +4084,254 @@ export async function adminListTransferRequests(
   }
   const record = raw as { data?: unknown[] };
   return { success: true, data: record.data };
+}
+
+export async function adminListMembershipSharing(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const query = new URLSearchParams();
+    if (params.page) query.set("page", String(params.page));
+    if (params.limit) query.set("limit", String(params.limit));
+    if (params.search?.trim()) query.set("search", params.search.trim());
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription/membership-sharing${suffix}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to list membership sharing",
+        ),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to list membership sharing",
+    };
+  }
+}
+
+export async function adminRevokeMembershipMember(
+  subscriptionId: string,
+  memberUserId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription/membership-sharing/${encodeURIComponent(subscriptionId)}/members/${encodeURIComponent(memberUserId)}/revoke`,
+      { method: "POST", credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to revoke member"),
+      };
+    }
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to revoke member",
+    };
+  }
+}
+
+export async function adminUpdateMembershipSeatLimit(
+  subscriptionId: string,
+  seatLimit: number,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription/membership-sharing/${encodeURIComponent(subscriptionId)}/seat-limit`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seatLimit }),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to update seat limit"),
+      };
+    }
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to update seat limit",
+    };
+  }
+}
+
+export async function acceptMembershipInvite(
+  sessionToken: string,
+  token: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/membership-sharing/accept`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to accept invitation"),
+      };
+    }
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to accept invitation",
+    };
+  }
+}
+
+export async function fetchMembershipSharingDashboard(
+  sessionToken: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/membership-sharing/dashboard`,
+      {
+        credentials: "include",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (response.status === 404) {
+      return { ok: false, error: "Membership sharing is not enabled" };
+    }
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load membership sharing",
+        ),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to load membership sharing",
+    };
+  }
+}
+
+export async function inviteMembershipMember(
+  sessionToken: string,
+  email: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/membership-sharing/invite`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to send invite"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to send invite",
+    };
+  }
+}
+
+export async function revokeMembershipMember(
+  sessionToken: string,
+  memberUserId: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/membership-sharing/members/${encodeURIComponent(memberUserId)}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to remove member"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to remove member",
+    };
+  }
+}
+
+export async function revokeMembershipInvite(
+  sessionToken: string,
+  inviteId: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/membership-sharing/invites/${encodeURIComponent(inviteId)}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to cancel invite"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to cancel invite",
+    };
+  }
 }
 
 export async function adminFetchChurnReport(params: {
@@ -3979,7 +4383,10 @@ export async function adminFetchWeeklyChurnReport(params: {
     if (!response.ok) {
       return {
         ok: false,
-        error: extractBackendErrorMessage(raw, "Failed to load weekly churn report"),
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load weekly churn report",
+        ),
       };
     }
     const record = raw as { data?: AdminWeeklyChurnReport };
@@ -3996,7 +4403,11 @@ export async function adminFetchWeeklyChurnTrend(params: {
   from: string;
   to: string;
   source?: AdminChurnSubscriptionSource;
-}): Promise<{ ok: boolean; data?: AdminWeeklyChurnTrendReport; error?: string }> {
+}): Promise<{
+  ok: boolean;
+  data?: AdminWeeklyChurnTrendReport;
+  error?: string;
+}> {
   try {
     const query = new URLSearchParams();
     query.set("from", params.from);
@@ -4012,7 +4423,10 @@ export async function adminFetchWeeklyChurnTrend(params: {
     if (!response.ok) {
       return {
         ok: false,
-        error: extractBackendErrorMessage(raw, "Failed to load weekly churn trend"),
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load weekly churn trend",
+        ),
       };
     }
     const record = raw as { data?: AdminWeeklyChurnTrendReport };
@@ -4091,7 +4505,7 @@ export async function adminListSubscriptions(params?: {
       data: {
         items: record.data?.items ?? [],
         page: record.data?.page ?? 1,
-        limit: record.data?.limit ?? (params?.limit ?? 50),
+        limit: record.data?.limit ?? params?.limit ?? 50,
         total: record.data?.total ?? 0,
         totalPages: record.data?.totalPages ?? 1,
       },
@@ -4275,14 +4689,16 @@ export async function deleteAccount(
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${sessionToken}`,
+        Authorization: `Bearer ${sessionToken}`,
       },
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(extractBackendErrorMessage(data, "Failed to delete account"));
+      throw new Error(
+        extractBackendErrorMessage(data, "Failed to delete account"),
+      );
     }
 
     return data;
@@ -4381,27 +4797,35 @@ export async function fetchSubscriptionPlanById(planId: string): Promise<{
 
 export async function linkProvider(
   sessionToken: string,
-  provider: 'google' | 'apple',
+  provider: "google" | "apple",
   firebaseIdToken: string,
-): Promise<{ success: boolean; linkedProviders: { google: boolean; apple: boolean } }> {
+): Promise<{
+  success: boolean;
+  linkedProviders: { google: boolean; apple: boolean };
+}> {
   const response = await fetch(`${BACKEND_URL}/auth/link-provider`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       Authorization: `Bearer ${sessionToken}`,
     },
     body: JSON.stringify({ provider, firebaseIdToken }),
   });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(extractBackendErrorMessage(errorData, `Failed to link provider: ${response.status}`));
+    throw new Error(
+      extractBackendErrorMessage(
+        errorData,
+        `Failed to link provider: ${response.status}`,
+      ),
+    );
   }
   return response.json();
 }
 
 export async function unlinkProvider(
   sessionToken: string,
-  provider: 'google' | 'apple',
+  provider: "google" | "apple",
 ): Promise<{
   success: boolean;
   providers: {
@@ -4410,16 +4834,21 @@ export async function unlinkProvider(
   };
 }> {
   const response = await fetch(`${BACKEND_URL}/auth/unlink-provider`, {
-    method: 'DELETE',
+    method: "DELETE",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       Authorization: `Bearer ${sessionToken}`,
     },
     body: JSON.stringify({ provider }),
   });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(extractBackendErrorMessage(errorData, `Failed to unlink provider: ${response.status}`));
+    throw new Error(
+      extractBackendErrorMessage(
+        errorData,
+        `Failed to unlink provider: ${response.status}`,
+      ),
+    );
   }
   return response.json();
 }
@@ -4435,6 +4864,39 @@ export interface AdminBroadcastComposePayload {
   preheader?: string;
   ctaLabel?: string;
   ctaUrl?: string;
+}
+
+export async function adminFetchBroadcastAudience(
+  audience: BroadcastEmailAudience = "all_deliverable",
+): Promise<{
+  ok: boolean;
+  data?: AdminBroadcastAudienceSummary;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams({ audience });
+    const response = await fetch(
+      `${BACKEND_URL}/admin/broadcast-email/audience?${query.toString()}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load broadcast audience",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminBroadcastAudienceSummary };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
 }
 
 export async function adminExportBroadcastAudienceCsv(
@@ -4475,12 +4937,15 @@ export async function adminSendBroadcastPreview(
   payload: AdminBroadcastComposePayload,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    const response = await fetch(`${BACKEND_URL}/admin/broadcast-email/preview`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/admin/broadcast-email/preview`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
@@ -4593,9 +5058,7 @@ export async function adminFetchBroadcastEmailJob(jobId: string): Promise<{
   }
 }
 
-export async function getLinkedProviders(
-  sessionToken: string,
-): Promise<{
+export async function getLinkedProviders(sessionToken: string): Promise<{
   success: boolean;
   providers: {
     google: { linked: boolean; email?: string };
@@ -4603,14 +5066,19 @@ export async function getLinkedProviders(
   };
 }> {
   const response = await fetch(`${BACKEND_URL}/user/linked-providers`, {
-    method: 'GET',
+    method: "GET",
     headers: {
       Authorization: `Bearer ${sessionToken}`,
     },
   });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(extractBackendErrorMessage(errorData, `Failed to get linked providers: ${response.status}`));
+    throw new Error(
+      extractBackendErrorMessage(
+        errorData,
+        `Failed to get linked providers: ${response.status}`,
+      ),
+    );
   }
   return response.json();
 }
