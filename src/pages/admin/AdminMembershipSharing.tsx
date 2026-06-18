@@ -37,6 +37,7 @@ interface SharingRow {
 export default function AdminMembershipSharing() {
   const { can } = useAdminAuth();
   const [rows, setRows] = useState<SharingRow[]>([]);
+  const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -82,6 +83,17 @@ export default function AdminMembershipSharing() {
     void refresh();
   }, [refresh]);
 
+  function handleSearch() {
+    setPage(1);
+    setSearch(searchDraft.trim());
+  }
+
+  function handleClearSearch() {
+    setSearchDraft("");
+    setSearch("");
+    setPage(1);
+  }
+
   async function handleRevoke(subscriptionId: string, memberUserId: string) {
     if (!canWrite) return;
     const res = await adminRevokeMembershipMember(subscriptionId, memberUserId);
@@ -122,13 +134,29 @@ export default function AdminMembershipSharing() {
       <div className="flex flex-wrap items-center gap-3">
         <Input
           placeholder="Search owner email or name"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
+          value={searchDraft}
+          onChange={(e) => setSearchDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleSearch();
+            }
           }}
           className="max-w-sm bg-slate-900 border-slate-700"
         />
+        <Button
+          variant="secondary"
+          onClick={handleSearch}
+          disabled={loading}
+        >
+          Search
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={handleClearSearch}
+          disabled={loading || (!search && !searchDraft)}
+        >
+          Clear
+        </Button>
         <Button
           variant="secondary"
           onClick={() => void refresh()}
