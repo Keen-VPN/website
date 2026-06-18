@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -213,9 +212,10 @@ export function MembershipSharingCard({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild variant="secondary">
-            <Link to="/pricing">View Family &amp; Team plans</Link>
-          </Button>
+          <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+            Family sharing is not enabled on this subscription yet. Contact
+            support to add family access.
+          </p>
         </CardContent>
       </Card>
     );
@@ -269,7 +269,7 @@ export function MembershipSharingCard({
         ) : (
           <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
             {isSingleSeatSubscription
-              ? "This subscription has 1 seat. Contact support to add seats for family sharing."
+              ? "Family sharing is not enabled on this subscription yet. Contact support to add family access."
               : "All seats are currently used. Remove a member or cancel a pending invite to free a seat."}
           </p>
         )}

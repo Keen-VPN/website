@@ -115,7 +115,7 @@ export default function AdminMembershipSharing() {
           Membership Sharing
         </h1>
         <p className="mt-1 text-sm text-slate-400">
-          Family and Team subscriptions with linked members ({total} total)
+          Manage family access for active subscriptions ({total} total)
         </p>
       </div>
 
@@ -240,7 +240,7 @@ export default function AdminMembershipSharing() {
                   colSpan={canWrite ? 6 : 5}
                   className="px-4 py-8 text-center text-slate-500"
                 >
-                  No shareable subscriptions found
+                  No active subscriptions found
                 </td>
               </tr>
             ) : null}
