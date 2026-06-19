@@ -57,6 +57,7 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
+import { MembershipSharingCard } from "@/components/MembershipSharingCard";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
 import { UserInformationCard } from "@/components/UserInformationCard";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
@@ -122,19 +123,32 @@ const Account = () => {
   const [showContactEmailModal, setShowContactEmailModal] = useState(false);
   const [contactEmail, setContactEmail] = useState("");
   const [contactEmailLoading, setContactEmailLoading] = useState(false);
-  const [contactEmailError, setContactEmailError] = useState<string | null>(null);
+  const [contactEmailError, setContactEmailError] = useState<string | null>(
+    null,
+  );
   const hasHandledContactEmailPromptRef = useRef(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user, loading, logout, subscription, trial, refreshSubscription, linkedProviders, refreshLinkedProviders, hasSessionToken, authProvider } =
-    useAuth();
+  const {
+    user,
+    loading,
+    logout,
+    subscription,
+    trial,
+    refreshSubscription,
+    linkedProviders,
+    refreshLinkedProviders,
+    hasSessionToken,
+    authProvider,
+  } = useAuth();
   const appStoreUrl = useAppStoreUrl();
   const subscriptionCtaLabel = getSubscriptionCtaLabel(
     user,
     subscription,
     trial,
   );
+  const canManageBilling = subscription?.canManageBilling === true;
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
   const unsupportedDeviceName = useMemo(() => getUnsupportedDeviceName(), []);
@@ -195,7 +209,10 @@ const Account = () => {
     params.delete("email_prefs");
     const nextSearch = params.toString();
     navigate(
-      { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : "" },
+      {
+        pathname: location.pathname,
+        search: nextSearch ? `?${nextSearch}` : "",
+      },
       { replace: true },
     );
   }, [location.search, location.pathname, navigate, toast]);
@@ -216,7 +233,10 @@ const Account = () => {
     if (!showPostCheckoutUi || !isASWeb) {
       return;
     }
-    if (!initialSubscriptionChecked || !shouldAutoOpenAppAfterStripeCheckout()) {
+    if (
+      !initialSubscriptionChecked ||
+      !shouldAutoOpenAppAfterStripeCheckout()
+    ) {
       return;
     }
 
@@ -226,12 +246,7 @@ const Account = () => {
     }, 700);
 
     return () => window.clearTimeout(timer);
-  }, [
-    showPostCheckoutUi,
-    isASWeb,
-    initialSubscriptionChecked,
-    appStoreUrl,
-  ]);
+  }, [showPostCheckoutUi, isASWeb, initialSubscriptionChecked, appStoreUrl]);
 
   // The session token may not be in localStorage yet when Account first mounts
   // (AuthContext is still verifying with the backend). Poll until it arrives.
@@ -293,7 +308,9 @@ const Account = () => {
         if (!cancelled) {
           setSubscriptionLoading(false);
           setInitialSubscriptionChecked(true);
-          navigate(isASWeb ? "/account?asweb=1" : "/account", { replace: true });
+          navigate(isASWeb ? "/account?asweb=1" : "/account", {
+            replace: true,
+          });
         }
         return;
       }
@@ -374,12 +391,13 @@ const Account = () => {
     setSubscriptionLoading(false);
   };
 
-  const showStripeUpgradeToAnnual = canUpgradeStripeToAnnual(subscription);
-  const showAppleIapUpgradeToAnnual = canUpgradeAppleIapToAnnual(subscription);
+  const showStripeUpgradeToAnnual =
+    canManageBilling && canUpgradeStripeToAnnual(subscription);
+  const showAppleIapUpgradeToAnnual =
+    canManageBilling && canUpgradeAppleIapToAnnual(subscription);
   // Banner owns the timed promo; inline card is fallback after dismiss or when no banner.
   const showAnnualUpgradeBanner =
-    shouldShowAnnualUpgradeOffer(subscription) &&
-    !annualUpgradeBannerDismissed;
+    shouldShowAnnualUpgradeOffer(subscription) && !annualUpgradeBannerDismissed;
   const showStripeUpgradeInCard =
     showStripeUpgradeToAnnual && !showAnnualUpgradeBanner;
   const showAppleIapUpgradeInCard =
@@ -457,7 +475,9 @@ const Account = () => {
       return;
     }
     if (isPrivateRelayEmail(normalized)) {
-      setContactEmailError("Please enter a real contact email (not Apple private relay).");
+      setContactEmailError(
+        "Please enter a real contact email (not Apple private relay).",
+      );
       return;
     }
     setContactEmailError(null);
@@ -658,7 +678,8 @@ const Account = () => {
           <DialogHeader>
             <DialogTitle>Stay in the loop</DialogTitle>
             <DialogDescription>
-              Add your email to receive important updates about your account, subscription, and security.
+              Add your email to receive important updates about your account,
+              subscription, and security.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -676,10 +697,17 @@ const Account = () => {
             ) : null}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleSkipContactEmail} disabled={contactEmailLoading}>
+            <Button
+              variant="outline"
+              onClick={handleSkipContactEmail}
+              disabled={contactEmailLoading}
+            >
               Skip for now
             </Button>
-            <Button onClick={handleSaveContactEmail} disabled={contactEmailLoading}>
+            <Button
+              onClick={handleSaveContactEmail}
+              disabled={contactEmailLoading}
+            >
               {contactEmailLoading ? "Saving..." : "Save Email"}
             </Button>
           </DialogFooter>
@@ -722,7 +750,10 @@ const Account = () => {
                       size="lg"
                       onClick={() => {
                         markStripeAutoOpenDone();
-                        returnToKeenVpnAppAfterPayment(getSessionToken(), appStoreUrl);
+                        returnToKeenVpnAppAfterPayment(
+                          getSessionToken(),
+                          appStoreUrl,
+                        );
                       }}
                     >
                       <Smartphone className="mr-2 h-5 w-5" />
@@ -763,48 +794,51 @@ const Account = () => {
             !showPostCheckoutUi &&
             !hasStripeSessionId &&
             !isStripeCheckoutReturn() && (
-            <Card className="mb-8 border-primary/50 shadow-glow bg-primary/5">
-              <CardContent className="flex flex-col items-center gap-4 py-6">
-                {isDeepLinkSupported ? (
-                  sessionToken ? (
-                    <>
-                      <div className="text-center">
-                        <h3 className="text-lg font-semibold text-foreground">
-                          Authentication Successful
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Click below to return to the KeenVPN app
+              <Card className="mb-8 border-primary/50 shadow-glow bg-primary/5">
+                <CardContent className="flex flex-col items-center gap-4 py-6">
+                  {isDeepLinkSupported ? (
+                    sessionToken ? (
+                      <>
+                        <div className="text-center">
+                          <h3 className="text-lg font-semibold text-foreground">
+                            Authentication Successful
+                          </h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Click below to return to the KeenVPN app
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                          size="lg"
+                          onClick={() =>
+                            returnToKeenVpnAppAfterAuth(
+                              sessionToken,
+                              appStoreUrl,
+                            )
+                          }
+                        >
+                          Return to KeenVPN App
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        <p className="text-sm text-muted-foreground">
+                          Preparing your session...
                         </p>
                       </div>
-                      <Button
-                        type="button"
-                        className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                        size="lg"
-                        onClick={() =>
-                          returnToKeenVpnAppAfterAuth(sessionToken, appStoreUrl)
-                        }
-                      >
-                        Return to KeenVPN App
-                      </Button>
-                    </>
+                    )
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                      <p className="text-sm text-muted-foreground">
-                        Preparing your session...
-                      </p>
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold text-foreground">
+                        Your {unsupportedDeviceName} is not currently supported
+                      </h3>
                     </div>
-                  )
-                ) : (
-                  <div className="text-center">
-                    <h3 className="text-lg font-semibold text-foreground">
-                      Your {unsupportedDeviceName} is not currently supported
-                    </h3>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
           <div className="grid md:grid-cols-2 gap-8 items-start">
             {/* Account Info */}
@@ -823,7 +857,7 @@ const Account = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Provider</p>
                   <p className="font-medium capitalize">
-                    {authProvider || 'Unknown'}
+                    {authProvider || "Unknown"}
                   </p>
                 </div>
                 <Button onClick={logout} variant="outline" className="w-full">
@@ -884,11 +918,13 @@ const Account = () => {
                     {showStripeUpgradeInCard && (
                       <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
                         <p className="text-sm text-foreground">
-                          Switch to annual billing and save — charged at your next
-                          billing date, not today.
+                          Switch to annual billing and save — charged at your
+                          next billing date, not today.
                         </p>
                         <Button
-                          onClick={() => void upgradeToAnnual("account_upgrade_button")}
+                          onClick={() =>
+                            void upgradeToAnnual("account_upgrade_button")
+                          }
                           disabled={upgrading}
                           variant="outline"
                           className="w-full border-primary text-primary hover:bg-primary/10"
@@ -967,7 +1003,10 @@ const Account = () => {
                           size="lg"
                           onClick={() => {
                             markStripeAutoOpenDone();
-                            returnToKeenVpnAppAfterPayment(getSessionToken(), appStoreUrl);
+                            returnToKeenVpnAppAfterPayment(
+                              getSessionToken(),
+                              appStoreUrl,
+                            );
                           }}
                         >
                           <Smartphone className="mr-2 h-5 w-5" />
@@ -975,16 +1014,18 @@ const Account = () => {
                         </Button>
                       ) : null}
 
-                      <Button
-                        onClick={() =>
-                          navigate("/account/subscription-history")
-                        }
-                        variant="outline"
-                        className="w-full"
-                      >
-                        <History className="h-4 w-4 mr-2" />
-                        View Billing History
-                      </Button>
+                      {canManageBilling ? (
+                        <Button
+                          onClick={() =>
+                            navigate("/account/subscription-history")
+                          }
+                          variant="outline"
+                          className="w-full"
+                        >
+                          <History className="h-4 w-4 mr-2" />
+                          View Billing History
+                        </Button>
+                      ) : null}
 
                       <Button
                         onClick={handleRefreshSubscription}
@@ -1003,16 +1044,19 @@ const Account = () => {
                         )}
                       </Button>
 
-                      <SubscriptionCancellationControls
-                        subscription={subscription}
-                        cancelling={cancelling}
-                        onCancel={() => void cancelSubscriptionAtPeriodEnd()}
-                        onManageBilling={() => void openBillingPortal()}
-                        portalLoading={portalLoading}
-                        showManageBilling={!showStripeUpgradeToAnnual}
-                      />
+                      {canManageBilling ? (
+                        <SubscriptionCancellationControls
+                          subscription={subscription}
+                          cancelling={cancelling}
+                          onCancel={() => void cancelSubscriptionAtPeriodEnd()}
+                          onManageBilling={() => void openBillingPortal()}
+                          portalLoading={portalLoading}
+                          showManageBilling={!showStripeUpgradeToAnnual}
+                        />
+                      ) : null}
 
-                      {!hasManageableSubscription(subscription) ? (
+                      {!hasManageableSubscription(subscription) &&
+                      canManageBilling ? (
                         <Button
                           onClick={() => navigate("/subscribe")}
                           className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
@@ -1074,11 +1118,20 @@ const Account = () => {
           {/* Linked Accounts */}
           {hasSessionToken && (
             <div className="mt-8">
+              <MembershipSharingCard sessionToken={getSessionToken() ?? ""} />
+            </div>
+          )}
+
+          {hasSessionToken && (
+            <div className="mt-8">
               <LinkedAccounts
-                sessionToken={getSessionToken() ?? ''}
+                sessionToken={getSessionToken() ?? ""}
                 currentProvider={authProvider ?? undefined}
                 providers={linkedProviders}
-                onUpdate={() => { refreshLinkedProviders(); refreshSubscription(); }}
+                onUpdate={() => {
+                  refreshLinkedProviders();
+                  refreshSubscription();
+                }}
               />
             </div>
           )}
@@ -1153,7 +1206,10 @@ const Account = () => {
                     </AlertDialogTitle>
                     <AlertDialogDescription className="space-y-3">
                       <p>
-                      This action <strong>cannot be undone</strong>. Your account and all associated usage data will be permanently deleted from our servers. Please note that no refunds will be issued.
+                        This action <strong>cannot be undone</strong>. Your
+                        account and all associated usage data will be
+                        permanently deleted from our servers. Please note that
+                        no refunds will be issued.
                       </p>
                       <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/20">
                         <p className="text-sm font-medium text-destructive">

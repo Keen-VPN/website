@@ -36,7 +36,12 @@ export function isStripeSubscription(
 export function canCancelStripeOnWebsite(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
-  if (!subscription || !isStripeSubscription(subscription)) return false;
+  if (
+    !subscription ||
+    subscription.canManageBilling !== true ||
+    !isStripeSubscription(subscription)
+  )
+    return false;
   if (subscription.cancelAtPeriodEnd) return false;
   return hasManageableSubscription(subscription);
 }
@@ -55,7 +60,12 @@ function isMonthlyPlanName(planName?: string | null): boolean {
 export function canUpgradeStripeToAnnual(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
-  if (!subscription || !isStripeSubscription(subscription)) return false;
+  if (
+    !subscription ||
+    subscription.canManageBilling !== true ||
+    !isStripeSubscription(subscription)
+  )
+    return false;
   if (subscription.cancelAtPeriodEnd) return false;
 
   const status = getSubscriptionStatus(subscription);
@@ -68,7 +78,12 @@ export function canUpgradeStripeToAnnual(
 export function canUpgradeAppleIapToAnnual(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
-  if (!subscription || !isAppleIapSubscription(subscription)) return false;
+  if (
+    !subscription ||
+    subscription.canManageBilling !== true ||
+    !isAppleIapSubscription(subscription)
+  )
+    return false;
   if (subscription.cancelAtPeriodEnd) return false;
 
   const status = getSubscriptionStatus(subscription);
