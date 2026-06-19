@@ -313,7 +313,12 @@ const Perks = () => {
     setProfileSummaryLoading(true);
     const res = await getUserProfileInformation(session);
     setProfileSummaryLoading(false);
-    if (!res.success) return;
+    if (!res.success) {
+      setProfileIsComplete(false);
+      setProfileAnsweredCount(0);
+      setProfileQuestionCount(0);
+      return;
+    }
 
     applyProfileSummary(res.questions, res.answers, res.isComplete);
   }, [applyProfileSummary]);

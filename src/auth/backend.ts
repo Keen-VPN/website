@@ -2251,7 +2251,7 @@ export interface AdminUserProfileSummary {
   profilesCompleted: number;
   questions: AdminUserProfileQuestionSummary[];
   analyticsEvents: { eventName: string; count: number }[];
-  completionSources: { source: string; count: number }[];
+  completionSources?: { source: string; count: number }[];
 }
 
 export interface AdminDomainInsightsMetrics {

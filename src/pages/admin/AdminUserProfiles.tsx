@@ -311,7 +311,7 @@ export default function AdminUserProfiles() {
             </div>
           ) : null}
           {!loading && (summary?.completionSources.length ?? 0) === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground sm:col-span-2 lg:col-span-4">
               No completion sources recorded yet.
             </p>
           ) : null}
