@@ -325,8 +325,12 @@ const Perks = () => {
       return;
     }
     void loadPerks();
+  }, [user, authLoading, navigate, loadPerks]);
+
+  useEffect(() => {
+    if (authLoading || !user) return;
     void loadProfileSummary();
-  }, [user, authLoading, navigate, loadPerks, loadProfileSummary]);
+  }, [user, authLoading, loadProfileSummary]);
 
   useEffect(() => {
     if (

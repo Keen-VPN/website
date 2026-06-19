@@ -112,7 +112,9 @@ function QuestionBreakdown({
           );
         })}
         {!loading && question.distribution.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No answers recorded yet.</p>
+          <p className="text-sm text-muted-foreground">
+            No answers recorded yet.
+          </p>
         ) : null}
       </div>
     </div>
@@ -182,7 +184,11 @@ export default function AdminUserProfiles() {
             responses are shown here.
           </p>
         </div>
-        <Button type="button" variant="outline" onClick={() => void load(audience)}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => void load(audience)}
+        >
           Refresh
         </Button>
       </div>
@@ -277,31 +283,40 @@ export default function AdminUserProfiles() {
         </div>
       </div>
 
-      {summary?.completionSources?.length ? (
-        <section className="space-y-3">
-          <div>
-            <h3 className="text-lg font-semibold">Completion source</h3>
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-lg font-semibold">Completion source</h3>
+          <p className="text-sm text-muted-foreground">
+            Where users finished their profile (from profile_completed events).
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {(summary?.completionSources ?? []).map((row) => (
+            <div
+              key={row.source}
+              className="rounded-lg border border-border p-4"
+            >
+              <p className="text-sm text-muted-foreground">
+                {completionSourceLabel(row.source)}
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">
+                {loading ? "…" : row.count}
+              </p>
+            </div>
+          ))}
+          {loading && (summary?.completionSources.length ?? 0) === 0 ? (
+            <div className="rounded-lg border border-border p-4">
+              <p className="text-sm text-muted-foreground">Loading…</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">…</p>
+            </div>
+          ) : null}
+          {!loading && (summary?.completionSources.length ?? 0) === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Where users finished their profile (from profile_completed events).
+              No completion sources recorded yet.
             </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {summary.completionSources.map((row) => (
-              <div
-                key={row.source}
-                className="rounded-lg border border-border p-4"
-              >
-                <p className="text-sm text-muted-foreground">
-                  {completionSourceLabel(row.source)}
-                </p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums">
-                  {loading ? "…" : row.count}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+          ) : null}
+        </div>
+      </section>
 
       <section className="space-y-4">
         <div>
@@ -320,7 +335,9 @@ export default function AdminUserProfiles() {
             />
           ))}
           {!loading && (summary?.questions.length ?? 0) === 0 ? (
-            <p className="text-sm text-muted-foreground">No profile questions configured.</p>
+            <p className="text-sm text-muted-foreground">
+              No profile questions configured.
+            </p>
           ) : null}
         </div>
       </section>
@@ -329,7 +346,8 @@ export default function AdminUserProfiles() {
         <div>
           <h3 className="text-lg font-semibold">Profile funnel events</h3>
           <p className="text-sm text-muted-foreground">
-            Server-side product events for profile interactions in this audience.
+            Server-side product events for profile interactions in this
+            audience.
           </p>
         </div>
 
@@ -347,7 +365,9 @@ export default function AdminUserProfiles() {
               </div>
             ))}
             {!loading && (summary?.analyticsEvents.length ?? 0) === 0 ? (
-              <p className="text-sm text-muted-foreground">No events recorded yet.</p>
+              <p className="text-sm text-muted-foreground">
+                No events recorded yet.
+              </p>
             ) : null}
             {loading && (summary?.analyticsEvents.length ?? 0) === 0 ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
