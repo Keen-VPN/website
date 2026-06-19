@@ -1019,11 +1019,17 @@ export interface ProfileQuestionOption {
   label: string;
 }
 
+export interface ProfileQuestionShowWhen {
+  questionKey: string;
+  values: string[];
+}
+
 export interface ProfileQuestion {
   key: string;
   label: string;
   category: string;
   options: ProfileQuestionOption[];
+  showWhen?: ProfileQuestionShowWhen;
 }
 
 export interface UserProfileInformationResponse {
