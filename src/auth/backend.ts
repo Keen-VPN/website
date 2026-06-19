@@ -1078,6 +1078,7 @@ export async function getUserProfileInformation(
 export async function updateUserProfileInformation(
   sessionToken: string,
   answers: Record<string, string>,
+  entrySource = "web",
 ): Promise<UserProfileInformationResponse> {
   const empty: UserProfileInformationResponse = {
     success: false,
@@ -1095,7 +1096,7 @@ export async function updateUserProfileInformation(
         Authorization: `Bearer ${sessionToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ answers, platform: "web" }),
+      body: JSON.stringify({ answers, platform: "web", entrySource }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -2250,6 +2251,7 @@ export interface AdminUserProfileSummary {
   profilesCompleted: number;
   questions: AdminUserProfileQuestionSummary[];
   analyticsEvents: { eventName: string; count: number }[];
+  completionSources: { source: string; count: number }[];
 }
 
 export interface AdminDomainInsightsMetrics {

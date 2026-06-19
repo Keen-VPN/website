@@ -19,6 +19,21 @@ function categoryLabel(category: string) {
     .join(" ");
 }
 
+function completionSourceLabel(source: string) {
+  switch (source) {
+    case "perks":
+      return "Perks page";
+    case "settings":
+      return "Settings";
+    case "onboarding":
+      return "Onboarding";
+    case "web":
+      return "Web";
+    default:
+      return "Unknown / legacy";
+  }
+}
+
 const AUDIENCE_OPTIONS: {
   value: AdminUserProfileAudience;
   label: string;
@@ -261,6 +276,32 @@ export default function AdminUserProfiles() {
           </p>
         </div>
       </div>
+
+      {summary?.completionSources?.length ? (
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-lg font-semibold">Completion source</h3>
+            <p className="text-sm text-muted-foreground">
+              Where users finished their profile (from profile_completed events).
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {summary.completionSources.map((row) => (
+              <div
+                key={row.source}
+                className="rounded-lg border border-border p-4"
+              >
+                <p className="text-sm text-muted-foreground">
+                  {completionSourceLabel(row.source)}
+                </p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums">
+                  {loading ? "…" : row.count}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="space-y-4">
         <div>

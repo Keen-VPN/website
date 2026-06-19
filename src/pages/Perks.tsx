@@ -9,6 +9,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import {
   Copy,
+  CircleCheck,
   ExternalLink,
   Gift,
   Loader2,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { UserInformationCard } from "@/components/UserInformationCard";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -52,6 +54,7 @@ import {
   claimPerk,
   dismissPerk,
   fetchPerks,
+  getUserProfileInformation,
   getSessionToken,
   recordPerkEvent,
   restorePerk,
@@ -216,6 +219,11 @@ const Perks = () => {
   const [detailsPerkId, setDetailsPerkId] = useState<string | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [profileSummaryLoading, setProfileSummaryLoading] = useState(false);
+  const [profileIsComplete, setProfileIsComplete] = useState(false);
+  const [profileAnsweredCount, setProfileAnsweredCount] = useState(0);
+  const [profileQuestionCount, setProfileQuestionCount] = useState(0);
   const [initialLoad, setInitialLoad] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const loadRequestId = useRef(0);
@@ -223,7 +231,10 @@ const Perks = () => {
   const initialLoadRef = useRef(true);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    const timer = window.setTimeout(
+      () => setDebouncedSearch(search.trim()),
+      300,
+    );
     return () => window.clearTimeout(timer);
   }, [search]);
 
@@ -271,6 +282,42 @@ const Perks = () => {
     setInitialLoad(false);
   }, [selectedCategory, debouncedSearch, selectedTab]);
 
+  const applyProfileSummary = useCallback(
+    (
+      questions: { key: string }[],
+      answers: Record<string, string>,
+      isComplete: boolean,
+    ) => {
+      setProfileQuestionCount(questions.length);
+      setProfileAnsweredCount(
+        questions.filter((question) => {
+          const answer = answers[question.key];
+          return typeof answer === "string" && answer.length > 0;
+        }).length,
+      );
+      setProfileIsComplete(isComplete);
+    },
+    [],
+  );
+
+  const loadProfileSummary = useCallback(async () => {
+    const session = getSessionToken();
+    if (!session) {
+      setProfileSummaryLoading(false);
+      setProfileIsComplete(false);
+      setProfileAnsweredCount(0);
+      setProfileQuestionCount(0);
+      return;
+    }
+
+    setProfileSummaryLoading(true);
+    const res = await getUserProfileInformation(session);
+    setProfileSummaryLoading(false);
+    if (!res.success) return;
+
+    applyProfileSummary(res.questions, res.answers, res.isComplete);
+  }, [applyProfileSummary]);
+
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
@@ -278,7 +325,8 @@ const Perks = () => {
       return;
     }
     void loadPerks();
-  }, [user, authLoading, navigate, loadPerks]);
+    void loadProfileSummary();
+  }, [user, authLoading, navigate, loadPerks, loadProfileSummary]);
 
   useEffect(() => {
     if (
@@ -319,9 +367,7 @@ const Perks = () => {
 
   const allSectionPerks = useMemo(
     () =>
-      showFeaturedSection
-        ? perks.filter((p) => !featuredIds.has(p.id))
-        : perks,
+      showFeaturedSection ? perks.filter((p) => !featuredIds.has(p.id)) : perks,
     [perks, showFeaturedSection, featuredIds],
   );
 
@@ -338,6 +384,17 @@ const Perks = () => {
       setDetailsPerkId(null);
     }
   }, [detailsPerkId, detailsPerk]);
+
+  const profileCompletionPercent = useMemo(() => {
+    if (profileQuestionCount <= 0) return 0;
+    return Math.round((profileAnsweredCount / profileQuestionCount) * 100);
+  }, [profileAnsweredCount, profileQuestionCount]);
+
+  const profileActionLabel = profileIsComplete
+    ? "Update Answers"
+    : profileAnsweredCount > 0
+      ? "Continue Profile"
+      : "Complete Profile";
 
   const handleClaim = async (perk: PerkItem) => {
     if (!perk.accessible || perk.redeemed) return;
@@ -387,7 +444,8 @@ const Perks = () => {
       if (!isSafeHttpUrl(res.redemptionUrl)) {
         toast({
           title: "Invalid offer link",
-          description: "This perk link could not be opened safely. Contact support.",
+          description:
+            "This perk link could not be opened safely. Contact support.",
           variant: "destructive",
         });
         void loadPerks();
@@ -409,7 +467,8 @@ const Perks = () => {
       } else if (res.redemptionUrl) {
         toast({
           title: "Offer claimed",
-          description: "Partner link could not be opened safely. Contact support.",
+          description:
+            "Partner link could not be opened safely. Contact support.",
           variant: "destructive",
         });
       } else {
@@ -465,19 +524,31 @@ const Perks = () => {
   const handleSnooze = (perk: PerkItem) => {
     const session = requireSession();
     if (!session) return;
-    void runPerkAction(perk.id, () => snoozePerk(session, perk.id), "Perk snoozed for 7 days");
+    void runPerkAction(
+      perk.id,
+      () => snoozePerk(session, perk.id),
+      "Perk snoozed for 7 days",
+    );
   };
 
   const handleDismiss = (perk: PerkItem) => {
     const session = requireSession();
     if (!session) return;
-    void runPerkAction(perk.id, () => dismissPerk(session, perk.id), "Moved to Not Interested");
+    void runPerkAction(
+      perk.id,
+      () => dismissPerk(session, perk.id),
+      "Moved to Not Interested",
+    );
   };
 
   const handleRestore = (perk: PerkItem) => {
     const session = requireSession();
     if (!session) return;
-    void runPerkAction(perk.id, () => restorePerk(session, perk.id), "Perk restored to New");
+    void runPerkAction(
+      perk.id,
+      () => restorePerk(session, perk.id),
+      "Perk restored to New",
+    );
   };
 
   const handleCopyCode = async (code: string) => {
@@ -530,6 +601,47 @@ const Perks = () => {
             </p>
           </div>
 
+          {user ? (
+            <Card className="mb-8 border-primary/30 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  {profileIsComplete ? (
+                    <CircleCheck className="h-5 w-5 text-primary" />
+                  ) : (
+                    <Sparkles className="h-5 w-5 text-primary" />
+                  )}
+                  {profileIsComplete
+                    ? "Profile Complete"
+                    : profileAnsweredCount > 0
+                      ? `Profile Completion: ${profileCompletionPercent}%`
+                      : "Personalize Your Perks"}
+                </CardTitle>
+                <CardDescription>
+                  {profileIsComplete
+                    ? "Your answers help us personalize perks and offers."
+                    : profileAnsweredCount > 0
+                      ? "Pick up where you left off to get more relevant perks."
+                      : "Help us show you more relevant perks and offers."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={() => setProfileDialogOpen(true)}
+                  disabled={profileSummaryLoading}
+                >
+                  {profileSummaryLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading…
+                    </>
+                  ) : (
+                    profileActionLabel
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+
           {fetchError ? (
             <Alert variant="destructive" className="mb-8">
               <AlertTitle>Something went wrong</AlertTitle>
@@ -544,7 +656,11 @@ const Perks = () => {
               >
                 <TabsList className="grid h-auto w-full grid-cols-2 gap-1 md:grid-cols-4">
                   {PERK_TABS.map((tab) => (
-                    <TabsTrigger key={tab.value} value={tab.value} className="text-xs sm:text-sm">
+                    <TabsTrigger
+                      key={tab.value}
+                      value={tab.value}
+                      className="text-xs sm:text-sm"
+                    >
                       {tab.label}
                     </TabsTrigger>
                   ))}
@@ -576,9 +692,7 @@ const Perks = () => {
                     <Button
                       key={cat}
                       size="sm"
-                      variant={
-                        selectedCategory === cat ? "default" : "outline"
-                      }
+                      variant={selectedCategory === cat ? "default" : "outline"}
                       onClick={() => setSelectedCategory(cat)}
                     >
                       {CATEGORY_LABELS[cat]}
@@ -649,13 +763,18 @@ const Perks = () => {
               {selectedTab === "new" ? (
                 <Card className="mt-8 border-dashed border-primary/30 bg-primary/5">
                   <CardHeader>
-                    <CardTitle>Is there a service you&apos;d like to get a discount on?</CardTitle>
+                    <CardTitle>
+                      Is there a service you&apos;d like to get a discount on?
+                    </CardTitle>
                     <CardDescription>
-                      Let us know and we&apos;ll see if we can secure a KeenVPN discount.
+                      Let us know and we&apos;ll see if we can secure a KeenVPN
+                      discount.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Button onClick={() => setRequestOpen(true)}>Request Perk</Button>
+                    <Button onClick={() => setRequestOpen(true)}>
+                      Request Perk
+                    </Button>
                   </CardContent>
                 </Card>
               ) : null}
@@ -695,6 +814,25 @@ const Perks = () => {
           setRequestOpen(false);
         }}
       />
+      <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>User Information</DialogTitle>
+          </DialogHeader>
+          <UserInformationCard
+            sessionToken={getSessionToken() ?? ""}
+            entrySource="perks"
+            onProfileUpdated={(profile) => {
+              applyProfileSummary(
+                profile.questions,
+                profile.answers,
+                profile.isComplete,
+              );
+              void loadPerks();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
       <PerkDetailsDialog
         perk={detailsPerk}
         open={detailsPerk !== null}
@@ -712,7 +850,13 @@ const Perks = () => {
   );
 };
 
-function PerkLogo({ title, imageUrl }: { title: string; imageUrl: string | null }) {
+function PerkLogo({
+  title,
+  imageUrl,
+}: {
+  title: string;
+  imageUrl: string | null;
+}) {
   const [imageFailed, setImageFailed] = useState(false);
   const initials =
     title
@@ -765,111 +909,131 @@ function PerkDetailsDialog({
   const upgradeHref =
     perk?.accessLevel === "annual" ? "/upgrade-annual" : "/subscribe";
   const upgradeLabel =
-    perk?.accessLevel === "annual" ? "Upgrade to annual" : "Subscribe to unlock";
+    perk?.accessLevel === "annual"
+      ? "Upgrade to annual"
+      : "Subscribe to unlock";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[min(90vh,720px)] max-w-lg overflow-y-auto">
         {!perk ? null : (
           <>
-        <DialogHeader>
-          <div className="flex items-start gap-3 pr-6">
-            <div className="min-w-0 flex-1">
-              {perk.partnerName ? (
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {perk.partnerName}
+            <DialogHeader>
+              <div className="flex items-start gap-3 pr-6">
+                <div className="min-w-0 flex-1">
+                  {perk.partnerName ? (
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {perk.partnerName}
+                    </p>
+                  ) : null}
+                  <DialogTitle className="text-left text-xl">
+                    {perk.title}
+                  </DialogTitle>
+                </div>
+                <PerkLogo title={perk.title} imageUrl={perk.imageUrl} />
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">
+                  {CATEGORY_LABELS[perk.category]}
+                </Badge>
+                <Badge variant="outline">
+                  {ACCESS_BADGE[perk.accessLevel]}
+                </Badge>
+                {locked ? (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-500/40 text-amber-700"
+                  >
+                    Locked
+                  </Badge>
+                ) : null}
+                {perk.redeemed ? (
+                  <Badge className="bg-green-600">Claimed</Badge>
+                ) : null}
+              </div>
+
+              <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+                <p className="text-sm font-medium text-primary">
+                  {perk.offerText}
                 </p>
-              ) : null}
-              <DialogTitle className="text-left text-xl">{perk.title}</DialogTitle>
-            </div>
-            <PerkLogo title={perk.title} imageUrl={perk.imageUrl} />
-          </div>
-        </DialogHeader>
+              </div>
 
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">{CATEGORY_LABELS[perk.category]}</Badge>
-            <Badge variant="outline">{ACCESS_BADGE[perk.accessLevel]}</Badge>
-            {locked ? (
-              <Badge variant="outline" className="border-amber-500/40 text-amber-700">
-                Locked
-              </Badge>
-            ) : null}
-            {perk.redeemed ? <Badge className="bg-green-600">Claimed</Badge> : null}
-          </div>
-
-          <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
-            <p className="text-sm font-medium text-primary">{perk.offerText}</p>
-          </div>
-
-          <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              How it works
-            </p>
-            <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-              {linkifyDescription(perk.description)}
-            </div>
-          </div>
-
-          {locked ? (
-            <div className="rounded-lg border border-border/70 bg-background p-3">
-              <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                <Lock className="mt-0.5 h-4 w-4 shrink-0" />
-                <div className="space-y-2">
-                  <p>
-                    {perk.accessLevel === "annual"
-                      ? "This perk is reserved for annual members."
-                      : "Subscribe to unlock this partner offer."}
-                  </p>
-                  <Button size="sm" asChild>
-                    <Link to={upgradeHref}>{upgradeLabel}</Link>
-                  </Button>
+              <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  How it works
+                </p>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                  {linkifyDescription(perk.description)}
                 </div>
               </div>
-            </div>
-          ) : null}
 
-          {isCouponCard && couponCode ? (
-            <div className="flex h-10 gap-2">
-              <div className="flex min-w-0 flex-1 items-center gap-0.5 rounded-md border border-input bg-muted/40 px-2">
-                <span
-                  className="min-w-0 flex-1 truncate font-mono text-sm font-semibold tracking-wide"
-                  title={couponCode}
-                >
-                  {couponCode}
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  disabled={locked}
-                  onClick={() => onCopyCode(couponCode)}
-                  aria-label="Copy coupon code"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-          {!locked ? (
-            <Button disabled={perk.redeemed || claiming} onClick={onClaim}>
-              {claiming ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (perk.redemptionType === "external_link" || couponOpensPartner) &&
-                !perk.redeemed ? (
-                <ExternalLink className="mr-2 h-4 w-4" />
+              {locked ? (
+                <div className="rounded-lg border border-border/70 bg-background p-3">
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="space-y-2">
+                      <p>
+                        {perk.accessLevel === "annual"
+                          ? "This perk is reserved for annual members."
+                          : "Subscribe to unlock this partner offer."}
+                      </p>
+                      <Button size="sm" asChild>
+                        <Link to={upgradeHref}>{upgradeLabel}</Link>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               ) : null}
-              {perk.ctaLabel}
-            </Button>
-          ) : null}
-        </DialogFooter>
+
+              {isCouponCard && couponCode ? (
+                <div className="flex h-10 gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-0.5 rounded-md border border-input bg-muted/40 px-2">
+                    <span
+                      className="min-w-0 flex-1 truncate font-mono text-sm font-semibold tracking-wide"
+                      title={couponCode}
+                    >
+                      {couponCode}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      disabled={locked}
+                      onClick={() => onCopyCode(couponCode)}
+                      aria-label="Copy coupon code"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Close
+              </Button>
+              {!locked ? (
+                <Button disabled={perk.redeemed || claiming} onClick={onClaim}>
+                  {claiming ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (perk.redemptionType === "external_link" ||
+                      couponOpensPartner) &&
+                    !perk.redeemed ? (
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                  ) : null}
+                  {perk.ctaLabel}
+                </Button>
+              ) : null}
+            </DialogFooter>
           </>
         )}
       </DialogContent>
@@ -948,12 +1112,13 @@ function PerkCard({
       </CardHeader>
       <CardContent className="relative space-y-4">
         <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary">
-            {CATEGORY_LABELS[perk.category]}
-          </Badge>
+          <Badge variant="secondary">{CATEGORY_LABELS[perk.category]}</Badge>
           <Badge variant="outline">{ACCESS_BADGE[perk.accessLevel]}</Badge>
           {locked ? (
-            <Badge variant="outline" className="border-amber-500/40 text-amber-700">
+            <Badge
+              variant="outline"
+              className="border-amber-500/40 text-amber-700"
+            >
               Locked
             </Badge>
           ) : null}
@@ -961,7 +1126,10 @@ function PerkCard({
             <Badge className="bg-green-600">Claimed</Badge>
           ) : null}
           {expirationLabel ? (
-            <Badge variant="outline" className="border-amber-500/40 text-amber-800">
+            <Badge
+              variant="outline"
+              className="border-amber-500/40 text-amber-800"
+            >
               {expirationLabel}
             </Badge>
           ) : null}
@@ -1056,7 +1224,7 @@ function PerkCard({
             </Button>
           </div>
         ) : null}
-        {(tab === "snoozed" || tab === "not_interested") ? (
+        {tab === "snoozed" || tab === "not_interested" ? (
           <Button
             type="button"
             variant="outline"
@@ -1162,7 +1330,11 @@ function RequestPerkDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -1176,7 +1348,9 @@ function RequestPerkDialog({
               })
             }
           >
-            {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {submitting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
             Submit request
           </Button>
         </DialogFooter>

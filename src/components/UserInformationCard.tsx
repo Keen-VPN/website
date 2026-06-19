@@ -15,13 +15,20 @@ import {
   getUserProfileInformation,
   updateUserProfileInformation,
   type ProfileQuestion,
+  type UserProfileInformationResponse,
 } from "@/auth";
 
 interface UserInformationCardProps {
   sessionToken: string;
+  entrySource?: string;
+  onProfileUpdated?: (profile: UserProfileInformationResponse) => void;
 }
 
-export function UserInformationCard({ sessionToken }: UserInformationCardProps) {
+export function UserInformationCard({
+  sessionToken,
+  entrySource = "web",
+  onProfileUpdated,
+}: UserInformationCardProps) {
   const { toast } = useToast();
   const [questions, setQuestions] = useState<ProfileQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -64,15 +71,20 @@ export function UserInformationCard({ sessionToken }: UserInformationCardProps) 
     setAnswers((current) => ({ ...current, [questionKey]: value }));
     setSavingKey(questionKey);
 
-    const response = await updateUserProfileInformation(sessionToken, {
-      [questionKey]: value,
-    });
+    const response = await updateUserProfileInformation(
+      sessionToken,
+      {
+        [questionKey]: value,
+      },
+      entrySource,
+    );
     setSavingKey(null);
 
     if (response.success) {
       setAnswers(response.answers);
       setIsComplete(response.isComplete);
       setLoadError(null);
+      onProfileUpdated?.(response);
       return;
     }
 
@@ -131,7 +143,9 @@ export function UserInformationCard({ sessionToken }: UserInformationCardProps) 
             {questions.map((question) => (
               <div key={question.key} className="space-y-3">
                 <div className="flex items-start justify-between gap-4">
-                  <Label className="text-base leading-snug">{question.label}</Label>
+                  <Label className="text-base leading-snug">
+                    {question.label}
+                  </Label>
                   {savingKey === question.key ? (
                     <Loader2 className="mt-1 h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
                   ) : null}
