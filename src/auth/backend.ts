@@ -988,7 +988,7 @@ export async function getEmailPreferences(
     if (!response.ok) {
       return {
         success: false,
-        contextualEngagementOptIn: false,
+        contextualEngagementOptIn: true,
         contextualEngagementOptInAt: null,
         error: extractBackendErrorMessage(
           data,
@@ -1000,7 +1000,7 @@ export async function getEmailPreferences(
   } catch (error) {
     return {
       success: false,
-      contextualEngagementOptIn: false,
+      contextualEngagementOptIn: true,
       contextualEngagementOptInAt: null,
       error:
         error instanceof Error
@@ -1027,7 +1027,7 @@ export async function updateEmailPreferences(
     if (!response.ok) {
       return {
         success: false,
-        contextualEngagementOptIn: false,
+        contextualEngagementOptIn: true,
         contextualEngagementOptInAt: null,
         error: extractBackendErrorMessage(
           data,
@@ -1039,7 +1039,7 @@ export async function updateEmailPreferences(
   } catch (error) {
     return {
       success: false,
-      contextualEngagementOptIn: false,
+      contextualEngagementOptIn: true,
       contextualEngagementOptInAt: null,
       error:
         error instanceof Error
