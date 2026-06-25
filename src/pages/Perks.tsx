@@ -60,6 +60,7 @@ import {
   restorePerk,
   snoozePerk,
   submitPerkRequest,
+  unclaimPerk,
   type PerkCategory,
   type PerkItem,
   type PerkRequestCategory,
@@ -533,31 +534,79 @@ const Perks = () => {
   const handleSnooze = (perk: PerkItem) => {
     const session = requireSession();
     if (!session) return;
-    void runPerkAction(
-      perk.id,
-      () => snoozePerk(session, perk.id),
-      "Perk snoozed for 7 days",
-    );
+    void runPerkAction(perk.id, async () => {
+      const res = await snoozePerk(session, perk.id);
+      if (res.success) {
+        trackPerksEvent("perk_snoozed", { perk_id: perk.id, source: "perks_page" });
+        void recordPerkEvent(session, "perk_snoozed", { perkId: perk.id, source: "perks_page" });
+      }
+      return res;
+    }, "Perk snoozed for 7 days");
   };
 
   const handleDismiss = (perk: PerkItem) => {
     const session = requireSession();
     if (!session) return;
-    void runPerkAction(
-      perk.id,
-      () => dismissPerk(session, perk.id),
-      "Moved to Not Interested",
-    );
+    void runPerkAction(perk.id, async () => {
+      const res = await dismissPerk(session, perk.id);
+      if (res.success) {
+        trackPerksEvent("perk_marked_not_interested", { perk_id: perk.id, source: "perks_page" });
+        void recordPerkEvent(session, "perk_marked_not_interested", { perkId: perk.id, source: "perks_page" });
+      }
+      return res;
+    }, "Moved to Not Interested");
   };
 
   const handleRestore = (perk: PerkItem) => {
     const session = requireSession();
     if (!session) return;
-    void runPerkAction(
-      perk.id,
-      () => restorePerk(session, perk.id),
-      "Perk restored to New",
-    );
+    void runPerkAction(perk.id, async () => {
+      const res = await restorePerk(session, perk.id);
+      if (res.success) {
+        trackPerksEvent("perk_restored_to_new", { perk_id: perk.id, source: "perks_page" });
+        void recordPerkEvent(session, "perk_restored_to_new", { perkId: perk.id, source: "perks_page" });
+      }
+      return res;
+    }, "Perk restored to New");
+  };
+
+  const handleUnclaim = (perk: PerkItem) => {
+    const session = requireSession();
+    if (!session) return;
+    void runPerkAction(perk.id, async () => {
+      const res = await unclaimPerk(session, perk.id);
+      if (res.success) {
+        trackPerksEvent("perk_unclaimed", { perk_id: perk.id, source: "perks_page" });
+        void recordPerkEvent(session, "perk_unclaimed", { perkId: perk.id, source: "perks_page" });
+      }
+      return res;
+    }, "Perk moved back to New");
+  };
+
+  const handleSnoozedToNotInterested = (perk: PerkItem) => {
+    const session = requireSession();
+    if (!session) return;
+    void runPerkAction(perk.id, async () => {
+      const res = await dismissPerk(session, perk.id);
+      if (res.success) {
+        trackPerksEvent("perk_moved_from_snoozed_to_not_interested", { perk_id: perk.id, source: "perks_page" });
+        void recordPerkEvent(session, "perk_moved_from_snoozed_to_not_interested", { perkId: perk.id, source: "perks_page" });
+      }
+      return res;
+    }, "Moved to Not Interested");
+  };
+
+  const handleNotInterestedToSnoozed = (perk: PerkItem) => {
+    const session = requireSession();
+    if (!session) return;
+    void runPerkAction(perk.id, async () => {
+      const res = await snoozePerk(session, perk.id);
+      if (res.success) {
+        trackPerksEvent("perk_moved_from_not_interested_to_snoozed", { perk_id: perk.id, source: "perks_page" });
+        void recordPerkEvent(session, "perk_moved_from_not_interested_to_snoozed", { perkId: perk.id, source: "perks_page" });
+      }
+      return res;
+    }, "Perk snoozed for 7 days");
   };
 
   const handleCopyCode = async (code: string) => {
@@ -730,6 +779,9 @@ const Perks = () => {
                         onSnooze={() => handleSnooze(perk)}
                         onDismiss={() => handleDismiss(perk)}
                         onRestore={() => handleRestore(perk)}
+                        onUnclaim={() => handleUnclaim(perk)}
+                        onSnoozedToNotInterested={() => handleSnoozedToNotInterested(perk)}
+                        onNotInterestedToSnoozed={() => handleNotInterestedToSnoozed(perk)}
                       />
                     ))}
                   </div>
@@ -762,6 +814,9 @@ const Perks = () => {
                           onSnooze={() => handleSnooze(perk)}
                           onDismiss={() => handleDismiss(perk)}
                           onRestore={() => handleRestore(perk)}
+                          onUnclaim={() => handleUnclaim(perk)}
+                          onSnoozedToNotInterested={() => handleSnoozedToNotInterested(perk)}
+                          onNotInterestedToSnoozed={() => handleNotInterestedToSnoozed(perk)}
                         />
                       ))}
                     </div>
@@ -1061,6 +1116,9 @@ function PerkCard({
   onSnooze,
   onDismiss,
   onRestore,
+  onUnclaim,
+  onSnoozedToNotInterested,
+  onNotInterestedToSnoozed,
 }: {
   perk: PerkItem;
   tab: PerkUserTab;
@@ -1072,6 +1130,9 @@ function PerkCard({
   onSnooze: () => void;
   onDismiss: () => void;
   onRestore: () => void;
+  onUnclaim: () => void;
+  onSnoozedToNotInterested: () => void;
+  onNotInterestedToSnoozed: () => void;
 }) {
   const locked = !perk.accessible && !perk.redeemed;
   const expirationLabel = formatExpirationLabel(perk);
@@ -1233,17 +1294,62 @@ function PerkCard({
             </Button>
           </div>
         ) : null}
-        {tab === "snoozed" || tab === "not_interested" ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="relative z-20"
-            disabled={acting}
-            onClick={onRestore}
-          >
-            Restore to New
-          </Button>
+        {tab === "completed" ? (
+          <div className="relative z-20 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={acting}
+              onClick={onUnclaim}
+            >
+              Move back to New
+            </Button>
+          </div>
+        ) : null}
+        {tab === "snoozed" ? (
+          <div className="relative z-20 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={acting}
+              onClick={onRestore}
+            >
+              Restore to New
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={acting}
+              onClick={onSnoozedToNotInterested}
+            >
+              Not Interested
+            </Button>
+          </div>
+        ) : null}
+        {tab === "not_interested" ? (
+          <div className="relative z-20 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={acting}
+              onClick={onRestore}
+            >
+              Restore to New
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={acting}
+              onClick={onNotInterestedToSnoozed}
+            >
+              Snooze
+            </Button>
+          </div>
         ) : null}
       </CardContent>
     </Card>
