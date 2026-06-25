@@ -88,8 +88,8 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
               Domain Insights for Perks
             </Label>
             <p className="text-sm text-muted-foreground">
-              Use visited domain insights to recommend relevant perks and
-              discounts. You can turn this off anytime.
+              We may email you about relevant perks based on domains you visit.
+              You can turn this off anytime.
             </p>
             {loadError ? (
               <div className="space-y-1">
