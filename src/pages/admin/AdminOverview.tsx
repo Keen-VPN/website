@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { adminFetchUsersOverview, type AdminUserOverview } from "@/auth/backend";
+import { formatDuration } from "@/lib/format-duration";
 
 function currentMonthValue(): string {
   const now = new Date();
@@ -19,16 +20,6 @@ function formatMonthSubtitle(month: string): string {
     year: "numeric",
     timeZone: "UTC",
   });
-}
-
-function formatDuration(seconds: number) {
-  if (!Number.isFinite(seconds) || seconds <= 0) return "0s";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}h ${m}m ${s}s`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
 }
 
 export default function AdminOverview() {

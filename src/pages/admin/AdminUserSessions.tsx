@@ -5,18 +5,9 @@ import {
   type AdminConnectionSession,
   type AdminUserConnectionSessionsResponse,
 } from "@/auth/backend";
+import { formatDuration } from "@/lib/format-duration";
 
 const PAGE_SIZE = 50;
-
-function formatDuration(seconds: number) {
-  if (!Number.isFinite(seconds) || seconds <= 0) return "0s";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}h ${m}m ${s}s`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
-}
 
 function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";

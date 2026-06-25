@@ -7,22 +7,13 @@ import {
   type AdminUserReviewActivityRecord,
   type AdminUserTimelineEvent,
 } from "@/auth/backend";
+import { formatDuration } from "@/lib/format-duration";
 
 function formatDateTime(iso: string | null) {
   if (!iso) return "—";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleString();
-}
-
-function formatDuration(seconds: number) {
-  if (!Number.isFinite(seconds) || seconds <= 0) return "0s";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}h ${m}m ${s}s`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
 }
 
 function formatCategory(category: string) {
