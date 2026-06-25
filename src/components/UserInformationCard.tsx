@@ -18,6 +18,29 @@ import {
   type UserProfileInformationResponse,
 } from "@/auth";
 
+function isProfileQuestionVisible(
+  question: ProfileQuestion,
+  answers: Record<string, string>,
+): boolean {
+  if (!question.showWhen) {
+    return true;
+  }
+  const parentAnswer = answers[question.showWhen.questionKey];
+  if (parentAnswer === undefined) {
+    return false;
+  }
+  return question.showWhen.values.includes(parentAnswer);
+}
+
+function visibleProfileQuestions(
+  questions: ProfileQuestion[],
+  answers: Record<string, string>,
+): ProfileQuestion[] {
+  return questions.filter((question) =>
+    isProfileQuestionVisible(question, answers),
+  );
+}
+
 interface UserInformationCardProps {
   sessionToken: string;
   entrySource?: string;
@@ -68,7 +91,8 @@ export function UserInformationCard({
     if (loadError || savingKey) return;
 
     const previous = answers[questionKey];
-    setAnswers((current) => ({ ...current, [questionKey]: value }));
+    const optimisticAnswers = { ...answers, [questionKey]: value };
+    setAnswers(optimisticAnswers);
     setSavingKey(questionKey);
 
     const response = await updateUserProfileInformation(
@@ -140,7 +164,7 @@ export function UserInformationCard({
               </p>
             ) : null}
 
-            {questions.map((question) => (
+            {visibleProfileQuestions(questions, answers).map((question) => (
               <div key={question.key} className="space-y-3">
                 <div className="flex items-start justify-between gap-4">
                   <Label className="text-base leading-snug">

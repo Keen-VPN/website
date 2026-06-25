@@ -508,9 +508,44 @@ export async function claimPerk(
   }
 }
 
+export async function unclaimPerk(
+  sessionToken: string,
+  perkId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/perks/${encodeURIComponent(perkId)}/unclaim`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Failed to unclaim perk"),
+      };
+    }
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to unclaim perk",
+    };
+  }
+}
+
 export async function recordPerkEvent(
   sessionToken: string,
-  eventName: "perk_viewed" | "perk_clicked" | "perk_claimed",
+  eventName:
+    | "perk_viewed"
+    | "perk_clicked"
+    | "perk_claimed"
+    | "perk_restored_to_new"
+    | "perk_marked_not_interested"
+    | "perk_moved_from_snoozed_to_not_interested"
+    | "perk_moved_from_not_interested_to_snoozed",
   payload?: { perkId?: string; platform?: string; source?: string },
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -953,7 +988,7 @@ export async function getEmailPreferences(
     if (!response.ok) {
       return {
         success: false,
-        contextualEngagementOptIn: false,
+        contextualEngagementOptIn: true,
         contextualEngagementOptInAt: null,
         error: extractBackendErrorMessage(
           data,
@@ -965,7 +1000,7 @@ export async function getEmailPreferences(
   } catch (error) {
     return {
       success: false,
-      contextualEngagementOptIn: false,
+      contextualEngagementOptIn: true,
       contextualEngagementOptInAt: null,
       error:
         error instanceof Error
@@ -992,7 +1027,7 @@ export async function updateEmailPreferences(
     if (!response.ok) {
       return {
         success: false,
-        contextualEngagementOptIn: false,
+        contextualEngagementOptIn: true,
         contextualEngagementOptInAt: null,
         error: extractBackendErrorMessage(
           data,
@@ -1004,7 +1039,7 @@ export async function updateEmailPreferences(
   } catch (error) {
     return {
       success: false,
-      contextualEngagementOptIn: false,
+      contextualEngagementOptIn: true,
       contextualEngagementOptInAt: null,
       error:
         error instanceof Error
@@ -1019,11 +1054,17 @@ export interface ProfileQuestionOption {
   label: string;
 }
 
+export interface ProfileQuestionShowWhen {
+  questionKey: string;
+  values: string[];
+}
+
 export interface ProfileQuestion {
   key: string;
   label: string;
   category: string;
   options: ProfileQuestionOption[];
+  showWhen?: ProfileQuestionShowWhen;
 }
 
 export interface UserProfileInformationResponse {
@@ -2648,6 +2689,98 @@ export interface AdminUserConnectionSessionsResponse {
   total: number;
   limit: number;
   offset: number;
+}
+
+export interface AdminUserEmailRecord {
+  id: string;
+  category: string;
+  subject: string;
+  sentAt: string | null;
+  deliveryStatus: string;
+  openedAt: string | null;
+  clickedAt: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface AdminUserReviewActivityRecord {
+  eventName: string;
+  label: string;
+  occurredAt: string;
+  platform: string | null;
+  properties: Record<string, unknown> | null;
+}
+
+export interface AdminUserTimelineEvent {
+  id: string;
+  type: string;
+  label: string;
+  occurredAt: string;
+  source: string;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface AdminUserEngagementProfile {
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    provider: string;
+    createdAt: string;
+    longestSessionSeconds: number;
+  };
+  subscription: {
+    status: string;
+    planName: string | null;
+    billingPeriod: string | null;
+    cancelAtPeriodEnd: boolean;
+    currentPeriodEnd: string | null;
+    subscriptionType: string;
+  } | null;
+  emails: AdminUserEmailRecord[];
+  reviewActivity: AdminUserReviewActivityRecord[];
+  timeline: AdminUserTimelineEvent[];
+}
+
+export async function adminFetchUserEngagementProfile(
+  userId: string,
+  params?: { signal?: AbortSignal },
+): Promise<{
+  ok: boolean;
+  data?: AdminUserEngagementProfile;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/profile`,
+      {
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load user profile",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminUserEngagementProfile };
+    if (!record.data) {
+      return { ok: false, error: "Invalid response from server" };
+    }
+    return { ok: true, data: record.data };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
 }
 
 export async function adminFetchUserConnectionSessions(
@@ -4866,6 +4999,16 @@ export interface AdminBroadcastComposePayload {
   preheader?: string;
   ctaLabel?: string;
   ctaUrl?: string;
+}
+
+export interface AdminBroadcastAudienceSummary {
+  audience: BroadcastEmailAudience;
+  profileTargeting: AudienceTargeting;
+  totalRecipients: number;
+  totalAudience: number;
+  matchingRecipients: number;
+  matchPercentage: number;
+  optedInCount: number;
 }
 
 export async function adminFetchBroadcastAudience(
