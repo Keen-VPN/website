@@ -2716,16 +2716,16 @@ export async function adminFetchUserEngagementProfile(
         signal: params?.signal,
       },
     );
+    const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as {
-        message?: string;
-      } | null;
       return {
         ok: false,
-        error: body?.message ?? `Request failed (${response.status})`,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load user profile",
+        ),
       };
     }
-    const raw = await response.json();
     const record = raw as { data?: AdminUserEngagementProfile };
     if (!record.data) {
       return { ok: false, error: "Invalid response from server" };

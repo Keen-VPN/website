@@ -242,20 +242,12 @@ export default function AdminOverview() {
                 <td className="p-3 font-mono">{formatDuration(u.longestSessionSeconds)}</td>
                 <td className="p-3 text-muted-foreground">{u.createdAt.slice(0, 10)}</td>
                 <td className="p-3">
-                  <div className="flex flex-wrap gap-3">
-                    <Link
-                      to={`/admin/users/${u.id}`}
-                      className="text-primary hover:underline"
-                    >
-                      Profile
-                    </Link>
-                    <Link
-                      to={`/admin/user-sessions/${u.id}`}
-                      className="text-primary hover:underline"
-                    >
-                      Sessions
-                    </Link>
-                  </div>
+                  <Link
+                    to={`/admin/user-sessions/${u.id}`}
+                    className="text-primary hover:underline"
+                  >
+                    View sessions
+                  </Link>
                 </td>
               </tr>
             ))}
