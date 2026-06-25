@@ -2650,6 +2650,98 @@ export interface AdminUserConnectionSessionsResponse {
   offset: number;
 }
 
+export interface AdminUserEmailRecord {
+  id: string;
+  category: string;
+  subject: string;
+  sentAt: string | null;
+  deliveryStatus: string;
+  openedAt: string | null;
+  clickedAt: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface AdminUserReviewActivityRecord {
+  eventName: string;
+  label: string;
+  occurredAt: string;
+  platform: string | null;
+  properties: Record<string, unknown> | null;
+}
+
+export interface AdminUserTimelineEvent {
+  id: string;
+  type: string;
+  label: string;
+  occurredAt: string;
+  source: string;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface AdminUserEngagementProfile {
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    provider: string;
+    createdAt: string;
+    longestSessionSeconds: number;
+  };
+  subscription: {
+    status: string;
+    planName: string | null;
+    billingPeriod: string | null;
+    cancelAtPeriodEnd: boolean;
+    currentPeriodEnd: string | null;
+    subscriptionType: string;
+  } | null;
+  emails: AdminUserEmailRecord[];
+  reviewActivity: AdminUserReviewActivityRecord[];
+  timeline: AdminUserTimelineEvent[];
+}
+
+export async function adminFetchUserEngagementProfile(
+  userId: string,
+  params?: { signal?: AbortSignal },
+): Promise<{
+  ok: boolean;
+  data?: AdminUserEngagementProfile;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/profile`,
+      {
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        message?: string;
+      } | null;
+      return {
+        ok: false,
+        error: body?.message ?? `Request failed (${response.status})`,
+      };
+    }
+    const raw = await response.json();
+    const record = raw as { data?: AdminUserEngagementProfile };
+    if (!record.data) {
+      return { ok: false, error: "Invalid response from server" };
+    }
+    return { ok: true, data: record.data };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Network error",
+    };
+  }
+}
+
 export async function adminFetchUserConnectionSessions(
   userId: string,
   params?: { limit?: number; offset?: number; signal?: AbortSignal },

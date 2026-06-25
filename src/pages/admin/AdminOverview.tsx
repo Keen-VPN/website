@@ -228,19 +228,34 @@ export default function AdminOverview() {
           <tbody>
             {(overview?.users ?? []).map((u) => (
               <tr key={u.id} className="border-t border-border">
-                <td className="p-3">{u.name ? `${u.name} (${u.email})` : u.email}</td>
+                <td className="p-3">
+                  <Link
+                    to={`/admin/users/${u.id}`}
+                    className="text-primary hover:underline"
+                  >
+                    {u.name ? `${u.name} (${u.email})` : u.email}
+                  </Link>
+                </td>
                 <td className="p-3 text-right font-mono tabular-nums">
                   {u.connectionCount}
                 </td>
                 <td className="p-3 font-mono">{formatDuration(u.longestSessionSeconds)}</td>
                 <td className="p-3 text-muted-foreground">{u.createdAt.slice(0, 10)}</td>
                 <td className="p-3">
-                  <Link
-                    to={`/admin/user-sessions/${u.id}`}
-                    className="text-primary hover:underline"
-                  >
-                    View sessions
-                  </Link>
+                  <div className="flex flex-wrap gap-3">
+                    <Link
+                      to={`/admin/users/${u.id}`}
+                      className="text-primary hover:underline"
+                    >
+                      Profile
+                    </Link>
+                    <Link
+                      to={`/admin/user-sessions/${u.id}`}
+                      className="text-primary hover:underline"
+                    >
+                      Sessions
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ))}

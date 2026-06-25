@@ -112,8 +112,13 @@ export default function AdminUserSessions() {
           {user ? (
             <p className="mt-1 text-sm text-muted-foreground">
               {user.name ? `${user.name} · ` : ""}
-              {user.email} · {user.provider} · joined{" "}
-              {user.createdAt.slice(0, 10)}
+              <Link
+                to={`/admin/users/${user.id}`}
+                className="text-primary hover:underline"
+              >
+                {user.email}
+              </Link>{" "}
+              · {user.provider} · joined {user.createdAt.slice(0, 10)}
             </p>
           ) : null}
         </div>
