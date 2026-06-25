@@ -22,7 +22,7 @@ interface EmailPreferencesCardProps {
 
 export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps) {
   const { toast } = useToast();
-  const [optIn, setOptIn] = useState(false);
+  const [optIn, setOptIn] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -85,11 +85,11 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <Label htmlFor="contextual-email-opt-in" className="text-base">
-              Personalized tips &amp; offers
+              Domain Insights for Perks
             </Label>
             <p className="text-sm text-muted-foreground">
-              Optional emails about perks and recommendations based on your
-              interests. Off by default.
+              We may email you about relevant perks based on domains you visit.
+              You can turn this off anytime.
             </p>
             {loadError ? (
               <div className="space-y-1">
