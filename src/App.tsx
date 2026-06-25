@@ -66,6 +66,9 @@ const AdminSubscriptions = lazy(
 );
 const AdminChurn = lazy(() => import("./pages/admin/AdminChurn"));
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
+const AdminUserProfile = lazy(
+  () => import("./pages/admin/AdminUserProfile"),
+);
 const AdminUserSessions = lazy(
   () => import("./pages/admin/AdminUserSessions"),
 );
@@ -190,6 +193,7 @@ const App = () => (
                   element={<Navigate to="/admin/overview" replace />}
                 />
                 <Route path="overview" element={<AdminOverview />} />
+                <Route path="users/:userId" element={<AdminUserProfile />} />
                 <Route
                   path="user-sessions/:userId"
                   element={<AdminUserSessions />}
