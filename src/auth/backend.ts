@@ -542,8 +542,6 @@ export async function recordPerkEvent(
     | "perk_viewed"
     | "perk_clicked"
     | "perk_claimed"
-    | "perk_unclaimed"
-    | "perk_snoozed"
     | "perk_restored_to_new"
     | "perk_marked_not_interested"
     | "perk_moved_from_snoozed_to_not_interested"

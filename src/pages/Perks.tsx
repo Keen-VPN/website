@@ -538,7 +538,6 @@ const Perks = () => {
       const res = await snoozePerk(session, perk.id);
       if (res.success) {
         trackPerksEvent("perk_snoozed", { perk_id: perk.id, source: "perks_page" });
-        void recordPerkEvent(session, "perk_snoozed", { perkId: perk.id, source: "perks_page" });
       }
       return res;
     }, "Perk snoozed for 7 days");
@@ -577,7 +576,6 @@ const Perks = () => {
       const res = await unclaimPerk(session, perk.id);
       if (res.success) {
         trackPerksEvent("perk_unclaimed", { perk_id: perk.id, source: "perks_page" });
-        void recordPerkEvent(session, "perk_unclaimed", { perkId: perk.id, source: "perks_page" });
       }
       return res;
     }, "Perk moved back to New");
