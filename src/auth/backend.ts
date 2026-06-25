@@ -508,9 +508,44 @@ export async function claimPerk(
   }
 }
 
+export async function unclaimPerk(
+  sessionToken: string,
+  perkId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/perks/${encodeURIComponent(perkId)}/unclaim`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Failed to unclaim perk"),
+      };
+    }
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to unclaim perk",
+    };
+  }
+}
+
 export async function recordPerkEvent(
   sessionToken: string,
-  eventName: "perk_viewed" | "perk_clicked" | "perk_claimed",
+  eventName:
+    | "perk_viewed"
+    | "perk_clicked"
+    | "perk_claimed"
+    | "perk_restored_to_new"
+    | "perk_marked_not_interested"
+    | "perk_moved_from_snoozed_to_not_interested"
+    | "perk_moved_from_not_interested_to_snoozed",
   payload?: { perkId?: string; platform?: string; source?: string },
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -4872,6 +4907,16 @@ export interface AdminBroadcastComposePayload {
   preheader?: string;
   ctaLabel?: string;
   ctaUrl?: string;
+}
+
+export interface AdminBroadcastAudienceSummary {
+  audience: BroadcastEmailAudience;
+  profileTargeting: AudienceTargeting;
+  totalRecipients: number;
+  totalAudience: number;
+  matchingRecipients: number;
+  matchPercentage: number;
+  optedInCount: number;
 }
 
 export async function adminFetchBroadcastAudience(

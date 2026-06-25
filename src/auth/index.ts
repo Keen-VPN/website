@@ -49,6 +49,7 @@ export {
   snoozePerk,
   dismissPerk,
   restorePerk,
+  unclaimPerk,
   submitPerkRequest,
   upgradeSubscriptionToAnnual,
   recordSubscriptionProductEvent,
