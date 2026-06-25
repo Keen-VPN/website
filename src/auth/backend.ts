@@ -4909,6 +4909,16 @@ export interface AdminBroadcastComposePayload {
   ctaUrl?: string;
 }
 
+export interface AdminBroadcastAudienceSummary {
+  audience: BroadcastEmailAudience;
+  profileTargeting: AudienceTargeting;
+  totalRecipients: number;
+  totalAudience: number;
+  matchingRecipients: number;
+  matchPercentage: number;
+  optedInCount: number;
+}
+
 export async function adminFetchBroadcastAudience(
   audience: BroadcastEmailAudience = "all_deliverable",
 ): Promise<{
