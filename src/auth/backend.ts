@@ -3676,6 +3676,12 @@ export async function adminPreviewAudienceTargeting(payload: {
   }
 }
 
+export interface ExtensionDomainRule {
+  host: string;
+  pathPrefix?: string;
+  priority?: number;
+}
+
 export interface AdminPerk {
   id: string;
   title: string;
@@ -3705,6 +3711,7 @@ export interface AdminPerk {
   eligibleForReactivationAt: string | null;
   clonedFromPerkId: string | null;
   audienceTargeting: AudienceTargeting;
+  extensionDomains: ExtensionDomainRule[];
   createdAt: string;
   updatedAt: string;
 }
@@ -3752,6 +3759,7 @@ export interface CreateAdminPerkPayload {
   startsAt?: string;
   endsAt?: string | null;
   audienceTargeting?: AudienceTargeting;
+  extensionDomains?: ExtensionDomainRule[];
 }
 
 export type UpdateAdminPerkPayload = Partial<{
@@ -3771,6 +3779,7 @@ export type UpdateAdminPerkPayload = Partial<{
   startsAt: string | null;
   endsAt: string | null;
   audienceTargeting: AudienceTargeting;
+  extensionDomains: ExtensionDomainRule[] | null;
 }>;
 
 export interface AdminPerksMetrics {
