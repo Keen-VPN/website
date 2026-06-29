@@ -1059,7 +1059,7 @@ const Account = () => {
                           onCancel={() => void cancelSubscriptionAtPeriodEnd()}
                           onManageBilling={() => void openBillingPortal()}
                           portalLoading={portalLoading}
-                          showManageBilling
+                          showManageBilling={!showStripeUpgradeToAnnual}
                         />
                       ) : null}
 
