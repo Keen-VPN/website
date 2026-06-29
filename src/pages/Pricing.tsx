@@ -28,8 +28,12 @@ import { PricingPlan } from "@/lib/pricing";
 import SEOHead from "@/components/SEOHead";
 import {
   canStartFreeTrial,
+  canUpgradeStripeMembershipPlan,
   canUpgradeStripeToAnnual,
+  resolveMembershipPlanTier,
 } from "@/lib/subscription-cta";
+import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
+import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import type { TrialData } from "@/auth/types";
 import { MembershipTransferDialog } from "@/components/MembershipTransferDialog";
 import {
@@ -83,6 +87,13 @@ const Pricing = () => {
 
   const isMonthlyStripeUpgradeEligible =
     canUpgradeStripeToAnnual(subscription);
+
+  const showMembershipPlanUpgrade = canUpgradeStripeMembershipPlan(subscription);
+  const membershipTier = resolveMembershipPlanTier(subscription);
+
+  const { portalLoading, openPlanChangePortal } = useSubscriptionBillingActions({
+    returnUrl: typeof window !== "undefined" ? `${window.location.origin}/pricing` : undefined,
+  });
 
   const { upgrading, upgradeToAnnual, trackAnnualEvent } = useAnnualUpgrade();
   // annual_plan_viewed: once per page visit (default billing is annual on mount).
@@ -268,6 +279,18 @@ const Pricing = () => {
           </section>
         )}
 
+        {showMembershipPlanUpgrade && subscription ? (
+          <section className="container mx-auto px-4 mb-10">
+            <div className="max-w-3xl mx-auto">
+              <MembershipPlanUpgradeCard
+                subscription={subscription}
+                portalLoading={portalLoading}
+                onUpgradePlan={openPlanChangePortal}
+              />
+            </div>
+          </section>
+        ) : null}
+
         {/* Pricing Cards */}
         <section id="plans" className="container mx-auto px-4 mb-20">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto items-stretch">
@@ -284,6 +307,16 @@ const Pricing = () => {
               const annualBillingDetail = isAnnual
                 ? formatAnnualBillingDetail(plan)
                 : null;
+              const showFamilyPlanUpgrade =
+                ctaKind === "manage_account" &&
+                plan.name === "Family" &&
+                membershipTier === "individual" &&
+                showMembershipPlanUpgrade;
+              const showBusinessPlanUpgrade =
+                ctaKind === "manage_account" &&
+                plan.name === "Business" &&
+                membershipTier !== "business" &&
+                showMembershipPlanUpgrade;
 
               return (
                 <div
@@ -354,6 +387,29 @@ const Pricing = () => {
                         {plan.buttonText}
                       </Button>
                     </ContactSalesDialog>
+                  ) : showFamilyPlanUpgrade || showBusinessPlanUpgrade ? (
+                    <Button
+                      onClick={() => void openPlanChangePortal()}
+                      disabled={portalLoading}
+                      className={`w-full mb-6 ${
+                        plan.popular
+                          ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                          : "border-primary/50 hover:bg-primary/10"
+                      }`}
+                      variant={plan.popular ? "default" : "outline"}
+                      size="lg"
+                    >
+                      {portalLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Opening Stripe…
+                        </>
+                      ) : showBusinessPlanUpgrade ? (
+                        "Upgrade to Business"
+                      ) : (
+                        "Upgrade to Family"
+                      )}
+                    </Button>
                   ) : ctaKind === "manage_account" &&
                     isMonthlyStripeUpgradeEligible &&
                     isAnnual ? (
@@ -664,11 +720,39 @@ const Pricing = () => {
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
               {ctaKind === "manage_account"
-                ? "Manage billing, plan details, and settings in one place."
+                ? showMembershipPlanUpgrade
+                  ? "Upgrade your plan to share KeenVPN with family or your team."
+                  : "Manage billing, plan details, and settings in one place."
                 : ctaKind === "subscribe"
                   ? "Choose a plan and subscribe to get full protection."
                   : "Start your 1 month free trial today"}
             </p>
+            {ctaKind === "manage_account" && showMembershipPlanUpgrade ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <Button
+                  onClick={() => void openPlanChangePortal()}
+                  disabled={portalLoading}
+                  className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                  size="lg"
+                >
+                  {portalLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Opening Stripe…
+                    </>
+                  ) : (
+                    "Upgrade plan"
+                  )}
+                </Button>
+                <Button
+                  onClick={() => navigate("/account")}
+                  variant="outline"
+                  size="lg"
+                >
+                  Manage account
+                </Button>
+              </div>
+            ) : (
             <Button
               onClick={() => {
                 if (ctaKind === "loading") return;
@@ -695,6 +779,7 @@ const Pricing = () => {
                 "Start free trial"
               )}
             </Button>
+            )}
             <p className="text-sm text-muted-foreground mt-4">
               {ctaKind === "manage_account"
                 ? "Questions? We are here to help."

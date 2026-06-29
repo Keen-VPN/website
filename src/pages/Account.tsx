@@ -58,6 +58,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
 import { MembershipSharingCard } from "@/components/MembershipSharingCard";
+import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
 import { UserInformationCard } from "@/components/UserInformationCard";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
@@ -118,6 +119,7 @@ const Account = () => {
     portalLoading,
     cancelSubscriptionAtPeriodEnd,
     openBillingPortal,
+    openPlanChangePortal,
   } = useSubscriptionBillingActions();
   const { upgrading, upgradeToAnnual } = useAnnualUpgrade();
   const [showContactEmailModal, setShowContactEmailModal] = useState(false);
@@ -913,6 +915,12 @@ const Account = () => {
                         {subscription.plan || "KeenVPN Premium"}
                       </p>
                     </div>
+
+                    <MembershipPlanUpgradeCard
+                      subscription={subscription}
+                      portalLoading={portalLoading}
+                      onUpgradePlan={openPlanChangePortal}
+                    />
 
                     {/* Upgrade to Annual */}
                     {showStripeUpgradeInCard && (

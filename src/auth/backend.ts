@@ -50,6 +50,8 @@ export interface RawSubscription {
   customerId?: string;
   plan?: string;
   planName?: string;
+  planId?: string | null;
+  seatLimit?: number | null;
   cancelAtPeriodEnd?: boolean;
   subscriptionType?: string;
   accessRole?: "owner" | "linked" | "member";
@@ -155,6 +157,12 @@ function normalizeBackendAuthResponse(
   if (rawSubscription.showAnnualUpgradePrompt !== undefined) {
     normalizedSubscription.showAnnualUpgradePrompt =
       rawSubscription.showAnnualUpgradePrompt;
+  }
+  if (rawSubscription.planId !== undefined) {
+    normalizedSubscription.planId = rawSubscription.planId;
+  }
+  if (rawSubscription.seatLimit !== undefined && rawSubscription.seatLimit !== null) {
+    normalizedSubscription.seatLimit = rawSubscription.seatLimit;
   }
 
   // Only surface subscriptions with actionable statuses so that all auth
@@ -1906,6 +1914,7 @@ export async function upgradeSubscriptionToAnnual(
 export async function createBillingPortalSession(
   sessionToken: string,
   returnUrl: string,
+  options?: { intent?: "default" | "change_plan" },
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/payment/stripe/portal`, {
@@ -1914,7 +1923,10 @@ export async function createBillingPortalSession(
         "Content-Type": "application/json",
         Authorization: `Bearer ${sessionToken}`,
       },
-      body: JSON.stringify({ returnUrl }),
+      body: JSON.stringify({
+        returnUrl,
+        ...(options?.intent ? { intent: options.intent } : {}),
+      }),
     });
 
     const data = await response.json();
@@ -4258,6 +4270,33 @@ export async function adminListMembershipSharing(params: {
   }
 }
 
+export async function adminMembershipSharingMetrics(): Promise<{
+  ok: boolean;
+  data?: unknown;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription/membership-sharing/metrics`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load seat metrics"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to load seat metrics",
+    };
+  }
+}
+
 export async function adminRevokeMembershipMember(
   subscriptionId: string,
   memberUserId: string,
@@ -4436,6 +4475,35 @@ export async function revokeMembershipMember(
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Failed to remove member",
+    };
+  }
+}
+
+export async function resendMembershipInvite(
+  sessionToken: string,
+  inviteId: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/membership-sharing/invites/${encodeURIComponent(inviteId)}/resend`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to resend invite"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to resend invite",
     };
   }
 }
