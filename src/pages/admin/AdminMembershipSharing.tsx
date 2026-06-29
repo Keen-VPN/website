@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   adminListMembershipSharing,
+  adminMembershipSharingMetrics,
   adminRevokeMembershipMember,
   adminUpdateMembershipSeatLimit,
 } from "@/auth/backend";
@@ -13,6 +14,25 @@ interface MemberRow {
   email: string;
   displayName?: string | null;
   joinedAt: string;
+}
+
+interface MembershipSharingSeats {
+  seatLimit: number;
+  activeSeats: number;
+  availableSeats: number;
+  pendingInvites: number;
+}
+
+interface MembershipSharingMetrics {
+  totalSeatSubscriptions: number;
+  totalSeatsPurchased: number;
+  totalMembers: number;
+  totalPendingInvites: number;
+  averageSeatsPerAccount: number;
+  familyPlanCount: number;
+  businessPlanCount: number;
+  familyPlanRevenueUsd: number;
+  businessPlanRevenueUsd: number;
 }
 
 interface PendingInviteRow {
@@ -44,6 +64,7 @@ export default function AdminMembershipSharing() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [seatDraft, setSeatDraft] = useState<Record<string, string>>({});
+  const [metrics, setMetrics] = useState<MembershipSharingMetrics | null>(null);
   const refreshRequestRef = useRef(0);
 
   const canWrite = can("membership_sharing.write");
@@ -65,6 +86,11 @@ export default function AdminMembershipSharing() {
       const data = res.data as { items?: SharingRow[]; total?: number };
       setRows(data.items ?? []);
       setTotal(data.total ?? 0);
+
+      const metricsRes = await adminMembershipSharingMetrics();
+      if (isCurrentRequest() && metricsRes.ok) {
+        setMetrics(metricsRes.data as MembershipSharingMetrics);
+      }
     } catch (error) {
       if (!isCurrentRequest()) return;
       setError(
@@ -131,6 +157,49 @@ export default function AdminMembershipSharing() {
           Manage family access for active subscriptions ({total} total)
         </p>
       </div>
+
+      {metrics ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Seat subscriptions
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-white">
+              {metrics.totalSeatSubscriptions}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Avg seats / account
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-white">
+              {metrics.averageSeatsPerAccount}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Family plans
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-white">
+              {metrics.familyPlanCount}
+            </p>
+            <p className="text-xs text-slate-500">
+              ${metrics.familyPlanRevenueUsd.toFixed(2)} listed MRR
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Business plans
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-white">
+              {metrics.businessPlanCount}
+            </p>
+            <p className="text-xs text-slate-500">
+              ${metrics.businessPlanRevenueUsd.toFixed(2)} listed MRR
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
         <Input

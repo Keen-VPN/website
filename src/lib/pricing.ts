@@ -118,19 +118,19 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
     transformedPlans.push({
       monthlyId: monthly?.id,
       annualId: annual?.id,
-      name: isPremium
+        name: isPremium
         ? "Individual"
         : isFamily
           ? "Family"
           : isTeam
-            ? "Team"
+            ? "Business"
             : "Premium",
       description: isPremium
         ? "Perfect for personal use"
         : isFamily
           ? "Share premium with up to 5 members"
           : isTeam
-            ? "For small teams (up to 10 members)"
+            ? "For teams and businesses (up to 10 members)"
             : "Premium VPN service",
       monthlyPrice,
       annualPrice,
@@ -153,6 +153,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       Individual: 0,
       Premium: 0,
       Family: 1,
+      Business: 2,
       Team: 2,
     };
     return (
