@@ -50,6 +50,8 @@ export interface RawSubscription {
   customerId?: string;
   plan?: string;
   planName?: string;
+  planId?: string | null;
+  seatLimit?: number | null;
   cancelAtPeriodEnd?: boolean;
   subscriptionType?: string;
   accessRole?: "owner" | "linked" | "member";
@@ -155,6 +157,12 @@ function normalizeBackendAuthResponse(
   if (rawSubscription.showAnnualUpgradePrompt !== undefined) {
     normalizedSubscription.showAnnualUpgradePrompt =
       rawSubscription.showAnnualUpgradePrompt;
+  }
+  if (rawSubscription.planId !== undefined) {
+    normalizedSubscription.planId = rawSubscription.planId;
+  }
+  if (rawSubscription.seatLimit !== undefined && rawSubscription.seatLimit !== null) {
+    normalizedSubscription.seatLimit = rawSubscription.seatLimit;
   }
 
   // Only surface subscriptions with actionable statuses so that all auth

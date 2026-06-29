@@ -88,8 +88,13 @@ export default function AdminMembershipSharing() {
       setTotal(data.total ?? 0);
 
       const metricsRes = await adminMembershipSharingMetrics();
-      if (isCurrentRequest() && metricsRes.ok) {
-        setMetrics(metricsRes.data as MembershipSharingMetrics);
+      if (isCurrentRequest()) {
+        if (metricsRes.ok) {
+          setMetrics(metricsRes.data as MembershipSharingMetrics);
+        } else {
+          setMetrics(null);
+          setError(metricsRes.error ?? "Failed to load seat metrics");
+        }
       }
     } catch (error) {
       if (!isCurrentRequest()) return;

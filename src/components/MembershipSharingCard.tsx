@@ -232,7 +232,7 @@ export function MembershipSharingCard({
           </CardTitle>
           <CardDescription>
             Invite family or team members to share your KeenVPN Premium
-            subscription. Available on Family and Team plans.
+            subscription. Available on Family and Business plans.
           </CardDescription>
         </CardHeader>
         <CardContent>

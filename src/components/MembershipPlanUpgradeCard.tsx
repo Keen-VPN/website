@@ -28,6 +28,10 @@ export function MembershipPlanUpgradeCard({
     canUpgradeStripeToFamilyPlan(subscription) || tier === "individual";
   const showBusinessOption =
     canUpgradeStripeToBusinessPlan(subscription) || tier === "individual";
+  const portalOptionsCopy =
+    tier === "family"
+      ? "Stripe will show the Business upgrade option."
+      : "Stripe will show Family and Business options you can switch to.";
 
   return (
     <div className="space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-4">
@@ -38,8 +42,8 @@ export function MembershipPlanUpgradeCard({
             Share KeenVPN with others
           </p>
           <p className="text-xs text-muted-foreground">
-            Upgrade your plan to invite members with their own logins. Stripe
-            will show Family and Business options you can switch to.
+            Upgrade your plan to invite members with their own logins.{" "}
+            {portalOptionsCopy}
           </p>
         </div>
       </div>
