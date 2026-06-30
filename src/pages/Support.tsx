@@ -93,7 +93,7 @@ const Support = () => {
         },
         {
           q: "How many devices can I use with one account?",
-          a: "Device limits depend on your plan: Individual supports up to 10 simultaneous connections, Family up to 12, and Business or Family Plus up to 14 — competitive with leading VPN providers. Connect on macOS, iOS, Windows, and Android. Manage active devices from your account page or in the app settings.",
+          a: "Device limits depend on your plan: Individual supports up to 10 simultaneous connections, Family up to 12, and Business up to 14 — competitive with leading VPN providers. Connect on macOS, iOS, Windows, and Android. Manage active devices from your account page or in the app settings.",
         },
       ],
     },

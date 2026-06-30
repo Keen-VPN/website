@@ -81,71 +81,108 @@ export const allFeatures = [
   "Dedicated account manager",
 ];
 
-export const featureComparison = [
+export type FeatureComparisonRow = {
+  feature: string;
+  individual: string | boolean;
+  family: string | boolean;
+  team: string | boolean;
+  enterprise: string | boolean;
+};
+
+export const featureComparison: FeatureComparisonRow[] = [
   {
     feature: "Simultaneous device connections",
     individual: "Up to 10",
+    family: "Up to 12",
     team: "Up to 14",
     enterprise: "Custom",
   },
   {
     feature: "Bandwidth",
     individual: "Unlimited",
+    family: "Unlimited",
     team: "Unlimited",
     enterprise: "Unlimited",
   },
   {
     feature: "Military-grade encryption",
     individual: true,
+    family: true,
     team: true,
     enterprise: true,
   },
   {
     feature: "No-log policy",
     individual: true,
+    family: true,
     team: true,
     enterprise: true,
   },
   {
     feature: "Kill switch protection",
     individual: true,
+    family: true,
     team: true,
     enterprise: true,
   },
   {
     feature: "24/7 customer support",
     individual: true,
+    family: true,
     team: true,
     enterprise: true,
   },
   {
     feature: "Free trial duration",
     individual: "1 month",
+    family: "1 month",
     team: "1 month",
     enterprise: "1 month",
   },
   {
     feature: "Team management dashboard",
     individual: false,
+    family: false,
     team: true,
     enterprise: true,
   },
   {
     feature: "Priority support",
     individual: false,
+    family: false,
     team: true,
     enterprise: true,
   },
   {
     feature: "Custom security solutions",
     individual: false,
+    family: false,
     team: false,
     enterprise: true,
   },
   {
     feature: "Dedicated account manager",
     individual: false,
+    family: false,
     team: false,
     enterprise: true,
   },
 ];
+
+/** Map a rendered pricing plan name to its comparison-table column value. */
+export function featureComparisonValueForPlan(
+  planName: string,
+  row: FeatureComparisonRow,
+): string | boolean {
+  switch (planName) {
+    case "Family":
+      return row.family;
+    case "Business":
+    case "Team":
+      return row.team;
+    case "Enterprise":
+      return row.enterprise;
+    default:
+      return row.individual;
+  }
+}

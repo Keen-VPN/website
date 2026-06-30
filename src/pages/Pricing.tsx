@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/accordion";
 import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import PricingNoticeTooltip from "@/components/PricingNoticeTooltip";
-import { enterprisePlan, featureComparison, faqs } from "@/constants/pricing";
+import { enterprisePlan, featureComparison, featureComparisonValueForPlan, faqs } from "@/constants/pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import {
@@ -515,7 +515,12 @@ const Pricing = () => {
           <div className="max-w-6xl md:mx-auto overflow-x-auto -mx-4 px-4 md:px-0">
             <div className="min-w-[600px] bg-gradient-card rounded-xl border border-border p-4 md:p-6">
               {/* Table Header */}
-              <div className="grid grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6 pb-4 md:pb-6 border-b border-border">
+              <div
+                className="grid gap-2 md:gap-4 mb-4 md:mb-6 pb-4 md:pb-6 border-b border-border"
+                style={{
+                  gridTemplateColumns: `minmax(8rem, 1.4fr) repeat(${plans.length}, minmax(0, 1fr))`,
+                }}
+              >
                 <div className="text-muted-foreground font-medium text-sm md:text-base">
                   Features
                 </div>
@@ -557,38 +562,33 @@ const Pricing = () => {
               {featureComparison.map((row, index) => (
                 <div
                   key={index}
-                  className="grid grid-cols-3 gap-2 md:gap-4 py-3 md:py-4 border-b border-border/50 last:border-0"
+                  className="grid gap-2 md:gap-4 py-3 md:py-4 border-b border-border/50 last:border-0"
+                  style={{
+                    gridTemplateColumns: `minmax(8rem, 1.4fr) repeat(${plans.length}, minmax(0, 1fr))`,
+                  }}
                 >
                   <div className="text-foreground text-xs md:text-sm lg:text-base">
                     {row.feature}
                   </div>
-                  <div className="text-center text-muted-foreground">
-                    {typeof row.individual === "boolean" ? (
-                      row.individual ? (
-                        <Check className="h-4 w-4 md:h-5 md:w-5 text-primary inline-block" />
-                      ) : (
-                        <X className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground/50 inline-block" />
-                      )
-                    ) : (
-                      <span className="text-xs md:text-sm">
-                        {row.individual}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="text-center text-muted-foreground">
-                    {typeof row.enterprise === "boolean" ? (
-                      row.enterprise ? (
-                        <Check className="h-4 w-4 md:h-5 md:w-5 text-primary inline-block" />
-                      ) : (
-                        <X className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground/50 inline-block" />
-                      )
-                    ) : (
-                      <span className="text-xs md:text-sm">
-                        {row.enterprise}
-                      </span>
-                    )}
-                  </div>
+                  {plans.map((plan) => {
+                    const value = featureComparisonValueForPlan(plan.name, row);
+                    return (
+                      <div
+                        key={plan.name}
+                        className="text-center text-muted-foreground"
+                      >
+                        {typeof value === "boolean" ? (
+                          value ? (
+                            <Check className="h-4 w-4 md:h-5 md:w-5 text-primary inline-block" />
+                          ) : (
+                            <X className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground/50 inline-block" />
+                          )
+                        ) : (
+                          <span className="text-xs md:text-sm">{value}</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
             </div>
