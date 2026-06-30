@@ -30,8 +30,8 @@ export function MembershipPlanUpgradeCard({
     canUpgradeStripeToBusinessPlan(subscription) || tier === "individual";
   const portalOptionsCopy =
     tier === "family"
-      ? "Stripe will show the Business upgrade option."
-      : "Stripe will show Family and Business options you can switch to.";
+      ? "You'll see the Business upgrade option."
+      : "You'll see Family and Business options you can switch to.";
 
   return (
     <div className="space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-4">
@@ -76,7 +76,7 @@ export function MembershipPlanUpgradeCard({
         {portalLoading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Opening Stripe…
+            Opening billing…
           </>
         ) : tier === "family" ? (
           "Upgrade to Business"
