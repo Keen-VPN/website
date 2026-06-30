@@ -55,6 +55,7 @@ export function ConnectedDevicesCard({
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [featureDisabled, setFeatureDisabled] = useState(false);
   const loadRequestRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -64,15 +65,18 @@ export function ConnectedDevicesCard({
 
     setLoading(true);
     setError(null);
+    setFeatureDisabled(false);
     try {
       const res = await fetchDeviceConnectionsStatus(sessionToken);
       if (!isCurrentRequest()) return;
       if (!res.ok) {
         if (res.error?.includes("not enabled")) {
           setStatus(null);
+          setFeatureDisabled(true);
           return;
         }
         setError(res.error ?? "Could not load connected devices.");
+        setStatus(null);
         return;
       }
       setStatus(res.data as DeviceStatusData);
@@ -114,6 +118,26 @@ export function ConnectedDevicesCard({
         <CardContent className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading devices…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (featureDisabled) {
+    return null;
+  }
+
+  if (error && !status) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MonitorSmartphone className="h-5 w-5" />
+            Connected devices
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-destructive">{error}</p>
         </CardContent>
       </Card>
     );
@@ -161,9 +185,14 @@ export function ConnectedDevicesCard({
                   size="sm"
                   disabled={submittingId === device.id}
                   onClick={() => void handleRevoke(device.id)}
+                  aria-busy={submittingId === device.id}
                 >
                   {submittingId === device.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      <span className="sr-only">Removing device</span>
+                      <span>Remove</span>
+                    </>
                   ) : (
                     "Remove"
                   )}
