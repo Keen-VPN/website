@@ -81,13 +81,13 @@ export const allFeatures = [
   "Dedicated account manager",
 ];
 
-export type FeatureComparisonRow = {
+export interface FeatureComparisonRow {
   feature: string;
   individual: string | boolean;
   family: string | boolean;
   team: string | boolean;
   enterprise: string | boolean;
-};
+}
 
 export const featureComparison: FeatureComparisonRow[] = [
   {

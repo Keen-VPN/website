@@ -402,7 +402,7 @@ const Pricing = () => {
                       {portalLoading ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Opening Stripe…
+                          Opening billing…
                         </>
                       ) : showBusinessPlanUpgrade ? (
                         "Upgrade to Business"
@@ -738,7 +738,7 @@ const Pricing = () => {
                   {portalLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Opening Stripe…
+                      Opening billing…
                     </>
                   ) : (
                     "Upgrade plan"
