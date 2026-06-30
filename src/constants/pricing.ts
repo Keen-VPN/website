@@ -16,7 +16,7 @@ export const enterprisePlan: PricingPlan = {
     { name: "Access to all server locations", included: true },
     { name: "Unlimited bandwidth", included: true },
     { name: "Military-grade encryption", included: true },
-    { name: "Unlimited device connections", included: true },
+    { name: "Custom simultaneous device policy", included: true },
     { name: "24/7 customer support", included: true },
     { name: "No-log policy guaranteed", included: true },
     { name: "Kill switch protection", included: true },
@@ -82,6 +82,12 @@ export const allFeatures = [
 ];
 
 export const featureComparison = [
+  {
+    feature: "Simultaneous device connections",
+    individual: "Up to 10",
+    team: "Up to 14",
+    enterprise: "Custom",
+  },
   {
     feature: "Bandwidth",
     individual: "Unlimited",
