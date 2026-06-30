@@ -37,11 +37,29 @@ const isAnnualPlan = (plan: ApiPlan) => getPlanBillingPeriod(plan) === "year";
 
 const getPlanFamily = (plan: ApiPlan) => {
   const id = plan.id.toLowerCase();
-  if (id.includes("family")) return "family";
-  if (id.includes("team")) return "team";
+  if (id.includes("family") && !id.includes("family_plus") && !id.includes("familyplus")) {
+    return "family";
+  }
+  if (
+    id.includes("team") ||
+    id.includes("business") ||
+    id.includes("family_plus") ||
+    id.includes("familyplus")
+  ) {
+    return "team";
+  }
   if (id.includes("premium")) return "premium";
   return id.replace(/[-_]?(monthly|month|annual|yearly|year)$/, "");
 };
+
+const PLAN_TIER_OPTIONS = [
+  { id: "premium", label: "Individual" },
+  { id: "family", label: "Family" },
+  { id: "team", label: "Business" },
+] as const;
+
+const getTierLabel = (tier: string) =>
+  PLAN_TIER_OPTIONS.find((option) => option.id === tier)?.label ?? tier;
 
 const sortPlansByBillingPeriod = (plans: ApiPlan[]) => {
   const order = { month: 0, year: 1 };
@@ -75,6 +93,50 @@ const matchesRequestedPlan = (plan: ApiPlan, requestedPlanId: string) => {
     return !isAnnualPlan(plan) && plan.id.toLowerCase().includes("premium");
   }
   return false;
+};
+
+interface PlanTierSelectorProps {
+  tiers: string[];
+  selectedTier: string;
+  onSelect: (tier: string) => void;
+  className?: string;
+}
+
+const PlanTierSelector = ({
+  tiers,
+  selectedTier,
+  onSelect,
+  className = "",
+}: PlanTierSelectorProps) => {
+  if (tiers.length <= 1) return null;
+
+  return (
+    <div className={className}>
+      <p className="mb-2 text-sm font-medium text-foreground">Plan type</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {tiers.map((tier) => {
+          const isSelected = selectedTier === tier;
+          return (
+            <button
+              key={tier}
+              type="button"
+              onClick={() => onSelect(tier)}
+              className={`rounded-lg border px-4 py-3 text-left transition-all ${
+                isSelected
+                  ? "border-primary bg-primary/10 shadow-glow"
+                  : "border-border bg-background hover:border-primary/50"
+              }`}
+              aria-pressed={isSelected}
+            >
+              <div className="font-semibold text-foreground">
+                {getTierLabel(tier)}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 };
 
 interface PlanOptionSelectorProps {
@@ -139,6 +201,8 @@ const Subscribe = () => {
     PricingPlan | ApiPlan | null
   >(null);
   const [planOptions, setPlanOptions] = useState<ApiPlan[]>([]);
+  const [allPlans, setAllPlans] = useState<ApiPlan[]>([]);
+  const [selectedTier, setSelectedTier] = useState("premium");
   const [planLoading, setPlanLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -293,6 +357,35 @@ const Subscribe = () => {
     }
   }, [user]);
 
+  const availableTiers = PLAN_TIER_OPTIONS.map((option) => option.id).filter(
+    (tier) => allPlans.some((plan) => getPlanFamily(plan) === tier),
+  );
+
+  const applyTierSelection = useCallback(
+    (tier: string, plans: ApiPlan[], preferredPlanId?: string | null) => {
+      const options = sortPlansByBillingPeriod(
+        plans.filter((plan) => getPlanFamily(plan) === tier),
+      );
+      const requestedPlan = preferredPlanId
+        ? options.find((plan) => matchesRequestedPlan(plan, preferredPlanId))
+        : null;
+      const defaultPlan =
+        requestedPlan ||
+        options.find((plan) => getPlanBillingPeriod(plan) === "month") ||
+        options[0] ||
+        null;
+
+      setSelectedTier(tier);
+      setPlanOptions(options);
+      setSelectedPlan(defaultPlan ?? enterprisePlan);
+    },
+    [],
+  );
+
+  const handleTierChange = (tier: string) => {
+    applyTierSelection(tier, allPlans);
+  };
+
   // Fetch available subscription plans. The subscribe page should show both
   // monthly and annual options, while still respecting a planId from /pricing.
   useEffect(() => {
@@ -304,40 +397,21 @@ const Subscribe = () => {
         const response = await fetchSubscriptionPlans();
 
         if (response.success && response.plans && response.plans.length > 0) {
+          setAllPlans(response.plans);
+
           const requestedReturnedPlan = planIdParam
             ? response.plans.find((plan) =>
                 matchesRequestedPlan(plan, planIdParam),
               )
             : null;
-          const premiumPlans = sortPlansByBillingPeriod(
-            response.plans.filter((plan) => getPlanFamily(plan) === "premium"),
-          );
-          const options = requestedReturnedPlan
-            ? sortPlansByBillingPeriod(
-                response.plans.filter(
-                  (plan) =>
-                    getPlanFamily(plan) ===
-                    getPlanFamily(requestedReturnedPlan),
-                ),
-              )
-            : premiumPlans.length > 0
-              ? premiumPlans
-              : sortPlansByBillingPeriod(response.plans);
-          const requestedPlan = planIdParam
-            ? options.find((plan) => matchesRequestedPlan(plan, planIdParam))
-            : null;
-          const defaultPlan =
-            requestedPlan ||
-            options.find((plan) => getPlanBillingPeriod(plan) === "month") ||
-            options[0];
+          const tierOrder = ["premium", "family", "team"];
+          const initialTier = requestedReturnedPlan
+            ? getPlanFamily(requestedReturnedPlan)
+            : tierOrder.find((tier) =>
+                response.plans.some((plan) => getPlanFamily(plan) === tier),
+              ) ?? "premium";
 
-          if (!defaultPlan) {
-            setSelectedPlan(enterprisePlan);
-            return;
-          }
-
-          setPlanOptions(options);
-          setSelectedPlan(defaultPlan);
+          applyTierSelection(initialTier, response.plans, planIdParam);
         } else {
           console.error("Failed to load plan:", response.error);
           if (planIdParam) {
@@ -360,7 +434,7 @@ const Subscribe = () => {
     };
 
     loadPlans();
-  }, [planIdParam]);
+  }, [planIdParam, applyTierSelection]);
 
   const handleSignIn = async () => {
     await recordSignupStarted();
@@ -541,6 +615,11 @@ const Subscribe = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
+                  <PlanTierSelector
+                    tiers={availableTiers}
+                    selectedTier={selectedTier}
+                    onSelect={handleTierChange}
+                  />
                   <PlanOptionSelector
                     plans={planOptions}
                     selectedPlan={selectedPlan}
@@ -599,6 +678,12 @@ const Subscribe = () => {
                 </div>
               </CardHeader>
               <CardContent>
+                <PlanTierSelector
+                  tiers={availableTiers}
+                  selectedTier={selectedTier}
+                  onSelect={handleTierChange}
+                  className="mb-6"
+                />
                 <PlanOptionSelector
                   plans={planOptions}
                   selectedPlan={selectedPlan}

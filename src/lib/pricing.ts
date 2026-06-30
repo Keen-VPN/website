@@ -51,12 +51,20 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
   const plansByType = apiPlans.reduce(
     (acc, plan) => {
       const id = plan.id.toLowerCase();
+      const isFamily =
+        id.includes("family") &&
+        !id.includes("family_plus") &&
+        !id.includes("familyplus");
+      const isTeam =
+        id.includes("team") ||
+        id.includes("business") ||
+        id.includes("family_plus") ||
+        id.includes("familyplus");
       const isPremium =
         id.includes("premium") &&
         !id.includes("family") &&
-        !id.includes("team");
-      const isFamily = id.includes("family");
-      const isTeam = id.includes("team");
+        !id.includes("team") &&
+        !id.includes("business");
       const key = isPremium
         ? "premium"
         : isFamily
@@ -115,22 +123,37 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
         ? monthly.features
         : [];
 
+    const deviceConnectionFeature = {
+      name: isTeam
+        ? "Up to 14 simultaneous devices"
+        : isFamily
+          ? "Up to 12 simultaneous devices"
+          : "Up to 10 simultaneous devices",
+      included: true,
+      highlighted: true,
+    };
+
+    const mergedFeatures = [
+      deviceConnectionFeature,
+      ...features.filter((f) => !/simultaneous device/i.test(f.name)),
+    ];
+
     transformedPlans.push({
       monthlyId: monthly?.id,
       annualId: annual?.id,
-      name: isPremium
+        name: isPremium
         ? "Individual"
         : isFamily
           ? "Family"
           : isTeam
-            ? "Team"
+            ? "Business"
             : "Premium",
       description: isPremium
         ? "Perfect for personal use"
         : isFamily
           ? "Share premium with up to 5 members"
           : isTeam
-            ? "For small teams (up to 10 members)"
+            ? "For teams and businesses (up to 10 members)"
             : "Premium VPN service",
       monthlyPrice,
       annualPrice,
@@ -140,7 +163,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       annualSavingsPercent,
       annualYearlySavingsDisplay,
       annualSavingsLabel,
-      features,
+      features: mergedFeatures,
       buttonText: "Start Free Trial",
       popular: isFamily,
       monthlyPriceId: monthly?.priceId,
@@ -153,6 +176,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       Individual: 0,
       Premium: 0,
       Family: 1,
+      Business: 2,
       Team: 2,
     };
     return (
