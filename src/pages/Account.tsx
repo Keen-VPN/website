@@ -58,6 +58,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
 import { MembershipSharingCard } from "@/components/MembershipSharingCard";
+import { ConnectedDevicesCard } from "@/components/ConnectedDevicesCard";
 import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
 import { UserInformationCard } from "@/components/UserInformationCard";
@@ -1127,6 +1128,12 @@ const Account = () => {
           {hasSessionToken && (
             <div className="mt-8">
               <MembershipSharingCard sessionToken={getSessionToken() ?? ""} />
+            </div>
+          )}
+
+          {hasSessionToken && (
+            <div className="mt-8">
+              <ConnectedDevicesCard sessionToken={getSessionToken() ?? ""} />
             </div>
           )}
 

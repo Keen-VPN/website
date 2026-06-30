@@ -123,6 +123,21 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
         ? monthly.features
         : [];
 
+    const deviceConnectionFeature = {
+      name: isTeam
+        ? "Up to 14 simultaneous devices"
+        : isFamily
+          ? "Up to 12 simultaneous devices"
+          : "Up to 10 simultaneous devices",
+      included: true,
+      highlighted: true,
+    };
+
+    const mergedFeatures = [
+      deviceConnectionFeature,
+      ...features.filter((f) => !/simultaneous device/i.test(f.name)),
+    ];
+
     transformedPlans.push({
       monthlyId: monthly?.id,
       annualId: annual?.id,
@@ -148,7 +163,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       annualSavingsPercent,
       annualYearlySavingsDisplay,
       annualSavingsLabel,
-      features,
+      features: mergedFeatures,
       buttonText: "Start Free Trial",
       popular: isFamily,
       monthlyPriceId: monthly?.priceId,
