@@ -5295,3 +5295,66 @@ export async function getLinkedProviders(sessionToken: string): Promise<{
   }
   return response.json();
 }
+
+export async function fetchDeviceConnectionsStatus(
+  sessionToken: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/device-connections/status`, {
+      credentials: "include",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (response.status === 404) {
+      return { ok: false, error: "Device connection limits are not enabled" };
+    }
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load connected devices",
+        ),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to load connected devices",
+    };
+  }
+}
+
+export async function revokeDeviceConnection(
+  sessionToken: string,
+  deviceId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/device-connections/revoke`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ deviceId }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to remove device"),
+      };
+    }
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to remove device",
+    };
+  }
+}
