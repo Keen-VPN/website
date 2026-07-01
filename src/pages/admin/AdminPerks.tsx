@@ -33,6 +33,7 @@ import {
   type AdminPerkReactivation,
   type AdminPerksMetrics,
   type CreateAdminPerkPayload,
+  type ExtensionDomainRule,
   type PerkCategory,
   type PerkRedemptionType,
 } from "@/auth/backend";
@@ -67,6 +68,12 @@ const ACCESS_LEVELS = [
   { value: "annual", label: "Annual members" },
 ] as const;
 
+interface ExtensionDomainFormRow {
+  host: string;
+  pathPrefix: string;
+  priority: string;
+}
+
 interface PerkFormState {
   id: string;
   title: string;
@@ -85,6 +92,102 @@ interface PerkFormState {
   startsAt: string;
   endsAt: string;
   audienceTargeting: AudienceTargeting;
+  extensionDomains: ExtensionDomainFormRow[];
+}
+
+function normalizeExtensionHost(value: string): string {
+  return value.trim().toLowerCase().replace(/^www\./, "");
+}
+
+function emptyExtensionDomainRow(): ExtensionDomainFormRow {
+  return { host: "", pathPrefix: "", priority: "" };
+}
+
+function extensionDomainsToFormRows(
+  rules: ExtensionDomainRule[] | undefined,
+): ExtensionDomainFormRow[] {
+  if (!rules?.length) {
+    return [];
+  }
+
+  return rules.map((rule) => ({
+    host: rule.host,
+    pathPrefix: rule.pathPrefix ?? "",
+    priority:
+      rule.priority != null && Number.isFinite(rule.priority)
+        ? String(rule.priority)
+        : "",
+  }));
+}
+
+function extensionDomainsFromFormRows(
+  rows: ExtensionDomainFormRow[],
+): ExtensionDomainRule[] {
+  const rules: ExtensionDomainRule[] = [];
+
+  for (const row of rows) {
+    const host = normalizeExtensionHost(row.host);
+    if (!host) {
+      continue;
+    }
+
+    const priority = row.priority.trim();
+    const parsedPriority = priority ? Number(priority) : undefined;
+    const rule: ExtensionDomainRule = { host };
+
+    if (row.pathPrefix.trim()) {
+      rule.pathPrefix = row.pathPrefix.trim();
+    }
+    if (parsedPriority != null && Number.isFinite(parsedPriority)) {
+      rule.priority = parsedPriority;
+    }
+
+    rules.push(rule);
+  }
+
+  return rules;
+}
+
+function validateExtensionDomains(rows: ExtensionDomainFormRow[]): string | null {
+  for (const row of rows) {
+    const host = normalizeExtensionHost(row.host);
+    const hasExtra =
+      row.pathPrefix.trim().length > 0 || row.priority.trim().length > 0;
+
+    if (!host && hasExtra) {
+      return "Each Chrome extension site needs a host when path or priority is set.";
+    }
+
+    if (host && !/^[a-z0-9.-]+$/.test(host)) {
+      return `Invalid extension host "${host}". Use a domain like amazon.com.`;
+    }
+
+    if (row.priority.trim()) {
+      const parsed = Number(row.priority.trim());
+      if (!Number.isFinite(parsed)) {
+        return "Extension site priority must be a number.";
+      }
+    }
+  }
+
+  return null;
+}
+
+function formatExtensionSiteSummary(rules: ExtensionDomainRule[] | undefined) {
+  if (!rules?.length) {
+    return "—";
+  }
+
+  const preview = rules
+    .slice(0, 2)
+    .map((rule) => rule.pathPrefix ? `${rule.host}${rule.pathPrefix}` : rule.host)
+    .join(", ");
+
+  if (rules.length > 2) {
+    return `${preview} +${rules.length - 2}`;
+  }
+
+  return preview;
 }
 
 function parseSortOrder(value: string): number {
@@ -129,6 +232,7 @@ const emptyForm = (): PerkFormState => ({
   startsAt: "",
   endsAt: defaultPerkEndDateInput(),
   audienceTargeting: createDefaultAudienceTargeting(),
+  extensionDomains: [],
 });
 
 function formToCreatePayload(form: PerkFormState): CreateAdminPerkPayload {
@@ -150,6 +254,7 @@ function formToCreatePayload(form: PerkFormState): CreateAdminPerkPayload {
     startsAt: optionalIsoDate(form.startsAt),
     endsAt: form.endsAt.trim() ? optionalIsoDate(form.endsAt) : null,
     audienceTargeting: form.audienceTargeting,
+    extensionDomains: extensionDomainsFromFormRows(form.extensionDomains),
   };
 }
 
@@ -174,6 +279,7 @@ function perkToForm(perk: AdminPerk): PerkFormState {
     audienceTargeting: perk.audienceTargeting
       ? cloneAudienceTargeting(perk.audienceTargeting)
       : createDefaultAudienceTargeting(),
+    extensionDomains: extensionDomainsToFormRows(perk.extensionDomains),
   };
 }
 
@@ -463,6 +569,15 @@ export default function AdminPerks() {
       return;
     }
 
+    const extensionDomainsError = validateExtensionDomains(form.extensionDomains);
+    if (extensionDomainsError) {
+      setSaving(false);
+      setDialogError(extensionDomainsError);
+      return;
+    }
+
+    const extensionDomains = extensionDomainsFromFormRows(form.extensionDomains);
+
     if (editingId) {
       const res = await adminUpdatePerk(editingId, {
         title: form.title.trim(),
@@ -485,6 +600,7 @@ export default function AdminPerks() {
           ? optionalIsoDate(form.endsAt) ?? null
           : null,
         audienceTargeting: form.audienceTargeting,
+        extensionDomains,
       });
       setSaving(false);
       if (!res.ok) {
@@ -761,6 +877,7 @@ export default function AdminPerks() {
                 <th className="px-3 py-2 font-medium">Category</th>
                 <th className="px-3 py-2 font-medium">Access</th>
                 <th className="px-3 py-2 font-medium">Redemption</th>
+                <th className="px-3 py-2 font-medium">Extension sites</th>
                 <th className="px-3 py-2 font-medium">Expires</th>
                 <th className="px-3 py-2 font-medium">Status</th>
                 <th className="px-3 py-2 font-medium">Featured</th>
@@ -774,7 +891,7 @@ export default function AdminPerks() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={canWrite ? 9 : 8}
+                    colSpan={canWrite ? 10 : 9}
                     className="px-3 py-4 text-muted-foreground"
                   >
                     Loading perks…
@@ -783,7 +900,7 @@ export default function AdminPerks() {
               ) : perks.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={canWrite ? 9 : 8}
+                    colSpan={canWrite ? 10 : 9}
                     className="px-3 py-4 text-muted-foreground"
                   >
                     No perks configured.
@@ -807,6 +924,9 @@ export default function AdminPerks() {
                     <td className="px-3 py-2 capitalize">{perk.accessLevel}</td>
                     <td className="px-3 py-2">
                       {perk.redemptionType.replace(/_/g, " ")}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {formatExtensionSiteSummary(perk.extensionDomains)}
                     </td>
                     <td className="px-3 py-2">
                       <div>{formatAdminDate(perk.endsAt)}</div>
@@ -1224,6 +1344,124 @@ export default function AdminPerks() {
               }
               context="perks"
             />
+
+            <div className="space-y-3 rounded-lg border border-border p-3">
+              <div>
+                <Label>Chrome extension sites</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  When a member visits these domains, the KeenVPN Chrome
+                  extension activates and links this perk for copy/claim.
+                </p>
+              </div>
+
+              {form.extensionDomains.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No extension sites configured.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {form.extensionDomains.map((row, index) => (
+                    <div
+                      key={`extension-domain-${index}`}
+                      className="grid gap-2 rounded-md border border-border/70 p-2 sm:grid-cols-[1.4fr_1fr_0.7fr_auto]"
+                    >
+                      <div>
+                        <Label className="text-xs">Host</Label>
+                        <Input
+                          value={row.host}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              extensionDomains: prev.extensionDomains.map(
+                                (entry, entryIndex) =>
+                                  entryIndex === index
+                                    ? { ...entry, host: e.target.value }
+                                    : entry,
+                              ),
+                            }))
+                          }
+                          placeholder="amazon.com"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Path prefix</Label>
+                        <Input
+                          value={row.pathPrefix}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              extensionDomains: prev.extensionDomains.map(
+                                (entry, entryIndex) =>
+                                  entryIndex === index
+                                    ? { ...entry, pathPrefix: e.target.value }
+                                    : entry,
+                              ),
+                            }))
+                          }
+                          placeholder="/optional"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Priority</Label>
+                        <Input
+                          value={row.priority}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              extensionDomains: prev.extensionDomains.map(
+                                (entry, entryIndex) =>
+                                  entryIndex === index
+                                    ? { ...entry, priority: e.target.value }
+                                    : entry,
+                              ),
+                            }))
+                          }
+                          placeholder="0"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              extensionDomains: prev.extensionDomains.filter(
+                                (_, entryIndex) => entryIndex !== index,
+                              ),
+                            }))
+                          }
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setForm((prev) => ({
+                    ...prev,
+                    extensionDomains: [
+                      ...prev.extensionDomains,
+                      emptyExtensionDomainRow(),
+                    ],
+                  }))
+                }
+              >
+                Add extension site
+              </Button>
+            </div>
+
             <div>
               <Label htmlFor="perk-offer">Offer text</Label>
               <Input
