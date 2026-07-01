@@ -5367,3 +5367,34 @@ export async function revokeDeviceConnection(
     };
   }
 }
+
+export async function restoreDeviceConnection(
+  sessionToken: string,
+  deviceId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/device-connections/restore`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ deviceId }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to restore device"),
+      };
+    }
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to restore device",
+    };
+  }
+}
