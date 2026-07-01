@@ -8,6 +8,8 @@ export interface ServerLocation {
   region: ServerRegion;
   coordinates: { lat: number; lng: number };
   available: boolean;
+  /** Alternate search terms (state names, abbreviations). Not shown in the UI. */
+  aliases?: string[];
 }
 
 export const regionOrder: ServerRegion[] = [
@@ -31,7 +33,8 @@ export const serverLocations: ServerLocation[] = [
     id: "us-new-jersey",
     country: "United States",
     countryCode: "US",
-    city: "New Jersey",
+    city: "Secaucus",
+    aliases: ["New Jersey", "NJ"],
     region: "Americas",
     coordinates: { lat: 40.0583, lng: -74.4057 },
     available: true,
@@ -95,6 +98,7 @@ export const serverLocations: ServerLocation[] = [
     country: "Germany",
     countryCode: "DE",
     city: "Frankfurt",
+    aliases: ["Frankfurt am Main"],
     region: "Europe",
     coordinates: { lat: 50.1109, lng: 8.6821 },
     available: true,
@@ -232,7 +236,8 @@ export function filterServerLocations(query: string): ServerLocation[] {
     (loc) =>
       loc.country.toLowerCase().includes(q) ||
       loc.city.toLowerCase().includes(q) ||
-      loc.region.toLowerCase().includes(q),
+      loc.region.toLowerCase().includes(q) ||
+      (loc.aliases?.some((alias) => alias.toLowerCase().includes(q)) ?? false),
   );
 }
 
