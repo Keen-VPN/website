@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, MonitorSmartphone } from "lucide-react";
 import {
   fetchDeviceConnectionsStatus,
+  restoreDeviceConnection,
   revokeDeviceConnection,
 } from "@/auth/backend";
 
@@ -20,8 +21,17 @@ interface ConnectedDevicesCardProps {
 interface DeviceRow {
   id: string;
   platform?: string | null;
+  label?: string | null;
   lastSeenAt: string;
   connected: boolean;
+}
+
+interface RevokedDeviceRow {
+  id: string;
+  platform?: string | null;
+  label?: string | null;
+  lastSeenAt: string;
+  revokedAt: string;
 }
 
 interface DeviceStatusData {
@@ -29,6 +39,7 @@ interface DeviceStatusData {
   activeCount: number;
   available: number;
   devices: DeviceRow[];
+  revokedDevices?: RevokedDeviceRow[];
 }
 
 function formatDate(iso: string): string {
@@ -43,9 +54,10 @@ function formatDate(iso: string): string {
   });
 }
 
-function platformLabel(platform?: string | null): string {
-  if (!platform?.trim()) return "Unknown device";
-  return platform;
+function deviceLabel(device: { label?: string | null; platform?: string | null }): string {
+  if (device.label?.trim()) return device.label.trim();
+  if (device.platform?.trim()) return device.platform.trim();
+  return "Unknown device";
 }
 
 export function ConnectedDevicesCard({
@@ -98,6 +110,21 @@ export function ConnectedDevicesCard({
       const res = await revokeDeviceConnection(sessionToken, deviceId);
       if (!res.ok) {
         setError(res.error ?? "Failed to remove device.");
+        return;
+      }
+      await load();
+    } finally {
+      setSubmittingId(null);
+    }
+  }
+
+  async function handleRestore(deviceId: string) {
+    setSubmittingId(deviceId);
+    setError(null);
+    try {
+      const res = await restoreDeviceConnection(sessionToken, deviceId);
+      if (!res.ok) {
+        setError(res.error ?? "Failed to restore device.");
         return;
       }
       await load();
@@ -174,7 +201,7 @@ export function ConnectedDevicesCard({
                 className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
               >
                 <div>
-                  <p className="font-medium">{platformLabel(device.platform)}</p>
+                  <p className="font-medium">{deviceLabel(device)}</p>
                   <p className="text-sm text-muted-foreground">
                     Last seen {formatDate(device.lastSeenAt)}
                     {device.connected ? " · Connected now" : ""}
@@ -201,6 +228,43 @@ export function ConnectedDevicesCard({
             ))}
           </ul>
         )}
+        {(status.revokedDevices?.length ?? 0) > 0 ? (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Removed devices</p>
+            <ul className="divide-y rounded-md border">
+              {status.revokedDevices?.map((device) => (
+                <li
+                  key={device.id}
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                >
+                  <div>
+                    <p className="font-medium">{deviceLabel(device)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Removed {formatDate(device.revokedAt)}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={submittingId === device.id}
+                    onClick={() => void handleRestore(device.id)}
+                    aria-busy={submittingId === device.id}
+                  >
+                    {submittingId === device.id ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                        <span className="sr-only">Restoring device</span>
+                        <span>Restore</span>
+                      </>
+                    ) : (
+                      "Restore"
+                    )}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
