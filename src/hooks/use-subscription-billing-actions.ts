@@ -97,54 +97,71 @@ export function useSubscriptionBillingActions(
     }
   }, [requireSessionToken, toast, refreshSubscription]);
 
+  const openBillingPortalWithIntent = useCallback(
+    async (intent: "default" | "change_plan", token: string) => {
+      const portalWindow = window.open("about:blank", "_blank");
+      const popupBlocked = portalWindow === null;
+
+      try {
+        setPortalLoading(true);
+        const result = await createBillingPortalSession(
+          token,
+          resolveReturnUrl(),
+          { intent },
+        );
+
+        if (result.success && result.url) {
+          if (portalWindow && !portalWindow.closed) {
+            navigateExternalPortalTab(portalWindow, result.url);
+          } else if (popupBlocked) {
+            toast({
+              title: "Opening billing portal",
+              description:
+                "Your browser blocked a new tab. Opening Stripe in this window.",
+            });
+            window.location.assign(result.url);
+          } else {
+            window.location.assign(result.url);
+          }
+        } else {
+          portalWindow?.close();
+          toast({
+            title: "Unable to open billing portal",
+            description: result.error || "Please try again.",
+            variant: "destructive",
+          });
+        }
+      } catch {
+        portalWindow?.close();
+        toast({
+          title: "Something went wrong",
+          description: "Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setPortalLoading(false);
+      }
+    },
+    [resolveReturnUrl, toast],
+  );
+
   const openBillingPortal = useCallback(async () => {
     const token = requireSessionToken();
     if (!token) {
       return;
     }
 
-    // Open a tab synchronously on click so Safari does not block the portal URL
-    // after the async session fetch. Do not pass "noopener" to window.open — it
-    // returns null and breaks the popup workaround; null opener before redirect instead.
-    const portalWindow = window.open("about:blank", "_blank");
-    const popupBlocked = portalWindow === null;
+    await openBillingPortalWithIntent("default", token);
+  }, [requireSessionToken, openBillingPortalWithIntent]);
 
-    try {
-      setPortalLoading(true);
-      const result = await createBillingPortalSession(token, resolveReturnUrl());
-
-      if (result.success && result.url) {
-        if (portalWindow && !portalWindow.closed) {
-          navigateExternalPortalTab(portalWindow, result.url);
-        } else if (popupBlocked) {
-          toast({
-            title: "Opening billing portal",
-            description:
-              "Your browser blocked a new tab. Opening Stripe in this window.",
-          });
-          window.location.assign(result.url);
-        } else {
-          window.location.assign(result.url);
-        }
-      } else {
-        portalWindow?.close();
-        toast({
-          title: "Unable to open billing portal",
-          description: result.error || "Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch {
-      portalWindow?.close();
-      toast({
-        title: "Something went wrong",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setPortalLoading(false);
+  const openPlanChangePortal = useCallback(async () => {
+    const token = requireSessionToken();
+    if (!token) {
+      return;
     }
-  }, [requireSessionToken, resolveReturnUrl, toast]);
+
+    await openBillingPortalWithIntent("change_plan", token);
+  }, [requireSessionToken, openBillingPortalWithIntent]);
 
   const upgradeToAnnualPlan = useCallback(async () => {
     const token = requireSessionToken();
@@ -194,6 +211,7 @@ export function useSubscriptionBillingActions(
     upgradingToAnnual,
     cancelSubscriptionAtPeriodEnd,
     openBillingPortal,
+    openPlanChangePortal,
     upgradeToAnnualPlan,
   };
 }

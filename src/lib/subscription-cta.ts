@@ -158,3 +158,76 @@ export function getSubscriptionCtaLabel(
     ? START_FREE_TRIAL_NOW_LABEL
     : SUBSCRIBE_NOW_LABEL;
 }
+
+export type MembershipPlanTier = "individual" | "family" | "business";
+
+function hasPlanToken(value: string, token: string): boolean {
+  return new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`).test(value);
+}
+
+/** Resolve Individual / Family / Business from plan id or display name. */
+export function resolveMembershipPlanTier(
+  subscription: SubscriptionData | null | undefined,
+): MembershipPlanTier {
+  const raw = `${subscription?.planId ?? ""} ${subscription?.plan ?? ""}`
+    .trim()
+    .toLowerCase();
+  if (!raw) return "individual";
+
+  if (
+    hasPlanToken(raw, "team") ||
+    hasPlanToken(raw, "business") ||
+    hasPlanToken(raw, "family_plus") ||
+    hasPlanToken(raw, "familyplus")
+  ) {
+    return "business";
+  }
+  if (hasPlanToken(raw, "family")) {
+    return "family";
+  }
+  return "individual";
+}
+
+function isEligibleStripePlanManager(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (
+    !subscription ||
+    subscription.canManageBilling !== true ||
+    !isStripeSubscription(subscription)
+  ) {
+    return false;
+  }
+  if (subscription.cancelAtPeriodEnd) return false;
+  const status = getSubscriptionStatus(subscription);
+  return status === "active" || status === "trialing";
+}
+
+/** Stripe owner on Individual — can upgrade to Family or Business via billing portal. */
+export function canUpgradeStripeToFamilyPlan(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return (
+    isEligibleStripePlanManager(subscription) &&
+    resolveMembershipPlanTier(subscription) === "individual"
+  );
+}
+
+/** Stripe owner on Family — can upgrade to Business via billing portal. */
+export function canUpgradeStripeToBusinessPlan(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return (
+    isEligibleStripePlanManager(subscription) &&
+    resolveMembershipPlanTier(subscription) === "family"
+  );
+}
+
+export function canUpgradeStripeMembershipPlan(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return (
+    canUpgradeStripeToFamilyPlan(subscription) ||
+    canUpgradeStripeToBusinessPlan(subscription)
+  );
+}

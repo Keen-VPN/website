@@ -15,7 +15,7 @@ import {
   serverLocationStats,
   serverLocations,
 } from "@/constants/server-locations";
-import { countryCodeToFlag } from "@/lib/country-flag";
+import { wikipediaFlagUrl } from "@/lib/country-flag";
 import { trackServerPageEvent } from "@/lib/product-analytics";
 
 export default function Servers() {
@@ -144,15 +144,24 @@ export default function Servers() {
                       {region}
                     </h3>
                     <div className="space-y-4">
-                      {countries.map((group) => (
+                      {countries.map((group) => {
+                        const flagUrl = wikipediaFlagUrl(group.countryCode, 54);
+                        return (
                         <div
                           key={group.countryCode}
                           className="rounded-lg border border-border bg-card p-4 shadow-sm"
                         >
                           <div className="mb-3 flex items-center gap-2">
-                            <span className="text-xl" aria-hidden>
-                              {countryCodeToFlag(group.countryCode)}
-                            </span>
+                            {flagUrl ? (
+                              <img
+                                src={flagUrl}
+                                alt=""
+                                width={36}
+                                height={24}
+                                className="h-6 w-9 shrink-0 rounded-sm border border-border bg-muted/30 object-contain p-0.5"
+                                loading="lazy"
+                              />
+                            ) : null}
                             <span className="font-medium text-foreground">
                               {group.country}
                             </span>
@@ -176,7 +185,8 @@ export default function Servers() {
                             ))}
                           </ul>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}

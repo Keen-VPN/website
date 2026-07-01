@@ -11,6 +11,8 @@ export interface SubscriptionData {
   endDate: string;
   customerId?: string;
   plan?: string;
+  planId?: string | null;
+  seatLimit?: number;
   cancelAtPeriodEnd?: boolean;
   subscriptionType?: string;
   currentPeriodStart?: string | null;

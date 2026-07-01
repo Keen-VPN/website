@@ -12,9 +12,11 @@ import { Loader2, Users } from "lucide-react";
 import {
   fetchMembershipSharingDashboard,
   inviteMembershipMember,
+  resendMembershipInvite,
   revokeMembershipInvite,
   revokeMembershipMember,
 } from "@/auth/backend";
+import { Link } from "react-router-dom";
 
 interface MembershipSharingCardProps {
   sessionToken: string;
@@ -34,6 +36,12 @@ interface DashboardPendingInvite {
   expiresAt: string;
 }
 
+interface DashboardRevokedInvite {
+  id: string;
+  email: string;
+  revokedAt?: string | null;
+}
+
 interface DashboardData {
   role: string;
   eligible: boolean;
@@ -50,6 +58,7 @@ interface DashboardData {
   } | null;
   members: DashboardMember[];
   pendingInvites: DashboardPendingInvite[];
+  revokedInvites?: DashboardRevokedInvite[];
 }
 
 function formatDate(iso: string): string {
@@ -135,6 +144,21 @@ export function MembershipSharingCard({
     }
   }
 
+  async function handleResendInvite(inviteId: string) {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await resendMembershipInvite(sessionToken, inviteId);
+      if (!res.ok) {
+        setError(res.error ?? "Could not resend invite.");
+        return;
+      }
+      setDashboard(res.data as DashboardData);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleCancelInvite(inviteId: string) {
     setSubmitting(true);
     setError(null);
@@ -208,14 +232,17 @@ export function MembershipSharingCard({
           </CardTitle>
           <CardDescription>
             Invite family or team members to share your KeenVPN Premium
-            subscription. Available on Family and Team plans.
+            subscription. Available on Family and Business plans.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-            Family sharing is not enabled on this subscription yet. Contact
-            support to add family access.
+            Upgrade to a Family or Business plan to invite members with their own
+            login credentials.
           </p>
+          <Button asChild className="mt-4" variant="outline">
+            <Link to="/pricing">View Family &amp; Business plans</Link>
+          </Button>
         </CardContent>
       </Card>
     );
@@ -318,14 +345,45 @@ export function MembershipSharingCard({
                       Expires {formatDate(invite.expiresAt)}
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void handleCancelInvite(invite.id)}
-                    disabled={submitting}
-                  >
-                    Cancel
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleResendInvite(invite.id)}
+                      disabled={submitting}
+                    >
+                      Resend
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleCancelInvite(invite.id)}
+                      disabled={submitting}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {(dashboard.revokedInvites?.length ?? 0) > 0 ? (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Recently revoked invites
+            </h3>
+            <ul className="space-y-2">
+              {dashboard.revokedInvites?.map((invite) => (
+                <li
+                  key={invite.id}
+                  className="rounded-md border border-dashed p-3 text-sm text-muted-foreground"
+                >
+                  {invite.email}
+                  {invite.revokedAt
+                    ? ` · revoked ${formatDate(invite.revokedAt)}`
+                    : ""}
                 </li>
               ))}
             </ul>
