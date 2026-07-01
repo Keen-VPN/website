@@ -103,34 +103,42 @@ export function ConnectedDevicesCard({
     void load();
   }, [load]);
 
-  async function handleRevoke(deviceId: string) {
+  async function runDeviceAction(
+    deviceId: string,
+    action: (
+      token: string,
+      id: string,
+    ) => Promise<{ ok: boolean; error?: string }>,
+    failureMessage: string,
+  ) {
     setSubmittingId(deviceId);
     setError(null);
     try {
-      const res = await revokeDeviceConnection(sessionToken, deviceId);
+      const res = await action(sessionToken, deviceId);
       if (!res.ok) {
-        setError(res.error ?? "Failed to remove device.");
+        setError(res.error ?? failureMessage);
         return;
       }
       await load();
     } finally {
-      setSubmittingId(null);
+      setSubmittingId((current) => (current === deviceId ? null : current));
     }
   }
 
+  async function handleRevoke(deviceId: string) {
+    await runDeviceAction(
+      deviceId,
+      revokeDeviceConnection,
+      "Failed to remove device.",
+    );
+  }
+
   async function handleRestore(deviceId: string) {
-    setSubmittingId(deviceId);
-    setError(null);
-    try {
-      const res = await restoreDeviceConnection(sessionToken, deviceId);
-      if (!res.ok) {
-        setError(res.error ?? "Failed to restore device.");
-        return;
-      }
-      await load();
-    } finally {
-      setSubmittingId(null);
-    }
+    await runDeviceAction(
+      deviceId,
+      restoreDeviceConnection,
+      "Failed to restore device.",
+    );
   }
 
   if (loading) {
