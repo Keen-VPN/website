@@ -5398,3 +5398,174 @@ export async function restoreDeviceConnection(
     };
   }
 }
+
+// ---------------------------------------------------------------------
+// AI Workflow Engine (VIG execution) — Phase 2 UI client
+// ---------------------------------------------------------------------
+
+export type WorkflowState =
+  | "CREATED"
+  | "WAITING_FOR_INPUT"
+  | "READY_TO_EXECUTE"
+  | "EXECUTING"
+  | "WAITING_FOR_APPROVAL"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED";
+
+export type WorkflowStepStatus =
+  | "PENDING"
+  | "WAITING_FOR_INPUT"
+  | "WAITING_FOR_APPROVAL"
+  | "APPROVED"
+  | "RUNNING"
+  | "COMPLETED"
+  | "FAILED"
+  | "SKIPPED";
+
+export interface WorkflowSummary {
+  id: string;
+  workflowType: string;
+  partnerName: string | null;
+  state: WorkflowState;
+  completionPercent: number;
+  currentStepKey: string | null;
+  failureReason: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  durationMs: number | null;
+}
+
+export interface WorkflowDetail extends WorkflowSummary {
+  missingInputKeys: string[];
+}
+
+export interface WorkflowStepRunData {
+  stepKey: string;
+  sequence: number;
+  status: WorkflowStepStatus;
+  requiresApproval: boolean;
+  attempts: number;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface WorkflowDetailResult {
+  workflow: WorkflowDetail;
+  steps: WorkflowStepRunData[];
+}
+
+interface WorkflowApiResult<T> {
+  ok: boolean;
+  data?: T;
+  error?: string;
+}
+
+async function workflowRequest<T>(
+  sessionToken: string,
+  path: string,
+  init: RequestInit,
+  fallbackError: string,
+): Promise<WorkflowApiResult<T>> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/workflows${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...init.headers,
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = extractBackendErrorMessage(raw, fallbackError);
+      if (response.status === 404 && /not available/i.test(message)) {
+        return { ok: false, error: "Workflow engine is not available" };
+      }
+      return { ok: false, error: message };
+    }
+    return { ok: true, data: raw as T };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : fallbackError,
+    };
+  }
+}
+
+export async function listWorkflows(
+  sessionToken: string,
+): Promise<WorkflowApiResult<{ success: boolean; workflows: WorkflowSummary[] }>> {
+  return workflowRequest(
+    sessionToken,
+    "",
+    { method: "GET" },
+    "Failed to load workflows",
+  );
+}
+
+export async function createWorkflow(
+  sessionToken: string,
+  workflowType: string,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    "",
+    { method: "POST", body: JSON.stringify({ workflowType }) },
+    "Failed to start workflow",
+  );
+}
+
+export async function getWorkflow(
+  sessionToken: string,
+  workflowId: string,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}`,
+    { method: "GET" },
+    "Failed to load workflow",
+  );
+}
+
+export async function submitWorkflowInputs(
+  sessionToken: string,
+  workflowId: string,
+  answers: Record<string, string>,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}/inputs`,
+    { method: "POST", body: JSON.stringify({ answers }) },
+    "Failed to submit information",
+  );
+}
+
+export async function approveWorkflowStep(
+  sessionToken: string,
+  workflowId: string,
+  stepKey: string,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}/approve`,
+    { method: "POST", body: JSON.stringify({ stepKey }) },
+    "Failed to approve step",
+  );
+}
+
+export async function cancelWorkflow(
+  sessionToken: string,
+  workflowId: string,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}/cancel`,
+    { method: "POST" },
+    "Failed to cancel workflow",
+  );
+}
