@@ -201,8 +201,7 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
       loadGeneration.current += 1;
       clearPoll();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [load, clearPoll]);
 
   useEffect(() => {
     clearPoll();
@@ -242,6 +241,9 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
         setError(res.error ?? "Failed to start workflow");
         return;
       }
+      if (active && !ACTIVE_STATES.includes(active.workflow.state)) {
+        setHistory((current) => [active.workflow, ...current]);
+      }
       setActive({ workflow: res.data.workflow, steps: res.data.steps });
       setAnswers({});
     } finally {
@@ -257,8 +259,8 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
         .map((key) => [key, (answers[key] ?? "").trim()])
         .filter(([, value]) => value.length > 0),
     );
-    if (Object.keys(sanitized).length === 0) {
-      setError("Please answer the question below before continuing.");
+    if (Object.keys(sanitized).length < missing.length) {
+      setError("Please answer all questions above before continuing.");
       return;
     }
     setSubmitting(true);

@@ -5482,11 +5482,13 @@ async function workflowRequest<T>(
     });
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const message = extractBackendErrorMessage(raw, fallbackError);
-      if (response.status === 404 && /not available/i.test(message)) {
+      // Only the base "/workflows" list endpoint is used to detect whether the
+      // feature is enabled at all; every other 404 (e.g. a specific workflow id)
+      // means "not found", not "feature disabled" — regardless of message wording.
+      if (response.status === 404 && path === "") {
         return { ok: false, error: "Workflow engine is not available" };
       }
-      return { ok: false, error: message };
+      return { ok: false, error: extractBackendErrorMessage(raw, fallbackError) };
     }
     return { ok: true, data: raw as T };
   } catch (error) {
