@@ -52,17 +52,6 @@ export function pendingApprovalFromWorkflows(
   };
 }
 
-export function getWorkflowVisibleQuestionKeys(
-  detail: Pick<WorkflowDetailResult, "workflow">,
-  answers: Record<string, string>,
-): string[] {
-  return getVisibleWorkflowQuestionKeys({
-    missingInputKeys: detail.workflow.missingInputKeys,
-    inputQuestions: detail.workflow.inputQuestions,
-    answers,
-  });
-}
-
 export function humanizeWorkflowKey(key: string): string {
   return key
     .split("_")

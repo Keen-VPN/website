@@ -23,7 +23,13 @@ import {
   recordSignupStarted,
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
-import { enterprisePlan, DEFAULT_BUSINESS_SEATS, MIN_BUSINESS_SEATS, MAX_BUSINESS_SEATS } from "@/constants/pricing";
+import {
+  enterprisePlan,
+  DEFAULT_BUSINESS_SEATS,
+  MIN_BUSINESS_SEATS,
+  MAX_BUSINESS_SEATS,
+  resolvePlanMinSeats,
+} from "@/constants/pricing";
 import {
   canStartFreeTrial,
   getSubscriptionCtaLabel,
@@ -67,13 +73,6 @@ const isPerSeatPlan = (plan: ApiPlan | PricingPlan | null): boolean => {
     );
   }
   return false;
-};
-
-const getPlanMinSeats = (plan: ApiPlan | PricingPlan | null): number => {
-  if (plan && "minSeats" in plan && typeof plan.minSeats === "number") {
-    return plan.minSeats;
-  }
-  return MIN_BUSINESS_SEATS;
 };
 
 const getTierLabel = (tier: string) =>
@@ -236,7 +235,7 @@ const Subscribe = () => {
 
   useEffect(() => {
     if (!isPerSeatPlan(selectedPlan)) return;
-    const minSeats = getPlanMinSeats(selectedPlan);
+    const minSeats = resolvePlanMinSeats(selectedPlan);
     setSeatCount((count) =>
       Math.max(minSeats, Math.min(MAX_BUSINESS_SEATS, count)),
     );
@@ -735,10 +734,10 @@ const Subscribe = () => {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        disabled={seatCount <= getPlanMinSeats(selectedPlan)}
+                        disabled={seatCount <= resolvePlanMinSeats(selectedPlan)}
                         onClick={() =>
                           setSeatCount((count) =>
-                            Math.max(getPlanMinSeats(selectedPlan), count - 1),
+                            Math.max(resolvePlanMinSeats(selectedPlan), count - 1),
                           )
                         }
                       >
