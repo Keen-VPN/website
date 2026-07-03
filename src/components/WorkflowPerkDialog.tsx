@@ -97,19 +97,13 @@ export function WorkflowPerkDialog({
     }
   }, []);
 
-  const load = useCallback(
+  const loadWorkflow = useCallback(
     async (id: string) => {
-      const [workflowRes, profileRes] = await Promise.all([
-        getWorkflow(sessionToken, id),
-        getUserProfileInformation(sessionToken),
-      ]);
+      const workflowRes = await getWorkflow(sessionToken, id);
       if (!workflowRes.ok || !workflowRes.data) {
         setError(workflowRes.error ?? "Failed to load application");
         setLoading(false);
         return;
-      }
-      if (profileRes.success) {
-        setQuestions(profileRes.questions);
       }
       setDetail({
         workflow: workflowRes.data.workflow,
@@ -124,17 +118,24 @@ export function WorkflowPerkDialog({
     [sessionToken, clearPoll],
   );
 
+  const loadQuestions = useCallback(async () => {
+    const profileRes = await getUserProfileInformation(sessionToken);
+    if (profileRes.success) {
+      setQuestions(profileRes.questions);
+    }
+  }, [sessionToken]);
+
   useEffect(() => {
     if (!open || !workflowId) return;
     settledNotified.current = false;
     setLoading(true);
     setDetail(null);
     setAnswers({});
-    void load(workflowId);
+    void loadWorkflow(workflowId);
     return () => {
       clearPoll();
     };
-  }, [open, workflowId, load, clearPoll]);
+  }, [open, workflowId, loadWorkflow, clearPoll]);
 
   useEffect(() => {
     clearPoll();
@@ -145,11 +146,17 @@ export function WorkflowPerkDialog({
       workflowId
     ) {
       pollRef.current = setInterval(() => {
-        void load(workflowId);
+        void loadWorkflow(workflowId);
       }, POLL_INTERVAL_MS);
     }
     return clearPoll;
-  }, [open, detail?.workflow.state, workflowId, load, clearPoll]);
+  }, [open, detail?.workflow.state, workflowId, loadWorkflow, clearPoll]);
+
+  useEffect(() => {
+    if (open && detail?.workflow.state === "WAITING_FOR_INPUT") {
+      void loadQuestions();
+    }
+  }, [open, detail?.workflow.state, loadQuestions]);
 
   useEffect(() => {
     const keys = new Set(detail?.workflow.missingInputKeys ?? []);
@@ -205,7 +212,7 @@ export function WorkflowPerkDialog({
       return;
     }
     const vaultValidationError = getVaultAnswersValidationError(
-      visibleQuestionKeys,
+      missing,
       answers,
     );
     if (vaultValidationError) {

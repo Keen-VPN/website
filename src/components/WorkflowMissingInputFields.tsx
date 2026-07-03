@@ -72,40 +72,45 @@ export function WorkflowMissingInputFields({
         }
 
         const question = questionByKey.get(key);
+        const label =
+          question?.label ?? getVaultFieldLabel(key) ?? humanizeWorkflowKey(key);
         return (
           <div key={key} className="space-y-2">
-            <Label htmlFor={`${idPrefix}-${key}`}>
-              {question?.label ?? getVaultFieldLabel(key) ?? humanizeWorkflowKey(key)}
-            </Label>
             {question?.options?.length ? (
-              <RadioGroup
-                value={answers[key] ?? ""}
-                onValueChange={(value) => onAnswerChange(key, value)}
-                className="space-y-1.5"
-              >
-                {question.options.map((option) => (
-                  <div key={option.value} className="flex items-center gap-2">
-                    <RadioGroupItem
-                      value={option.value}
-                      id={`${idPrefix}-${key}-${option.value}`}
-                      disabled={disabled}
-                    />
-                    <Label
-                      htmlFor={`${idPrefix}-${key}-${option.value}`}
-                      className="font-normal"
-                    >
-                      {option.label}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium leading-none">{label}</legend>
+                <RadioGroup
+                  value={answers[key] ?? ""}
+                  onValueChange={(value) => onAnswerChange(key, value)}
+                  className="space-y-1.5"
+                >
+                  {question.options.map((option) => (
+                    <div key={option.value} className="flex items-center gap-2">
+                      <RadioGroupItem
+                        value={option.value}
+                        id={`${idPrefix}-${key}-${option.value}`}
+                        disabled={disabled}
+                      />
+                      <Label
+                        htmlFor={`${idPrefix}-${key}-${option.value}`}
+                        className="font-normal"
+                      >
+                        {option.label}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </fieldset>
             ) : (
-              <Input
-                id={`${idPrefix}-${key}`}
-                value={answers[key] ?? ""}
-                onChange={(e) => onAnswerChange(key, e.target.value)}
-                disabled={disabled}
-              />
+              <>
+                <Label htmlFor={`${idPrefix}-${key}`}>{label}</Label>
+                <Input
+                  id={`${idPrefix}-${key}`}
+                  value={answers[key] ?? ""}
+                  onChange={(e) => onAnswerChange(key, e.target.value)}
+                  disabled={disabled}
+                />
+              </>
             )}
           </div>
         );

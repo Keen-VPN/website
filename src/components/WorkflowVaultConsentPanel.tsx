@@ -44,11 +44,11 @@ export function WorkflowVaultConsentPanel({
     setLoading(true);
     setError(null);
     const res = await getWorkflowVaultAccess(sessionToken, workflowId);
-    if (!res.ok || !res.data?.request) {
+    if (!res.ok) {
       setRequest(null);
       setError(res.error ?? "Could not load vault access request");
     } else {
-      setRequest(res.data.request);
+      setRequest(res.data?.request ?? null);
     }
     setLoading(false);
   }, [sessionToken, workflowId]);
@@ -101,9 +101,13 @@ export function WorkflowVaultConsentPanel({
   if (!request) {
     return (
       <div className="space-y-3 rounded-md bg-muted/40 p-3">
-        <p className="text-sm text-destructive">
-          {error ?? "No pending vault access request was found."}
-        </p>
+        {error ? (
+          <p className="text-sm text-destructive">{error}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No pending vault access request was found.
+          </p>
+        )}
         <p className="text-sm text-muted-foreground">
           If you haven&apos;t stored the required details yet, add them in your{" "}
           <a href="#vault" className="font-medium underline">
@@ -111,9 +115,16 @@ export function WorkflowVaultConsentPanel({
           </a>{" "}
           and refresh this page.
         </p>
-        <Button size="sm" variant="outline" onClick={() => void load()} disabled={submitting}>
-          Try again
-        </Button>
+        {error ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void load()}
+            disabled={submitting}
+          >
+            Try again
+          </Button>
+        ) : null}
       </div>
     );
   }

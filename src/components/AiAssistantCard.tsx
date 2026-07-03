@@ -55,6 +55,19 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const loadGeneration = useRef(0);
 
+  const refreshWorkflowState = useCallback(async () => {
+    const workflowsRes = await listWorkflows(sessionToken);
+    if (workflowsRes.ok && workflowsRes.data) {
+      setPendingApproval(
+        pendingApprovalFromWorkflows(workflowsRes.data.workflows),
+      );
+      const vaultConsent = pendingVaultConsentFromWorkflows(
+        workflowsRes.data.workflows,
+      );
+      setPendingVaultConsentWorkflowId(vaultConsent?.id ?? null);
+    }
+  }, [sessionToken]);
+
   const load = useCallback(async () => {
     const generation = ++loadGeneration.current;
     setLoading(true);
@@ -91,20 +104,11 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
       }
     }
 
-    const workflowsRes = await listWorkflows(sessionToken);
     if (generation !== loadGeneration.current) return;
-    if (workflowsRes.ok && workflowsRes.data) {
-      setPendingApproval(
-        pendingApprovalFromWorkflows(workflowsRes.data.workflows),
-      );
-      const vaultConsent = pendingVaultConsentFromWorkflows(
-        workflowsRes.data.workflows,
-      );
-      setPendingVaultConsentWorkflowId(vaultConsent?.id ?? null);
-    }
+    await refreshWorkflowState();
 
     setLoading(false);
-  }, [sessionToken]);
+  }, [sessionToken, refreshWorkflowState]);
 
   useEffect(() => {
     void load();
@@ -114,10 +118,10 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
   }, [load]);
 
   useEffect(() => {
-    const refresh = () => void load();
+    const refresh = () => void refreshWorkflowState();
     window.addEventListener(WORKFLOW_UPDATED_EVENT, refresh);
     return () => window.removeEventListener(WORKFLOW_UPDATED_EVENT, refresh);
-  }, [load]);
+  }, [refreshWorkflowState]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

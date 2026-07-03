@@ -59,6 +59,7 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
     null,
   );
   const loadGeneration = useRef(0);
+  const editRequestKeyRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     const generation = ++loadGeneration.current;
@@ -91,18 +92,26 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
   }, [load]);
 
   async function startEdit(field: VaultFieldMetadata) {
+    const requestedFieldKey = field.fieldKey;
+    editRequestKeyRef.current = requestedFieldKey;
     setEditingKey(field.fieldKey);
     setEditValue("");
     setError(null);
     if (field.isStored) {
       const res = await getVaultFieldValue(sessionToken, field.fieldKey);
-      if (res.ok && res.data?.field?.value) {
+      if (editRequestKeyRef.current !== requestedFieldKey) {
+        return;
+      }
+      if (res.ok && res.data?.field) {
         setEditValue(res.data.field.value);
+      } else {
+        setError(res.error ?? `Failed to load ${field.label}`);
       }
     }
   }
 
   function cancelEdit() {
+    editRequestKeyRef.current = null;
     setEditingKey(null);
     setEditValue("");
   }
@@ -124,6 +133,7 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
         return;
       }
       toast({ title: `${field.label} saved securely` });
+      editRequestKeyRef.current = null;
       setEditingKey(null);
       setEditValue("");
       await load();
@@ -263,6 +273,7 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
                         size="sm"
                         variant="outline"
                         onClick={() => void startEdit(field)}
+                        disabled={saving}
                       >
                         {field.isStored ? "Update" : "Add"}
                       </Button>

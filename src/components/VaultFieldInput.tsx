@@ -98,16 +98,16 @@ export function VaultFieldInput({
 
   if (inputType === "ssn") {
     return (
-      <MaskedInput
+      <Input
         id={id}
+        type="password"
+        inputMode="numeric"
+        autoComplete="off"
         value={value}
-        onChange={(next) => onChange(formatSsnInput(next))}
+        onChange={(e) => onChange(formatSsnInput(e.target.value))}
         disabled={disabled}
         placeholder="###-##-####"
-        inputMode="numeric"
         maxLength={11}
-        revealLabel="Show SSN"
-        hideLabel="Hide SSN"
       />
     );
   }

@@ -222,7 +222,9 @@ export function getVaultAnswersValidationError(
 ): string | null {
   for (const key of keys) {
     if (!isVaultFieldKey(key)) continue;
-    const error = getVaultFieldValidationError(key, answers[key] ?? "");
+    const value = (answers[key] ?? "").trim();
+    if (!value) continue;
+    const error = getVaultFieldValidationError(key, value);
     if (error) {
       const label = getVaultFieldLabel(key);
       return `${label}: ${error}`;

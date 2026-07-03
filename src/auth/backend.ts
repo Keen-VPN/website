@@ -1,4 +1,8 @@
 import type { ApiPlan } from "@/lib/pricing";
+import type {
+  VaultFieldCategory,
+  VaultFieldInputType,
+} from "@/lib/vault-fields";
 import { BackendAuthResponse, SubscriptionData, TrialData } from "./types";
 import {
   getReferralTokenFromStorage,
@@ -5720,18 +5724,7 @@ export async function denyWorkflowVaultAccess(
 // Secure User Vault
 // ---------------------------------------------------------------------
 
-export type VaultFieldInputType =
-  | "text"
-  | "date"
-  | "ssn"
-  | "address"
-  | "number";
-
-export type VaultFieldCategory =
-  | "IDENTITY"
-  | "ADDRESS"
-  | "EMPLOYMENT"
-  | "FINANCIAL";
+export type { VaultFieldCategory, VaultFieldInputType } from "@/lib/vault-fields";
 
 export interface VaultFieldMetadata {
   fieldKey: string;
