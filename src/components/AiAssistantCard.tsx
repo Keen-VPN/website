@@ -20,7 +20,8 @@ import {
   type AiPendingApproval,
 } from "@/auth/backend";
 import { cn } from "@/lib/utils";
-import { pendingApprovalFromWorkflows } from "@/lib/workflow-ui";
+import { pendingApprovalFromWorkflows, pendingVaultConsentFromWorkflows } from "@/lib/workflow-ui";
+import { WORKFLOW_UPDATED_EVENT } from "@/lib/workflow-events";
 
 interface AiAssistantCardProps {
   sessionToken: string;
@@ -49,6 +50,8 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
   const [sending, setSending] = useState(false);
   const [pendingApproval, setPendingApproval] =
     useState<AiPendingApproval | null>(null);
+  const [pendingVaultConsentWorkflowId, setPendingVaultConsentWorkflowId] =
+    useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const loadGeneration = useRef(0);
 
@@ -94,6 +97,10 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
       setPendingApproval(
         pendingApprovalFromWorkflows(workflowsRes.data.workflows),
       );
+      const vaultConsent = pendingVaultConsentFromWorkflows(
+        workflowsRes.data.workflows,
+      );
+      setPendingVaultConsentWorkflowId(vaultConsent?.id ?? null);
     }
 
     setLoading(false);
@@ -104,6 +111,12 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
     return () => {
       loadGeneration.current += 1;
     };
+  }, [load]);
+
+  useEffect(() => {
+    const refresh = () => void load();
+    window.addEventListener(WORKFLOW_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(WORKFLOW_UPDATED_EVENT, refresh);
   }, [load]);
 
   useEffect(() => {
@@ -217,6 +230,23 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         {error && <p className="text-sm text-destructive">{error}</p>}
+
+        {pendingVaultConsentWorkflowId && (
+          <div className="flex items-start gap-2 rounded-md bg-muted/40 p-3 text-sm">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <p>
+              An application needs your permission to access information in your{" "}
+              <a href="#vault" className="font-medium underline">
+                Secure Vault
+              </a>
+              . Review the request in{" "}
+              <a href="#applications" className="font-medium underline">
+                Applications
+              </a>
+              .
+            </p>
+          </div>
+        )}
 
         {pendingApproval && (
           <div className="flex items-start gap-2 rounded-md bg-muted/40 p-3 text-sm">

@@ -5464,6 +5464,7 @@ export async function restoreDeviceConnection(
 export type WorkflowState =
   | "CREATED"
   | "WAITING_FOR_INPUT"
+  | "WAITING_FOR_VAULT_CONSENT"
   | "READY_TO_EXECUTE"
   | "EXECUTING"
   | "WAITING_FOR_APPROVAL"
@@ -5659,6 +5660,192 @@ export async function cancelWorkflow(
     `/${workflowId}/cancel`,
     { method: "POST" },
     "Failed to cancel workflow",
+  );
+}
+
+export interface VaultAccessRequestField {
+  fieldKey: string;
+  label: string;
+}
+
+export interface VaultAccessRequestInfo {
+  id: string;
+  workflowId: string;
+  status: string;
+  requestedFieldKeys: string[];
+  fields: VaultAccessRequestField[];
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export async function getWorkflowVaultAccess(
+  sessionToken: string,
+  workflowId: string,
+): Promise<
+  WorkflowApiResult<{ success: boolean; request: VaultAccessRequestInfo }>
+> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}/vault-access`,
+    { method: "GET" },
+    "Failed to load vault access request",
+  );
+}
+
+export async function approveWorkflowVaultAccess(
+  sessionToken: string,
+  workflowId: string,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}/vault-access/approve`,
+    { method: "POST" },
+    "Failed to approve vault access",
+  );
+}
+
+export async function denyWorkflowVaultAccess(
+  sessionToken: string,
+  workflowId: string,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}/vault-access/deny`,
+    { method: "POST" },
+    "Failed to deny vault access",
+  );
+}
+
+// ---------------------------------------------------------------------
+// Secure User Vault
+// ---------------------------------------------------------------------
+
+export type VaultFieldInputType =
+  | "text"
+  | "date"
+  | "ssn"
+  | "address"
+  | "number";
+
+export type VaultFieldCategory =
+  | "IDENTITY"
+  | "ADDRESS"
+  | "EMPLOYMENT"
+  | "FINANCIAL";
+
+export interface VaultFieldMetadata {
+  fieldKey: string;
+  category: VaultFieldCategory;
+  label: string;
+  inputType: VaultFieldInputType;
+  isStored: boolean;
+  verificationStatus: string;
+  lastUpdatedAt: string | null;
+  confirmedAt: string | null;
+  maskedPreview: string | null;
+}
+
+export interface VaultOverviewSection {
+  category: VaultFieldCategory;
+  fields: VaultFieldMetadata[];
+}
+
+interface VaultApiResult<T> {
+  ok: boolean;
+  data?: T;
+  error?: string;
+  status?: number;
+}
+
+async function vaultRequest<T>(
+  sessionToken: string,
+  path: string,
+  init: RequestInit,
+  fallbackError: string,
+): Promise<VaultApiResult<T>> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/vault${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...init.headers,
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 404 && path === "") {
+        return {
+          ok: false,
+          status: 404,
+          error: "Secure vault is not available",
+        };
+      }
+      return {
+        ok: false,
+        status: response.status,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
+    }
+    return { ok: true, status: response.status, data: raw as T };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : fallbackError,
+    };
+  }
+}
+
+export async function getVaultOverview(sessionToken: string) {
+  return vaultRequest<{
+    success: boolean;
+    sections: VaultOverviewSection[];
+    fields: VaultFieldMetadata[];
+  }>(sessionToken, "", { method: "GET" }, "Failed to load secure vault");
+}
+
+export async function getVaultFieldValue(
+  sessionToken: string,
+  fieldKey: string,
+) {
+  return vaultRequest<{
+    success: boolean;
+    field: { fieldKey: string; value: string };
+  }>(
+    sessionToken,
+    `/fields/${encodeURIComponent(fieldKey)}`,
+    { method: "GET" },
+    "Failed to load vault field",
+  );
+}
+
+export async function upsertVaultField(
+  sessionToken: string,
+  fieldKey: string,
+  value: string,
+  confirmAccurate = false,
+) {
+  return vaultRequest<{ success: boolean; fieldKey: string }>(
+    sessionToken,
+    `/fields/${encodeURIComponent(fieldKey)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ value, confirmAccurate }),
+    },
+    "Failed to save vault field",
+  );
+}
+
+export async function deleteVaultField(
+  sessionToken: string,
+  fieldKey: string,
+) {
+  return vaultRequest<{ success: boolean; fieldKey: string }>(
+    sessionToken,
+    `/fields/${encodeURIComponent(fieldKey)}`,
+    { method: "DELETE" },
+    "Failed to delete vault field",
   );
 }
 
