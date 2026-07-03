@@ -369,12 +369,14 @@ export type PerkCategory =
   | "ai_productivity"
   | "developer_tools"
   | "startup_growth"
-  | "remote_work";
+  | "remote_work"
+  | "finance";
 
 export type PerkRedemptionType =
   | "external_link"
   | "coupon_code"
-  | "invite_only";
+  | "invite_only"
+  | "workflow";
 
 export type PerkUserTab = "new" | "completed" | "snoozed" | "not_interested";
 
@@ -408,6 +410,8 @@ export interface PerkItem {
   /** Present on claimed coupon perks so the code stays visible on the card. */
   couponCode?: string;
   redemptionUrl?: string;
+  /** Workflow Engine type identifier for "workflow" redemption perks, e.g. "chase_signup". */
+  workflowType?: string;
 }
 
 export interface PerksListPayload {
@@ -465,6 +469,9 @@ export async function claimPerk(
   couponCode?: string;
   message?: string;
   error?: string;
+  /** Present when redemptionType is "workflow" — the auto-started/resumed workflow. */
+  workflowId?: string;
+  workflowState?: WorkflowState;
 }> {
   try {
     const response = await fetch(
@@ -507,6 +514,14 @@ export async function claimPerk(
           : undefined,
       message:
         typeof payload["message"] === "string" ? payload["message"] : undefined,
+      workflowId:
+        typeof payload["workflowId"] === "string"
+          ? payload["workflowId"]
+          : undefined,
+      workflowState:
+        typeof payload["workflowState"] === "string"
+          ? (payload["workflowState"] as WorkflowState)
+          : undefined,
     };
   } catch (error) {
     return {
@@ -1803,6 +1818,7 @@ export async function createCheckoutSession(
   planId: string,
   successUrl?: string,
   cancelUrl?: string,
+  seatCount?: number,
 ): Promise<CreateCheckoutResult> {
   try {
     const response = await fetch(`${BACKEND_URL}/payment/stripe/checkout`, {
@@ -1815,6 +1831,7 @@ export async function createCheckoutSession(
         planId,
         successUrl,
         cancelUrl,
+        ...(seatCount !== undefined ? { seatCount } : {}),
       }),
     });
 
@@ -3724,6 +3741,8 @@ export interface AdminPerk {
   clonedFromPerkId: string | null;
   audienceTargeting: AudienceTargeting;
   extensionDomains: ExtensionDomainRule[];
+  /** Workflow Engine type identifier for "workflow" redemption perks, e.g. "chase_signup". */
+  workflowType: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -3764,6 +3783,8 @@ export interface CreateAdminPerkPayload {
   redemptionType?: PerkRedemptionType;
   redemptionUrl?: string;
   couponCode?: string;
+  /** Workflow Engine type identifier — required when redemptionType is "workflow". */
+  workflowType?: string;
   accessLevel?: "free" | "paid" | "annual";
   isFeatured?: boolean;
   isActive?: boolean;
@@ -3784,6 +3805,7 @@ export type UpdateAdminPerkPayload = Partial<{
   redemptionType: PerkRedemptionType;
   redemptionUrl: string | null;
   couponCode: string | null;
+  workflowType: string | null;
   accessLevel: "free" | "paid" | "annual";
   isFeatured: boolean;
   isActive: boolean;
@@ -4542,6 +4564,42 @@ export async function revokeMembershipInvite(
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Failed to cancel invite",
+    };
+  }
+}
+
+/**
+ * Buy/reduce seats on the caller's owned Business subscription (Slack/Devin-style seat
+ * management). Stripe prorates the difference immediately; the returned `seatLimit` reflects
+ * the new value right away, ahead of the webhook reconciliation.
+ */
+export async function updateMembershipSeatCount(
+  sessionToken: string,
+  quantity: number,
+): Promise<{ ok: boolean; data?: { seatLimit: number }; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/membership-sharing/seats`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ quantity }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to update seat count"),
+      };
+    }
+    return { ok: true, data: raw as { seatLimit: number } };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to update seat count",
     };
   }
 }
@@ -5438,8 +5496,40 @@ export interface WorkflowSummary {
   durationMs: number | null;
 }
 
+/** Mirrors backend WorkflowQuestionDefinition (workflow-question.types.ts) — richer
+ * than ProfileQuestion so clients can render email/text/multi-select fields with
+ * conditional visibility instead of hardcoding per-workflow UI. */
+export type WorkflowQuestionFieldType =
+  | "email"
+  | "text"
+  | "single_select"
+  | "multi_select";
+
+export interface WorkflowQuestionOption {
+  value: string;
+  label: string;
+}
+
+export interface WorkflowQuestionShowWhen {
+  questionKey: string;
+  values: string[];
+}
+
+export interface WorkflowQuestionDefinition {
+  key: string;
+  label: string;
+  type: WorkflowQuestionFieldType;
+  helpText?: string;
+  options?: WorkflowQuestionOption[];
+  allowOther?: boolean;
+  showWhen?: WorkflowQuestionShowWhen;
+}
+
 export interface WorkflowDetail extends WorkflowSummary {
   missingInputKeys: string[];
+  /** Full question metadata for every input this workflow type collects. Omitted for
+   * profile-backed workflow types, which fall back to the global ProfileQuestion catalog. */
+  inputQuestions?: WorkflowQuestionDefinition[];
 }
 
 export interface WorkflowStepRunData {
@@ -5569,5 +5659,137 @@ export async function cancelWorkflow(
     `/${workflowId}/cancel`,
     { method: "POST" },
     "Failed to cancel workflow",
+  );
+}
+
+// ---------------------------------------------------------------------
+// AI Orchestrator (Claude) — conversational client on top of the Workflow Engine
+// ---------------------------------------------------------------------
+
+export type AiConversationStatus = "ACTIVE" | "CLOSED";
+export type AiMessageRole = "USER" | "ASSISTANT" | "TOOL";
+
+export interface AiConversationSummary {
+  id: string;
+  title: string | null;
+  status: AiConversationStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiMessageData {
+  id: string;
+  role: AiMessageRole;
+  content: string | null;
+  toolName: string | null;
+  toolInput: Record<string, unknown> | null;
+  toolResult: unknown;
+  isError: boolean;
+  createdAt: string;
+}
+
+export interface AiPendingApproval {
+  workflowId: string;
+  stepKey: string | null;
+}
+
+interface AiApiResult<T> {
+  ok: boolean;
+  data?: T;
+  error?: string;
+}
+
+async function aiRequest<T>(
+  sessionToken: string,
+  path: string,
+  init: RequestInit,
+  fallbackError: string,
+): Promise<AiApiResult<T>> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/ai/conversations${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...init.headers,
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      // Only the base "/ai/conversations" list endpoint is used to detect
+      // whether the feature is enabled at all — mirrors workflowRequest's
+      // approach for the Workflow Engine's own feature flag.
+      if (response.status === 404 && path === "") {
+        return { ok: false, error: "AI assistant is not available" };
+      }
+      return { ok: false, error: extractBackendErrorMessage(raw, fallbackError) };
+    }
+    return { ok: true, data: raw as T };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : fallbackError,
+    };
+  }
+}
+
+export async function listAiConversations(
+  sessionToken: string,
+): Promise<AiApiResult<{ success: boolean; conversations: AiConversationSummary[] }>> {
+  return aiRequest(
+    sessionToken,
+    "",
+    { method: "GET" },
+    "Failed to load conversations",
+  );
+}
+
+export async function createAiConversation(
+  sessionToken: string,
+  title?: string,
+): Promise<AiApiResult<{ success: boolean; conversationId: string }>> {
+  return aiRequest(
+    sessionToken,
+    "",
+    { method: "POST", body: JSON.stringify(title ? { title } : {}) },
+    "Failed to start a new conversation",
+  );
+}
+
+export async function getAiConversation(
+  sessionToken: string,
+  conversationId: string,
+): Promise<
+  AiApiResult<{
+    success: boolean;
+    conversation: AiConversationSummary;
+    messages: AiMessageData[];
+  }>
+> {
+  return aiRequest(
+    sessionToken,
+    `/${conversationId}`,
+    { method: "GET" },
+    "Failed to load conversation",
+  );
+}
+
+export async function sendAiMessage(
+  sessionToken: string,
+  conversationId: string,
+  message: string,
+): Promise<
+  AiApiResult<{
+    success: boolean;
+    reply: string;
+    pendingApproval?: AiPendingApproval;
+  }>
+> {
+  return aiRequest(
+    sessionToken,
+    `/${conversationId}/messages`,
+    { method: "POST", body: JSON.stringify({ message }) },
+    "Failed to send message",
   );
 }

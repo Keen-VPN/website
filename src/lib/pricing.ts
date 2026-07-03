@@ -12,6 +12,10 @@ export interface ApiPlan {
   }[];
   priceId: string;
   description?: string;
+  /** True for the Business plan: `price` is per-seat and checkout takes a seat quantity. */
+  isPerSeat?: boolean;
+  minSeats?: number;
+  defaultSeats?: number;
 }
 
 import {
@@ -43,6 +47,10 @@ export interface PricingPlan {
   }[];
   buttonText: string;
   popular: boolean;
+  /** True for the Business plan: price is per-seat and checkout takes a seat quantity. */
+  isPerSeat?: boolean;
+  minSeats?: number;
+  defaultSeats?: number;
   monthlyPriceId?: string;
   annualPriceId?: string;
 }
@@ -51,27 +59,22 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
   const plansByType = apiPlans.reduce(
     (acc, plan) => {
       const id = plan.id.toLowerCase();
-      const isFamily =
+      const isLegacyFamilyOnly =
         id.includes("family") &&
         !id.includes("family_plus") &&
         !id.includes("familyplus");
+      if (isLegacyFamilyOnly) {
+        return acc;
+      }
+      // Family is retired from the purchasable catalog; any legacy family_plus/familyplus
+      // price ids the backend might still return are folded into Business (seat-based).
       const isTeam =
         id.includes("team") ||
         id.includes("business") ||
         id.includes("family_plus") ||
         id.includes("familyplus");
-      const isPremium =
-        id.includes("premium") &&
-        !id.includes("family") &&
-        !id.includes("team") &&
-        !id.includes("business");
-      const key = isPremium
-        ? "premium"
-        : isFamily
-          ? "family"
-          : isTeam
-            ? "team"
-            : "other";
+      const isPremium = id.includes("premium") && !isTeam;
+      const key = isPremium ? "premium" : isTeam ? "team" : "other";
 
       if (!acc[key]) {
         acc[key] = { monthly: null, annual: null };
@@ -94,7 +97,6 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
     if (!monthly && !annual) return;
 
     const isPremium = type === "premium";
-    const isFamily = type === "family";
     const isTeam = type === "team";
     const monthlyPrice = monthly?.price || annual?.price || 0;
     const annualPrice =
@@ -123,38 +125,29 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
         ? monthly.features
         : [];
 
+    // Business bills per seat: `monthlyPrice`/`annualPrice` here is the per-seat price.
     const deviceConnectionFeature = {
       name: isTeam
-        ? "Up to 14 simultaneous devices"
-        : isFamily
-          ? "Up to 12 simultaneous devices"
-          : "Up to 10 simultaneous devices",
+        ? "5 connected devices per seat"
+        : "Up to 3 connected devices",
       included: true,
       highlighted: true,
     };
 
     const mergedFeatures = [
       deviceConnectionFeature,
-      ...features.filter((f) => !/simultaneous device/i.test(f.name)),
+      ...features.filter((f) => !/simultaneous device|connected device/i.test(f.name)),
     ];
 
     transformedPlans.push({
       monthlyId: monthly?.id,
       annualId: annual?.id,
-        name: isPremium
-        ? "Individual"
-        : isFamily
-          ? "Family"
-          : isTeam
-            ? "Business"
-            : "Premium",
+      name: isPremium ? "Individual" : isTeam ? "Business" : "Premium",
       description: isPremium
         ? "Perfect for personal use"
-        : isFamily
-          ? "Share premium with up to 5 members"
-          : isTeam
-            ? "For teams and businesses (up to 10 members)"
-            : "Premium VPN service",
+        : isTeam
+          ? "Buy seats for your whole team — pay per person"
+          : "Premium VPN service",
       monthlyPrice,
       annualPrice,
       monthlyPriceDisplay: `$${monthlyPrice}`,
@@ -165,7 +158,17 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       annualSavingsLabel,
       features: mergedFeatures,
       buttonText: "Start Free Trial",
-      popular: isFamily,
+      popular: isTeam,
+      isPerSeat: isTeam,
+      minSeats: isTeam
+        ? (monthly?.minSeats ?? annual?.minSeats ?? 2)
+        : undefined,
+      defaultSeats: isTeam
+        ? Math.max(
+            monthly?.minSeats ?? annual?.minSeats ?? 2,
+            monthly?.defaultSeats ?? annual?.defaultSeats ?? 5,
+          )
+        : undefined,
       monthlyPriceId: monthly?.priceId,
       annualPriceId: annual?.priceId,
     });
@@ -175,9 +178,8 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
     const order: Record<string, number> = {
       Individual: 0,
       Premium: 0,
-      Family: 1,
-      Business: 2,
-      Team: 2,
+      Business: 1,
+      Team: 1,
     };
     return (
       (order[a.name as keyof typeof order] ?? 99) -

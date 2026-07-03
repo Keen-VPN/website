@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/accordion";
 import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import PricingNoticeTooltip from "@/components/PricingNoticeTooltip";
-import { enterprisePlan, featureComparison, featureComparisonValueForPlan, faqs } from "@/constants/pricing";
+import { enterprisePlan, featureComparison, featureComparisonValueForPlan, faqs, DEFAULT_BUSINESS_SEATS, MAX_BUSINESS_SEATS, resolvePlanDefaultSeats, resolvePlanMinSeats } from "@/constants/pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import {
@@ -134,6 +134,9 @@ const Pricing = () => {
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
     "annual",
   );
+  const [businessSeatCount, setBusinessSeatCount] = useState(
+    DEFAULT_BUSINESS_SEATS,
+  );
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -142,8 +145,18 @@ const Pricing = () => {
     () => plans.find((p) => p.name === "Individual" || p.name === "Premium"),
     [plans],
   );
+  const businessPlan = useMemo(
+    () => plans.find((p) => p.isPerSeat),
+    [plans],
+  );
+  const businessMinSeats = resolvePlanMinSeats(businessPlan);
+  const businessDefaultSeats = resolvePlanDefaultSeats(businessPlan);
   const annualSavingsLabel =
     premiumPlan?.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL;
+
+  useEffect(() => {
+    setBusinessSeatCount(businessDefaultSeats);
+  }, [businessDefaultSeats]);
 
   useEffect(() => {
     if (billingPeriod !== "annual" || annualViewTrackedRef.current) {
@@ -307,11 +320,6 @@ const Pricing = () => {
               const annualBillingDetail = isAnnual
                 ? formatAnnualBillingDetail(plan)
                 : null;
-              const showFamilyPlanUpgrade =
-                ctaKind === "manage_account" &&
-                plan.name === "Family" &&
-                membershipTier === "individual" &&
-                showMembershipPlanUpgrade;
               const showBusinessPlanUpgrade =
                 ctaKind === "manage_account" &&
                 plan.name === "Business" &&
@@ -354,7 +362,10 @@ const Pricing = () => {
                         {annualHeroPriceDisplay(plan, isAnnual)}
                       </span>
                       {period && (
-                        <span className="text-muted-foreground">{period}</span>
+                        <span className="text-muted-foreground">
+                          {period}
+                          {plan.isPerSeat ? " per seat" : ""}
+                        </span>
                       )}
                       {plan.name !== "Enterprise" && <PricingNoticeTooltip />}
                     </div>
@@ -371,6 +382,55 @@ const Pricing = () => {
                         {annualBillingDetail}
                       </p>
                     )}
+                    {plan.isPerSeat && plan.monthlyPrice !== null ? (
+                      <div className="mt-4 space-y-2 rounded-lg border border-border/80 bg-muted/30 p-3">
+                        <p className="text-sm font-medium text-foreground">
+                          Seats
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={businessSeatCount <= businessMinSeats}
+                            onClick={() =>
+                              setBusinessSeatCount((count) =>
+                                Math.max(businessMinSeats, count - 1),
+                              )
+                            }
+                          >
+                            −
+                          </Button>
+                          <span className="min-w-[2rem] text-center text-lg font-semibold">
+                            {businessSeatCount}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            disabled={businessSeatCount >= MAX_BUSINESS_SEATS}
+                            onClick={() =>
+                              setBusinessSeatCount((count) =>
+                                Math.min(MAX_BUSINESS_SEATS, count + 1),
+                              )
+                            }
+                          >
+                            +
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Total: $
+                          {(
+                            ((isAnnual ? plan.annualPrice : plan.monthlyPrice) ??
+                              0) * businessSeatCount
+                          ).toFixed(2)}
+                          {isAnnual ? "/year" : "/month"} for {businessSeatCount}{" "}
+                          seats
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
 
                   {plan.name === "Enterprise" ? (
@@ -387,7 +447,7 @@ const Pricing = () => {
                         {plan.buttonText}
                       </Button>
                     </ContactSalesDialog>
-                  ) : showFamilyPlanUpgrade || showBusinessPlanUpgrade ? (
+                  ) : showBusinessPlanUpgrade ? (
                     <Button
                       onClick={() => void openPlanChangePortal()}
                       disabled={portalLoading}
@@ -404,10 +464,8 @@ const Pricing = () => {
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                           Opening billing…
                         </>
-                      ) : showBusinessPlanUpgrade ? (
-                        "Upgrade to Business"
                       ) : (
-                        "Upgrade to Family"
+                        "Upgrade to Business"
                       )}
                     </Button>
                   ) : ctaKind === "manage_account" &&
@@ -455,6 +513,12 @@ const Pricing = () => {
                             ? plan.annualId || ""
                             : plan.monthlyId || "",
                         });
+                        if (plan.isPerSeat) {
+                          queryParams.set(
+                            "seats",
+                            String(businessSeatCount),
+                          );
+                        }
                         navigate(`/subscribe?${queryParams.toString()}`);
                       }}
                       disabled={ctaKind === "loading"}
@@ -721,7 +785,7 @@ const Pricing = () => {
             <p className="text-xl text-muted-foreground mb-8">
               {ctaKind === "manage_account"
                 ? showMembershipPlanUpgrade
-                  ? "Upgrade your plan to share KeenVPN with family or your team."
+                  ? "Upgrade to Business to buy seats and invite your team."
                   : "Manage billing, plan details, and settings in one place."
                 : ctaKind === "subscribe"
                   ? "Choose a plan and subscribe to get full protection."

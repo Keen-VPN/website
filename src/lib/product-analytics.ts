@@ -75,7 +75,8 @@ export type PerkAnalyticsEventName =
   | "perk_restored_to_new"
   | "perk_marked_not_interested"
   | "perk_moved_from_snoozed_to_not_interested"
-  | "perk_moved_from_not_interested_to_snoozed";
+  | "perk_moved_from_not_interested_to_snoozed"
+  | "perk_workflow_cancelled";
 
 export function trackPerksEvent(
   eventName: PerkAnalyticsEventName,
