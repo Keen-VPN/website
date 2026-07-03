@@ -137,12 +137,14 @@ export function WorkflowPerkDialog({
     };
   }, [open, workflowId, loadWorkflow, clearPoll]);
 
+  const workflowState = detail?.workflow.state;
+
   useEffect(() => {
     clearPoll();
     if (
       open &&
-      detail &&
-      AUTO_PROGRESS_WORKFLOW_STATES.includes(detail.workflow.state) &&
+      workflowState &&
+      AUTO_PROGRESS_WORKFLOW_STATES.includes(workflowState) &&
       workflowId
     ) {
       pollRef.current = setInterval(() => {
@@ -150,13 +152,13 @@ export function WorkflowPerkDialog({
       }, POLL_INTERVAL_MS);
     }
     return clearPoll;
-  }, [open, detail?.workflow.state, workflowId, loadWorkflow, clearPoll]);
+  }, [open, workflowState, workflowId, loadWorkflow, clearPoll]);
 
   useEffect(() => {
-    if (open && detail?.workflow.state === "WAITING_FOR_INPUT") {
+    if (open && workflowState === "WAITING_FOR_INPUT") {
       void loadQuestions();
     }
-  }, [open, detail?.workflow.state, loadQuestions]);
+  }, [open, workflowState, loadQuestions]);
 
   useEffect(() => {
     const keys = new Set(detail?.workflow.missingInputKeys ?? []);
@@ -175,16 +177,16 @@ export function WorkflowPerkDialog({
   }, [detail?.workflow.missingInputKeys, detail?.workflow.inputQuestions]);
 
   useEffect(() => {
-    if (!detail || settledNotified.current) return;
+    if (!workflowState || settledNotified.current) return;
     if (
-      detail.workflow.state === "COMPLETED" ||
-      detail.workflow.state === "FAILED" ||
-      detail.workflow.state === "CANCELLED"
+      workflowState === "COMPLETED" ||
+      workflowState === "FAILED" ||
+      workflowState === "CANCELLED"
     ) {
       settledNotified.current = true;
       onSettled?.();
     }
-  }, [detail?.workflow.state, onSettled]);
+  }, [workflowState, onSettled]);
 
   const questionByKey = useMemo(() => {
     const map = new Map<string, ProfileQuestion>();

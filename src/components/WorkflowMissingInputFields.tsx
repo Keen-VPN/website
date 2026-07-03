@@ -52,7 +52,8 @@ export function WorkflowMissingInputFields({
         }
 
         if (isVaultFieldKey(key)) {
-          const vaultField = getVaultFieldDefinition(key)!;
+          const vaultField = getVaultFieldDefinition(key);
+          if (!vaultField) return null;
           return (
             <div key={key} className="space-y-2">
               <Label htmlFor={`${idPrefix}-${key}`}>{vaultField.label}</Label>
