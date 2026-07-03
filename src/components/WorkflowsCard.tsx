@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -16,6 +17,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Gift,
   Loader2,
   Sparkles,
   XCircle,
@@ -23,7 +25,6 @@ import {
 import {
   approveWorkflowStep,
   cancelWorkflow,
-  createWorkflow,
   getWorkflow,
   listWorkflows,
   submitWorkflowInputs,
@@ -33,13 +34,14 @@ import {
   type WorkflowSummary,
 } from "@/auth/backend";
 import { getUserProfileInformation, type ProfileQuestion } from "@/auth";
+import {
+  isWorkflowQuestionVisible,
+  WorkflowQuestionField,
+} from "@/components/WorkflowQuestionFields";
 
 interface WorkflowsCardProps {
   sessionToken: string;
 }
-
-/** The one workflow type available to users in this phase — see backend workflow-types/index.ts. */
-const DEMO_WORKFLOW_TYPE = "demo_partner_signup";
 
 const ACTIVE_STATES: WorkflowState[] = [
   "CREATED",
@@ -129,7 +131,6 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
   const [active, setActive] = useState<WorkflowDetailResult | null>(null);
   const [questions, setQuestions] = useState<ProfileQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [starting, setStarting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -215,16 +216,20 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
   }, [active?.workflow.id, active?.workflow.state]);
 
   useEffect(() => {
-    if (active?.workflow.missingInputKeys?.length) {
+    const keys = new Set(active?.workflow.missingInputKeys ?? []);
+    for (const question of active?.workflow.inputQuestions ?? []) {
+      keys.add(question.key);
+    }
+    if (keys.size > 0) {
       setAnswers((current) => {
         const next = { ...current };
-        for (const key of active.workflow.missingInputKeys) {
+        for (const key of keys) {
           if (!(key in next)) next[key] = "";
         }
         return next;
       });
     }
-  }, [active?.workflow.missingInputKeys]);
+  }, [active?.workflow.missingInputKeys, active?.workflow.inputQuestions]);
 
   const questionByKey = useMemo(() => {
     const map = new Map<string, ProfileQuestion>();
@@ -232,37 +237,51 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
     return map;
   }, [questions]);
 
-  async function handleStart() {
-    setStarting(true);
-    setError(null);
-    try {
-      const res = await createWorkflow(sessionToken, DEMO_WORKFLOW_TYPE);
-      if (!res.ok || !res.data) {
-        setError(res.error ?? "Failed to start workflow");
-        return;
+  /** Fields to render while WAITING_FOR_INPUT: every required-and-missing key, plus any
+   * optional questions (e.g. Chase's direct-deposit follow-ups) currently visible per
+   * their showWhen condition — otherwise those answers would have nowhere to be entered. */
+  const visibleQuestionKeys = useMemo(() => {
+    if (!active) return [];
+    const missing = active.workflow.missingInputKeys;
+    const inputQuestions = active.workflow.inputQuestions;
+    if (!inputQuestions?.length) return missing;
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (const question of inputQuestions) {
+      if (
+        !seen.has(question.key) &&
+        (missing.includes(question.key) ||
+          isWorkflowQuestionVisible(question, answers))
+      ) {
+        seen.add(question.key);
+        ordered.push(question.key);
       }
-      if (active && !ACTIVE_STATES.includes(active.workflow.state)) {
-        setHistory((current) => [active.workflow, ...current]);
-      }
-      setActive({ workflow: res.data.workflow, steps: res.data.steps });
-      setAnswers({});
-    } finally {
-      setStarting(false);
     }
-  }
+    // Keep any missing keys without question metadata at the end as a fallback.
+    for (const key of missing) {
+      if (!seen.has(key)) {
+        seen.add(key);
+        ordered.push(key);
+      }
+    }
+    return ordered;
+  }, [active, answers]);
 
   async function handleSubmitInputs() {
     if (!active) return;
     const missing = active.workflow.missingInputKeys;
-    const sanitized = Object.fromEntries(
-      missing
-        .map((key) => [key, (answers[key] ?? "").trim()])
-        .filter(([, value]) => value.length > 0),
+    const missingUnanswered = missing.filter(
+      (key) => !(answers[key] ?? "").trim(),
     );
-    if (Object.keys(sanitized).length < missing.length) {
+    if (missingUnanswered.length > 0) {
       setError("Please answer all questions above before continuing.");
       return;
     }
+    const sanitized = Object.fromEntries(
+      visibleQuestionKeys
+        .map((key) => [key, (answers[key] ?? "").trim()])
+        .filter(([, value]) => value.length > 0),
+    );
     setSubmitting(true);
     setError(null);
     try {
@@ -355,18 +374,14 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
         {!active ? (
           <div className="rounded-md border border-dashed p-4 text-center space-y-3">
             <p className="text-sm text-muted-foreground">
-              No application in progress. Try our demo partner application to
-              see how KeenVPN can complete applications for you.
+              No application in progress. Explore Perks to let KeenVPN
+              auto-apply to partner offers on your behalf.
             </p>
-            <Button onClick={() => void handleStart()} disabled={starting}>
-              {starting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                  Starting…
-                </>
-              ) : (
-                "Start demo application"
-              )}
+            <Button asChild>
+              <Link to="/perks">
+                <Gift className="mr-2 h-4 w-4" aria-hidden />
+                Explore Perks
+              </Link>
             </Button>
           </div>
         ) : (
@@ -417,7 +432,24 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
                 <p className="text-sm font-medium">
                   We need a bit more information to continue.
                 </p>
-                {active.workflow.missingInputKeys.map((key) => {
+                {visibleQuestionKeys.map((key) => {
+                  const richQuestion = active.workflow.inputQuestions?.find(
+                    (q) => q.key === key,
+                  );
+                  if (richQuestion) {
+                    return (
+                      <WorkflowQuestionField
+                        key={key}
+                        question={richQuestion}
+                        value={answers[key] ?? ""}
+                        onChange={(value) =>
+                          setAnswers((current) => ({ ...current, [key]: value }))
+                        }
+                        disabled={submitting}
+                        idPrefix="workflows-card"
+                      />
+                    );
+                  }
                   const question = questionByKey.get(key);
                   return (
                     <div key={key} className="space-y-2">
@@ -512,8 +544,8 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
                 <p className="text-sm font-medium text-primary">
                   Application completed successfully.
                 </p>
-                <Button size="sm" variant="outline" onClick={() => void handleStart()} disabled={starting}>
-                  Start another
+                <Button size="sm" variant="outline" asChild>
+                  <Link to="/perks">Explore more perks</Link>
                 </Button>
               </div>
             )}
@@ -524,8 +556,8 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
                   This application failed
                   {active.workflow.failureReason ? `: ${active.workflow.failureReason}` : "."}
                 </p>
-                <Button size="sm" variant="outline" onClick={() => void handleStart()} disabled={starting}>
-                  Try again
+                <Button size="sm" variant="outline" asChild>
+                  <Link to="/perks">View perks</Link>
                 </Button>
               </div>
             )}

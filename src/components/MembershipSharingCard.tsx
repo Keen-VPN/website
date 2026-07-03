@@ -15,7 +15,9 @@ import {
   resendMembershipInvite,
   revokeMembershipInvite,
   revokeMembershipMember,
+  updateMembershipSeatCount,
 } from "@/auth/backend";
+import { MIN_BUSINESS_SEATS } from "@/constants/pricing";
 import { Link } from "react-router-dom";
 
 interface MembershipSharingCardProps {
@@ -45,6 +47,8 @@ interface DashboardRevokedInvite {
 interface DashboardData {
   role: string;
   eligible: boolean;
+  canManageSeats?: boolean;
+  minSeats?: number;
   seats?: {
     seatLimit: number;
     activeSeats: number;
@@ -79,6 +83,7 @@ export function MembershipSharingCard({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draftSeatCount, setDraftSeatCount] = useState<number | null>(null);
   const loadRequestRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -99,7 +104,9 @@ export function MembershipSharingCard({
         setError(res.error ?? "Could not load membership sharing.");
         return;
       }
-      setDashboard(res.data as DashboardData);
+      const data = res.data as DashboardData;
+      setDashboard(data);
+      setDraftSeatCount(data.seats?.seatLimit ?? null);
     } finally {
       if (isCurrentRequest()) {
         setLoading(false);
@@ -174,6 +181,25 @@ export function MembershipSharingCard({
     }
   }
 
+  async function handleUpdateSeats() {
+    if (draftSeatCount == null) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await updateMembershipSeatCount(
+        sessionToken,
+        draftSeatCount,
+      );
+      if (!res.ok) {
+        setError(res.error ?? "Could not update seat count.");
+        return;
+      }
+      await load();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   if (loading) {
     return (
       <Card>
@@ -231,17 +257,17 @@ export function MembershipSharingCard({
             Membership sharing
           </CardTitle>
           <CardDescription>
-            Invite family or team members to share your KeenVPN Premium
-            subscription. Available on Family and Business plans.
+            Invite team members to share your KeenVPN Business subscription.
+            Available on the Business plan.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-            Upgrade to a Family or Business plan to invite members with their own
-            login credentials.
+            Upgrade to a Business plan to invite members with their own login
+            credentials.
           </p>
           <Button asChild className="mt-4" variant="outline">
-            <Link to="/pricing">View Family &amp; Business plans</Link>
+            <Link to="/pricing">View Business plan</Link>
           </Button>
         </CardContent>
       </Card>
@@ -250,7 +276,15 @@ export function MembershipSharingCard({
 
   const seats = dashboard.seats;
   const hasAvailableSeats = (seats?.availableSeats ?? 0) > 0;
-  const isSingleSeatSubscription = (seats?.seatLimit ?? 1) <= 1;
+  const occupiedSeats =
+    (seats?.activeSeats ?? 0) + (seats?.pendingInvites ?? 0);
+  const seatFloor = Math.max(
+    dashboard.minSeats ?? MIN_BUSINESS_SEATS,
+    occupiedSeats,
+  );
+  const currentSeatLimit = seats?.seatLimit ?? seatFloor;
+  const effectiveDraftSeats = draftSeatCount ?? currentSeatLimit;
+  const seatsChanged = effectiveDraftSeats !== currentSeatLimit;
 
   return (
     <Card>
@@ -268,6 +302,60 @@ export function MembershipSharingCard({
       <CardContent className="space-y-6">
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
+        {dashboard.canManageSeats && seats ? (
+          <div className="space-y-2 rounded-md border bg-muted/30 p-4">
+            <h3 className="text-sm font-medium">Manage seats</h3>
+            <p className="text-xs text-muted-foreground">
+              Add or remove seats on your Business subscription. Stripe prorates
+              changes immediately.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={submitting || effectiveDraftSeats <= seatFloor}
+                onClick={() =>
+                  setDraftSeatCount((count) =>
+                    Math.max(seatFloor, (count ?? currentSeatLimit) - 1),
+                  )
+                }
+              >
+                −
+              </Button>
+              <span className="min-w-[2rem] text-center text-lg font-semibold">
+                {effectiveDraftSeats}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={submitting}
+                onClick={() =>
+                  setDraftSeatCount((count) => (count ?? currentSeatLimit) + 1)
+                }
+              >
+                +
+              </Button>
+              <Button
+                onClick={() => void handleUpdateSeats()}
+                disabled={submitting || !seatsChanged}
+                size="sm"
+              >
+                {submitting ? "Updating…" : "Update seats"}
+              </Button>
+            </div>
+            {effectiveDraftSeats <= occupiedSeats ? (
+              <p className="text-xs text-muted-foreground">
+                Remove members or cancel pending invites before reducing below{" "}
+                {occupiedSeats} seats.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
         {hasAvailableSeats ? (
           <div className="space-y-2">
             <label
@@ -280,7 +368,7 @@ export function MembershipSharingCard({
               <Input
                 id="membership-invite-email"
                 type="email"
-                placeholder="family@example.com"
+                placeholder="teammate@example.com"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 disabled={submitting}
@@ -295,9 +383,9 @@ export function MembershipSharingCard({
           </div>
         ) : (
           <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-            {isSingleSeatSubscription
-              ? "Family sharing is not enabled on this subscription yet. Contact support to add family access."
-              : "All seats are currently used. Remove a member or cancel a pending invite to free a seat."}
+            {currentSeatLimit <= 1
+              ? "Membership sharing is not enabled on this subscription. Upgrade to Business to invite team members."
+              : "All seats are currently used. Remove a member, cancel a pending invite, or add more seats."}
           </p>
         )}
 
