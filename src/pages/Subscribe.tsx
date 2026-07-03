@@ -23,7 +23,7 @@ import {
   recordSignupStarted,
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
-import { enterprisePlan, DEFAULT_BUSINESS_SEATS, MIN_BUSINESS_SEATS } from "@/constants/pricing";
+import { enterprisePlan, DEFAULT_BUSINESS_SEATS, MIN_BUSINESS_SEATS, MAX_BUSINESS_SEATS } from "@/constants/pricing";
 import {
   canStartFreeTrial,
   getSubscriptionCtaLabel,
@@ -732,7 +732,12 @@ const Subscribe = () => {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => setSeatCount((count) => count + 1)}
+                        disabled={seatCount >= MAX_BUSINESS_SEATS}
+                        onClick={() =>
+                          setSeatCount((count) =>
+                            Math.min(MAX_BUSINESS_SEATS, count + 1),
+                          )
+                        }
                       >
                         +
                       </Button>

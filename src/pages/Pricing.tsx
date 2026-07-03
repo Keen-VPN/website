@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/accordion";
 import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import PricingNoticeTooltip from "@/components/PricingNoticeTooltip";
-import { enterprisePlan, featureComparison, featureComparisonValueForPlan, faqs, DEFAULT_BUSINESS_SEATS, MIN_BUSINESS_SEATS } from "@/constants/pricing";
+import { enterprisePlan, featureComparison, featureComparisonValueForPlan, faqs, DEFAULT_BUSINESS_SEATS, MIN_BUSINESS_SEATS, MAX_BUSINESS_SEATS } from "@/constants/pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import {
@@ -400,8 +400,11 @@ const Pricing = () => {
                             variant="outline"
                             size="icon"
                             className="h-8 w-8"
+                            disabled={businessSeatCount >= MAX_BUSINESS_SEATS}
                             onClick={() =>
-                              setBusinessSeatCount((count) => count + 1)
+                              setBusinessSeatCount((count) =>
+                                Math.min(MAX_BUSINESS_SEATS, count + 1),
+                              )
                             }
                           >
                             +

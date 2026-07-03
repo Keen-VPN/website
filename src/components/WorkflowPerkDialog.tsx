@@ -483,7 +483,9 @@ export function WorkflowPerkDialog({
         )}
 
         <DialogFooter>
-          {workflow && CANCELLABLE_STATES.includes(workflow.state) ? (
+          {workflow &&
+          CANCELLABLE_STATES.includes(workflow.state) &&
+          workflow.state !== "WAITING_FOR_APPROVAL" ? (
             <Button
               variant="ghost"
               className="text-muted-foreground"

@@ -14,11 +14,13 @@ import {
   createAiConversation,
   getAiConversation,
   listAiConversations,
+  listWorkflows,
   sendAiMessage,
   type AiMessageData,
   type AiPendingApproval,
 } from "@/auth/backend";
 import { cn } from "@/lib/utils";
+import { pendingApprovalFromWorkflows } from "@/lib/workflow-ui";
 
 interface AiAssistantCardProps {
   sessionToken: string;
@@ -83,6 +85,15 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
         setMessages(detailRes.data.messages);
       }
     }
+
+    const workflowsRes = await listWorkflows(sessionToken);
+    if (generation !== loadGeneration.current) return;
+    if (workflowsRes.ok && workflowsRes.data) {
+      setPendingApproval(
+        pendingApprovalFromWorkflows(workflowsRes.data.workflows),
+      );
+    }
+
     setLoading(false);
   }, [sessionToken]);
 

@@ -2,6 +2,7 @@ import type { PricingPlan } from "@/lib/pricing";
 
 export const MIN_BUSINESS_SEATS = 2;
 export const DEFAULT_BUSINESS_SEATS = 5;
+export const MAX_BUSINESS_SEATS = 25;
 
 export const enterprisePlan: PricingPlan = {
   name: "Enterprise",

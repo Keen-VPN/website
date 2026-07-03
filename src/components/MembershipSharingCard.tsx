@@ -17,7 +17,7 @@ import {
   revokeMembershipMember,
   updateMembershipSeatCount,
 } from "@/auth/backend";
-import { MIN_BUSINESS_SEATS } from "@/constants/pricing";
+import { MIN_BUSINESS_SEATS, MAX_BUSINESS_SEATS } from "@/constants/pricing";
 import { Link } from "react-router-dom";
 
 interface MembershipSharingCardProps {
@@ -332,9 +332,11 @@ export function MembershipSharingCard({
                 variant="outline"
                 size="icon"
                 className="h-8 w-8"
-                disabled={submitting}
+                disabled={submitting || effectiveDraftSeats >= MAX_BUSINESS_SEATS}
                 onClick={() =>
-                  setDraftSeatCount((count) => (count ?? currentSeatLimit) + 1)
+                  setDraftSeatCount((count) =>
+                    Math.min(MAX_BUSINESS_SEATS, (count ?? currentSeatLimit) + 1),
+                  )
                 }
               >
                 +

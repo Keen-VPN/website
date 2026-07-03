@@ -38,6 +38,7 @@ import {
   isWorkflowQuestionVisible,
   WorkflowQuestionField,
 } from "@/components/WorkflowQuestionFields";
+import { selectPrimaryActiveWorkflow } from "@/lib/workflow-ui";
 
 interface WorkflowsCardProps {
   sessionToken: string;
@@ -185,7 +186,7 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
     }
 
     const workflows = listRes.data.workflows;
-    const activeSummary = workflows.find((w) => ACTIVE_STATES.includes(w.state));
+    const activeSummary = selectPrimaryActiveWorkflow(workflows);
     setHistory(workflows.filter((w) => w !== activeSummary));
 
     if (activeSummary) {

@@ -515,7 +515,14 @@ const Perks = () => {
   };
 
   const handleViewApplication = async (perk: PerkItem) => {
-    if (!perk.workflowType) return;
+    if (!perk.workflowType) {
+      toast({
+        title: "Application unavailable",
+        description: "This perk is missing workflow configuration. Contact support.",
+        variant: "destructive",
+      });
+      return;
+    }
     const session = getSessionToken();
     if (!session) {
       toast({
