@@ -38,10 +38,7 @@ import {
   WorkflowQuestionField,
   getVisibleWorkflowQuestionKeys,
 } from "@/components/WorkflowQuestionFields";
-import {
-  ACTIVE_WORKFLOW_STATES,
-  selectPrimaryActiveWorkflow,
-} from "@/lib/workflow-ui";
+import { selectPrimaryActiveWorkflow } from "@/lib/workflow-ui";
 
 interface WorkflowsCardProps {
   sessionToken: string;
