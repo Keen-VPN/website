@@ -590,6 +590,12 @@ export default function AdminPerks() {
       return;
     }
 
+    if (form.redemptionType === "workflow" && !form.workflowType.trim()) {
+      setSaving(false);
+      setDialogError("Workflow type is required for workflow perks.");
+      return;
+    }
+
     const extensionDomains = extensionDomainsFromFormRows(form.extensionDomains);
 
     if (editingId) {

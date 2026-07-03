@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/accordion";
 import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import PricingNoticeTooltip from "@/components/PricingNoticeTooltip";
-import { enterprisePlan, featureComparison, featureComparisonValueForPlan, faqs, DEFAULT_BUSINESS_SEATS, MIN_BUSINESS_SEATS, MAX_BUSINESS_SEATS } from "@/constants/pricing";
+import { enterprisePlan, featureComparison, featureComparisonValueForPlan, faqs, DEFAULT_BUSINESS_SEATS, MAX_BUSINESS_SEATS, resolvePlanDefaultSeats, resolvePlanMinSeats } from "@/constants/pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import {
@@ -145,8 +145,18 @@ const Pricing = () => {
     () => plans.find((p) => p.name === "Individual" || p.name === "Premium"),
     [plans],
   );
+  const businessPlan = useMemo(
+    () => plans.find((p) => p.isPerSeat),
+    [plans],
+  );
+  const businessMinSeats = resolvePlanMinSeats(businessPlan);
+  const businessDefaultSeats = resolvePlanDefaultSeats(businessPlan);
   const annualSavingsLabel =
     premiumPlan?.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL;
+
+  useEffect(() => {
+    setBusinessSeatCount(businessDefaultSeats);
+  }, [businessDefaultSeats]);
 
   useEffect(() => {
     if (billingPeriod !== "annual" || annualViewTrackedRef.current) {
@@ -383,10 +393,10 @@ const Pricing = () => {
                             variant="outline"
                             size="icon"
                             className="h-8 w-8"
-                            disabled={businessSeatCount <= MIN_BUSINESS_SEATS}
+                            disabled={businessSeatCount <= businessMinSeats}
                             onClick={() =>
                               setBusinessSeatCount((count) =>
-                                Math.max(MIN_BUSINESS_SEATS, count - 1),
+                                Math.max(businessMinSeats, count - 1),
                               )
                             }
                           >
@@ -413,9 +423,9 @@ const Pricing = () => {
                         <p className="text-xs text-muted-foreground">
                           Total: $
                           {(
-                            (isAnnual ? plan.annualPrice : plan.monthlyPrice) ??
-                            0
-                          ) * businessSeatCount}
+                            ((isAnnual ? plan.annualPrice : plan.monthlyPrice) ??
+                              0) * businessSeatCount
+                          ).toFixed(2)}
                           {isAnnual ? "/year" : "/month"} for {businessSeatCount}{" "}
                           seats
                         </p>

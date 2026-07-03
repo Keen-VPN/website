@@ -83,6 +83,8 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
       if (detailRes.ok && detailRes.data) {
         setConversationId(activeConversation.id);
         setMessages(detailRes.data.messages);
+      } else {
+        setError(detailRes.error ?? "Could not load your conversation.");
       }
     }
 
@@ -129,8 +131,9 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
       const id = await ensureConversation();
       if (!id) return;
 
+      const optimisticId = `local-${Date.now()}`;
       const optimisticUserMessage: AiMessageData = {
-        id: `local-${Date.now()}`,
+        id: optimisticId,
         role: "USER",
         content: text,
         toolName: null,
@@ -144,6 +147,8 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
 
       const res = await sendAiMessage(sessionToken, id, text);
       if (!res.ok || !res.data) {
+        setMessages((current) => current.filter((m) => m.id !== optimisticId));
+        setDraft(text);
         setError(res.error ?? "Failed to send message");
         return;
       }

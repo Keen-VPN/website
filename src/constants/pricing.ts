@@ -4,6 +4,23 @@ export const MIN_BUSINESS_SEATS = 2;
 export const DEFAULT_BUSINESS_SEATS = 5;
 export const MAX_BUSINESS_SEATS = 25;
 
+export function resolvePlanMinSeats(plan?: {
+  minSeats?: number;
+} | null): number {
+  return plan?.minSeats ?? MIN_BUSINESS_SEATS;
+}
+
+export function resolvePlanDefaultSeats(plan?: {
+  minSeats?: number;
+  defaultSeats?: number;
+} | null): number {
+  const minSeats = resolvePlanMinSeats(plan);
+  return Math.max(
+    minSeats,
+    Math.min(MAX_BUSINESS_SEATS, plan?.defaultSeats ?? DEFAULT_BUSINESS_SEATS),
+  );
+}
+
 export const enterprisePlan: PricingPlan = {
   name: "Enterprise",
   description: "Custom solutions for large organizations (50+ users)",

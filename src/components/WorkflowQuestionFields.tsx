@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,8 +15,44 @@ export function isWorkflowQuestionVisible(
 ): boolean {
   if (!question.showWhen) return true;
   const parentAnswer = answers[question.showWhen.questionKey];
-  if (parentAnswer === undefined) return false;
-  return question.showWhen.values.includes(parentAnswer);
+  if (parentAnswer === undefined || parentAnswer.trim() === "") return false;
+  const parentTokens = parentAnswer
+    .split(",")
+    .map((token) => token.trim())
+    .filter(Boolean);
+  return question.showWhen.values.some((value) =>
+    parentTokens.includes(value),
+  );
+}
+
+/** Ordered keys to render while WAITING_FOR_INPUT — includes missing keys even
+ * without rich question metadata so users can always answer required fields. */
+export function getVisibleWorkflowQuestionKeys(params: {
+  missingInputKeys: string[];
+  inputQuestions?: WorkflowQuestionDefinition[];
+  answers: Record<string, string>;
+}): string[] {
+  const { missingInputKeys, inputQuestions, answers } = params;
+  if (!inputQuestions?.length) return missingInputKeys;
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const question of inputQuestions) {
+    if (
+      !seen.has(question.key) &&
+      (missingInputKeys.includes(question.key) ||
+        isWorkflowQuestionVisible(question, answers))
+    ) {
+      seen.add(question.key);
+      ordered.push(question.key);
+    }
+  }
+  for (const key of missingInputKeys) {
+    if (!seen.has(key)) {
+      seen.add(key);
+      ordered.push(key);
+    }
+  }
+  return ordered;
 }
 
 function parseMultiSelectValue(
@@ -69,6 +105,17 @@ export function WorkflowQuestionField({
   const [singleOtherSelected, setSingleOtherSelected] = useState(
     () => question.allowOther && value.length > 0 && !isKnownSingleValue,
   );
+
+  useEffect(() => {
+    const opts = question.options ?? [];
+    if (!question.allowOther) {
+      setSingleOtherSelected(false);
+      return;
+    }
+    setSingleOtherSelected(
+      value.length > 0 && !opts.some((option) => option.value === value),
+    );
+  }, [question.allowOther, question.options, value]);
 
   return (
     <div className="space-y-2">

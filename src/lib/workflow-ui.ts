@@ -4,7 +4,8 @@ import type {
   WorkflowSummary,
 } from "@/auth/backend";
 
-const ACTIVE_STATES: WorkflowState[] = [
+/** Non-terminal workflow states — shared by Applications card and Perks selection. */
+export const ACTIVE_WORKFLOW_STATES: WorkflowState[] = [
   "CREATED",
   "WAITING_FOR_INPUT",
   "READY_TO_EXECUTE",
@@ -25,7 +26,7 @@ export function selectPrimaryActiveWorkflow(
   workflows: WorkflowSummary[],
 ): WorkflowSummary | undefined {
   const active = workflows.filter((workflow) =>
-    ACTIVE_STATES.includes(workflow.state),
+    ACTIVE_WORKFLOW_STATES.includes(workflow.state),
   );
   if (active.length === 0) return undefined;
 
@@ -49,4 +50,22 @@ export function pendingApprovalFromWorkflows(
     workflowId: waiting.id,
     stepKey: waiting.currentStepKey,
   };
+}
+
+export function getWorkflowVisibleQuestionKeys(
+  detail: Pick<WorkflowDetailResult, "workflow">,
+  answers: Record<string, string>,
+): string[] {
+  return getVisibleWorkflowQuestionKeys({
+    missingInputKeys: detail.workflow.missingInputKeys,
+    inputQuestions: detail.workflow.inputQuestions,
+    answers,
+  });
+}
+
+export function humanizeWorkflowKey(key: string): string {
+  return key
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }

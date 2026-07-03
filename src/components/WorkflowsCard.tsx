@@ -35,25 +35,18 @@ import {
 } from "@/auth/backend";
 import { getUserProfileInformation, type ProfileQuestion } from "@/auth";
 import {
-  isWorkflowQuestionVisible,
   WorkflowQuestionField,
+  getVisibleWorkflowQuestionKeys,
 } from "@/components/WorkflowQuestionFields";
-import { selectPrimaryActiveWorkflow } from "@/lib/workflow-ui";
+import {
+  ACTIVE_WORKFLOW_STATES,
+  selectPrimaryActiveWorkflow,
+} from "@/lib/workflow-ui";
 
 interface WorkflowsCardProps {
   sessionToken: string;
 }
 
-const ACTIVE_STATES: WorkflowState[] = [
-  "CREATED",
-  "WAITING_FOR_INPUT",
-  "READY_TO_EXECUTE",
-  "EXECUTING",
-  "WAITING_FOR_APPROVAL",
-];
-
-/** States that progress on their own (via cron/engine) and are worth polling for updates.
- * WAITING_FOR_INPUT / WAITING_FOR_APPROVAL only change once the user acts, so no need to poll those. */
 const AUTO_PROGRESS_STATES: WorkflowState[] = [
   "CREATED",
   "READY_TO_EXECUTE",
@@ -152,7 +145,7 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
         return;
       }
       setActive({ workflow: res.data.workflow, steps: res.data.steps });
-      if (!ACTIVE_STATES.includes(res.data.workflow.state)) {
+      if (!AUTO_PROGRESS_STATES.includes(res.data.workflow.state)) {
         clearPoll();
       }
     },
@@ -243,29 +236,11 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
    * their showWhen condition — otherwise those answers would have nowhere to be entered. */
   const visibleQuestionKeys = useMemo(() => {
     if (!active) return [];
-    const missing = active.workflow.missingInputKeys;
-    const inputQuestions = active.workflow.inputQuestions;
-    if (!inputQuestions?.length) return missing;
-    const seen = new Set<string>();
-    const ordered: string[] = [];
-    for (const question of inputQuestions) {
-      if (
-        !seen.has(question.key) &&
-        (missing.includes(question.key) ||
-          isWorkflowQuestionVisible(question, answers))
-      ) {
-        seen.add(question.key);
-        ordered.push(question.key);
-      }
-    }
-    // Keep any missing keys without question metadata at the end as a fallback.
-    for (const key of missing) {
-      if (!seen.has(key)) {
-        seen.add(key);
-        ordered.push(key);
-      }
-    }
-    return ordered;
+    return getVisibleWorkflowQuestionKeys({
+      missingInputKeys: active.workflow.missingInputKeys,
+      inputQuestions: active.workflow.inputQuestions,
+      answers,
+    });
   }, [active, answers]);
 
   async function handleSubmitInputs() {

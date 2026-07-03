@@ -68,7 +68,7 @@ import {
   type PerkRequestCategory,
   type PerkUserTab,
 } from "@/auth";
-import { listWorkflows, type WorkflowState } from "@/auth/backend";
+import { listWorkflows } from "@/auth/backend";
 import { trackPerksEvent } from "@/lib/product-analytics";
 import { isSafeHttpUrl } from "@/lib/safe-url";
 
@@ -94,15 +94,7 @@ const PERK_TABS: { value: PerkUserTab; label: string }[] = [
   { value: "not_interested", label: "Not Interested" },
 ];
 
-/** Mirrors backend workflow-state.util.ts ACTIVE_STATES — used to prefer an in-progress
- * application over stale terminal ones when reopening a workflow perk's dialog. */
-const ACTIVE_WORKFLOW_STATES: WorkflowState[] = [
-  "CREATED",
-  "WAITING_FOR_INPUT",
-  "READY_TO_EXECUTE",
-  "EXECUTING",
-  "WAITING_FOR_APPROVAL",
-];
+import { selectPrimaryActiveWorkflow } from "@/lib/workflow-ui";
 
 const REQUEST_CATEGORIES: { value: PerkRequestCategory; label: string }[] = [
   { value: "finance", label: "Finance" },
@@ -547,9 +539,10 @@ const Perks = () => {
       (w) => w.workflowType === perk.workflowType,
     );
     const chosen =
-      matches.find((w) => ACTIVE_WORKFLOW_STATES.includes(w.state)) ??
+      selectPrimaryActiveWorkflow(matches) ??
       [...matches].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       )[0];
     if (!chosen) {
       toast({

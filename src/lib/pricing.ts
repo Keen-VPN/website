@@ -59,6 +59,13 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
   const plansByType = apiPlans.reduce(
     (acc, plan) => {
       const id = plan.id.toLowerCase();
+      const isLegacyFamilyOnly =
+        id.includes("family") &&
+        !id.includes("family_plus") &&
+        !id.includes("familyplus");
+      if (isLegacyFamilyOnly) {
+        return acc;
+      }
       // Family is retired from the purchasable catalog; any legacy family_plus/familyplus
       // price ids the backend might still return are folded into Business (seat-based).
       const isTeam =
@@ -157,7 +164,10 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
         ? (monthly?.minSeats ?? annual?.minSeats ?? 2)
         : undefined,
       defaultSeats: isTeam
-        ? (monthly?.defaultSeats ?? annual?.defaultSeats ?? 5)
+        ? Math.max(
+            monthly?.minSeats ?? annual?.minSeats ?? 2,
+            monthly?.defaultSeats ?? annual?.defaultSeats ?? 5,
+          )
         : undefined,
       monthlyPriceId: monthly?.priceId,
       annualPriceId: annual?.priceId,

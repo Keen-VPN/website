@@ -59,9 +59,21 @@ const isPerSeatPlan = (plan: ApiPlan | PricingPlan | null): boolean => {
   if ("isPerSeat" in plan && plan.isPerSeat) return true;
   if ("id" in plan) {
     const id = plan.id.toLowerCase();
-    return id.includes("team") || id.includes("business");
+    return (
+      id.includes("team") ||
+      id.includes("business") ||
+      id.includes("family_plus") ||
+      id.includes("familyplus")
+    );
   }
   return false;
+};
+
+const getPlanMinSeats = (plan: ApiPlan | PricingPlan | null): number => {
+  if (plan && "minSeats" in plan && typeof plan.minSeats === "number") {
+    return plan.minSeats;
+  }
+  return MIN_BUSINESS_SEATS;
 };
 
 const getTierLabel = (tier: string) =>
@@ -216,11 +228,19 @@ const Subscribe = () => {
   const initialSeatCount = (() => {
     const parsed = Number(seatsParam);
     return Number.isInteger(parsed) && parsed >= MIN_BUSINESS_SEATS
-      ? parsed
+      ? Math.min(MAX_BUSINESS_SEATS, parsed)
       : DEFAULT_BUSINESS_SEATS;
   })();
   const [seatCount, setSeatCount] = useState(initialSeatCount);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isPerSeatPlan(selectedPlan)) return;
+    const minSeats = getPlanMinSeats(selectedPlan);
+    setSeatCount((count) =>
+      Math.max(minSeats, Math.min(MAX_BUSINESS_SEATS, count)),
+    );
+  }, [selectedPlan]);
   const {
     user,
     loading,
@@ -715,10 +735,10 @@ const Subscribe = () => {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        disabled={seatCount <= MIN_BUSINESS_SEATS}
+                        disabled={seatCount <= getPlanMinSeats(selectedPlan)}
                         onClick={() =>
                           setSeatCount((count) =>
-                            Math.max(MIN_BUSINESS_SEATS, count - 1),
+                            Math.max(getPlanMinSeats(selectedPlan), count - 1),
                           )
                         }
                       >
@@ -743,7 +763,7 @@ const Subscribe = () => {
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Total: ${selectedPlan.price * seatCount}
+                      Total: ${(selectedPlan.price * seatCount).toFixed(2)}
                       {isAnnualPlan(selectedPlan) ? "/year" : "/month"} for{" "}
                       {seatCount} seats
                       {isAnnualPlan(selectedPlan)

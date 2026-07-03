@@ -283,7 +283,10 @@ export function MembershipSharingCard({
     occupiedSeats,
   );
   const currentSeatLimit = seats?.seatLimit ?? seatFloor;
-  const effectiveDraftSeats = draftSeatCount ?? currentSeatLimit;
+  const effectiveDraftSeats = Math.max(
+    seatFloor,
+    draftSeatCount ?? currentSeatLimit,
+  );
   const seatsChanged = effectiveDraftSeats !== currentSeatLimit;
 
   return (

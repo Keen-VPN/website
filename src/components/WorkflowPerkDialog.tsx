@@ -10,6 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import {
   approveWorkflowStep,
@@ -21,9 +23,10 @@ import {
   type WorkflowStepRunData,
 } from "@/auth/backend";
 import {
-  isWorkflowQuestionVisible,
   WorkflowQuestionField,
+  getVisibleWorkflowQuestionKeys,
 } from "@/components/WorkflowQuestionFields";
+import { humanizeWorkflowKey } from "@/lib/workflow-ui";
 import { useToast } from "@/hooks/use-toast";
 import { trackPerksEvent } from "@/lib/product-analytics";
 
@@ -172,8 +175,7 @@ export function WorkflowPerkDialog({
       }, POLL_INTERVAL_MS);
     }
     return clearPoll;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, detail?.workflow.state, workflowId]);
+  }, [open, detail?.workflow.state, workflowId, load, clearPoll]);
 
   useEffect(() => {
     const keys = new Set(detail?.workflow.missingInputKeys ?? []);
@@ -206,28 +208,11 @@ export function WorkflowPerkDialog({
 
   const visibleQuestionKeys = useMemo(() => {
     if (!detail) return [];
-    const missing = detail.workflow.missingInputKeys;
-    const inputQuestions = detail.workflow.inputQuestions;
-    if (!inputQuestions?.length) return missing;
-    const seen = new Set<string>();
-    const ordered: string[] = [];
-    for (const question of inputQuestions) {
-      if (
-        !seen.has(question.key) &&
-        (missing.includes(question.key) ||
-          isWorkflowQuestionVisible(question, answers))
-      ) {
-        seen.add(question.key);
-        ordered.push(question.key);
-      }
-    }
-    for (const key of missing) {
-      if (!seen.has(key)) {
-        seen.add(key);
-        ordered.push(key);
-      }
-    }
-    return ordered;
+    return getVisibleWorkflowQuestionKeys({
+      missingInputKeys: detail.workflow.missingInputKeys,
+      inputQuestions: detail.workflow.inputQuestions,
+      answers,
+    });
   }, [detail, answers]);
 
   async function handleSubmitInputs() {
@@ -297,6 +282,7 @@ export function WorkflowPerkDialog({
         workflowId: detail.workflow.id,
       });
       toast({ title: "Application cancelled" });
+      onSettled?.();
       onOpenChange(false);
     } finally {
       setSubmitting(false);
@@ -379,18 +365,37 @@ export function WorkflowPerkDialog({
                   const question = workflow.inputQuestions?.find(
                     (q) => q.key === key,
                   );
-                  if (!question) return null;
+                  if (question) {
+                    return (
+                      <WorkflowQuestionField
+                        key={key}
+                        question={question}
+                        value={answers[key] ?? ""}
+                        onChange={(value) =>
+                          setAnswers((current) => ({ ...current, [key]: value }))
+                        }
+                        disabled={submitting}
+                        idPrefix="perk-workflow"
+                      />
+                    );
+                  }
                   return (
-                    <WorkflowQuestionField
-                      key={key}
-                      question={question}
-                      value={answers[key] ?? ""}
-                      onChange={(value) =>
-                        setAnswers((current) => ({ ...current, [key]: value }))
-                      }
-                      disabled={submitting}
-                      idPrefix="perk-workflow"
-                    />
+                    <div key={key} className="space-y-2">
+                      <Label htmlFor={`perk-workflow-${key}`}>
+                        {humanizeWorkflowKey(key)}
+                      </Label>
+                      <Input
+                        id={`perk-workflow-${key}`}
+                        value={answers[key] ?? ""}
+                        onChange={(e) =>
+                          setAnswers((current) => ({
+                            ...current,
+                            [key]: e.target.value,
+                          }))
+                        }
+                        disabled={submitting}
+                      />
+                    </div>
                   );
                 })}
                 <Button
