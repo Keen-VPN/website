@@ -122,7 +122,8 @@ const Account = () => {
     portalLoading,
     cancelSubscriptionAtPeriodEnd,
     openBillingPortal,
-    openPlanChangePortal,
+    businessUpgradeLoading,
+    upgradeToBusinessPlan,
   } = useSubscriptionBillingActions();
   const { upgrading, upgradeToAnnual } = useAnnualUpgrade();
   const [showContactEmailModal, setShowContactEmailModal] = useState(false);
@@ -921,8 +922,8 @@ const Account = () => {
 
                     <MembershipPlanUpgradeCard
                       subscription={subscription}
-                      portalLoading={portalLoading}
-                      onUpgradePlan={openPlanChangePortal}
+                      upgrading={businessUpgradeLoading}
+                      onUpgradePlan={upgradeToBusinessPlan}
                     />
 
                     {/* Upgrade to Annual */}

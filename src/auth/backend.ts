@@ -1925,6 +1925,77 @@ export async function upgradeSubscriptionToAnnual(
 }
 
 /**
+ * Upgrade the current Stripe subscription to Business with a selected seat count.
+ * KeenVPN collects the seat quantity before this call; Stripe receives one
+ * subscription item update with the Business price and matching quantity.
+ */
+export async function upgradeSubscriptionToBusiness(
+  sessionToken: string,
+  planId: string,
+  seatCount: number,
+): Promise<{
+  success: boolean;
+  planId?: string;
+  seatLimit?: number;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/payment/stripe/upgrade-business`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ planId, seatCount }),
+      },
+    );
+
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      planId?: string;
+      seatLimit?: number;
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to upgrade to Business",
+        ),
+      };
+    }
+
+    if (data?.success === true) {
+      return {
+        success: true,
+        planId: data.planId,
+        seatLimit: data.seatLimit,
+        message: data.message,
+      };
+    }
+
+    return {
+      success: false,
+      error: data?.error || data?.message || "Business upgrade failed",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to upgrade to Business",
+    };
+  }
+}
+
+/**
  * Create a Stripe Billing Portal session for the current user.
  * Allows managing subscription (upgrade, downgrade, update payment method, etc.)
  */
