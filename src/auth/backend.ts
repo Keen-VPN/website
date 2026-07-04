@@ -1971,7 +1971,7 @@ export async function upgradeSubscriptionToBusiness(
       };
     }
 
-    if (data?.success) {
+    if (data?.success === true) {
       return {
         success: true,
         planId: data.planId,

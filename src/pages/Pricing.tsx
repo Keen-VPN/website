@@ -32,7 +32,6 @@ import {
   canUpgradeStripeToAnnual,
   resolveMembershipPlanTier,
 } from "@/lib/subscription-cta";
-import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import type { TrialData } from "@/auth/types";
 import { MembershipTransferDialog } from "@/components/MembershipTransferDialog";
@@ -309,18 +308,6 @@ const Pricing = () => {
             </div>
           </section>
         )}
-
-        {showMembershipPlanUpgrade && subscription ? (
-          <section className="container mx-auto px-4 mb-10">
-            <div className="max-w-3xl mx-auto">
-              <MembershipPlanUpgradeCard
-                subscription={subscription}
-                upgrading={businessUpgradeLoading}
-                onUpgradePlan={upgradeToBusinessPlan}
-              />
-            </div>
-          </section>
-        ) : null}
 
         {/* Pricing Cards */}
         <section id="plans" className="container mx-auto px-4 mb-20">

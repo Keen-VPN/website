@@ -6,6 +6,7 @@ import type { SubscriptionData } from "@/auth/types";
 import type { ApiPlan } from "@/lib/pricing";
 import { canUpgradeStripeMembershipPlan } from "@/lib/subscription-cta";
 import {
+  DEFAULT_BUSINESS_SEATS,
   MAX_BUSINESS_SEATS,
   resolvePlanDefaultSeats,
   resolvePlanMinSeats,
@@ -25,7 +26,7 @@ export function MembershipPlanUpgradeCard({
   const [plans, setPlans] = useState<ApiPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [billingPeriod, setBillingPeriod] = useState<"month" | "year">("year");
-  const [seatCount, setSeatCount] = useState(5);
+  const [seatCount, setSeatCount] = useState(DEFAULT_BUSINESS_SEATS);
 
   useEffect(() => {
     let ignore = false;
