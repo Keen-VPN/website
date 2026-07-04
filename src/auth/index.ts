@@ -52,6 +52,7 @@ export {
   unclaimPerk,
   submitPerkRequest,
   upgradeSubscriptionToAnnual,
+  upgradeSubscriptionToBusiness,
   recordSubscriptionProductEvent,
   cancelSubscription,
   previewRetentionWinbackOffer,
