@@ -28,6 +28,9 @@ const ContextualEmailUnsubscribe = lazy(
 );
 const ReferralLanding = lazy(() => import("./pages/ReferralLanding"));
 const Referrals = lazy(() => import("./pages/Referrals"));
+const Friends = lazy(() => import("./pages/Friends"));
+const FriendsAccept = lazy(() => import("./pages/FriendsAccept"));
+const FriendsJoin = lazy(() => import("./pages/FriendsJoin"));
 const Perks = lazy(() => import("./pages/Perks"));
 const Subscribe = lazy(() => import("./pages/Subscribe"));
 const Account = lazy(() => import("./pages/Account"));
@@ -129,6 +132,16 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/friends"
+                element={
+                  <ProtectedRoute>
+                    <Friends />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/friends/accept" element={<FriendsAccept />} />
+              <Route path="/friends/join/:token" element={<FriendsJoin />} />
               <Route
                 path="/perks"
                 element={

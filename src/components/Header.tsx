@@ -1,5 +1,6 @@
 import { Menu, X, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +10,7 @@ import {
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFriendsBadge } from "@/hooks/use-friends-badge";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 import {
   getAppStoreInstallButtonLabel,
@@ -21,12 +23,24 @@ const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, subscription, logout } = useAuth();
+  const friendsBadge = useFriendsBadge();
   const appStoreUrl = useAppStoreUrl();
   const downloadAppLabel = getAppStoreInstallButtonLabel();
   const handleDownloadApp = () =>
     openKeenVpnAppStore(resolveAppStoreUrl(appStoreUrl));
 
   const isActive = (path: string) => location.pathname === path;
+
+  const friendsMenuLabel = (
+    <span className="flex items-center gap-2">
+      Friends
+      {friendsBadge.enabled && friendsBadge.totalBadge > 0 ? (
+        <Badge className="h-5 min-w-5 justify-center px-1.5 text-[10px]">
+          {friendsBadge.totalBadge > 99 ? "99+" : friendsBadge.totalBadge}
+        </Badge>
+      ) : null}
+    </span>
+  );
 
   return (
     <header className="fixed top-0 w-full z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
@@ -110,6 +124,9 @@ const Header = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/referrals">Referrals</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/friends">{friendsMenuLabel}</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/perks">Perks</Link>
@@ -246,6 +263,16 @@ const Header = () => {
                       asChild
                     >
                       <Link to="/referrals">Referrals</Link>
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                      }}
+                      variant="outline"
+                      className="w-full"
+                      asChild
+                    >
+                      <Link to="/friends">{friendsMenuLabel}</Link>
                     </Button>
                     <Button
                       onClick={() => {

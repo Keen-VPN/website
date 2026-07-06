@@ -5864,3 +5864,354 @@ export async function sendAiMessage(
     "Failed to send message",
   );
 }
+
+// --- Friends Network ---
+
+export async function fetchFriendsDashboard(
+  sessionToken: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/friends/dashboard`, {
+      credentials: "include",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (response.status === 404) {
+      return { ok: false, error: "Friends network is not enabled" };
+    }
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load friends"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to load friends",
+    };
+  }
+}
+
+export async function inviteFriendByEmail(
+  sessionToken: string,
+  email: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  return inviteFriend(sessionToken, { email });
+}
+
+export async function inviteFriendByUsername(
+  sessionToken: string,
+  username: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  return inviteFriend(sessionToken, { username });
+}
+
+export async function inviteFriend(
+  sessionToken: string,
+  params: { email?: string; username?: string; targetUserId?: string },
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/friends/invite`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to send invitation"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to send invitation",
+    };
+  }
+}
+
+export async function setFriendUsername(
+  sessionToken: string,
+  username: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/friends/username`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to set username"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to set username",
+    };
+  }
+}
+
+export async function acceptFriendInvitation(
+  sessionToken: string,
+  params: { relationshipId?: string; token?: string },
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/friends/accept`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to accept invitation"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to accept invitation",
+    };
+  }
+}
+
+export async function declineFriendInvitation(
+  sessionToken: string,
+  relationshipId: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/friends/decline`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ relationshipId }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to decline invitation"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to decline invitation",
+    };
+  }
+}
+
+export async function blockFriendUser(
+  sessionToken: string,
+  params: { relationshipId?: string; targetUserId?: string },
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/friends/block`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to block user"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to block user",
+    };
+  }
+}
+
+export async function removeFriend(
+  sessionToken: string,
+  friendUserId: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/friends/${encodeURIComponent(friendUserId)}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to remove friend"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to remove friend",
+    };
+  }
+}
+
+export async function reportFriendUser(
+  sessionToken: string,
+  targetUserId: string,
+  reason?: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/friends/report`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ targetUserId, reason }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to submit report"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to submit report",
+    };
+  }
+}
+
+export async function joinFriendNetworkViaLink(
+  sessionToken: string,
+  token: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/friends/join`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to join network"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to join network",
+    };
+  }
+}
+
+export async function fetchFriendsNotifications(
+  sessionToken: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/friends/notifications`, {
+      credentials: "include",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (response.status === 404) {
+      return { ok: false, error: "Friends network is not enabled" };
+    }
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load notifications"),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to load notifications",
+    };
+  }
+}
+
+export async function markFriendsNotificationsRead(
+  sessionToken: string,
+  notificationIds?: string[],
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/friends/notifications/read`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ notificationIds }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to mark notifications read",
+        ),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to mark notifications read",
+    };
+  }
+}
