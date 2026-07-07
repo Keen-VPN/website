@@ -117,6 +117,8 @@ export function isVaultFieldKey(key: string): key is VaultFieldKey {
   return FIELD_BY_KEY.has(key as VaultFieldKey);
 }
 
+export function getVaultFieldDefinition(key: VaultFieldKey): VaultFieldDefinition;
+export function getVaultFieldDefinition(key: string): VaultFieldDefinition | undefined;
 export function getVaultFieldDefinition(key: string): VaultFieldDefinition | undefined {
   return FIELD_BY_KEY.get(key as VaultFieldKey);
 }
