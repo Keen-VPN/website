@@ -9,7 +9,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertCircle, Bot, Loader2, Send, Sparkles } from "lucide-react";
+import {
+  AlertCircle,
+  Bot,
+  Loader2,
+  RotateCcw,
+  Send,
+  Sparkles,
+} from "lucide-react";
 import {
   createAiConversation,
   getAiConversation,
@@ -27,9 +34,10 @@ interface AiAssistantCardProps {
 }
 
 const SUGGESTIONS = [
-  "What can you help me with?",
-  "Help me sign up for Mercury",
-  "What's the status of my applications?",
+  "Help me find the best perk for me",
+  "Help me sign up for Chase",
+  "Show my active applications",
+  "What information do I need to complete this?",
 ];
 
 function humanizeStepKey(key: string): string {
@@ -179,6 +187,14 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
     }
   }
 
+  function handleClearChat() {
+    if (sending) return;
+    setConversationId(null);
+    setMessages([]);
+    setDraft("");
+    setError(null);
+  }
+
   if (loading) {
     return (
       <Card>
@@ -205,10 +221,25 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5" />
-          AI Assistant
-        </CardTitle>
+        <div className="flex items-start justify-between gap-3">
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            AI Assistant
+          </CardTitle>
+          {(visibleMessages.length > 0 || draft.trim()) && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 px-2 text-xs"
+              onClick={handleClearChat}
+              disabled={sending}
+            >
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+              Clear
+            </Button>
+          )}
+        </div>
         <CardDescription>
           Tell KeenVPN what you&apos;d like help with. We&apos;ll find the right
           application and guide you through it. Nothing is ever submitted
@@ -220,7 +251,10 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
 
         {pendingApproval && (
           <div className="flex items-start gap-2 rounded-md bg-muted/40 p-3 text-sm">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <AlertCircle
+              className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+              aria-hidden
+            />
             <p>
               Your approval is needed for &quot;
               {humanizeStepKey(pendingApproval.stepKey ?? "this step")}&quot;.
@@ -236,26 +270,11 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
         <ScrollArea className="h-80 rounded-md border">
           <div className="space-y-3 p-4">
             {visibleMessages.length === 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
                   Ask me to help you complete a partner application, check on
-                  something in progress, or explain what KeenVPN can do for
-                  you.
+                  something in progress, or explain what KeenVPN can do for you.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {SUGGESTIONS.map((suggestion) => (
-                    <Button
-                      key={suggestion}
-                      variant="outline"
-                      size="sm"
-                      className="h-auto whitespace-normal py-1.5 text-left text-xs"
-                      onClick={() => void handleSend(suggestion)}
-                      disabled={sending}
-                    >
-                      {suggestion}
-                    </Button>
-                  ))}
-                </div>
               </div>
             ) : (
               visibleMessages.map((message) => (
@@ -295,6 +314,22 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
             <div ref={bottomRef} />
           </div>
         </ScrollArea>
+
+        <div className="flex flex-wrap gap-2">
+          {SUGGESTIONS.map((suggestion) => (
+            <Button
+              key={suggestion}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-auto whitespace-normal py-1.5 text-left text-xs"
+              onClick={() => void handleSend(suggestion)}
+              disabled={sending}
+            >
+              {suggestion}
+            </Button>
+          ))}
+        </div>
 
         <div className="flex items-end gap-2">
           <Textarea
