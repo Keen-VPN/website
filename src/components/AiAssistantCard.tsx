@@ -18,6 +18,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import {
+  closeAiConversation,
   createAiConversation,
   getAiConversation,
   listAiConversations,
@@ -187,8 +188,15 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
     }
   }
 
-  function handleClearChat() {
+  async function handleNewChat() {
     if (sending) return;
+    if (conversationId) {
+      const res = await closeAiConversation(sessionToken, conversationId);
+      if (!res.ok) {
+        setError(res.error ?? "Failed to start a new chat");
+        return;
+      }
+    }
     setConversationId(null);
     setMessages([]);
     setDraft("");
@@ -217,6 +225,7 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
   }
 
   const visibleMessages = messages.filter((m) => m.role !== "TOOL");
+  const hasDraft = Boolean(draft.trim());
 
   return (
     <Card>
@@ -226,17 +235,17 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
             <Sparkles className="h-5 w-5" />
             AI Assistant
           </CardTitle>
-          {(visibleMessages.length > 0 || draft.trim()) && (
+          {(visibleMessages.length > 0 || hasDraft) && (
             <Button
               type="button"
               variant="ghost"
               size="sm"
               className="h-8 gap-1.5 px-2 text-xs"
-              onClick={handleClearChat}
+              onClick={() => void handleNewChat()}
               disabled={sending}
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-              Clear
+              New chat
             </Button>
           )}
         </div>
@@ -324,7 +333,7 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
               size="sm"
               className="h-auto whitespace-normal py-1.5 text-left text-xs"
               onClick={() => void handleSend(suggestion)}
-              disabled={sending}
+              disabled={sending || hasDraft}
             >
               {suggestion}
             </Button>

@@ -6009,3 +6009,17 @@ export async function sendAiMessage(
     "Failed to send message",
   );
 }
+
+export async function closeAiConversation(
+  sessionToken: string,
+  conversationId: string,
+): Promise<
+  AiApiResult<{ success: boolean; conversation: AiConversationSummary }>
+> {
+  return aiRequest(
+    sessionToken,
+    `/${conversationId}/close`,
+    { method: "POST" },
+    "Failed to close conversation",
+  );
+}
