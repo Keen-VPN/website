@@ -60,6 +60,7 @@ import { LinkedAccounts } from "@/components/LinkedAccounts";
 import { MembershipSharingCard } from "@/components/MembershipSharingCard";
 import { ConnectedDevicesCard } from "@/components/ConnectedDevicesCard";
 import { WorkflowsCard } from "@/components/WorkflowsCard";
+import { SecureVaultCard } from "@/components/SecureVaultCard";
 import { AiAssistantCard } from "@/components/AiAssistantCard";
 import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
@@ -1137,6 +1138,12 @@ const Account = () => {
           {hasSessionToken && (
             <div className="mt-8">
               <ConnectedDevicesCard sessionToken={getSessionToken() ?? ""} />
+            </div>
+          )}
+
+          {hasSessionToken && (
+            <div id="vault" className="mt-8 scroll-mt-24">
+              <SecureVaultCard sessionToken={getSessionToken() ?? ""} />
             </div>
           )}
 

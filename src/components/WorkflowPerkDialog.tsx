@@ -10,8 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import {
   approveWorkflowStep,
@@ -19,33 +17,19 @@ import {
   getWorkflow,
   submitWorkflowInputs,
   type WorkflowDetailResult,
-  type WorkflowState,
-  type WorkflowStepRunData,
 } from "@/auth/backend";
+import { getUserProfileInformation, type ProfileQuestion } from "@/auth";
+import { getVisibleWorkflowQuestionKeys } from "@/components/WorkflowQuestionFields";
+import { getVaultAnswersValidationError } from "@/lib/vault-fields";
+import { WorkflowMissingInputFields } from "@/components/WorkflowMissingInputFields";
+import { WorkflowVaultConsentPanel } from "@/components/WorkflowVaultConsentPanel";
 import {
-  WorkflowQuestionField,
-  getVisibleWorkflowQuestionKeys,
-} from "@/components/WorkflowQuestionFields";
-import { humanizeWorkflowKey } from "@/lib/workflow-ui";
+  AUTO_PROGRESS_WORKFLOW_STATES,
+  CANCELLABLE_WORKFLOW_STATES,
+  workflowStateBadge,
+} from "@/lib/workflow-ui";
 import { useToast } from "@/hooks/use-toast";
 import { trackPerksEvent } from "@/lib/product-analytics";
-
-/** States that progress on their own (via cron/engine) — worth polling for updates.
- * Mirrors WorkflowsCard.tsx AUTO_PROGRESS_STATES. */
-const AUTO_PROGRESS_STATES: WorkflowState[] = [
-  "CREATED",
-  "READY_TO_EXECUTE",
-  "EXECUTING",
-  "WAITING_FOR_PARTNER_ACTION",
-];
-
-const CANCELLABLE_STATES: WorkflowState[] = [
-  "CREATED",
-  "WAITING_FOR_INPUT",
-  "READY_TO_EXECUTE",
-  "WAITING_FOR_APPROVAL",
-  "WAITING_FOR_PARTNER_ACTION",
-];
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -56,28 +40,7 @@ function humanize(key: string): string {
     .join(" ");
 }
 
-function stateBadge(
-  state: WorkflowState,
-): { label: string; variant: "default" | "secondary" | "destructive" | "outline" } {
-  switch (state) {
-    case "COMPLETED":
-      return { label: "Completed", variant: "default" };
-    case "FAILED":
-      return { label: "Failed", variant: "destructive" };
-    case "CANCELLED":
-      return { label: "Cancelled", variant: "outline" };
-    case "WAITING_FOR_INPUT":
-      return { label: "Needs info", variant: "secondary" };
-    case "WAITING_FOR_APPROVAL":
-      return { label: "Needs approval", variant: "secondary" };
-    case "WAITING_FOR_PARTNER_ACTION":
-      return { label: "Partner review", variant: "secondary" };
-    default:
-      return { label: "In progress", variant: "secondary" };
-  }
-}
-
-function stepIcon(step: WorkflowStepRunData) {
+function stepIcon(step: { status: string }) {
   if (step.status === "COMPLETED") {
     return <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />;
   }
@@ -106,12 +69,9 @@ interface WorkflowPerkDialogProps {
   workflowId: string | null;
   perkTitle: string;
   onOpenChange: (open: boolean) => void;
-  /** Called after the workflow completes/is cancelled so the Perks list can refresh. */
   onSettled?: () => void;
 }
 
-/** Renders a Chase-style VIG questionnaire + step tracker as a dialog on the Perks page,
- * reusing the same field/step rendering as the account-dashboard WorkflowsCard. */
 export function WorkflowPerkDialog({
   open,
   sessionToken,
@@ -124,6 +84,7 @@ export function WorkflowPerkDialog({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<WorkflowDetailResult | null>(null);
+  const [questions, setQuestions] = useState<ProfileQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -136,23 +97,33 @@ export function WorkflowPerkDialog({
     }
   }, []);
 
-  const load = useCallback(
+  const loadWorkflow = useCallback(
     async (id: string) => {
-      const res = await getWorkflow(sessionToken, id);
-      if (!res.ok || !res.data) {
-        setError(res.error ?? "Failed to load application");
+      const workflowRes = await getWorkflow(sessionToken, id);
+      if (!workflowRes.ok || !workflowRes.data) {
+        setError(workflowRes.error ?? "Failed to load application");
         setLoading(false);
         return;
       }
-      setDetail({ workflow: res.data.workflow, steps: res.data.steps });
+      setDetail({
+        workflow: workflowRes.data.workflow,
+        steps: workflowRes.data.steps,
+      });
       setError(null);
       setLoading(false);
-      if (!AUTO_PROGRESS_STATES.includes(res.data.workflow.state)) {
+      if (!AUTO_PROGRESS_WORKFLOW_STATES.includes(workflowRes.data.workflow.state)) {
         clearPoll();
       }
     },
     [sessionToken, clearPoll],
   );
+
+  const loadQuestions = useCallback(async () => {
+    const profileRes = await getUserProfileInformation(sessionToken);
+    if (profileRes.success) {
+      setQuestions(profileRes.questions);
+    }
+  }, [sessionToken]);
 
   useEffect(() => {
     if (!open || !workflowId) return;
@@ -160,26 +131,34 @@ export function WorkflowPerkDialog({
     setLoading(true);
     setDetail(null);
     setAnswers({});
-    void load(workflowId);
+    void loadWorkflow(workflowId);
     return () => {
       clearPoll();
     };
-  }, [open, workflowId, load, clearPoll]);
+  }, [open, workflowId, loadWorkflow, clearPoll]);
+
+  const workflowState = detail?.workflow.state;
 
   useEffect(() => {
     clearPoll();
     if (
       open &&
-      detail &&
-      AUTO_PROGRESS_STATES.includes(detail.workflow.state) &&
+      workflowState &&
+      AUTO_PROGRESS_WORKFLOW_STATES.includes(workflowState) &&
       workflowId
     ) {
       pollRef.current = setInterval(() => {
-        void load(workflowId);
+        void loadWorkflow(workflowId);
       }, POLL_INTERVAL_MS);
     }
     return clearPoll;
-  }, [open, detail?.workflow.state, workflowId, load, clearPoll]);
+  }, [open, workflowState, workflowId, loadWorkflow, clearPoll]);
+
+  useEffect(() => {
+    if (open && workflowState === "WAITING_FOR_INPUT") {
+      void loadQuestions();
+    }
+  }, [open, workflowState, loadQuestions]);
 
   useEffect(() => {
     const keys = new Set(detail?.workflow.missingInputKeys ?? []);
@@ -198,17 +177,22 @@ export function WorkflowPerkDialog({
   }, [detail?.workflow.missingInputKeys, detail?.workflow.inputQuestions]);
 
   useEffect(() => {
-    if (!detail || settledNotified.current) return;
+    if (!workflowState || settledNotified.current) return;
     if (
-      detail.workflow.state === "COMPLETED" ||
-      detail.workflow.state === "FAILED" ||
-      detail.workflow.state === "CANCELLED"
+      workflowState === "COMPLETED" ||
+      workflowState === "FAILED" ||
+      workflowState === "CANCELLED"
     ) {
       settledNotified.current = true;
       onSettled?.();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detail?.workflow.state]);
+  }, [workflowState, onSettled]);
+
+  const questionByKey = useMemo(() => {
+    const map = new Map<string, ProfileQuestion>();
+    for (const question of questions) map.set(question.key, question);
+    return map;
+  }, [questions]);
 
   const visibleQuestionKeys = useMemo(() => {
     if (!detail) return [];
@@ -227,6 +211,14 @@ export function WorkflowPerkDialog({
     );
     if (missingUnanswered.length > 0) {
       setError("Please answer all questions above before continuing.");
+      return;
+    }
+    const vaultValidationError = getVaultAnswersValidationError(
+      visibleQuestionKeys,
+      answers,
+    );
+    if (vaultValidationError) {
+      setError(vaultValidationError);
       return;
     }
     const sanitized = Object.fromEntries(
@@ -294,7 +286,7 @@ export function WorkflowPerkDialog({
   }
 
   const workflow = detail?.workflow;
-  const badge = workflow ? stateBadge(workflow.state) : null;
+  const badge = workflow ? workflowStateBadge(workflow.state) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -360,48 +352,34 @@ export function WorkflowPerkDialog({
               </ul>
             ) : null}
 
+            {workflow.state === "WAITING_FOR_VAULT_CONSENT" && workflowId && (
+              <WorkflowVaultConsentPanel
+                sessionToken={sessionToken}
+                workflowId={workflowId}
+                submitting={submitting}
+                setSubmitting={setSubmitting}
+                onUpdated={(updated) => setDetail(updated)}
+                showCancel
+                onCancel={() => void handleCancel()}
+              />
+            )}
+
             {workflow.state === "WAITING_FOR_INPUT" && (
               <div className="space-y-4 rounded-md bg-muted/40 p-3">
                 <p className="text-sm font-medium">
                   We need a bit more information to continue.
                 </p>
-                {visibleQuestionKeys.map((key) => {
-                  const question = workflow.inputQuestions?.find(
-                    (q) => q.key === key,
-                  );
-                  if (question) {
-                    return (
-                      <WorkflowQuestionField
-                        key={key}
-                        question={question}
-                        value={answers[key] ?? ""}
-                        onChange={(value) =>
-                          setAnswers((current) => ({ ...current, [key]: value }))
-                        }
-                        disabled={submitting}
-                        idPrefix="perk-workflow"
-                      />
-                    );
+                <WorkflowMissingInputFields
+                  visibleQuestionKeys={visibleQuestionKeys}
+                  inputQuestions={workflow.inputQuestions}
+                  questionByKey={questionByKey}
+                  answers={answers}
+                  onAnswerChange={(key, value) =>
+                    setAnswers((current) => ({ ...current, [key]: value }))
                   }
-                  return (
-                    <div key={key} className="space-y-2">
-                      <Label htmlFor={`perk-workflow-${key}`}>
-                        {humanizeWorkflowKey(key)}
-                      </Label>
-                      <Input
-                        id={`perk-workflow-${key}`}
-                        value={answers[key] ?? ""}
-                        onChange={(e) =>
-                          setAnswers((current) => ({
-                            ...current,
-                            [key]: e.target.value,
-                          }))
-                        }
-                        disabled={submitting}
-                      />
-                    </div>
-                  );
-                })}
+                  disabled={submitting}
+                  idPrefix="perk-workflow"
+                />
                 <Button
                   size="sm"
                   onClick={() => void handleSubmitInputs()}
@@ -500,8 +478,9 @@ export function WorkflowPerkDialog({
 
         <DialogFooter>
           {workflow &&
-          CANCELLABLE_STATES.includes(workflow.state) &&
-          workflow.state !== "WAITING_FOR_APPROVAL" ? (
+          CANCELLABLE_WORKFLOW_STATES.includes(workflow.state) &&
+          workflow.state !== "WAITING_FOR_APPROVAL" &&
+          workflow.state !== "WAITING_FOR_VAULT_CONSENT" ? (
             <Button
               variant="ghost"
               className="text-muted-foreground"

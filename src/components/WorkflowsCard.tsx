@@ -10,9 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Input } from "@/components/ui/input";
 import {
   CheckCircle2,
   ChevronDown,
@@ -29,37 +26,23 @@ import {
   listWorkflows,
   submitWorkflowInputs,
   type WorkflowDetailResult,
-  type WorkflowState,
-  type WorkflowStepRunData,
   type WorkflowSummary,
 } from "@/auth/backend";
 import { getUserProfileInformation, type ProfileQuestion } from "@/auth";
+import { getVisibleWorkflowQuestionKeys } from "@/components/WorkflowQuestionFields";
+import { getVaultAnswersValidationError } from "@/lib/vault-fields";
+import { WorkflowMissingInputFields } from "@/components/WorkflowMissingInputFields";
+import { WorkflowVaultConsentPanel } from "@/components/WorkflowVaultConsentPanel";
 import {
-  WorkflowQuestionField,
-  getVisibleWorkflowQuestionKeys,
-} from "@/components/WorkflowQuestionFields";
-import { selectPrimaryActiveWorkflow } from "@/lib/workflow-ui";
+  AUTO_PROGRESS_WORKFLOW_STATES,
+  CANCELLABLE_WORKFLOW_STATES,
+  selectPrimaryActiveWorkflow,
+  workflowStateBadge,
+} from "@/lib/workflow-ui";
 
 interface WorkflowsCardProps {
   sessionToken: string;
 }
-
-const AUTO_PROGRESS_STATES: WorkflowState[] = [
-  "CREATED",
-  "READY_TO_EXECUTE",
-  "EXECUTING",
-  "WAITING_FOR_PARTNER_ACTION",
-];
-
-/** Mirrors backend workflow-state.util.ts isCancellableState — EXECUTING is intentionally
- * excluded since a step run may already be in flight when the cancel request arrives. */
-const CANCELLABLE_STATES: WorkflowState[] = [
-  "CREATED",
-  "WAITING_FOR_INPUT",
-  "READY_TO_EXECUTE",
-  "WAITING_FOR_APPROVAL",
-  "WAITING_FOR_PARTNER_ACTION",
-];
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -70,29 +53,7 @@ function humanize(key: string): string {
     .join(" ");
 }
 
-function stateBadge(state: WorkflowState): {
-  label: string;
-  variant: "default" | "secondary" | "destructive" | "outline";
-} {
-  switch (state) {
-    case "COMPLETED":
-      return { label: "Completed", variant: "default" };
-    case "FAILED":
-      return { label: "Failed", variant: "destructive" };
-    case "CANCELLED":
-      return { label: "Cancelled", variant: "outline" };
-    case "WAITING_FOR_INPUT":
-      return { label: "Needs info", variant: "secondary" };
-    case "WAITING_FOR_APPROVAL":
-      return { label: "Needs approval", variant: "secondary" };
-    case "WAITING_FOR_PARTNER_ACTION":
-      return { label: "Partner review", variant: "secondary" };
-    default:
-      return { label: "In progress", variant: "secondary" };
-  }
-}
-
-function stepIcon(step: WorkflowStepRunData) {
+function stepIcon(step: { status: string }) {
   if (step.status === "COMPLETED") {
     return <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />;
   }
@@ -154,7 +115,7 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
         return;
       }
       setActive({ workflow: res.data.workflow, steps: res.data.steps });
-      if (!AUTO_PROGRESS_STATES.includes(res.data.workflow.state)) {
+      if (!AUTO_PROGRESS_WORKFLOW_STATES.includes(res.data.workflow.state)) {
         clearPoll();
       }
     },
@@ -209,7 +170,7 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
 
   useEffect(() => {
     clearPoll();
-    if (active && AUTO_PROGRESS_STATES.includes(active.workflow.state)) {
+    if (active && AUTO_PROGRESS_WORKFLOW_STATES.includes(active.workflow.state)) {
       pollRef.current = setInterval(() => {
         void loadActive(active.workflow.id);
       }, POLL_INTERVAL_MS);
@@ -260,6 +221,14 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
     );
     if (missingUnanswered.length > 0) {
       setError("Please answer all questions above before continuing.");
+      return;
+    }
+    const vaultValidationError = getVaultAnswersValidationError(
+      visibleQuestionKeys,
+      answers,
+    );
+    if (vaultValidationError) {
+      setError(vaultValidationError);
       return;
     }
     const sanitized = Object.fromEntries(
@@ -343,7 +312,7 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
     return null;
   }
 
-  const badge = active ? stateBadge(active.workflow.state) : null;
+  const badge = active ? workflowStateBadge(active.workflow.state) : null;
 
   return (
     <Card>
@@ -424,81 +393,34 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
               ))}
             </ul>
 
+            {active.workflow.state === "WAITING_FOR_VAULT_CONSENT" && (
+              <WorkflowVaultConsentPanel
+                sessionToken={sessionToken}
+                workflowId={active.workflow.id}
+                submitting={submitting}
+                setSubmitting={setSubmitting}
+                onUpdated={(detail) => setActive(detail)}
+                showCancel
+                onCancel={() => void handleCancel()}
+              />
+            )}
+
             {active.workflow.state === "WAITING_FOR_INPUT" && (
               <div className="space-y-4 rounded-md bg-muted/40 p-3">
                 <p className="text-sm font-medium">
                   We need a bit more information to continue.
                 </p>
-                {visibleQuestionKeys.map((key) => {
-                  const richQuestion = active.workflow.inputQuestions?.find(
-                    (q) => q.key === key,
-                  );
-                  if (richQuestion) {
-                    return (
-                      <WorkflowQuestionField
-                        key={key}
-                        question={richQuestion}
-                        value={answers[key] ?? ""}
-                        onChange={(value) =>
-                          setAnswers((current) => ({
-                            ...current,
-                            [key]: value,
-                          }))
-                        }
-                        disabled={submitting}
-                        idPrefix="workflows-card"
-                      />
-                    );
+                <WorkflowMissingInputFields
+                  visibleQuestionKeys={visibleQuestionKeys}
+                  inputQuestions={active.workflow.inputQuestions}
+                  questionByKey={questionByKey}
+                  answers={answers}
+                  onAnswerChange={(key, value) =>
+                    setAnswers((current) => ({ ...current, [key]: value }))
                   }
-                  const question = questionByKey.get(key);
-                  return (
-                    <div key={key} className="space-y-2">
-                      <Label>{question?.label ?? humanize(key)}</Label>
-                      {question?.options?.length ? (
-                        <RadioGroup
-                          value={answers[key] ?? ""}
-                          onValueChange={(value) =>
-                            setAnswers((current) => ({
-                              ...current,
-                              [key]: value,
-                            }))
-                          }
-                          className="space-y-1.5"
-                        >
-                          {question.options.map((option) => (
-                            <div
-                              key={option.value}
-                              className="flex items-center gap-2"
-                            >
-                              <RadioGroupItem
-                                value={option.value}
-                                id={`${key}-${option.value}`}
-                                disabled={submitting}
-                              />
-                              <Label
-                                htmlFor={`${key}-${option.value}`}
-                                className="font-normal"
-                              >
-                                {option.label}
-                              </Label>
-                            </div>
-                          ))}
-                        </RadioGroup>
-                      ) : (
-                        <Input
-                          value={answers[key] ?? ""}
-                          onChange={(e) =>
-                            setAnswers((current) => ({
-                              ...current,
-                              [key]: e.target.value,
-                            }))
-                          }
-                          disabled={submitting}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
+                  disabled={submitting}
+                  idPrefix="workflows-card"
+                />
                 <Button
                   size="sm"
                   onClick={() => void handleSubmitInputs()}
@@ -595,7 +517,8 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
             )}
 
             {active.workflow.state !== "WAITING_FOR_APPROVAL" &&
-              CANCELLABLE_STATES.includes(active.workflow.state) && (
+              active.workflow.state !== "WAITING_FOR_VAULT_CONSENT" &&
+              CANCELLABLE_WORKFLOW_STATES.includes(active.workflow.state) && (
                 <Button
                   size="sm"
                   variant="ghost"
@@ -632,7 +555,7 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
             {showHistory && (
               <ul className="mt-2 divide-y rounded-md border">
                 {history.map((workflow) => {
-                  const historyBadge = stateBadge(workflow.state);
+                  const historyBadge = workflowStateBadge(workflow.state);
                   return (
                     <li
                       key={workflow.id}
