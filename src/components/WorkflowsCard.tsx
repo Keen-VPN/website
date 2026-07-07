@@ -137,18 +137,24 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
   const [submitting, setSubmitting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollInFlightRef = useRef(false);
+  const activeLoadGeneration = useRef(0);
   const loadGeneration = useRef(0);
 
   const clearPoll = useCallback(() => {
+    activeLoadGeneration.current += 1;
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
+    pollInFlightRef.current = false;
   }, []);
 
   const loadActive = useCallback(
     async (workflowId: string) => {
+      const generation = ++activeLoadGeneration.current;
       const res = await getWorkflow(sessionToken, workflowId);
+      if (generation !== activeLoadGeneration.current) return;
       if (!res.ok || !res.data) {
         setError(res.error ?? "Failed to load workflow");
         return;
@@ -211,7 +217,11 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
     clearPoll();
     if (active && AUTO_PROGRESS_STATES.includes(active.workflow.state)) {
       pollRef.current = setInterval(() => {
-        void loadActive(active.workflow.id);
+        if (pollInFlightRef.current) return;
+        pollInFlightRef.current = true;
+        void loadActive(active.workflow.id).finally(() => {
+          pollInFlightRef.current = false;
+        });
       }, POLL_INTERVAL_MS);
     }
     return clearPoll;
