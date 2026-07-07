@@ -193,7 +193,7 @@ export default function Friends() {
     void load();
   }, [load]);
 
-  async function withSession<T>(
+  async function withSession(
     action: (token: string) => Promise<{ ok: boolean; error?: string }>,
     successMessage: string,
   ): Promise<boolean> {
