@@ -5672,7 +5672,11 @@ async function workflowRequest<T>(
       // Only the base "/workflows" list endpoint is used to detect whether the
       // feature is enabled at all; every other 404 (e.g. a specific workflow id)
       // means "not found", not "feature disabled" — regardless of message wording.
-      if (response.status === 404 && path === "") {
+      if (
+        response.status === 404 &&
+        path === "" &&
+        (init.method ?? "GET").toUpperCase() === "GET"
+      ) {
         return { ok: false, error: "Workflow engine is not available" };
       }
       return {
@@ -6188,6 +6192,20 @@ export async function sendAiMessage(
     `/${conversationId}/messages`,
     { method: "POST", body: JSON.stringify({ message }) },
     "Failed to send message",
+  );
+}
+
+export async function closeAiConversation(
+  sessionToken: string,
+  conversationId: string,
+): Promise<
+  AiApiResult<{ success: boolean; conversation: AiConversationSummary }>
+> {
+  return aiRequest(
+    sessionToken,
+    `/${conversationId}/close`,
+    { method: "POST" },
+    "Failed to close conversation",
   );
 }
 
