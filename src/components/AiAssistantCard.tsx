@@ -162,12 +162,14 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
         return;
       }
 
+      const reply = res.data.reply;
+      const nextPendingApproval = res.data.pendingApproval ?? null;
       setMessages((current) => [
         ...current,
         {
           id: `local-${Date.now()}-reply`,
           role: "ASSISTANT",
-          content: res.data.reply,
+          content: reply,
           toolName: null,
           toolInput: null,
           toolResult: null,
@@ -175,7 +177,7 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
           createdAt: new Date().toISOString(),
         },
       ]);
-      setPendingApproval(res.data.pendingApproval ?? null);
+      setPendingApproval(nextPendingApproval);
     } finally {
       setSending(false);
     }
