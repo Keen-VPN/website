@@ -11,14 +11,16 @@ export const ACTIVE_WORKFLOW_STATES: WorkflowState[] = [
   "READY_TO_EXECUTE",
   "EXECUTING",
   "WAITING_FOR_APPROVAL",
+  "WAITING_FOR_PARTNER_ACTION",
 ];
 
 const ACTIVE_STATE_PRIORITY: Partial<Record<WorkflowState, number>> = {
   WAITING_FOR_APPROVAL: 0,
   WAITING_FOR_INPUT: 1,
-  EXECUTING: 2,
-  READY_TO_EXECUTE: 3,
-  CREATED: 4,
+  WAITING_FOR_PARTNER_ACTION: 2,
+  EXECUTING: 3,
+  READY_TO_EXECUTE: 4,
+  CREATED: 5,
 };
 
 /** Prefer workflows that need user action, then the most recently updated run. */
