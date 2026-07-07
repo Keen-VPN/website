@@ -439,6 +439,13 @@ export function WorkflowPerkDialog({
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 Working on it — this updates automatically.
+                </div>
+              )}
+
+            {workflow.state === "WAITING_FOR_PARTNER_ACTION" && (
+              <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+                Chase is waiting for browser review or partner action. We will
+                update this application after that step is completed.
               </div>
             )}
 

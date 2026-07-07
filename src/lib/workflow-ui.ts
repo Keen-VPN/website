@@ -12,6 +12,7 @@ export const ACTIVE_WORKFLOW_STATES: WorkflowState[] = [
   "READY_TO_EXECUTE",
   "EXECUTING",
   "WAITING_FOR_APPROVAL",
+  "WAITING_FOR_PARTNER_ACTION",
 ];
 
 /** States the engine advances without user input — poll for updates. */
@@ -19,6 +20,7 @@ export const AUTO_PROGRESS_WORKFLOW_STATES: WorkflowState[] = [
   "CREATED",
   "READY_TO_EXECUTE",
   "EXECUTING",
+  "WAITING_FOR_PARTNER_ACTION",
 ];
 
 /** Mirrors backend workflow-state.util.ts isCancellableState. */
@@ -28,15 +30,17 @@ export const CANCELLABLE_WORKFLOW_STATES: WorkflowState[] = [
   "WAITING_FOR_VAULT_CONSENT",
   "READY_TO_EXECUTE",
   "WAITING_FOR_APPROVAL",
+  "WAITING_FOR_PARTNER_ACTION",
 ];
 
 const ACTIVE_STATE_PRIORITY: Partial<Record<WorkflowState, number>> = {
   WAITING_FOR_VAULT_CONSENT: 0,
   WAITING_FOR_APPROVAL: 1,
   WAITING_FOR_INPUT: 2,
-  EXECUTING: 3,
-  READY_TO_EXECUTE: 4,
-  CREATED: 5,
+  WAITING_FOR_PARTNER_ACTION: 3,
+  EXECUTING: 4,
+  READY_TO_EXECUTE: 5,
+  CREATED: 6,
 };
 
 export type WorkflowBadgeVariant =
@@ -62,6 +66,8 @@ export function workflowStateBadge(state: WorkflowState): {
       return { label: "Vault access needed", variant: "secondary" };
     case "WAITING_FOR_APPROVAL":
       return { label: "Needs approval", variant: "secondary" };
+    case "WAITING_FOR_PARTNER_ACTION":
+      return { label: "Partner review", variant: "secondary" };
     default:
       return { label: "In progress", variant: "secondary" };
   }

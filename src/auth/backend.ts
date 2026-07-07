@@ -165,7 +165,10 @@ function normalizeBackendAuthResponse(
   if (rawSubscription.planId !== undefined) {
     normalizedSubscription.planId = rawSubscription.planId;
   }
-  if (rawSubscription.seatLimit !== undefined && rawSubscription.seatLimit !== null) {
+  if (
+    rawSubscription.seatLimit !== undefined &&
+    rawSubscription.seatLimit !== null
+  ) {
     normalizedSubscription.seatLimit = rawSubscription.seatLimit;
   }
 
@@ -377,10 +380,7 @@ export type PerkCategory =
   | "finance";
 
 export type PerkRedemptionType =
-  | "external_link"
-  | "coupon_code"
-  | "invite_only"
-  | "workflow";
+  "external_link" | "coupon_code" | "invite_only" | "workflow";
 
 export type PerkUserTab = "new" | "completed" | "snoozed" | "not_interested";
 
@@ -506,8 +506,7 @@ export async function claimPerk(
     return {
       success: true,
       redemptionType: payload["redemptionType"] as
-        | PerkRedemptionType
-        | undefined,
+        PerkRedemptionType | undefined,
       redemptionUrl:
         typeof payload["redemptionUrl"] === "string"
           ? payload["redemptionUrl"]
@@ -1929,6 +1928,77 @@ export async function upgradeSubscriptionToAnnual(
 }
 
 /**
+ * Upgrade the current Stripe subscription to Business with a selected seat count.
+ * KeenVPN collects the seat quantity before this call; Stripe receives one
+ * subscription item update with the Business price and matching quantity.
+ */
+export async function upgradeSubscriptionToBusiness(
+  sessionToken: string,
+  planId: string,
+  seatCount: number,
+): Promise<{
+  success: boolean;
+  planId?: string;
+  seatLimit?: number;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/payment/stripe/upgrade-business`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ planId, seatCount }),
+      },
+    );
+
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      planId?: string;
+      seatLimit?: number;
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to upgrade to Business",
+        ),
+      };
+    }
+
+    if (data?.success === true) {
+      return {
+        success: true,
+        planId: data.planId,
+        seatLimit: data.seatLimit,
+        message: data.message,
+      };
+    }
+
+    return {
+      success: false,
+      error: data?.error || data?.message || "Business upgrade failed",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to upgrade to Business",
+    };
+  }
+}
+
+/**
  * Create a Stripe Billing Portal session for the current user.
  * Allows managing subscription (upgrade, downgrade, update payment method, etc.)
  */
@@ -2429,10 +2499,7 @@ export interface AdminEngagementSegment {
 }
 
 export type AdminEngagementSubscriptionTier =
-  | "all"
-  | "free"
-  | "paid"
-  | "unknown";
+  "all" | "free" | "paid" | "unknown";
 
 export interface AdminWeeklySessionKpiSummary {
   iso_year: number;
@@ -2794,10 +2861,7 @@ export async function adminFetchUserEngagementProfile(
     if (!response.ok) {
       return {
         ok: false,
-        error: extractBackendErrorMessage(
-          raw,
-          "Failed to load user profile",
-        ),
+        error: extractBackendErrorMessage(raw, "Failed to load user profile"),
       };
     }
     const record = raw as { data?: AdminUserEngagementProfile };
@@ -3734,11 +3798,7 @@ export interface AdminPerk {
   endsAt: string | null;
   daysRemaining: number | null;
   status:
-    | "active"
-    | "scheduled"
-    | "expired"
-    | "cooling_off"
-    | "eligible_for_readd";
+    "active" | "scheduled" | "expired" | "cooling_off" | "eligible_for_readd";
   reactivationCount: number;
   lastExpiredAt: string | null;
   eligibleForReactivationAt: string | null;
@@ -5247,10 +5307,7 @@ export async function adminSendBroadcastPreview(
 }
 
 export type BroadcastEmailJobStatus =
-  | "pending"
-  | "processing"
-  | "completed"
-  | "failed";
+  "pending" | "processing" | "completed" | "failed";
 
 export interface BroadcastEmailJobStatusPayload {
   jobId: string;
@@ -5472,6 +5529,7 @@ export type WorkflowState =
   | "READY_TO_EXECUTE"
   | "EXECUTING"
   | "WAITING_FOR_APPROVAL"
+  | "WAITING_FOR_PARTNER_ACTION"
   | "COMPLETED"
   | "FAILED"
   | "CANCELLED";
@@ -5505,10 +5563,7 @@ export interface WorkflowSummary {
  * than ProfileQuestion so clients can render email/text/multi-select fields with
  * conditional visibility instead of hardcoding per-workflow UI. */
 export type WorkflowQuestionFieldType =
-  | "email"
-  | "text"
-  | "single_select"
-  | "multi_select";
+  "email" | "text" | "single_select" | "multi_select";
 
 export interface WorkflowQuestionOption {
   value: string;
@@ -5553,6 +5608,43 @@ export interface WorkflowDetailResult {
   steps: WorkflowStepRunData[];
 }
 
+export type WorkflowExecutionHandoffStatus =
+  "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED" | "CANCELLED";
+
+export interface WorkflowExecutionHandoff {
+  id: string;
+  workflowId: string;
+  userId: string;
+  partnerName: string;
+  action: string;
+  status: WorkflowExecutionHandoffStatus;
+  metadata: Record<string, unknown> | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminWorkflowSummary extends WorkflowSummary {
+  user: { id: string; email: string; displayName?: string | null };
+  executionHandoffCount?: number;
+  pendingExecutionHandoffCount?: number;
+}
+
+export interface AdminWorkflowDetailResult extends WorkflowDetailResult {
+  success: boolean;
+  user: { id: string; email: string; displayName?: string | null };
+  events: {
+    id: string;
+    workflowId: string;
+    eventType: string;
+    fromState: WorkflowState | null;
+    toState: WorkflowState | null;
+    metadata: Record<string, unknown> | null;
+    createdAt: string;
+  }[];
+  executionHandoffs: WorkflowExecutionHandoff[];
+}
+
 interface WorkflowApiResult<T> {
   ok: boolean;
   data?: T;
@@ -5583,7 +5675,10 @@ async function workflowRequest<T>(
       if (response.status === 404 && path === "") {
         return { ok: false, error: "Workflow engine is not available" };
       }
-      return { ok: false, error: extractBackendErrorMessage(raw, fallbackError) };
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
     }
     return { ok: true, data: raw as T };
   } catch (error) {
@@ -5596,7 +5691,9 @@ async function workflowRequest<T>(
 
 export async function listWorkflows(
   sessionToken: string,
-): Promise<WorkflowApiResult<{ success: boolean; workflows: WorkflowSummary[] }>> {
+): Promise<
+  WorkflowApiResult<{ success: boolean; workflows: WorkflowSummary[] }>
+> {
   return workflowRequest(
     sessionToken,
     "",
@@ -5842,6 +5939,121 @@ export async function deleteVaultField(
   );
 }
 
+export async function adminListWorkflows(params: {
+  page?: number;
+  limit?: number;
+  state?: WorkflowState | "";
+  workflowType?: string;
+}): Promise<
+  WorkflowApiResult<{
+    success: boolean;
+    total: number;
+    page: number;
+    limit: number;
+    workflows: AdminWorkflowSummary[];
+  }>
+> {
+  try {
+    const query = new URLSearchParams();
+    query.set("page", String(params.page ?? 1));
+    query.set("limit", String(params.limit ?? 50));
+    if (params.state) query.set("state", params.state);
+    if (params.workflowType?.trim()) {
+      query.set("workflowType", params.workflowType.trim());
+    }
+    const response = await fetch(`${BACKEND_URL}/admin/workflows?${query}`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load workflows"),
+      };
+    }
+    return {
+      ok: true,
+      data: raw as {
+        success: boolean;
+        total: number;
+        page: number;
+        limit: number;
+        workflows: AdminWorkflowSummary[];
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to load workflows",
+    };
+  }
+}
+
+export async function adminGetWorkflow(
+  workflowId: string,
+): Promise<WorkflowApiResult<AdminWorkflowDetailResult>> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/workflows/${encodeURIComponent(workflowId)}`,
+      {
+        credentials: "include",
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load workflow"),
+      };
+    }
+    return { ok: true, data: raw as AdminWorkflowDetailResult };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to load workflow",
+    };
+  }
+}
+
+export async function adminUpdateWorkflowHandoffStatus(
+  handoffId: string,
+  status: WorkflowExecutionHandoffStatus,
+  note?: string,
+): Promise<
+  WorkflowApiResult<{ success: boolean; handoff: WorkflowExecutionHandoff }>
+> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/workflows/handoffs/${encodeURIComponent(handoffId)}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, note }),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to update handoff"),
+      };
+    }
+    return {
+      ok: true,
+      data: raw as { success: boolean; handoff: WorkflowExecutionHandoff },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to update handoff",
+    };
+  }
+}
+
+
 // ---------------------------------------------------------------------
 // AI Orchestrator (Claude) — conversational client on top of the Workflow Engine
 // ---------------------------------------------------------------------
@@ -5903,7 +6115,10 @@ async function aiRequest<T>(
       if (response.status === 404 && path === "") {
         return { ok: false, error: "AI assistant is not available" };
       }
-      return { ok: false, error: extractBackendErrorMessage(raw, fallbackError) };
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
     }
     return { ok: true, data: raw as T };
   } catch (error) {
@@ -5916,7 +6131,9 @@ async function aiRequest<T>(
 
 export async function listAiConversations(
   sessionToken: string,
-): Promise<AiApiResult<{ success: boolean; conversations: AiConversationSummary[] }>> {
+): Promise<
+  AiApiResult<{ success: boolean; conversations: AiConversationSummary[] }>
+> {
   return aiRequest(
     sessionToken,
     "",

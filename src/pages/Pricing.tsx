@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, X, HelpCircle, ArrowUpCircle, Loader2, Gift } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -32,7 +32,6 @@ import {
   canUpgradeStripeToAnnual,
   resolveMembershipPlanTier,
 } from "@/lib/subscription-cta";
-import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import type { TrialData } from "@/auth/types";
 import { MembershipTransferDialog } from "@/components/MembershipTransferDialog";
@@ -91,9 +90,13 @@ const Pricing = () => {
   const showMembershipPlanUpgrade = canUpgradeStripeMembershipPlan(subscription);
   const membershipTier = resolveMembershipPlanTier(subscription);
 
-  const { portalLoading, openPlanChangePortal } = useSubscriptionBillingActions({
-    returnUrl: typeof window !== "undefined" ? `${window.location.origin}/pricing` : undefined,
-  });
+  const { businessUpgradeLoading, upgradeToBusinessPlan } =
+    useSubscriptionBillingActions({
+      returnUrl:
+        typeof window !== "undefined"
+          ? `${window.location.origin}/pricing`
+          : undefined,
+    });
 
   const { upgrading, upgradeToAnnual, trackAnnualEvent } = useAnnualUpgrade();
   // annual_plan_viewed: once per page visit (default billing is annual on mount).
@@ -196,6 +199,20 @@ const Pricing = () => {
     loadPlans();
   }, []);
 
+  const handleBusinessUpgrade = useCallback(
+    async (plan?: PricingPlan | null) => {
+      const selectedPlanId =
+        billingPeriod === "annual"
+          ? (plan?.annualId ?? plan?.monthlyId)
+          : (plan?.monthlyId ?? plan?.annualId);
+      if (!selectedPlanId) {
+        return;
+      }
+      await upgradeToBusinessPlan(selectedPlanId, businessSeatCount);
+    },
+    [billingPeriod, businessSeatCount, upgradeToBusinessPlan],
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -292,18 +309,6 @@ const Pricing = () => {
           </section>
         )}
 
-        {showMembershipPlanUpgrade && subscription ? (
-          <section className="container mx-auto px-4 mb-10">
-            <div className="max-w-3xl mx-auto">
-              <MembershipPlanUpgradeCard
-                subscription={subscription}
-                portalLoading={portalLoading}
-                onUpgradePlan={openPlanChangePortal}
-              />
-            </div>
-          </section>
-        ) : null}
-
         {/* Pricing Cards */}
         <section id="plans" className="container mx-auto px-4 mb-20">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto items-stretch">
@@ -325,6 +330,10 @@ const Pricing = () => {
                 plan.name === "Business" &&
                 membershipTier !== "business" &&
                 showMembershipPlanUpgrade;
+              const businessUpgradePlanId =
+                billingPeriod === "annual"
+                  ? (plan.annualId ?? plan.monthlyId)
+                  : (plan.monthlyId ?? plan.annualId);
 
               return (
                 <div
@@ -449,8 +458,10 @@ const Pricing = () => {
                     </ContactSalesDialog>
                   ) : showBusinessPlanUpgrade ? (
                     <Button
-                      onClick={() => void openPlanChangePortal()}
-                      disabled={portalLoading}
+                      onClick={() => void handleBusinessUpgrade(plan)}
+                      disabled={
+                        businessUpgradeLoading || !businessUpgradePlanId
+                      }
                       className={`w-full mb-6 ${
                         plan.popular
                           ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
@@ -459,10 +470,10 @@ const Pricing = () => {
                       variant={plan.popular ? "default" : "outline"}
                       size="lg"
                     >
-                      {portalLoading ? (
+                      {businessUpgradeLoading ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Opening billing…
+                          Updating subscription…
                         </>
                       ) : (
                         "Upgrade to Business"
@@ -794,15 +805,15 @@ const Pricing = () => {
             {ctaKind === "manage_account" && showMembershipPlanUpgrade ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
                 <Button
-                  onClick={() => void openPlanChangePortal()}
-                  disabled={portalLoading}
+                  onClick={() => void handleBusinessUpgrade(businessPlan)}
+                  disabled={businessUpgradeLoading || !businessPlan}
                   className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
                   size="lg"
                 >
-                  {portalLoading ? (
+                  {businessUpgradeLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Opening billing…
+                      Updating subscription…
                     </>
                   ) : (
                     "Upgrade plan"
