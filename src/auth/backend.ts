@@ -5628,7 +5628,7 @@ export interface AdminWorkflowSummary extends WorkflowSummary {
 export interface AdminWorkflowDetailResult extends WorkflowDetailResult {
   success: boolean;
   user: { id: string; email: string; displayName?: string | null };
-  events: Array<{
+  events: {
     id: string;
     workflowId: string;
     eventType: string;
@@ -5636,7 +5636,7 @@ export interface AdminWorkflowDetailResult extends WorkflowDetailResult {
     toState: WorkflowState | null;
     metadata: Record<string, unknown> | null;
     createdAt: string;
-  }>;
+  }[];
   executionHandoffs: WorkflowExecutionHandoff[];
 }
 

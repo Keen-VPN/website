@@ -14,7 +14,7 @@ import {
 } from "@/auth/backend";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
-const WORKFLOW_STATES: Array<WorkflowState | ""> = [
+const WORKFLOW_STATES: (WorkflowState | "")[] = [
   "",
   "CREATED",
   "WAITING_FOR_INPUT",
@@ -234,6 +234,10 @@ export default function AdminWorkflows() {
     const rows = res.data?.workflows ?? [];
     setWorkflows(rows);
     setTotal(res.data?.total ?? 0);
+    setSelectedId((current) => {
+      if (current && rows.some((row) => row.id === current)) return current;
+      return rows[0]?.id ?? null;
+    });
   }, [page, state, workflowType]);
 
   const loadDetail = useCallback(async (workflowId: string) => {
@@ -257,12 +261,6 @@ export default function AdminWorkflows() {
   useEffect(() => {
     void loadWorkflows();
   }, [loadWorkflows]);
-
-  useEffect(() => {
-    if (!selectedId && workflows[0]) {
-      setSelectedId(workflows[0].id);
-    }
-  }, [selectedId, workflows]);
 
   useEffect(() => {
     if (selectedId) {
