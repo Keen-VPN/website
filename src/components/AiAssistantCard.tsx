@@ -55,18 +55,24 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const loadGeneration = useRef(0);
 
-  const refreshWorkflowState = useCallback(async () => {
-    const workflowsRes = await listWorkflows(sessionToken);
-    if (workflowsRes.ok && workflowsRes.data) {
-      setPendingApproval(
-        pendingApprovalFromWorkflows(workflowsRes.data.workflows),
-      );
-      const vaultConsent = pendingVaultConsentFromWorkflows(
-        workflowsRes.data.workflows,
-      );
-      setPendingVaultConsentWorkflowId(vaultConsent?.id ?? null);
-    }
-  }, [sessionToken]);
+  const refreshWorkflowState = useCallback(
+    async (generation?: number) => {
+      const workflowsRes = await listWorkflows(sessionToken);
+      if (generation !== undefined && generation !== loadGeneration.current) {
+        return;
+      }
+      if (workflowsRes.ok && workflowsRes.data) {
+        setPendingApproval(
+          pendingApprovalFromWorkflows(workflowsRes.data.workflows),
+        );
+        const vaultConsent = pendingVaultConsentFromWorkflows(
+          workflowsRes.data.workflows,
+        );
+        setPendingVaultConsentWorkflowId(vaultConsent?.id ?? null);
+      }
+    },
+    [sessionToken],
+  );
 
   const load = useCallback(async () => {
     const generation = ++loadGeneration.current;
@@ -105,8 +111,9 @@ export function AiAssistantCard({ sessionToken }: AiAssistantCardProps) {
     }
 
     if (generation !== loadGeneration.current) return;
-    await refreshWorkflowState();
+    await refreshWorkflowState(generation);
 
+    if (generation !== loadGeneration.current) return;
     setLoading(false);
   }, [sessionToken, refreshWorkflowState]);
 

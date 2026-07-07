@@ -214,7 +214,7 @@ export function WorkflowPerkDialog({
       return;
     }
     const vaultValidationError = getVaultAnswersValidationError(
-      missing,
+      visibleQuestionKeys,
       answers,
     );
     if (vaultValidationError) {

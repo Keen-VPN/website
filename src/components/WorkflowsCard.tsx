@@ -219,7 +219,7 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
       return;
     }
     const vaultValidationError = getVaultAnswersValidationError(
-      missing,
+      visibleQuestionKeys,
       answers,
     );
     if (vaultValidationError) {

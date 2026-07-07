@@ -115,16 +115,14 @@ export function WorkflowVaultConsentPanel({
           </a>{" "}
           and refresh this page.
         </p>
-        {error ? (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void load()}
-            disabled={submitting}
-          >
-            Try again
-          </Button>
-        ) : null}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void load()}
+          disabled={submitting}
+        >
+          {error ? "Try again" : "Check again"}
+        </Button>
       </div>
     );
   }
