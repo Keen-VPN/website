@@ -97,8 +97,7 @@ function HandoffAutomationMetadata({
       ) : null}
       {automationSessionId ? (
         <p>
-          <span className="text-slate-500">Session:</span>{" "}
-          {automationSessionId}
+          <span className="text-slate-500">Session:</span> {automationSessionId}
         </p>
       ) : null}
       {reviewUrl ? (
@@ -235,10 +234,7 @@ export default function AdminWorkflows() {
     const rows = res.data?.workflows ?? [];
     setWorkflows(rows);
     setTotal(res.data?.total ?? 0);
-    if (!selectedId && rows[0]) {
-      setSelectedId(rows[0].id);
-    }
-  }, [page, state, workflowType, selectedId]);
+  }, [page, state, workflowType]);
 
   const loadDetail = useCallback(async (workflowId: string) => {
     const requestId = detailRequestRef.current + 1;
@@ -263,6 +259,12 @@ export default function AdminWorkflows() {
   }, [loadWorkflows]);
 
   useEffect(() => {
+    if (!selectedId && workflows[0]) {
+      setSelectedId(workflows[0].id);
+    }
+  }, [selectedId, workflows]);
+
+  useEffect(() => {
     if (selectedId) {
       void loadDetail(selectedId);
     } else {
@@ -274,6 +276,7 @@ export default function AdminWorkflows() {
     if (loading) return;
     setPage(1);
     setWorkflowType(workflowTypeDraft.trim());
+    setSelectedId(null);
   }
 
   async function updateHandoff(
@@ -312,6 +315,7 @@ export default function AdminWorkflows() {
           onChange={(event) => {
             setState(event.target.value as WorkflowState | "");
             setPage(1);
+            setSelectedId(null);
           }}
           className="h-10 rounded-md border border-slate-700 bg-slate-950 px-3 text-sm text-white"
         >
@@ -340,6 +344,7 @@ export default function AdminWorkflows() {
             setWorkflowType("");
             setState("");
             setPage(1);
+            setSelectedId(null);
           }}
           disabled={loading}
         >
@@ -561,7 +566,10 @@ export default function AdminWorkflows() {
         <Button
           variant="outline"
           disabled={page <= 1 || loading}
-          onClick={() => setPage((current) => Math.max(1, current - 1))}
+          onClick={() => {
+            setSelectedId(null);
+            setPage((current) => Math.max(1, current - 1));
+          }}
         >
           Previous
         </Button>
@@ -571,7 +579,10 @@ export default function AdminWorkflows() {
         <Button
           variant="outline"
           disabled={page >= totalPages || loading}
-          onClick={() => setPage((current) => current + 1)}
+          onClick={() => {
+            setSelectedId(null);
+            setPage((current) => current + 1);
+          }}
         >
           Next
         </Button>

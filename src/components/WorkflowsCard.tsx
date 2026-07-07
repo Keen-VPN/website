@@ -70,7 +70,10 @@ function humanize(key: string): string {
     .join(" ");
 }
 
-function stateBadge(state: WorkflowState): { label: string; variant: "default" | "secondary" | "destructive" | "outline" } {
+function stateBadge(state: WorkflowState): {
+  label: string;
+  variant: "default" | "secondary" | "destructive" | "outline";
+} {
   switch (state) {
     case "COMPLETED":
       return { label: "Completed", variant: "default" };
@@ -97,7 +100,12 @@ function stepIcon(step: WorkflowStepRunData) {
     return <XCircle className="h-4 w-4 text-destructive" aria-hidden />;
   }
   if (step.status === "RUNNING") {
-    return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden />;
+    return (
+      <Loader2
+        className="h-4 w-4 animate-spin text-muted-foreground"
+        aria-hidden
+      />
+    );
   }
   return (
     <span
@@ -262,7 +270,11 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await submitWorkflowInputs(sessionToken, active.workflow.id, sanitized);
+      const res = await submitWorkflowInputs(
+        sessionToken,
+        active.workflow.id,
+        sanitized,
+      );
       if (!res.ok || !res.data) {
         setError(res.error ?? "Failed to submit information");
         return;
@@ -341,8 +353,9 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
           Applications
         </CardTitle>
         <CardDescription>
-          Let KeenVPN guide you through partner applications, step by step. We&apos;ll
-          only submit anything on your behalf after you explicitly approve it.
+          Let KeenVPN guide you through partner applications, step by step.
+          We&apos;ll only submit anything on your behalf after you explicitly
+          approve it.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -366,10 +379,14 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="font-medium">
-                  {active.workflow.partnerName ?? humanize(active.workflow.workflowType)}
+                  {active.workflow.partnerName ??
+                    humanize(active.workflow.workflowType)}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Started {formatDate(active.workflow.startedAt ?? active.workflow.createdAt)}
+                  Started{" "}
+                  {formatDate(
+                    active.workflow.startedAt ?? active.workflow.createdAt,
+                  )}
                 </p>
               </div>
               {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
@@ -384,7 +401,10 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
 
             <ul className="space-y-2">
               {active.steps.map((step) => (
-                <li key={step.stepKey} className="flex items-center gap-2 text-sm">
+                <li
+                  key={step.stepKey}
+                  className="flex items-center gap-2 text-sm"
+                >
                   {stepIcon(step)}
                   <span
                     className={
@@ -420,7 +440,10 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
                         question={richQuestion}
                         value={answers[key] ?? ""}
                         onChange={(value) =>
-                          setAnswers((current) => ({ ...current, [key]: value }))
+                          setAnswers((current) => ({
+                            ...current,
+                            [key]: value,
+                          }))
                         }
                         disabled={submitting}
                         idPrefix="workflows-card"
@@ -435,18 +458,27 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
                         <RadioGroup
                           value={answers[key] ?? ""}
                           onValueChange={(value) =>
-                            setAnswers((current) => ({ ...current, [key]: value }))
+                            setAnswers((current) => ({
+                              ...current,
+                              [key]: value,
+                            }))
                           }
                           className="space-y-1.5"
                         >
                           {question.options.map((option) => (
-                            <div key={option.value} className="flex items-center gap-2">
+                            <div
+                              key={option.value}
+                              className="flex items-center gap-2"
+                            >
                               <RadioGroupItem
                                 value={option.value}
                                 id={`${key}-${option.value}`}
                                 disabled={submitting}
                               />
-                              <Label htmlFor={`${key}-${option.value}`} className="font-normal">
+                              <Label
+                                htmlFor={`${key}-${option.value}`}
+                                className="font-normal"
+                              >
                                 {option.label}
                               </Label>
                             </div>
@@ -456,7 +488,10 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
                         <Input
                           value={answers[key] ?? ""}
                           onChange={(e) =>
-                            setAnswers((current) => ({ ...current, [key]: e.target.value }))
+                            setAnswers((current) => ({
+                              ...current,
+                              [key]: e.target.value,
+                            }))
                           }
                           disabled={submitting}
                         />
@@ -471,7 +506,10 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                      <Loader2
+                        className="mr-2 h-4 w-4 animate-spin"
+                        aria-hidden
+                      />
                       Submitting…
                     </>
                   ) : (
@@ -485,13 +523,20 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
               <div className="space-y-3 rounded-md bg-muted/40 p-3">
                 <p className="text-sm font-medium">
                   Your approval is needed for &quot;
-                  {humanize(active.workflow.currentStepKey ?? "")}&quot; before we
-                  continue. Nothing is submitted without your say-so.
+                  {humanize(active.workflow.currentStepKey ?? "")}&quot; before
+                  we continue. Nothing is submitted without your say-so.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => void handleApprove()} disabled={submitting}>
+                  <Button
+                    size="sm"
+                    onClick={() => void handleApprove()}
+                    disabled={submitting}
+                  >
                     {submitting ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                      <Loader2
+                        className="mr-2 h-4 w-4 animate-spin"
+                        aria-hidden
+                      />
                     ) : null}
                     Approve
                   </Button>
@@ -513,13 +558,14 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 Working on it — this page updates automatically.
-                </div>
-              )}
+              </div>
+            )}
 
             {active.workflow.state === "WAITING_FOR_PARTNER_ACTION" && (
               <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-                Chase is waiting for browser review or partner action. We will
-                update this application after that step is completed.
+                {active.workflow.partnerName ?? "The partner"} is waiting for
+                browser review or partner action. We will update this
+                application after that step is completed.
               </div>
             )}
 
@@ -538,7 +584,9 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
               <div className="space-y-2 rounded-md bg-destructive/10 p-3">
                 <p className="text-sm font-medium text-destructive">
                   This application failed
-                  {active.workflow.failureReason ? `: ${active.workflow.failureReason}` : "."}
+                  {active.workflow.failureReason
+                    ? `: ${active.workflow.failureReason}`
+                    : "."}
                 </p>
                 <Button size="sm" variant="outline" asChild>
                   <Link to="/perks">View perks</Link>
@@ -571,7 +619,8 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
             >
               {showHistory ? (
                 <>
-                  Hide history <ChevronUp className="ml-1 h-3 w-3" aria-hidden />
+                  Hide history{" "}
+                  <ChevronUp className="ml-1 h-3 w-3" aria-hidden />
                 </>
               ) : (
                 <>
@@ -591,13 +640,18 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
                     >
                       <div>
                         <p className="font-medium">
-                          {workflow.partnerName ?? humanize(workflow.workflowType)}
+                          {workflow.partnerName ??
+                            humanize(workflow.workflowType)}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {formatDate(workflow.completedAt ?? workflow.createdAt)}
+                          {formatDate(
+                            workflow.completedAt ?? workflow.createdAt,
+                          )}
                         </p>
                       </div>
-                      <Badge variant={historyBadge.variant}>{historyBadge.label}</Badge>
+                      <Badge variant={historyBadge.variant}>
+                        {historyBadge.label}
+                      </Badge>
                     </li>
                   );
                 })}

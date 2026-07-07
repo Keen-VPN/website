@@ -161,7 +161,10 @@ function normalizeBackendAuthResponse(
   if (rawSubscription.planId !== undefined) {
     normalizedSubscription.planId = rawSubscription.planId;
   }
-  if (rawSubscription.seatLimit !== undefined && rawSubscription.seatLimit !== null) {
+  if (
+    rawSubscription.seatLimit !== undefined &&
+    rawSubscription.seatLimit !== null
+  ) {
     normalizedSubscription.seatLimit = rawSubscription.seatLimit;
   }
 
@@ -373,10 +376,7 @@ export type PerkCategory =
   | "finance";
 
 export type PerkRedemptionType =
-  | "external_link"
-  | "coupon_code"
-  | "invite_only"
-  | "workflow";
+  "external_link" | "coupon_code" | "invite_only" | "workflow";
 
 export type PerkUserTab = "new" | "completed" | "snoozed" | "not_interested";
 
@@ -502,8 +502,7 @@ export async function claimPerk(
     return {
       success: true,
       redemptionType: payload["redemptionType"] as
-        | PerkRedemptionType
-        | undefined,
+        PerkRedemptionType | undefined,
       redemptionUrl:
         typeof payload["redemptionUrl"] === "string"
           ? payload["redemptionUrl"]
@@ -2496,10 +2495,7 @@ export interface AdminEngagementSegment {
 }
 
 export type AdminEngagementSubscriptionTier =
-  | "all"
-  | "free"
-  | "paid"
-  | "unknown";
+  "all" | "free" | "paid" | "unknown";
 
 export interface AdminWeeklySessionKpiSummary {
   iso_year: number;
@@ -2861,10 +2857,7 @@ export async function adminFetchUserEngagementProfile(
     if (!response.ok) {
       return {
         ok: false,
-        error: extractBackendErrorMessage(
-          raw,
-          "Failed to load user profile",
-        ),
+        error: extractBackendErrorMessage(raw, "Failed to load user profile"),
       };
     }
     const record = raw as { data?: AdminUserEngagementProfile };
@@ -3801,11 +3794,7 @@ export interface AdminPerk {
   endsAt: string | null;
   daysRemaining: number | null;
   status:
-    | "active"
-    | "scheduled"
-    | "expired"
-    | "cooling_off"
-    | "eligible_for_readd";
+    "active" | "scheduled" | "expired" | "cooling_off" | "eligible_for_readd";
   reactivationCount: number;
   lastExpiredAt: string | null;
   eligibleForReactivationAt: string | null;
@@ -5314,10 +5303,7 @@ export async function adminSendBroadcastPreview(
 }
 
 export type BroadcastEmailJobStatus =
-  | "pending"
-  | "processing"
-  | "completed"
-  | "failed";
+  "pending" | "processing" | "completed" | "failed";
 
 export interface BroadcastEmailJobStatusPayload {
   jobId: string;
@@ -5572,10 +5558,7 @@ export interface WorkflowSummary {
  * than ProfileQuestion so clients can render email/text/multi-select fields with
  * conditional visibility instead of hardcoding per-workflow UI. */
 export type WorkflowQuestionFieldType =
-  | "email"
-  | "text"
-  | "single_select"
-  | "multi_select";
+  "email" | "text" | "single_select" | "multi_select";
 
 export interface WorkflowQuestionOption {
   value: string;
@@ -5621,11 +5604,7 @@ export interface WorkflowDetailResult {
 }
 
 export type WorkflowExecutionHandoffStatus =
-  | "PENDING"
-  | "IN_PROGRESS"
-  | "COMPLETED"
-  | "FAILED"
-  | "CANCELLED";
+  "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED" | "CANCELLED";
 
 export interface WorkflowExecutionHandoff {
   id: string;
@@ -5691,7 +5670,10 @@ async function workflowRequest<T>(
       if (response.status === 404 && path === "") {
         return { ok: false, error: "Workflow engine is not available" };
       }
-      return { ok: false, error: extractBackendErrorMessage(raw, fallbackError) };
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
     }
     return { ok: true, data: raw as T };
   } catch (error) {
@@ -5704,7 +5686,9 @@ async function workflowRequest<T>(
 
 export async function listWorkflows(
   sessionToken: string,
-): Promise<WorkflowApiResult<{ success: boolean; workflows: WorkflowSummary[] }>> {
+): Promise<
+  WorkflowApiResult<{ success: boolean; workflows: WorkflowSummary[] }>
+> {
   return workflowRequest(
     sessionToken,
     "",
@@ -5830,9 +5814,12 @@ export async function adminGetWorkflow(
   workflowId: string,
 ): Promise<WorkflowApiResult<AdminWorkflowDetailResult>> {
   try {
-    const response = await fetch(`${BACKEND_URL}/admin/workflows/${workflowId}`, {
-      credentials: "include",
-    });
+    const response = await fetch(
+      `${BACKEND_URL}/admin/workflows/${encodeURIComponent(workflowId)}`,
+      {
+        credentials: "include",
+      },
+    );
     const raw: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       return {
@@ -5858,7 +5845,7 @@ export async function adminUpdateWorkflowHandoffStatus(
 > {
   try {
     const response = await fetch(
-      `${BACKEND_URL}/admin/workflows/handoffs/${handoffId}`,
+      `${BACKEND_URL}/admin/workflows/handoffs/${encodeURIComponent(handoffId)}`,
       {
         method: "PATCH",
         credentials: "include",
@@ -5880,7 +5867,8 @@ export async function adminUpdateWorkflowHandoffStatus(
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : "Failed to update handoff",
+      error:
+        error instanceof Error ? error.message : "Failed to update handoff",
     };
   }
 }
@@ -5946,7 +5934,10 @@ async function aiRequest<T>(
       if (response.status === 404 && path === "") {
         return { ok: false, error: "AI assistant is not available" };
       }
-      return { ok: false, error: extractBackendErrorMessage(raw, fallbackError) };
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
     }
     return { ok: true, data: raw as T };
   } catch (error) {
@@ -5959,7 +5950,9 @@ async function aiRequest<T>(
 
 export async function listAiConversations(
   sessionToken: string,
-): Promise<AiApiResult<{ success: boolean; conversations: AiConversationSummary[] }>> {
+): Promise<
+  AiApiResult<{ success: boolean; conversations: AiConversationSummary[] }>
+> {
   return aiRequest(
     sessionToken,
     "",
