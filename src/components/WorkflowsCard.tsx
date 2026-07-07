@@ -48,6 +48,7 @@ const AUTO_PROGRESS_STATES: WorkflowState[] = [
   "CREATED",
   "READY_TO_EXECUTE",
   "EXECUTING",
+  "WAITING_FOR_PARTNER_ACTION",
 ];
 
 /** Mirrors backend workflow-state.util.ts isCancellableState — EXECUTING is intentionally
@@ -57,6 +58,7 @@ const CANCELLABLE_STATES: WorkflowState[] = [
   "WAITING_FOR_INPUT",
   "READY_TO_EXECUTE",
   "WAITING_FOR_APPROVAL",
+  "WAITING_FOR_PARTNER_ACTION",
 ];
 
 const POLL_INTERVAL_MS = 4000;
@@ -80,6 +82,8 @@ function stateBadge(state: WorkflowState): { label: string; variant: "default" |
       return { label: "Needs info", variant: "secondary" };
     case "WAITING_FOR_APPROVAL":
       return { label: "Needs approval", variant: "secondary" };
+    case "WAITING_FOR_PARTNER_ACTION":
+      return { label: "Partner review", variant: "secondary" };
     default:
       return { label: "In progress", variant: "secondary" };
   }
@@ -509,6 +513,13 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 Working on it — this page updates automatically.
+                </div>
+              )}
+
+            {active.workflow.state === "WAITING_FOR_PARTNER_ACTION" && (
+              <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+                Chase is waiting for browser review or partner action. We will
+                update this application after that step is completed.
               </div>
             )}
 

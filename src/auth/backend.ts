@@ -5538,6 +5538,7 @@ export type WorkflowState =
   | "READY_TO_EXECUTE"
   | "EXECUTING"
   | "WAITING_FOR_APPROVAL"
+  | "WAITING_FOR_PARTNER_ACTION"
   | "COMPLETED"
   | "FAILED"
   | "CANCELLED";
@@ -5617,6 +5618,47 @@ export interface WorkflowStepRunData {
 export interface WorkflowDetailResult {
   workflow: WorkflowDetail;
   steps: WorkflowStepRunData[];
+}
+
+export type WorkflowExecutionHandoffStatus =
+  | "PENDING"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED";
+
+export interface WorkflowExecutionHandoff {
+  id: string;
+  workflowId: string;
+  userId: string;
+  partnerName: string;
+  action: string;
+  status: WorkflowExecutionHandoffStatus;
+  metadata: Record<string, unknown> | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminWorkflowSummary extends WorkflowSummary {
+  user: { id: string; email: string; displayName?: string | null };
+  executionHandoffCount?: number;
+  pendingExecutionHandoffCount?: number;
+}
+
+export interface AdminWorkflowDetailResult extends WorkflowDetailResult {
+  success: boolean;
+  user: { id: string; email: string; displayName?: string | null };
+  events: Array<{
+    id: string;
+    workflowId: string;
+    eventType: string;
+    fromState: WorkflowState | null;
+    toState: WorkflowState | null;
+    metadata: Record<string, unknown> | null;
+    createdAt: string;
+  }>;
+  executionHandoffs: WorkflowExecutionHandoff[];
 }
 
 interface WorkflowApiResult<T> {
@@ -5731,6 +5773,116 @@ export async function cancelWorkflow(
     { method: "POST" },
     "Failed to cancel workflow",
   );
+}
+
+export async function adminListWorkflows(params: {
+  page?: number;
+  limit?: number;
+  state?: WorkflowState | "";
+  workflowType?: string;
+}): Promise<
+  WorkflowApiResult<{
+    success: boolean;
+    total: number;
+    page: number;
+    limit: number;
+    workflows: AdminWorkflowSummary[];
+  }>
+> {
+  try {
+    const query = new URLSearchParams();
+    query.set("page", String(params.page ?? 1));
+    query.set("limit", String(params.limit ?? 50));
+    if (params.state) query.set("state", params.state);
+    if (params.workflowType?.trim()) {
+      query.set("workflowType", params.workflowType.trim());
+    }
+    const response = await fetch(`${BACKEND_URL}/admin/workflows?${query}`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load workflows"),
+      };
+    }
+    return {
+      ok: true,
+      data: raw as {
+        success: boolean;
+        total: number;
+        page: number;
+        limit: number;
+        workflows: AdminWorkflowSummary[];
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to load workflows",
+    };
+  }
+}
+
+export async function adminGetWorkflow(
+  workflowId: string,
+): Promise<WorkflowApiResult<AdminWorkflowDetailResult>> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/workflows/${workflowId}`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load workflow"),
+      };
+    }
+    return { ok: true, data: raw as AdminWorkflowDetailResult };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to load workflow",
+    };
+  }
+}
+
+export async function adminUpdateWorkflowHandoffStatus(
+  handoffId: string,
+  status: WorkflowExecutionHandoffStatus,
+  note?: string,
+): Promise<
+  WorkflowApiResult<{ success: boolean; handoff: WorkflowExecutionHandoff }>
+> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/workflows/handoffs/${handoffId}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, note }),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to update handoff"),
+      };
+    }
+    return {
+      ok: true,
+      data: raw as { success: boolean; handoff: WorkflowExecutionHandoff },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to update handoff",
+    };
+  }
 }
 
 // ---------------------------------------------------------------------

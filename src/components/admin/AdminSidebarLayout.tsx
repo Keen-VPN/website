@@ -104,6 +104,13 @@ export default function AdminSidebarLayout() {
               Perks
             </NavLink>
             <NavLink
+              to="/admin/workflows"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Activity className="h-4 w-4" />
+              Workflows
+            </NavLink>
+            <NavLink
               to="/admin/perk-requests"
               className={({ isActive }) => linkClass(isActive)}
             >
