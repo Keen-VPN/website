@@ -23,7 +23,9 @@ const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, subscription, logout } = useAuth();
-  const friendsBadge = useFriendsBadge();
+  const friendsBadge = useFriendsBadge({
+    poll: !location.pathname.startsWith("/friends"),
+  });
   const appStoreUrl = useAppStoreUrl();
   const downloadAppLabel = getAppStoreInstallButtonLabel();
   const handleDownloadApp = () =>

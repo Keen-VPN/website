@@ -16,7 +16,8 @@ export interface FriendsBadgeState {
 
 const POLL_INTERVAL_MS = 60_000;
 
-export function useFriendsBadge(): FriendsBadgeState {
+export function useFriendsBadge(options?: { poll?: boolean }): FriendsBadgeState {
+  const poll = options?.poll ?? true;
   const { user, getSessionToken: authGetSessionToken } = useAuth();
   const [state, setState] = useState<FriendsBadgeState>({
     pendingReceived: 0,
@@ -82,6 +83,8 @@ export function useFriendsBadge(): FriendsBadgeState {
   }, [authGetSessionToken, user]);
 
   useEffect(() => {
+    if (!poll) return;
+
     void refresh();
 
     const interval = window.setInterval(() => {
@@ -97,7 +100,7 @@ export function useFriendsBadge(): FriendsBadgeState {
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
     };
-  }, [refresh]);
+  }, [poll, refresh]);
 
   return state;
 }

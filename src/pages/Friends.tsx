@@ -47,7 +47,6 @@ import {
   removeFriend,
   reportFriendUser,
 } from "@/auth";
-import { useFriendsBadge } from "@/hooks/use-friends-badge";
 
 interface FriendRow {
   relationshipId: string;
@@ -132,7 +131,6 @@ function displayLabel(row: {
 
 export default function Friends() {
   const { getSessionToken: authGetSessionToken } = useAuth();
-  const friendsBadge = useFriendsBadge();
   const { toast } = useToast();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [notifications, setNotifications] = useState<FriendNotification[]>([]);
@@ -181,7 +179,11 @@ export default function Friends() {
           .filter((n) => !n.readAt)
           .map((n) => n.id);
         if (unreadIds.length > 0) {
-          void markFriendsNotificationsRead(sessionToken, unreadIds);
+          void markFriendsNotificationsRead(sessionToken, unreadIds).catch(
+            (error) => {
+              console.warn("Failed to mark friends notifications read:", error);
+            },
+          );
         }
       }
     } finally {
@@ -222,7 +224,7 @@ export default function Friends() {
     e.preventDefault();
     const target = inviteTarget.trim();
     if (!target) return;
-    const isEmail = target.includes("@");
+    const isEmail = target.includes("@") && !target.startsWith("@");
     const ok = await withSession(
       (token) =>
         isEmail
@@ -306,6 +308,12 @@ export default function Friends() {
     toast({ title: "Invite link copied" });
   }
 
+  const unreadNotificationCount = notifications.filter(
+    (notification) => !notification.readAt,
+  ).length;
+  const totalUpdates =
+    (dashboard?.counts.pendingReceived ?? 0) + unreadNotificationCount;
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -313,10 +321,10 @@ export default function Friends() {
         <div className="mb-8">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight">Friends</h1>
-            {friendsBadge.totalBadge > 0 ? (
+            {totalUpdates > 0 ? (
               <Badge variant="default">
-                {friendsBadge.totalBadge} update
-                {friendsBadge.totalBadge === 1 ? "" : "s"}
+                {totalUpdates} update
+                {totalUpdates === 1 ? "" : "s"}
               </Badge>
             ) : null}
           </div>

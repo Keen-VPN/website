@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -20,6 +20,12 @@ export default function FriendsAccept() {
   const autoAcceptAttemptedRef = useRef(false);
 
   useEffect(() => {
+    setLoading(true);
+    setError(null);
+    setAccepted(false);
+    setRequesterLabel(null);
+    autoAcceptAttemptedRef.current = false;
+
     if (!token) {
       navigate("/friends");
       return;
@@ -55,7 +61,7 @@ export default function FriendsAccept() {
     };
   }, [navigate, token]);
 
-  async function acceptWithSessionToken(sessionToken: string) {
+  const acceptWithSessionToken = useCallback(async (sessionToken: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -68,7 +74,7 @@ export default function FriendsAccept() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [token]);
 
   async function handleAccept() {
     const sessionToken = getSessionToken();
@@ -89,7 +95,7 @@ export default function FriendsAccept() {
 
     autoAcceptAttemptedRef.current = true;
     void acceptWithSessionToken(sessionToken);
-  }, [accepted, error, loading]);
+  }, [acceptWithSessionToken, accepted, error, loading]);
 
   return (
     <div className="min-h-screen bg-background">

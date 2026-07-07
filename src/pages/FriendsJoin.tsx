@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -20,6 +20,12 @@ export default function FriendsJoin() {
   const autoJoinAttemptedRef = useRef(false);
 
   useEffect(() => {
+    setLoading(true);
+    setError(null);
+    setJoined(false);
+    setRequesterLabel(null);
+    autoJoinAttemptedRef.current = false;
+
     if (!trimmedToken) {
       navigate("/friends");
       return;
@@ -55,7 +61,7 @@ export default function FriendsJoin() {
     };
   }, [navigate, trimmedToken]);
 
-  async function joinWithSessionToken(sessionToken: string) {
+  const joinWithSessionToken = useCallback(async (sessionToken: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -68,7 +74,7 @@ export default function FriendsJoin() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [trimmedToken]);
 
   async function handleJoin() {
     const sessionToken = getSessionToken();
@@ -89,7 +95,7 @@ export default function FriendsJoin() {
 
     autoJoinAttemptedRef.current = true;
     void joinWithSessionToken(sessionToken);
-  }, [error, joined, loading]);
+  }, [error, joined, joinWithSessionToken, loading]);
 
   return (
     <div className="min-h-screen bg-background">
