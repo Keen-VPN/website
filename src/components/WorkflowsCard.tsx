@@ -147,7 +147,8 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
-    pollInFlightRef.current = false;
+    // Leave pollInFlightRef owned by the in-flight request's finally handler so
+    // a cleared/restarted interval cannot start a second concurrent poll.
   }, []);
 
   const loadActive = useCallback(
