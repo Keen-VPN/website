@@ -87,6 +87,7 @@ const AdminUserProfiles = lazy(
 const AdminSignupSources = lazy(
   () => import("./pages/admin/AdminSignupSources"),
 );
+const AdminWorkflows = lazy(() => import("./pages/admin/AdminWorkflows"));
 
 const queryClient = new QueryClient();
 
@@ -219,6 +220,7 @@ const App = () => (
                 <Route path="perks" element={<AdminPerks />} />
                 <Route path="perk-requests" element={<AdminPerkRequests />} />
                 <Route path="user-profiles" element={<AdminUserProfiles />} />
+                <Route path="workflows" element={<AdminWorkflows />} />
                 <Route path="signup-sources" element={<AdminSignupSources />} />
                 <Route
                   path="connection-engagement"

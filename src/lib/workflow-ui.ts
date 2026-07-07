@@ -8,18 +8,70 @@ import type {
 export const ACTIVE_WORKFLOW_STATES: WorkflowState[] = [
   "CREATED",
   "WAITING_FOR_INPUT",
+  "WAITING_FOR_VAULT_CONSENT",
   "READY_TO_EXECUTE",
   "EXECUTING",
   "WAITING_FOR_APPROVAL",
+  "WAITING_FOR_PARTNER_ACTION",
+];
+
+/** States the engine advances without user input — poll for updates. */
+export const AUTO_PROGRESS_WORKFLOW_STATES: WorkflowState[] = [
+  "CREATED",
+  "READY_TO_EXECUTE",
+  "EXECUTING",
+  "WAITING_FOR_PARTNER_ACTION",
+];
+
+/** Mirrors backend workflow-state.util.ts isCancellableState. */
+export const CANCELLABLE_WORKFLOW_STATES: WorkflowState[] = [
+  "CREATED",
+  "WAITING_FOR_INPUT",
+  "WAITING_FOR_VAULT_CONSENT",
+  "READY_TO_EXECUTE",
+  "WAITING_FOR_APPROVAL",
+  "WAITING_FOR_PARTNER_ACTION",
 ];
 
 const ACTIVE_STATE_PRIORITY: Partial<Record<WorkflowState, number>> = {
-  WAITING_FOR_APPROVAL: 0,
-  WAITING_FOR_INPUT: 1,
-  EXECUTING: 2,
-  READY_TO_EXECUTE: 3,
-  CREATED: 4,
+  WAITING_FOR_VAULT_CONSENT: 0,
+  WAITING_FOR_APPROVAL: 1,
+  WAITING_FOR_INPUT: 2,
+  WAITING_FOR_PARTNER_ACTION: 3,
+  EXECUTING: 4,
+  READY_TO_EXECUTE: 5,
+  CREATED: 6,
 };
+
+export type WorkflowBadgeVariant =
+  | "default"
+  | "secondary"
+  | "destructive"
+  | "outline";
+
+export function workflowStateBadge(state: WorkflowState): {
+  label: string;
+  variant: WorkflowBadgeVariant;
+} {
+  switch (state) {
+    case "COMPLETED":
+      return { label: "Completed", variant: "default" };
+    case "FAILED":
+      return { label: "Failed", variant: "destructive" };
+    case "CANCELLED":
+      return { label: "Cancelled", variant: "outline" };
+    case "WAITING_FOR_INPUT":
+      return { label: "Needs info", variant: "secondary" };
+    case "WAITING_FOR_VAULT_CONSENT":
+      return { label: "Vault access needed", variant: "secondary" };
+    case "WAITING_FOR_APPROVAL":
+      return { label: "Needs approval", variant: "secondary" };
+    case "WAITING_FOR_PARTNER_ACTION":
+      return { label: "Partner review", variant: "secondary" };
+    default:
+      return { label: "In progress", variant: "secondary" };
+  }
+}
 
 /** Prefer workflows that need user action, then the most recently updated run. */
 export function selectPrimaryActiveWorkflow(
@@ -50,6 +102,16 @@ export function pendingApprovalFromWorkflows(
     workflowId: waiting.id,
     stepKey: waiting.currentStepKey,
   };
+}
+
+export function pendingVaultConsentFromWorkflows(
+  workflows: WorkflowSummary[],
+): WorkflowSummary | null {
+  return (
+    workflows.find(
+      (workflow) => workflow.state === "WAITING_FOR_VAULT_CONSENT",
+    ) ?? null
+  );
 }
 
 export function humanizeWorkflowKey(key: string): string {
