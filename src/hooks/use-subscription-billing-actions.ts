@@ -5,6 +5,7 @@ import {
   cancelSubscription,
   createBillingPortalSession,
   getSessionToken,
+  upgradeSubscriptionToBusiness,
   upgradeSubscriptionToAnnual,
 } from "@/auth";
 import type { SubscriptionData } from "@/auth/types";
@@ -46,6 +47,7 @@ export function useSubscriptionBillingActions(
   const [cancelling, setCancelling] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [upgradingToAnnual, setUpgradingToAnnual] = useState(false);
+  const [businessUpgradeLoading, setBusinessUpgradeLoading] = useState(false);
 
   const resolveReturnUrl = useCallback(
     () => options.returnUrl ?? window.location.href,
@@ -205,13 +207,53 @@ export function useSubscriptionBillingActions(
     }
   }, [requireSessionToken, subscription, toast, refreshSubscription]);
 
+  const upgradeToBusinessPlan = useCallback(
+    async (planId: string, seatCount: number) => {
+      const token = requireSessionToken();
+      if (!token) {
+        return;
+      }
+
+      try {
+        setBusinessUpgradeLoading(true);
+        const result = await upgradeSubscriptionToBusiness(
+          token,
+          planId,
+          seatCount,
+        );
+
+        if (result.success) {
+          toast({
+            title: "Business plan updated",
+            description: `Your subscription now includes ${result.seatLimit ?? seatCount} seats.`,
+          });
+          await refreshSubscription();
+        } else {
+          throw new Error(result.error || "Failed to upgrade to Business");
+        }
+      } catch (error) {
+        toast({
+          title: "Business upgrade failed",
+          description:
+            error instanceof Error ? error.message : "Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setBusinessUpgradeLoading(false);
+      }
+    },
+    [requireSessionToken, toast, refreshSubscription],
+  );
+
   return {
     cancelling,
     portalLoading,
     upgradingToAnnual,
+    businessUpgradeLoading,
     cancelSubscriptionAtPeriodEnd,
     openBillingPortal,
     openPlanChangePortal,
     upgradeToAnnualPlan,
+    upgradeToBusinessPlan,
   };
 }

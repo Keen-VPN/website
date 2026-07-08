@@ -1,4 +1,8 @@
 import type { ApiPlan } from "@/lib/pricing";
+import type {
+  VaultFieldCategory,
+  VaultFieldInputType,
+} from "@/lib/vault-fields";
 import { BackendAuthResponse, SubscriptionData, TrialData } from "./types";
 import {
   getReferralTokenFromStorage,
@@ -161,7 +165,10 @@ function normalizeBackendAuthResponse(
   if (rawSubscription.planId !== undefined) {
     normalizedSubscription.planId = rawSubscription.planId;
   }
-  if (rawSubscription.seatLimit !== undefined && rawSubscription.seatLimit !== null) {
+  if (
+    rawSubscription.seatLimit !== undefined &&
+    rawSubscription.seatLimit !== null
+  ) {
     normalizedSubscription.seatLimit = rawSubscription.seatLimit;
   }
 
@@ -369,12 +376,11 @@ export type PerkCategory =
   | "ai_productivity"
   | "developer_tools"
   | "startup_growth"
-  | "remote_work";
+  | "remote_work"
+  | "finance";
 
 export type PerkRedemptionType =
-  | "external_link"
-  | "coupon_code"
-  | "invite_only";
+  "external_link" | "coupon_code" | "invite_only" | "workflow";
 
 export type PerkUserTab = "new" | "completed" | "snoozed" | "not_interested";
 
@@ -408,6 +414,8 @@ export interface PerkItem {
   /** Present on claimed coupon perks so the code stays visible on the card. */
   couponCode?: string;
   redemptionUrl?: string;
+  /** Workflow Engine type identifier for "workflow" redemption perks, e.g. "chase_signup". */
+  workflowType?: string;
 }
 
 export interface PerksListPayload {
@@ -465,6 +473,9 @@ export async function claimPerk(
   couponCode?: string;
   message?: string;
   error?: string;
+  /** Present when redemptionType is "workflow" — the auto-started/resumed workflow. */
+  workflowId?: string;
+  workflowState?: WorkflowState;
 }> {
   try {
     const response = await fetch(
@@ -495,8 +506,7 @@ export async function claimPerk(
     return {
       success: true,
       redemptionType: payload["redemptionType"] as
-        | PerkRedemptionType
-        | undefined,
+        PerkRedemptionType | undefined,
       redemptionUrl:
         typeof payload["redemptionUrl"] === "string"
           ? payload["redemptionUrl"]
@@ -507,6 +517,14 @@ export async function claimPerk(
           : undefined,
       message:
         typeof payload["message"] === "string" ? payload["message"] : undefined,
+      workflowId:
+        typeof payload["workflowId"] === "string"
+          ? payload["workflowId"]
+          : undefined,
+      workflowState:
+        typeof payload["workflowState"] === "string"
+          ? (payload["workflowState"] as WorkflowState)
+          : undefined,
     };
   } catch (error) {
     return {
@@ -1803,6 +1821,7 @@ export async function createCheckoutSession(
   planId: string,
   successUrl?: string,
   cancelUrl?: string,
+  seatCount?: number,
 ): Promise<CreateCheckoutResult> {
   try {
     const response = await fetch(`${BACKEND_URL}/payment/stripe/checkout`, {
@@ -1815,6 +1834,7 @@ export async function createCheckoutSession(
         planId,
         successUrl,
         cancelUrl,
+        ...(seatCount !== undefined ? { seatCount } : {}),
       }),
     });
 
@@ -1903,6 +1923,77 @@ export async function upgradeSubscriptionToAnnual(
         error instanceof Error
           ? error.message
           : "Failed to upgrade to annual plan",
+    };
+  }
+}
+
+/**
+ * Upgrade the current Stripe subscription to Business with a selected seat count.
+ * KeenVPN collects the seat quantity before this call; Stripe receives one
+ * subscription item update with the Business price and matching quantity.
+ */
+export async function upgradeSubscriptionToBusiness(
+  sessionToken: string,
+  planId: string,
+  seatCount: number,
+): Promise<{
+  success: boolean;
+  planId?: string;
+  seatLimit?: number;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/payment/stripe/upgrade-business`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ planId, seatCount }),
+      },
+    );
+
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      planId?: string;
+      seatLimit?: number;
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to upgrade to Business",
+        ),
+      };
+    }
+
+    if (data?.success === true) {
+      return {
+        success: true,
+        planId: data.planId,
+        seatLimit: data.seatLimit,
+        message: data.message,
+      };
+    }
+
+    return {
+      success: false,
+      error: data?.error || data?.message || "Business upgrade failed",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to upgrade to Business",
     };
   }
 }
@@ -2408,10 +2499,7 @@ export interface AdminEngagementSegment {
 }
 
 export type AdminEngagementSubscriptionTier =
-  | "all"
-  | "free"
-  | "paid"
-  | "unknown";
+  "all" | "free" | "paid" | "unknown";
 
 export interface AdminWeeklySessionKpiSummary {
   iso_year: number;
@@ -2773,10 +2861,7 @@ export async function adminFetchUserEngagementProfile(
     if (!response.ok) {
       return {
         ok: false,
-        error: extractBackendErrorMessage(
-          raw,
-          "Failed to load user profile",
-        ),
+        error: extractBackendErrorMessage(raw, "Failed to load user profile"),
       };
     }
     const record = raw as { data?: AdminUserEngagementProfile };
@@ -3713,17 +3798,15 @@ export interface AdminPerk {
   endsAt: string | null;
   daysRemaining: number | null;
   status:
-    | "active"
-    | "scheduled"
-    | "expired"
-    | "cooling_off"
-    | "eligible_for_readd";
+    "active" | "scheduled" | "expired" | "cooling_off" | "eligible_for_readd";
   reactivationCount: number;
   lastExpiredAt: string | null;
   eligibleForReactivationAt: string | null;
   clonedFromPerkId: string | null;
   audienceTargeting: AudienceTargeting;
   extensionDomains: ExtensionDomainRule[];
+  /** Workflow Engine type identifier for "workflow" redemption perks, e.g. "chase_signup". */
+  workflowType: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -3764,6 +3847,8 @@ export interface CreateAdminPerkPayload {
   redemptionType?: PerkRedemptionType;
   redemptionUrl?: string;
   couponCode?: string;
+  /** Workflow Engine type identifier — required when redemptionType is "workflow". */
+  workflowType?: string;
   accessLevel?: "free" | "paid" | "annual";
   isFeatured?: boolean;
   isActive?: boolean;
@@ -3784,6 +3869,7 @@ export type UpdateAdminPerkPayload = Partial<{
   redemptionType: PerkRedemptionType;
   redemptionUrl: string | null;
   couponCode: string | null;
+  workflowType: string | null;
   accessLevel: "free" | "paid" | "annual";
   isFeatured: boolean;
   isActive: boolean;
@@ -4546,6 +4632,42 @@ export async function revokeMembershipInvite(
   }
 }
 
+/**
+ * Buy/reduce seats on the caller's owned Business subscription (Slack/Devin-style seat
+ * management). Stripe prorates the difference immediately; the returned `seatLimit` reflects
+ * the new value right away, ahead of the webhook reconciliation.
+ */
+export async function updateMembershipSeatCount(
+  sessionToken: string,
+  quantity: number,
+): Promise<{ ok: boolean; data?: { seatLimit: number }; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/membership-sharing/seats`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ quantity }),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to update seat count"),
+      };
+    }
+    return { ok: true, data: raw as { seatLimit: number } };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to update seat count",
+    };
+  }
+}
+
 export async function adminFetchChurnReport(params: {
   month: number;
   year: number;
@@ -5185,10 +5307,7 @@ export async function adminSendBroadcastPreview(
 }
 
 export type BroadcastEmailJobStatus =
-  | "pending"
-  | "processing"
-  | "completed"
-  | "failed";
+  "pending" | "processing" | "completed" | "failed";
 
 export interface BroadcastEmailJobStatusPayload {
   jobId: string;
@@ -5397,4 +5516,886 @@ export async function restoreDeviceConnection(
         error instanceof Error ? error.message : "Failed to restore device",
     };
   }
+}
+
+// ---------------------------------------------------------------------
+// AI Workflow Engine (VIG execution) — Phase 2 UI client
+// ---------------------------------------------------------------------
+
+export type WorkflowState =
+  | "CREATED"
+  | "WAITING_FOR_INPUT"
+  | "WAITING_FOR_VAULT_CONSENT"
+  | "READY_TO_EXECUTE"
+  | "EXECUTING"
+  | "WAITING_FOR_APPROVAL"
+  | "WAITING_FOR_PARTNER_ACTION"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED";
+
+export type WorkflowStepStatus =
+  | "PENDING"
+  | "WAITING_FOR_INPUT"
+  | "WAITING_FOR_APPROVAL"
+  | "APPROVED"
+  | "RUNNING"
+  | "COMPLETED"
+  | "FAILED"
+  | "SKIPPED";
+
+export interface WorkflowSummary {
+  id: string;
+  workflowType: string;
+  partnerName: string | null;
+  state: WorkflowState;
+  completionPercent: number;
+  currentStepKey: string | null;
+  failureReason: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  durationMs: number | null;
+}
+
+/** Mirrors backend WorkflowQuestionDefinition (workflow-question.types.ts) — richer
+ * than ProfileQuestion so clients can render email/text/multi-select fields with
+ * conditional visibility instead of hardcoding per-workflow UI. */
+export type WorkflowQuestionFieldType =
+  "email" | "text" | "single_select" | "multi_select";
+
+export interface WorkflowQuestionOption {
+  value: string;
+  label: string;
+}
+
+export interface WorkflowQuestionShowWhen {
+  questionKey: string;
+  values: string[];
+}
+
+export interface WorkflowQuestionDefinition {
+  key: string;
+  label: string;
+  type: WorkflowQuestionFieldType;
+  helpText?: string;
+  options?: WorkflowQuestionOption[];
+  allowOther?: boolean;
+  showWhen?: WorkflowQuestionShowWhen;
+}
+
+export interface WorkflowDetail extends WorkflowSummary {
+  missingInputKeys: string[];
+  /** Full question metadata for every input this workflow type collects. Omitted for
+   * profile-backed workflow types, which fall back to the global ProfileQuestion catalog. */
+  inputQuestions?: WorkflowQuestionDefinition[];
+}
+
+export interface WorkflowStepRunData {
+  stepKey: string;
+  sequence: number;
+  status: WorkflowStepStatus;
+  requiresApproval: boolean;
+  attempts: number;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface WorkflowDetailResult {
+  workflow: WorkflowDetail;
+  steps: WorkflowStepRunData[];
+}
+
+export type WorkflowExecutionHandoffStatus =
+  "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED" | "CANCELLED";
+
+export interface WorkflowExecutionHandoff {
+  id: string;
+  workflowId: string;
+  userId: string;
+  partnerName: string;
+  action: string;
+  status: WorkflowExecutionHandoffStatus;
+  metadata: Record<string, unknown> | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminWorkflowSummary extends WorkflowSummary {
+  user: { id: string; email: string; displayName?: string | null };
+  executionHandoffCount?: number;
+  pendingExecutionHandoffCount?: number;
+}
+
+export interface AdminWorkflowDetailResult extends WorkflowDetailResult {
+  success: boolean;
+  user: { id: string; email: string; displayName?: string | null };
+  events: {
+    id: string;
+    workflowId: string;
+    eventType: string;
+    fromState: WorkflowState | null;
+    toState: WorkflowState | null;
+    metadata: Record<string, unknown> | null;
+    createdAt: string;
+  }[];
+  executionHandoffs: WorkflowExecutionHandoff[];
+}
+
+interface WorkflowApiResult<T> {
+  ok: boolean;
+  data?: T;
+  error?: string;
+}
+
+async function workflowRequest<T>(
+  sessionToken: string,
+  path: string,
+  init: RequestInit,
+  fallbackError: string,
+): Promise<WorkflowApiResult<T>> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/workflows${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...init.headers,
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      // Only the base "/workflows" list endpoint is used to detect whether the
+      // feature is enabled at all; every other 404 (e.g. a specific workflow id)
+      // means "not found", not "feature disabled" — regardless of message wording.
+      if (
+        response.status === 404 &&
+        path === "" &&
+        (init.method ?? "GET").toUpperCase() === "GET"
+      ) {
+        return { ok: false, error: "Workflow engine is not available" };
+      }
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
+    }
+    return { ok: true, data: raw as T };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : fallbackError,
+    };
+  }
+}
+
+export async function listWorkflows(
+  sessionToken: string,
+): Promise<
+  WorkflowApiResult<{ success: boolean; workflows: WorkflowSummary[] }>
+> {
+  return workflowRequest(
+    sessionToken,
+    "",
+    { method: "GET" },
+    "Failed to load workflows",
+  );
+}
+
+export async function createWorkflow(
+  sessionToken: string,
+  workflowType: string,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    "",
+    { method: "POST", body: JSON.stringify({ workflowType }) },
+    "Failed to start workflow",
+  );
+}
+
+export async function getWorkflow(
+  sessionToken: string,
+  workflowId: string,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}`,
+    { method: "GET" },
+    "Failed to load workflow",
+  );
+}
+
+export async function submitWorkflowInputs(
+  sessionToken: string,
+  workflowId: string,
+  answers: Record<string, string>,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}/inputs`,
+    { method: "POST", body: JSON.stringify({ answers }) },
+    "Failed to submit information",
+  );
+}
+
+export async function approveWorkflowStep(
+  sessionToken: string,
+  workflowId: string,
+  stepKey: string,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}/approve`,
+    { method: "POST", body: JSON.stringify({ stepKey }) },
+    "Failed to approve step",
+  );
+}
+
+export async function cancelWorkflow(
+  sessionToken: string,
+  workflowId: string,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}/cancel`,
+    { method: "POST" },
+    "Failed to cancel workflow",
+  );
+}
+
+export interface VaultAccessRequestField {
+  fieldKey: string;
+  label: string;
+}
+
+export interface VaultAccessRequestInfo {
+  id: string;
+  workflowId: string;
+  status: string;
+  requestedFieldKeys: string[];
+  fields: VaultAccessRequestField[];
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export async function getWorkflowVaultAccess(
+  sessionToken: string,
+  workflowId: string,
+): Promise<
+  WorkflowApiResult<{ success: boolean; request: VaultAccessRequestInfo }>
+> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}/vault-access`,
+    { method: "GET" },
+    "Failed to load vault access request",
+  );
+}
+
+export async function approveWorkflowVaultAccess(
+  sessionToken: string,
+  workflowId: string,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}/vault-access/approve`,
+    { method: "POST" },
+    "Failed to approve vault access",
+  );
+}
+
+export async function denyWorkflowVaultAccess(
+  sessionToken: string,
+  workflowId: string,
+): Promise<WorkflowApiResult<{ success: boolean } & WorkflowDetailResult>> {
+  return workflowRequest(
+    sessionToken,
+    `/${workflowId}/vault-access/deny`,
+    { method: "POST" },
+    "Failed to deny vault access",
+  );
+}
+
+// ---------------------------------------------------------------------
+// Secure User Vault
+// ---------------------------------------------------------------------
+
+export type { VaultFieldCategory, VaultFieldInputType } from "@/lib/vault-fields";
+
+export interface VaultFieldMetadata {
+  fieldKey: string;
+  category: VaultFieldCategory;
+  label: string;
+  inputType: VaultFieldInputType;
+  isStored: boolean;
+  verificationStatus: string;
+  lastUpdatedAt: string | null;
+  confirmedAt: string | null;
+  maskedPreview: string | null;
+}
+
+export interface VaultOverviewSection {
+  category: VaultFieldCategory;
+  fields: VaultFieldMetadata[];
+}
+
+interface VaultApiResult<T> {
+  ok: boolean;
+  data?: T;
+  error?: string;
+  status?: number;
+}
+
+async function vaultRequest<T>(
+  sessionToken: string,
+  path: string,
+  init: RequestInit,
+  fallbackError: string,
+): Promise<VaultApiResult<T>> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/vault${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...init.headers,
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 404 && path === "") {
+        return {
+          ok: false,
+          status: 404,
+          error: "Secure vault is not available",
+        };
+      }
+      return {
+        ok: false,
+        status: response.status,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
+    }
+    return { ok: true, status: response.status, data: raw as T };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : fallbackError,
+    };
+  }
+}
+
+export async function getVaultOverview(sessionToken: string) {
+  return vaultRequest<{
+    success: boolean;
+    sections: VaultOverviewSection[];
+    fields: VaultFieldMetadata[];
+  }>(sessionToken, "", { method: "GET" }, "Failed to load secure vault");
+}
+
+export async function getVaultFieldValue(
+  sessionToken: string,
+  fieldKey: string,
+) {
+  return vaultRequest<{
+    success: boolean;
+    field: { fieldKey: string; value: string };
+  }>(
+    sessionToken,
+    `/fields/${encodeURIComponent(fieldKey)}`,
+    { method: "GET" },
+    "Failed to load vault field",
+  );
+}
+
+export async function upsertVaultField(
+  sessionToken: string,
+  fieldKey: string,
+  value: string,
+  confirmAccurate = false,
+) {
+  return vaultRequest<{ success: boolean; fieldKey: string }>(
+    sessionToken,
+    `/fields/${encodeURIComponent(fieldKey)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ value, confirmAccurate }),
+    },
+    "Failed to save vault field",
+  );
+}
+
+export async function deleteVaultField(
+  sessionToken: string,
+  fieldKey: string,
+) {
+  return vaultRequest<{ success: boolean; fieldKey: string }>(
+    sessionToken,
+    `/fields/${encodeURIComponent(fieldKey)}`,
+    { method: "DELETE" },
+    "Failed to delete vault field",
+  );
+}
+
+export async function adminListWorkflows(params: {
+  page?: number;
+  limit?: number;
+  state?: WorkflowState | "";
+  workflowType?: string;
+}): Promise<
+  WorkflowApiResult<{
+    success: boolean;
+    total: number;
+    page: number;
+    limit: number;
+    workflows: AdminWorkflowSummary[];
+  }>
+> {
+  try {
+    const query = new URLSearchParams();
+    query.set("page", String(params.page ?? 1));
+    query.set("limit", String(params.limit ?? 50));
+    if (params.state) query.set("state", params.state);
+    if (params.workflowType?.trim()) {
+      query.set("workflowType", params.workflowType.trim());
+    }
+    const response = await fetch(`${BACKEND_URL}/admin/workflows?${query}`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load workflows"),
+      };
+    }
+    return {
+      ok: true,
+      data: raw as {
+        success: boolean;
+        total: number;
+        page: number;
+        limit: number;
+        workflows: AdminWorkflowSummary[];
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to load workflows",
+    };
+  }
+}
+
+export async function adminGetWorkflow(
+  workflowId: string,
+): Promise<WorkflowApiResult<AdminWorkflowDetailResult>> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/workflows/${encodeURIComponent(workflowId)}`,
+      {
+        credentials: "include",
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load workflow"),
+      };
+    }
+    return { ok: true, data: raw as AdminWorkflowDetailResult };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to load workflow",
+    };
+  }
+}
+
+export async function adminUpdateWorkflowHandoffStatus(
+  handoffId: string,
+  status: WorkflowExecutionHandoffStatus,
+  note?: string,
+): Promise<
+  WorkflowApiResult<{ success: boolean; handoff: WorkflowExecutionHandoff }>
+> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/workflows/handoffs/${encodeURIComponent(handoffId)}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, note }),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to update handoff"),
+      };
+    }
+    return {
+      ok: true,
+      data: raw as { success: boolean; handoff: WorkflowExecutionHandoff },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to update handoff",
+    };
+  }
+}
+
+
+// ---------------------------------------------------------------------
+// AI Orchestrator (Claude) — conversational client on top of the Workflow Engine
+// ---------------------------------------------------------------------
+
+export type AiConversationStatus = "ACTIVE" | "CLOSED";
+export type AiMessageRole = "USER" | "ASSISTANT" | "TOOL";
+
+export interface AiConversationSummary {
+  id: string;
+  title: string | null;
+  status: AiConversationStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiMessageData {
+  id: string;
+  role: AiMessageRole;
+  content: string | null;
+  toolName: string | null;
+  toolInput: Record<string, unknown> | null;
+  toolResult: unknown;
+  isError: boolean;
+  createdAt: string;
+}
+
+export interface AiPendingApproval {
+  workflowId: string;
+  stepKey: string | null;
+}
+
+interface AiApiResult<T> {
+  ok: boolean;
+  data?: T;
+  error?: string;
+}
+
+async function aiRequest<T>(
+  sessionToken: string,
+  path: string,
+  init: RequestInit,
+  fallbackError: string,
+): Promise<AiApiResult<T>> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/ai/conversations${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...init.headers,
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      // Only the base "/ai/conversations" list endpoint is used to detect
+      // whether the feature is enabled at all — mirrors workflowRequest's
+      // approach for the Workflow Engine's own feature flag.
+      if (response.status === 404 && path === "") {
+        return { ok: false, error: "AI assistant is not available" };
+      }
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
+    }
+    return { ok: true, data: raw as T };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : fallbackError,
+    };
+  }
+}
+
+export async function listAiConversations(
+  sessionToken: string,
+): Promise<
+  AiApiResult<{ success: boolean; conversations: AiConversationSummary[] }>
+> {
+  return aiRequest(
+    sessionToken,
+    "",
+    { method: "GET" },
+    "Failed to load conversations",
+  );
+}
+
+export async function createAiConversation(
+  sessionToken: string,
+  title?: string,
+): Promise<AiApiResult<{ success: boolean; conversationId: string }>> {
+  return aiRequest(
+    sessionToken,
+    "",
+    { method: "POST", body: JSON.stringify(title ? { title } : {}) },
+    "Failed to start a new conversation",
+  );
+}
+
+export async function getAiConversation(
+  sessionToken: string,
+  conversationId: string,
+): Promise<
+  AiApiResult<{
+    success: boolean;
+    conversation: AiConversationSummary;
+    messages: AiMessageData[];
+  }>
+> {
+  return aiRequest(
+    sessionToken,
+    `/${conversationId}`,
+    { method: "GET" },
+    "Failed to load conversation",
+  );
+}
+
+export async function sendAiMessage(
+  sessionToken: string,
+  conversationId: string,
+  message: string,
+): Promise<
+  AiApiResult<{
+    success: boolean;
+    reply: string;
+    pendingApproval?: AiPendingApproval;
+  }>
+> {
+  return aiRequest(
+    sessionToken,
+    `/${conversationId}/messages`,
+    { method: "POST", body: JSON.stringify({ message }) },
+    "Failed to send message",
+  );
+}
+
+export async function closeAiConversation(
+  sessionToken: string,
+  conversationId: string,
+): Promise<
+  AiApiResult<{ success: boolean; conversation: AiConversationSummary }>
+> {
+  return aiRequest(
+    sessionToken,
+    `/${conversationId}/close`,
+    { method: "POST" },
+    "Failed to close conversation",
+  );
+}
+
+// --- Friends Network ---
+
+interface FriendsApiResult<T = unknown> {
+  ok: boolean;
+  data?: T;
+  error?: string;
+}
+
+async function friendsRequest<T>(
+  sessionToken: string,
+  path: string,
+  init: RequestInit = {},
+  fallbackError: string,
+  options?: { featureDisabledOn404?: boolean },
+): Promise<FriendsApiResult<T>> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/friends${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...init.headers,
+      },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (options?.featureDisabledOn404 && response.status === 404) {
+      return { ok: false, error: "Friends network is not enabled" };
+    }
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, fallbackError),
+      };
+    }
+    return { ok: true, data: raw as T };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : fallbackError,
+    };
+  }
+}
+
+export async function fetchFriendsDashboard(
+  sessionToken: string,
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    "/dashboard",
+    { method: "GET" },
+    "Failed to load friends",
+    { featureDisabledOn404: true },
+  );
+}
+
+export async function inviteFriendByEmail(
+  sessionToken: string,
+  email: string,
+): Promise<FriendsApiResult> {
+  return inviteFriend(sessionToken, { email });
+}
+
+export async function inviteFriendByUsername(
+  sessionToken: string,
+  username: string,
+): Promise<FriendsApiResult> {
+  return inviteFriend(sessionToken, { username });
+}
+
+export async function inviteFriend(
+  sessionToken: string,
+  params: { email?: string; username?: string; targetUserId?: string },
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    "/invite",
+    { method: "POST", body: JSON.stringify(params) },
+    "Failed to send invitation",
+  );
+}
+
+export async function setFriendUsername(
+  sessionToken: string,
+  username: string,
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    "/username",
+    { method: "PATCH", body: JSON.stringify({ username }) },
+    "Failed to set username",
+  );
+}
+
+export async function acceptFriendInvitation(
+  sessionToken: string,
+  params: { relationshipId?: string; token?: string },
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    "/accept",
+    { method: "POST", body: JSON.stringify(params) },
+    "Failed to accept invitation",
+  );
+}
+
+export async function declineFriendInvitation(
+  sessionToken: string,
+  relationshipId: string,
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    "/decline",
+    { method: "POST", body: JSON.stringify({ relationshipId }) },
+    "Failed to decline invitation",
+  );
+}
+
+export async function blockFriendUser(
+  sessionToken: string,
+  params: { relationshipId?: string; targetUserId?: string },
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    "/block",
+    { method: "POST", body: JSON.stringify(params) },
+    "Failed to block user",
+  );
+}
+
+export async function removeFriend(
+  sessionToken: string,
+  friendUserId: string,
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    `/${encodeURIComponent(friendUserId)}`,
+    { method: "DELETE" },
+    "Failed to remove friend",
+  );
+}
+
+export async function reportFriendUser(
+  sessionToken: string,
+  targetUserId: string,
+  reason?: string,
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    "/report",
+    { method: "POST", body: JSON.stringify({ targetUserId, reason }) },
+    "Failed to submit report",
+  );
+}
+
+export async function joinFriendNetworkViaLink(
+  sessionToken: string,
+  token: string,
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    "/join",
+    { method: "POST", body: JSON.stringify({ token }) },
+    "Failed to join network",
+  );
+}
+
+export async function fetchFriendsNotifications(
+  sessionToken: string,
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    "/notifications",
+    { method: "GET" },
+    "Failed to load notifications",
+    { featureDisabledOn404: true },
+  );
+}
+
+export async function markFriendsNotificationsRead(
+  sessionToken: string,
+  notificationIds?: string[],
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    "/notifications/read",
+    { method: "POST", body: JSON.stringify({ notificationIds }) },
+    "Failed to mark notifications read",
+  );
 }

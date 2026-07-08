@@ -1,5 +1,26 @@
 import type { PricingPlan } from "@/lib/pricing";
 
+export const MIN_BUSINESS_SEATS = 2;
+export const DEFAULT_BUSINESS_SEATS = 5;
+export const MAX_BUSINESS_SEATS = 25;
+
+export function resolvePlanMinSeats(plan?: {
+  minSeats?: number;
+} | null): number {
+  return plan?.minSeats ?? MIN_BUSINESS_SEATS;
+}
+
+export function resolvePlanDefaultSeats(plan?: {
+  minSeats?: number;
+  defaultSeats?: number;
+} | null): number {
+  const minSeats = resolvePlanMinSeats(plan);
+  return Math.max(
+    minSeats,
+    Math.min(MAX_BUSINESS_SEATS, plan?.defaultSeats ?? DEFAULT_BUSINESS_SEATS),
+  );
+}
+
 export const enterprisePlan: PricingPlan = {
   name: "Enterprise",
   description: "Custom solutions for large organizations (50+ users)",
@@ -42,7 +63,12 @@ export const faqs = [
   {
     question: "How does billing work for annual plans?",
     answer:
-      "Annual plans are billed once per year upfront. You'll save significantly compared to monthly billing - that's equivalent to getting 2 months free on Individual plans and 2.5 months free on Team plans.",
+      "Annual plans are billed once per year upfront. You'll save significantly compared to monthly billing — that's equivalent to getting 2 months free on Individual plans.",
+  },
+  {
+    question: "How does Business seat billing work?",
+    answer:
+      "Business is priced per seat. Choose how many seats you need (minimum 2), invite teammates by email, and each seat includes 5 connected devices. You can buy or reduce seats anytime from your account dashboard.",
   },
   {
     question: "Do you keep logs of my activity?",
@@ -84,87 +110,75 @@ export const allFeatures = [
 export interface FeatureComparisonRow {
   feature: string;
   individual: string | boolean;
-  family: string | boolean;
-  team: string | boolean;
+  business: string | boolean;
   enterprise: string | boolean;
 }
 
 export const featureComparison: FeatureComparisonRow[] = [
   {
     feature: "Simultaneous device connections",
-    individual: "Up to 10",
-    family: "Up to 12",
-    team: "Up to 14",
+    individual: "Up to 3",
+    business: "5 per seat",
     enterprise: "Custom",
   },
   {
     feature: "Bandwidth",
     individual: "Unlimited",
-    family: "Unlimited",
-    team: "Unlimited",
+    business: "Unlimited",
     enterprise: "Unlimited",
   },
   {
     feature: "Military-grade encryption",
     individual: true,
-    family: true,
-    team: true,
+    business: true,
     enterprise: true,
   },
   {
     feature: "No-log policy",
     individual: true,
-    family: true,
-    team: true,
+    business: true,
     enterprise: true,
   },
   {
     feature: "Kill switch protection",
     individual: true,
-    family: true,
-    team: true,
+    business: true,
     enterprise: true,
   },
   {
     feature: "24/7 customer support",
     individual: true,
-    family: true,
-    team: true,
+    business: true,
     enterprise: true,
   },
   {
     feature: "Free trial duration",
     individual: "1 month",
-    family: "1 month",
-    team: "1 month",
+    business: "1 month",
     enterprise: "1 month",
   },
   {
     feature: "Team management dashboard",
     individual: false,
-    family: false,
-    team: true,
+    business: true,
     enterprise: true,
   },
   {
     feature: "Priority support",
     individual: false,
-    family: false,
-    team: true,
+    business: true,
     enterprise: true,
   },
   {
     feature: "Custom security solutions",
     individual: false,
-    family: false,
-    team: false,
+    business: false,
     enterprise: true,
   },
   {
     feature: "Dedicated account manager",
     individual: false,
-    family: false,
-    team: false,
+    business: false,
     enterprise: true,
   },
 ];
@@ -175,11 +189,9 @@ export function featureComparisonValueForPlan(
   row: FeatureComparisonRow,
 ): string | boolean {
   switch (planName) {
-    case "Family":
-      return row.family;
     case "Business":
     case "Team":
-      return row.team;
+      return row.business;
     case "Enterprise":
       return row.enterprise;
     default:

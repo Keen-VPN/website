@@ -1,7 +1,14 @@
- [build]
-   command = "npm run lint && npm run typecheck && npm run build"
-   publish = "dist"
+[build]
+  command = "npm run lint && npm run typecheck && npm run build"
+  publish = "dist"
 
- [build.environment]
-   NODE_VERSION = "20"
+[build.environment]
+  NODE_VERSION = "20"
+
+# React Router (BrowserRouter): serve index.html for client-side routes so
+# /support, /privacy, /perks, etc. return 200 for crawlers and deep links.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 

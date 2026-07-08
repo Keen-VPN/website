@@ -54,12 +54,22 @@ const PERK_CATEGORIES: { value: PerkCategory; label: string }[] = [
   { value: "developer_tools", label: "Developer Tools" },
   { value: "startup_growth", label: "Startup & Growth" },
   { value: "remote_work", label: "Remote Work" },
+  { value: "finance", label: "Finance" },
 ];
 
 const REDEMPTION_TYPES: { value: PerkRedemptionType; label: string }[] = [
   { value: "external_link", label: "External link" },
   { value: "coupon_code", label: "Coupon code" },
   { value: "invite_only", label: "Invite only" },
+  { value: "workflow", label: "Workflow (auto-apply)" },
+];
+
+/** Registered backend workflow types available for "workflow" redemption perks —
+ * see vpn-backend-service-v2/src/workflows/workflow-types/index.ts. */
+const WORKFLOW_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: "chase_signup", label: "Chase — Account signup (VIG)" },
+  { value: "airwallex_signup", label: "Airwallex — Business signup" },
+  { value: "mercury_signup", label: "Mercury — Business signup" },
 ];
 
 const ACCESS_LEVELS = [
@@ -85,6 +95,7 @@ interface PerkFormState {
   redemptionType: PerkRedemptionType;
   redemptionUrl: string;
   couponCode: string;
+  workflowType: string;
   accessLevel: "free" | "paid" | "annual";
   isFeatured: boolean;
   isActive: boolean;
@@ -225,6 +236,7 @@ const emptyForm = (): PerkFormState => ({
   redemptionType: "external_link",
   redemptionUrl: "",
   couponCode: "",
+  workflowType: "",
   accessLevel: "paid",
   isFeatured: false,
   isActive: true,
@@ -247,6 +259,7 @@ function formToCreatePayload(form: PerkFormState): CreateAdminPerkPayload {
     redemptionType: form.redemptionType,
     redemptionUrl: form.redemptionUrl.trim() || undefined,
     couponCode: form.couponCode.trim() || undefined,
+    workflowType: form.workflowType.trim() || undefined,
     accessLevel: form.accessLevel,
     isFeatured: form.isFeatured,
     isActive: form.isActive,
@@ -270,6 +283,7 @@ function perkToForm(perk: AdminPerk): PerkFormState {
     redemptionType: perk.redemptionType,
     redemptionUrl: perk.redemptionUrl ?? "",
     couponCode: perk.couponCode ?? "",
+    workflowType: perk.workflowType ?? "",
     accessLevel: perk.accessLevel,
     isFeatured: perk.isFeatured,
     isActive: perk.isActive,
@@ -576,6 +590,12 @@ export default function AdminPerks() {
       return;
     }
 
+    if (form.redemptionType === "workflow" && !form.workflowType.trim()) {
+      setSaving(false);
+      setDialogError("Workflow type is required for workflow perks.");
+      return;
+    }
+
     const extensionDomains = extensionDomainsFromFormRows(form.extensionDomains);
 
     if (editingId) {
@@ -589,6 +609,7 @@ export default function AdminPerks() {
         redemptionType: form.redemptionType,
         redemptionUrl: form.redemptionUrl.trim() || null,
         couponCode: form.couponCode.trim() || null,
+        workflowType: form.workflowType.trim() || null,
         accessLevel: form.accessLevel,
         isFeatured: form.isFeatured,
         isActive: form.isActive,
@@ -924,6 +945,12 @@ export default function AdminPerks() {
                     <td className="px-3 py-2 capitalize">{perk.accessLevel}</td>
                     <td className="px-3 py-2">
                       {perk.redemptionType.replace(/_/g, " ")}
+                      {perk.redemptionType === "workflow" &&
+                      perk.workflowType ? (
+                        <div className="text-xs text-muted-foreground">
+                          {perk.workflowType}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">
                       {formatExtensionSiteSummary(perk.extensionDomains)}
@@ -1596,6 +1623,32 @@ export default function AdminPerks() {
                     (e.g. partner checkout or billing).
                   </p>
                 </div>
+              </div>
+            ) : null}
+            {form.redemptionType === "workflow" ? (
+              <div>
+                <Label htmlFor="perk-workflow-type">Workflow type</Label>
+                <Select
+                  value={form.workflowType || undefined}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, workflowType: value }))
+                  }
+                >
+                  <SelectTrigger id="perk-workflow-type" className="mt-1">
+                    <SelectValue placeholder="Select a workflow type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WORKFLOW_TYPE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Claiming this perk starts the AI Workflow Engine application
+                  for the selected partner instead of opening a link.
+                </p>
               </div>
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2">

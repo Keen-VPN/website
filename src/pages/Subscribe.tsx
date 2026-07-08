@@ -23,7 +23,13 @@ import {
   recordSignupStarted,
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
-import { enterprisePlan } from "@/constants/pricing";
+import {
+  enterprisePlan,
+  DEFAULT_BUSINESS_SEATS,
+  MIN_BUSINESS_SEATS,
+  MAX_BUSINESS_SEATS,
+  resolvePlanMinSeats,
+} from "@/constants/pricing";
 import {
   canStartFreeTrial,
   getSubscriptionCtaLabel,
@@ -35,11 +41,8 @@ const getPlanBillingPeriod = (plan: ApiPlan) =>
 
 const isAnnualPlan = (plan: ApiPlan) => getPlanBillingPeriod(plan) === "year";
 
-const getPlanFamily = (plan: ApiPlan) => {
+const getPlanTier = (plan: ApiPlan) => {
   const id = plan.id.toLowerCase();
-  if (id.includes("family") && !id.includes("family_plus") && !id.includes("familyplus")) {
-    return "family";
-  }
   if (
     id.includes("team") ||
     id.includes("business") ||
@@ -54,9 +57,23 @@ const getPlanFamily = (plan: ApiPlan) => {
 
 const PLAN_TIER_OPTIONS = [
   { id: "premium", label: "Individual" },
-  { id: "family", label: "Family" },
   { id: "team", label: "Business" },
 ] as const;
+
+const isPerSeatPlan = (plan: ApiPlan | PricingPlan | null): boolean => {
+  if (!plan) return false;
+  if ("isPerSeat" in plan && plan.isPerSeat) return true;
+  if ("id" in plan) {
+    const id = plan.id.toLowerCase();
+    return (
+      id.includes("team") ||
+      id.includes("business") ||
+      id.includes("family_plus") ||
+      id.includes("familyplus")
+    );
+  }
+  return false;
+};
 
 const getTierLabel = (tier: string) =>
   PLAN_TIER_OPTIONS.find((option) => option.id === tier)?.label ?? tier;
@@ -206,7 +223,23 @@ const Subscribe = () => {
   const [planLoading, setPlanLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const seatsParam = searchParams.get("seats");
+  const initialSeatCount = (() => {
+    const parsed = Number(seatsParam);
+    return Number.isInteger(parsed) && parsed >= MIN_BUSINESS_SEATS
+      ? Math.min(MAX_BUSINESS_SEATS, parsed)
+      : DEFAULT_BUSINESS_SEATS;
+  })();
+  const [seatCount, setSeatCount] = useState(initialSeatCount);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isPerSeatPlan(selectedPlan)) return;
+    const minSeats = resolvePlanMinSeats(selectedPlan);
+    setSeatCount((count) =>
+      Math.max(minSeats, Math.min(MAX_BUSINESS_SEATS, count)),
+    );
+  }, [selectedPlan]);
   const {
     user,
     loading,
@@ -358,13 +391,13 @@ const Subscribe = () => {
   }, [user]);
 
   const availableTiers = PLAN_TIER_OPTIONS.map((option) => option.id).filter(
-    (tier) => allPlans.some((plan) => getPlanFamily(plan) === tier),
+    (tier) => allPlans.some((plan) => getPlanTier(plan) === tier),
   );
 
   const applyTierSelection = useCallback(
     (tier: string, plans: ApiPlan[], preferredPlanId?: string | null) => {
       const options = sortPlansByBillingPeriod(
-        plans.filter((plan) => getPlanFamily(plan) === tier),
+        plans.filter((plan) => getPlanTier(plan) === tier),
       );
       const requestedPlan = preferredPlanId
         ? options.find((plan) => matchesRequestedPlan(plan, preferredPlanId))
@@ -404,11 +437,11 @@ const Subscribe = () => {
                 matchesRequestedPlan(plan, planIdParam),
               )
             : null;
-          const tierOrder = ["premium", "family", "team"];
+          const tierOrder = ["premium", "team"];
           const initialTier = requestedReturnedPlan
-            ? getPlanFamily(requestedReturnedPlan)
+            ? getPlanTier(requestedReturnedPlan)
             : tierOrder.find((tier) =>
-                response.plans.some((plan) => getPlanFamily(plan) === tier),
+                response.plans.some((plan) => getPlanTier(plan) === tier),
               ) ?? "premium";
 
           applyTierSelection(initialTier, response.plans, planIdParam);
@@ -504,6 +537,7 @@ const Subscribe = () => {
         planId,
         successUrl,
         cancelUrl,
+        isPerSeatPlan(selectedPlan) ? seatCount : undefined,
       );
 
       if (!result.success) {
@@ -690,6 +724,53 @@ const Subscribe = () => {
                   onSelect={setSelectedPlan}
                   className="mb-6"
                 />
+
+                {isPerSeatPlan(selectedPlan) && "price" in selectedPlan ? (
+                  <div className="mb-6 space-y-2 rounded-lg border border-border/80 bg-muted/30 p-4">
+                    <p className="text-sm font-medium text-foreground">Seats</p>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={seatCount <= resolvePlanMinSeats(selectedPlan)}
+                        onClick={() =>
+                          setSeatCount((count) =>
+                            Math.max(resolvePlanMinSeats(selectedPlan), count - 1),
+                          )
+                        }
+                      >
+                        −
+                      </Button>
+                      <span className="min-w-[2rem] text-center text-lg font-semibold">
+                        {seatCount}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={seatCount >= MAX_BUSINESS_SEATS}
+                        onClick={() =>
+                          setSeatCount((count) =>
+                            Math.min(MAX_BUSINESS_SEATS, count + 1),
+                          )
+                        }
+                      >
+                        +
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Total: ${(selectedPlan.price * seatCount).toFixed(2)}
+                      {isAnnualPlan(selectedPlan) ? "/year" : "/month"} for{" "}
+                      {seatCount} seats
+                      {isAnnualPlan(selectedPlan)
+                        ? ` ($${(selectedPlan.price / 12).toFixed(2)}/seat/mo)`
+                        : ` ($${selectedPlan.price}/seat/mo)`}
+                    </p>
+                  </div>
+                ) : null}
 
                 <div className="mb-6 p-4 bg-accent/10 rounded-lg border border-accent/20">
                   <p className="text-sm text-muted-foreground">

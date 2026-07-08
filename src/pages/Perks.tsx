@@ -11,6 +11,7 @@ import {
   Copy,
   CircleCheck,
   ExternalLink,
+  FileText,
   Gift,
   Loader2,
   Lock,
@@ -48,6 +49,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { WorkflowPerkDialog } from "@/components/WorkflowPerkDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -66,6 +68,7 @@ import {
   type PerkRequestCategory,
   type PerkUserTab,
 } from "@/auth";
+import { listWorkflows } from "@/auth/backend";
 import { trackPerksEvent } from "@/lib/product-analytics";
 import { isSafeHttpUrl } from "@/lib/safe-url";
 
@@ -75,6 +78,7 @@ const CATEGORY_LABELS: Record<PerkCategory, string> = {
   developer_tools: "Developer Tools",
   startup_growth: "Startup & Growth",
   remote_work: "Remote Work",
+  finance: "Finance",
 };
 
 const ACCESS_BADGE: Record<string, string> = {
@@ -89,6 +93,8 @@ const PERK_TABS: { value: PerkUserTab; label: string }[] = [
   { value: "snoozed", label: "Snoozed" },
   { value: "not_interested", label: "Not Interested" },
 ];
+
+import { selectPrimaryActiveWorkflow } from "@/lib/workflow-ui";
 
 const REQUEST_CATEGORIES: { value: PerkRequestCategory; label: string }[] = [
   { value: "finance", label: "Finance" },
@@ -218,6 +224,10 @@ const Perks = () => {
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [actionPerkIds, setActionPerkIds] = useState<Set<string>>(new Set());
   const [detailsPerkId, setDetailsPerkId] = useState<string | null>(null);
+  const [workflowDialog, setWorkflowDialog] = useState<{
+    workflowId: string;
+    perkTitle: string;
+  } | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
@@ -487,11 +497,62 @@ const Perks = () => {
           description: "Use the copy button for your code at checkout.",
         });
       }
+    } else if (res.redemptionType === "workflow" && res.workflowId) {
+      setWorkflowDialog({ workflowId: res.workflowId, perkTitle: perk.title });
     } else if (res.message) {
       toast({ title: "Request received", description: res.message });
     }
 
     void loadPerks();
+  };
+
+  const handleViewApplication = async (perk: PerkItem) => {
+    if (!perk.workflowType) {
+      toast({
+        title: "Application unavailable",
+        description: "This perk is missing workflow configuration. Contact support.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const session = getSessionToken();
+    if (!session) {
+      toast({
+        title: "Session expired",
+        description: "Sign in again to view this application.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setClaimingId(perk.id);
+    const res = await listWorkflows(session);
+    setClaimingId(null);
+    if (!res.ok || !res.data) {
+      toast({
+        title: "Could not load application",
+        description: res.error || "Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const matches = res.data.workflows.filter(
+      (w) => w.workflowType === perk.workflowType,
+    );
+    const chosen =
+      selectPrimaryActiveWorkflow(matches) ??
+      [...matches].sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      )[0];
+    if (!chosen) {
+      toast({
+        title: "No application found",
+        description: "We couldn't find an application for this perk.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setWorkflowDialog({ workflowId: chosen.id, perkTitle: perk.title });
   };
 
   const runPerkAction = async (
@@ -774,6 +835,7 @@ const Perks = () => {
                         onClaim={() => void handleClaim(perk)}
                         onCopyCode={(code) => void handleCopyCode(code)}
                         onViewDetails={() => setDetailsPerkId(perk.id)}
+                        onViewApplication={() => void handleViewApplication(perk)}
                         onSnooze={() => handleSnooze(perk)}
                         onDismiss={() => handleDismiss(perk)}
                         onRestore={() => handleRestore(perk)}
@@ -809,6 +871,7 @@ const Perks = () => {
                           onClaim={() => void handleClaim(perk)}
                           onCopyCode={(code) => void handleCopyCode(code)}
                           onViewDetails={() => setDetailsPerkId(perk.id)}
+                          onViewApplication={() => void handleViewApplication(perk)}
                           onSnooze={() => handleSnooze(perk)}
                           onDismiss={() => handleDismiss(perk)}
                           onRestore={() => handleRestore(perk)}
@@ -905,7 +968,20 @@ const Perks = () => {
         onClaim={() => {
           if (detailsPerk) void handleClaim(detailsPerk);
         }}
+        onViewApplication={() => {
+          if (detailsPerk) void handleViewApplication(detailsPerk);
+        }}
         onCopyCode={(code) => void handleCopyCode(code)}
+      />
+      <WorkflowPerkDialog
+        open={workflowDialog !== null}
+        sessionToken={getSessionToken() ?? ""}
+        workflowId={workflowDialog?.workflowId ?? null}
+        perkTitle={workflowDialog?.perkTitle ?? ""}
+        onOpenChange={(open) => {
+          if (!open) setWorkflowDialog(null);
+        }}
+        onSettled={() => void loadPerks()}
       />
       <Footer />
     </div>
@@ -952,6 +1028,7 @@ function PerkDetailsDialog({
   claiming,
   onOpenChange,
   onClaim,
+  onViewApplication,
   onCopyCode,
 }: {
   perk: PerkItem | null;
@@ -959,9 +1036,11 @@ function PerkDetailsDialog({
   claiming: boolean;
   onOpenChange: (open: boolean) => void;
   onClaim: () => void;
+  onViewApplication: () => void;
   onCopyCode: (code: string) => void;
 }) {
   const locked = perk ? !perk.accessible && !perk.redeemed : false;
+  const isWorkflowPerk = perk?.redemptionType === "workflow";
   const couponCode = perk?.couponCode?.trim() || undefined;
   const isCouponCard =
     perk?.redemptionType === "coupon_code" && couponCode !== undefined;
@@ -1083,7 +1162,16 @@ function PerkDetailsDialog({
               >
                 Close
               </Button>
-              {!locked ? (
+              {!locked && isWorkflowPerk && perk.redeemed ? (
+                <Button disabled={claiming} onClick={onViewApplication}>
+                  {claiming ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="mr-2 h-4 w-4" />
+                  )}
+                  View application
+                </Button>
+              ) : !locked ? (
                 <Button disabled={perk.redeemed || claiming} onClick={onClaim}>
                   {claiming ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1111,6 +1199,7 @@ function PerkCard({
   onClaim,
   onCopyCode,
   onViewDetails,
+  onViewApplication,
   onSnooze,
   onDismiss,
   onRestore,
@@ -1125,6 +1214,7 @@ function PerkCard({
   onClaim: () => void;
   onCopyCode: (code: string) => void;
   onViewDetails: () => void;
+  onViewApplication: () => void;
   onSnooze: () => void;
   onDismiss: () => void;
   onRestore: () => void;
@@ -1133,6 +1223,7 @@ function PerkCard({
   onNotInterestedToSnoozed: () => void;
 }) {
   const locked = !perk.accessible && !perk.redeemed;
+  const isWorkflowPerk = perk.redemptionType === "workflow";
   const expirationLabel = formatExpirationLabel(perk);
   const couponCode = perk.couponCode?.trim() || undefined;
   const isCouponCard =
@@ -1256,6 +1347,20 @@ function PerkCard({
               {perk.ctaLabel}
             </Button>
           </div>
+        ) : isWorkflowPerk && perk.redeemed ? (
+          <Button
+            className="relative z-20 h-10 w-full"
+            variant="outline"
+            disabled={locked || claiming}
+            onClick={onViewApplication}
+          >
+            {claiming ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="mr-2 h-4 w-4" />
+            )}
+            View application
+          </Button>
         ) : (
           <Button
             className="relative z-20 h-10 w-full"

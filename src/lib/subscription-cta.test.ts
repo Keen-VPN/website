@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { SubscriptionData } from "@/auth/types";
 import {
   canUpgradeStripeToBusinessPlan,
-  canUpgradeStripeToFamilyPlan,
   resolveMembershipPlanTier,
 } from "@/lib/subscription-cta";
 
@@ -44,19 +43,23 @@ describe("membership plan tier helpers", () => {
     ).toBe("business");
   });
 
-  it("detects stripe upgrade eligibility", () => {
+  it("detects stripe upgrade eligibility to Business (Family retired from catalog)", () => {
     const individual = stripeSub({
       plan: "Premium VPN - Monthly",
       planId: "premium_monthly",
     });
+    // Grandfathered legacy Family subscribers can still upgrade to Business.
     const family = stripeSub({
       plan: "KeenVPN Family - Monthly",
       planId: "family_monthly",
     });
+    const business = stripeSub({
+      plan: "KeenVPN Business - Monthly",
+      planId: "team_monthly",
+    });
 
-    expect(canUpgradeStripeToFamilyPlan(individual)).toBe(true);
-    expect(canUpgradeStripeToBusinessPlan(individual)).toBe(false);
-    expect(canUpgradeStripeToFamilyPlan(family)).toBe(false);
+    expect(canUpgradeStripeToBusinessPlan(individual)).toBe(true);
     expect(canUpgradeStripeToBusinessPlan(family)).toBe(true);
+    expect(canUpgradeStripeToBusinessPlan(business)).toBe(false);
   });
 });

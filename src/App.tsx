@@ -28,6 +28,9 @@ const ContextualEmailUnsubscribe = lazy(
 );
 const ReferralLanding = lazy(() => import("./pages/ReferralLanding"));
 const Referrals = lazy(() => import("./pages/Referrals"));
+const Friends = lazy(() => import("./pages/Friends"));
+const FriendsAccept = lazy(() => import("./pages/FriendsAccept"));
+const FriendsJoin = lazy(() => import("./pages/FriendsJoin"));
 const Perks = lazy(() => import("./pages/Perks"));
 const Subscribe = lazy(() => import("./pages/Subscribe"));
 const Account = lazy(() => import("./pages/Account"));
@@ -84,6 +87,7 @@ const AdminUserProfiles = lazy(
 const AdminSignupSources = lazy(
   () => import("./pages/admin/AdminSignupSources"),
 );
+const AdminWorkflows = lazy(() => import("./pages/admin/AdminWorkflows"));
 
 const queryClient = new QueryClient();
 
@@ -129,6 +133,16 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/friends"
+                element={
+                  <ProtectedRoute>
+                    <Friends />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/friends/accept" element={<FriendsAccept />} />
+              <Route path="/friends/join/:token" element={<FriendsJoin />} />
               <Route
                 path="/perks"
                 element={
@@ -206,6 +220,7 @@ const App = () => (
                 <Route path="perks" element={<AdminPerks />} />
                 <Route path="perk-requests" element={<AdminPerkRequests />} />
                 <Route path="user-profiles" element={<AdminUserProfiles />} />
+                <Route path="workflows" element={<AdminWorkflows />} />
                 <Route path="signup-sources" element={<AdminSignupSources />} />
                 <Route
                   path="connection-engagement"

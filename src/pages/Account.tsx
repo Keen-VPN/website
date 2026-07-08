@@ -59,6 +59,9 @@ import Footer from "@/components/Footer";
 import { LinkedAccounts } from "@/components/LinkedAccounts";
 import { MembershipSharingCard } from "@/components/MembershipSharingCard";
 import { ConnectedDevicesCard } from "@/components/ConnectedDevicesCard";
+import { WorkflowsCard } from "@/components/WorkflowsCard";
+import { SecureVaultCard } from "@/components/SecureVaultCard";
+import { AiAssistantCard } from "@/components/AiAssistantCard";
 import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
 import { UserInformationCard } from "@/components/UserInformationCard";
@@ -120,7 +123,8 @@ const Account = () => {
     portalLoading,
     cancelSubscriptionAtPeriodEnd,
     openBillingPortal,
-    openPlanChangePortal,
+    businessUpgradeLoading,
+    upgradeToBusinessPlan,
   } = useSubscriptionBillingActions();
   const { upgrading, upgradeToAnnual } = useAnnualUpgrade();
   const [showContactEmailModal, setShowContactEmailModal] = useState(false);
@@ -919,8 +923,8 @@ const Account = () => {
 
                     <MembershipPlanUpgradeCard
                       subscription={subscription}
-                      portalLoading={portalLoading}
-                      onUpgradePlan={openPlanChangePortal}
+                      upgrading={businessUpgradeLoading}
+                      onUpgradePlan={upgradeToBusinessPlan}
                     />
 
                     {/* Upgrade to Annual */}
@@ -1134,6 +1138,24 @@ const Account = () => {
           {hasSessionToken && (
             <div className="mt-8">
               <ConnectedDevicesCard sessionToken={getSessionToken() ?? ""} />
+            </div>
+          )}
+
+          {hasSessionToken && (
+            <div id="vault" className="mt-8 scroll-mt-24">
+              <SecureVaultCard sessionToken={getSessionToken() ?? ""} />
+            </div>
+          )}
+
+          {hasSessionToken && (
+            <div className="mt-8">
+              <AiAssistantCard sessionToken={getSessionToken() ?? ""} />
+            </div>
+          )}
+
+          {hasSessionToken && (
+            <div id="applications" className="mt-8 scroll-mt-24">
+              <WorkflowsCard sessionToken={getSessionToken() ?? ""} />
             </div>
           )}
 
