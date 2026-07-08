@@ -10,7 +10,7 @@ export default defineConfig({
     host: "::",
     port: 8080,
   },
-  base: "./",
+  base: "/",
   plugins: [
     react(),
     viteCompression(),
