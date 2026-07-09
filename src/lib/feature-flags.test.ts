@@ -112,4 +112,36 @@ describe("fetchClientFeatureFlags reset races", () => {
     resetFeatureFlags();
     expect(capturedSignal?.aborted).toBe(true);
   });
+
+  it("preserves cached flags when the response body is not valid JSON", async () => {
+    vi.useFakeTimers();
+
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        workflowsEnabled: true,
+        aiAssistantEnabled: true,
+      }),
+    );
+
+    await expect(fetchClientFeatureFlags()).resolves.toEqual({
+      workflowsEnabled: true,
+      aiAssistantEnabled: true,
+    });
+
+    vi.advanceTimersByTime(5 * 60 * 1000 + 1);
+
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+    } as Response);
+
+    await expect(fetchClientFeatureFlags()).resolves.toEqual({
+      workflowsEnabled: true,
+      aiAssistantEnabled: true,
+    });
+
+    vi.useRealTimers();
+  });
 });

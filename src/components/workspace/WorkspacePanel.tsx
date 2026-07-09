@@ -52,7 +52,7 @@ export function WorkspacePanel({
           ) : null}
         </div>
       </div>
-      {children ? (
+      {children !== undefined && children !== null ? (
         <div className={cn(workspacePanelBody, bodyClassName)}>{children}</div>
       ) : null}
     </section>

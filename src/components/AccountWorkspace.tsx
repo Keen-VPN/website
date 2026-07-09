@@ -120,6 +120,21 @@ export function AccountWorkspace({
   const [activeTab, setActiveTab] = useState<AccountWorkspaceTab>(() =>
     resolveTabFromLocation(location.search, location.hash),
   );
+  const [mountedTabs, setMountedTabs] = useState<Set<AccountWorkspaceTab>>(
+    () =>
+      new Set([
+        resolveTabFromLocation(location.search, location.hash),
+      ]),
+  );
+
+  useEffect(() => {
+    setMountedTabs((prev) => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
 
   const syncLocationToTab = useCallback(
     (tab: AccountWorkspaceTab) => {
@@ -239,7 +254,7 @@ export function AccountWorkspace({
             <div ref={bodyScrollRef} className="relative min-h-0 flex-1">
               <TabsContent
                 value="perks"
-                forceMount
+                forceMount={mountedTabs.has("perks")}
                 className={cn(tabPanelClassName, "space-y-4")}
               >
                 <div id="applications" className="scroll-mt-24 space-y-4">
@@ -250,7 +265,7 @@ export function AccountWorkspace({
 
               <TabsContent
                 value="vault"
-                forceMount
+                forceMount={mountedTabs.has("vault")}
                 className={tabPanelClassName}
               >
                 <div id="vault" className="scroll-mt-24">
@@ -260,7 +275,7 @@ export function AccountWorkspace({
 
               <TabsContent
                 value="profile"
-                forceMount
+                forceMount={mountedTabs.has("profile")}
                 className={cn(tabPanelClassName, "space-y-4")}
               >
                 <div className="grid gap-4 xl:grid-cols-2">
@@ -271,7 +286,7 @@ export function AccountWorkspace({
 
               <TabsContent
                 value="connections"
-                forceMount
+                forceMount={mountedTabs.has("connections")}
                 className={cn(tabPanelClassName, "space-y-4")}
               >
                 <div className="grid gap-4 xl:grid-cols-2">

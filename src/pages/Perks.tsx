@@ -387,13 +387,27 @@ const Perks = () => {
   }, [categories, perks, workflowsEnabled]);
 
   useEffect(() => {
-    if (
-      selectedCategory !== "all" &&
-      !visibleCategories.includes(selectedCategory)
-    ) {
+    if (selectedCategory === "all") return;
+
+    if (!workflowsEnabled) {
+      const perksInCategory = perks.filter(
+        (perk) => perk.category === selectedCategory,
+      );
+      if (perksInCategory.length === 0) return;
+
+      const hasVisiblePerk = perksInCategory.some(
+        (perk) => perk.redemptionType !== "workflow",
+      );
+      if (!hasVisiblePerk) {
+        setSelectedCategory("all");
+      }
+      return;
+    }
+
+    if (categories.length > 0 && !categories.includes(selectedCategory)) {
       setSelectedCategory("all");
     }
-  }, [selectedCategory, visibleCategories]);
+  }, [selectedCategory, workflowsEnabled, perks, categories]);
 
   const featuredPerks = useMemo(
     () => visiblePerks.filter((perk) => perk.isFeatured),

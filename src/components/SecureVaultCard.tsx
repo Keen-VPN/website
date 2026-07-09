@@ -225,13 +225,25 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {section.fields.map((field) => (
                 <li key={field.fieldKey}>
-                  <button
-                    type="button"
-                    onClick={() => void openField(field)}
-                    disabled={saving}
+                  <div
+                    role="button"
+                    tabIndex={saving ? -1 : 0}
+                    aria-disabled={saving}
+                    onClick={() => {
+                      if (saving) return;
+                      void openField(field);
+                    }}
+                    onKeyDown={(event) => {
+                      if (saving) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        void openField(field);
+                      }
+                    }}
                     className={cn(
-                      "group flex h-full w-full flex-col rounded-lg border p-3.5 text-left transition-all",
+                      "group flex h-full w-full cursor-pointer flex-col rounded-lg border p-3.5 text-left transition-all",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      saving && "pointer-events-none opacity-60",
                       field.isStored
                         ? "border-primary/30 bg-card shadow-sm hover:border-primary/50 hover:bg-card/95"
                         : "border-dashed border-muted-foreground/35 bg-background/70 hover:border-primary/40 hover:bg-muted/40",
@@ -286,7 +298,7 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
                         {field.isStored ? "Update" : "Add"}
                       </span>
                     </div>
-                  </button>
+                  </div>
                 </li>
               ))}
             </ul>

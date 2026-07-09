@@ -280,7 +280,7 @@ export function MembershipSharingCard({
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         {dashboard.canManageSeats && seats ? (
-          <div className={workspaceSectionSurface}>
+          <div className={cn(workspaceSectionSurface, "space-y-3")}>
             <h3 className="text-sm font-medium">Manage seats</h3>
             <p className="text-xs text-muted-foreground">
               Add or remove seats on your Business subscription. Stripe prorates
