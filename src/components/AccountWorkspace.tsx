@@ -71,17 +71,25 @@ function resolveTabFromLocation(
   search: string,
   hash: string,
 ): AccountWorkspaceTab {
-  const queryTab = new URLSearchParams(search).get("tab");
-  if (queryTab && TAB_QUERY[queryTab]) {
-    return TAB_QUERY[queryTab];
-  }
-
   const hashKey = hash.replace(/^#/, "");
   if (hashKey && TAB_HASH[hashKey]) {
     return TAB_HASH[hashKey];
   }
 
+  const queryTab = new URLSearchParams(search).get("tab");
+  if (queryTab && TAB_QUERY[queryTab]) {
+    return TAB_QUERY[queryTab];
+  }
+
   return "perks";
+}
+
+function tabFromHash(hash: string): AccountWorkspaceTab | null {
+  const hashKey = hash.replace(/^#/, "");
+  if (hashKey && TAB_HASH[hashKey]) {
+    return TAB_HASH[hashKey];
+  }
+  return null;
 }
 
 function hashForTab(tab: AccountWorkspaceTab): string | null {
@@ -130,7 +138,36 @@ export function AccountWorkspace({
   useEffect(() => {
     const nextTab = resolveTabFromLocation(location.search, location.hash);
     setActiveTab((current) => (current === nextTab ? current : nextTab));
-  }, [location.search, location.hash]);
+
+    const hashTab = tabFromHash(location.hash);
+    if (!hashTab) return;
+
+    const params = new URLSearchParams(location.search);
+    const queryTab = params.get("tab");
+    if (queryTab === hashTab) return;
+
+    params.set("tab", hashTab);
+    const nextHash = hashForTab(hashTab);
+    navigate(
+      `${location.pathname}?${params.toString()}${
+        nextHash ? `#${nextHash}` : ""
+      }`,
+      { replace: true },
+    );
+  }, [location.search, location.hash, location.pathname, navigate]);
+
+  useEffect(() => {
+    const hashKey = location.hash.replace(/^#/, "");
+    if (!hashKey || !TAB_HASH[hashKey]) return;
+
+    const anchor = document.getElementById(hashKey);
+    if (!anchor) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      anchor.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.hash, activeTab]);
 
   useEffect(() => {
     const activePanel = bodyScrollRef.current?.querySelector<HTMLElement>(
@@ -150,6 +187,7 @@ export function AccountWorkspace({
   const tabPanelClassName = cn(
     "absolute inset-0 mt-0 overflow-y-auto overscroll-contain p-4 sm:p-5",
     "focus-visible:outline-none",
+    "data-[state=inactive]:hidden",
   );
 
   return (
@@ -201,23 +239,28 @@ export function AccountWorkspace({
             <div ref={bodyScrollRef} className="relative min-h-0 flex-1">
               <TabsContent
                 value="perks"
-                id="applications"
-                className={cn(tabPanelClassName, "scroll-mt-24 space-y-4")}
+                forceMount
+                className={cn(tabPanelClassName, "space-y-4")}
               >
-                <WorkflowsCard sessionToken={sessionToken} />
-                <AiAssistantCard sessionToken={sessionToken} />
+                <div id="applications" className="scroll-mt-24 space-y-4">
+                  <WorkflowsCard sessionToken={sessionToken} />
+                  <AiAssistantCard sessionToken={sessionToken} />
+                </div>
               </TabsContent>
 
               <TabsContent
                 value="vault"
-                id="vault"
-                className={cn(tabPanelClassName, "scroll-mt-24")}
+                forceMount
+                className={tabPanelClassName}
               >
-                <SecureVaultCard sessionToken={sessionToken} />
+                <div id="vault" className="scroll-mt-24">
+                  <SecureVaultCard sessionToken={sessionToken} />
+                </div>
               </TabsContent>
 
               <TabsContent
                 value="profile"
+                forceMount
                 className={cn(tabPanelClassName, "space-y-4")}
               >
                 <div className="grid gap-4 xl:grid-cols-2">
@@ -228,6 +271,7 @@ export function AccountWorkspace({
 
               <TabsContent
                 value="connections"
+                forceMount
                 className={cn(tabPanelClassName, "space-y-4")}
               >
                 <div className="grid gap-4 xl:grid-cols-2">
