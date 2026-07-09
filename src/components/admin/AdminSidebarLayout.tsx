@@ -16,6 +16,7 @@ import {
   Megaphone,
   UserCircle,
 } from "lucide-react";
+import { useFeatureFlags } from "@/lib/feature-flags";
 
 function linkClass(isActive: boolean) {
   return [
@@ -28,6 +29,7 @@ function linkClass(isActive: boolean) {
 
 export default function AdminSidebarLayout() {
   const { admin, logout, can } = useAdminAuth();
+  const { workflowsEnabled } = useFeatureFlags();
   const navigate = useNavigate();
 
   const signOut = async () => {
@@ -103,13 +105,15 @@ export default function AdminSidebarLayout() {
               <Gift className="h-4 w-4" />
               Perks
             </NavLink>
-            <NavLink
-              to="/admin/workflows"
-              className={({ isActive }) => linkClass(isActive)}
-            >
-              <Activity className="h-4 w-4" />
-              Workflows
-            </NavLink>
+            {workflowsEnabled ? (
+              <NavLink
+                to="/admin/workflows"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                <Activity className="h-4 w-4" />
+                Workflows
+              </NavLink>
+            ) : null}
             <NavLink
               to="/admin/perk-requests"
               className={({ isActive }) => linkClass(isActive)}

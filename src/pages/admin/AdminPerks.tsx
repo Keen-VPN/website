@@ -38,6 +38,7 @@ import {
   type PerkRedemptionType,
 } from "@/auth/backend";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import { useFeatureFlags } from "@/lib/feature-flags";
 import {
   AudienceTargetingPanel,
 } from "@/components/admin/AudienceTargetingPanel";
@@ -368,6 +369,7 @@ function statusLabel(status: AdminPerk["status"]) {
 
 export default function AdminPerks() {
   const { can } = useAdminAuth();
+  const { workflowsEnabled } = useFeatureFlags();
   const canWrite = can("subscriptions.write");
 
   const [perks, setPerks] = useState<AdminPerk[]>([]);
@@ -390,6 +392,12 @@ export default function AdminPerks() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<PerkFormState>(emptyForm());
+  const showDisabledWorkflowType =
+    !workflowsEnabled && Boolean(editingId) && form.redemptionType === "workflow";
+  const availableRedemptionTypes =
+    workflowsEnabled || showDisabledWorkflowType
+      ? REDEMPTION_TYPES
+      : REDEMPTION_TYPES.filter((type) => type.value !== "workflow");
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -1544,9 +1552,18 @@ export default function AdminPerks() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {REDEMPTION_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
+                    {availableRedemptionTypes.map((type) => (
+                      <SelectItem
+                        key={type.value}
+                        value={type.value}
+                        disabled={
+                          type.value === "workflow" && !workflowsEnabled
+                        }
+                      >
                         {type.label}
+                        {type.value === "workflow" && !workflowsEnabled
+                          ? " (disabled)"
+                          : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>

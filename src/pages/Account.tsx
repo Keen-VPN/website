@@ -78,6 +78,7 @@ import {
 import { openKeenVpnAppStore } from "@/lib/keenvpn-deep-links";
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
+import { useFeatureFlags } from "@/lib/feature-flags";
 import {
   ANNUAL_UPGRADE_BANNER_DISMISS_KEY,
   AnnualUpgradeBanner,
@@ -105,6 +106,7 @@ import {
 } from "@/lib/keenvpn-deep-links";
 
 const Account = () => {
+  const { aiAssistantEnabled, workflowsEnabled } = useFeatureFlags();
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   // true on normal /account (no session_id) — render subscription card immediately;
   // AuthContext usually has subscription already. Stripe return starts false (skeleton until sync).
@@ -1147,13 +1149,13 @@ const Account = () => {
             </div>
           )}
 
-          {hasSessionToken && (
+          {hasSessionToken && aiAssistantEnabled && (
             <div className="mt-8">
               <AiAssistantCard sessionToken={getSessionToken() ?? ""} />
             </div>
           )}
 
-          {hasSessionToken && (
+          {hasSessionToken && workflowsEnabled && (
             <div id="applications" className="mt-8 scroll-mt-24">
               <WorkflowsCard sessionToken={getSessionToken() ?? ""} />
             </div>
