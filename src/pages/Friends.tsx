@@ -130,7 +130,7 @@ function displayLabel(row: {
 }
 
 export default function Friends() {
-  const { getSessionToken: authGetSessionToken } = useAuth();
+  const { hasSessionToken } = useAuth();
   const { toast } = useToast();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [notifications, setNotifications] = useState<FriendNotification[]>([]);
@@ -145,7 +145,7 @@ export default function Friends() {
   const loadRequestRef = useRef(0);
 
   const load = useCallback(async () => {
-    const sessionToken = authGetSessionToken() ?? getSessionToken();
+    const sessionToken = hasSessionToken ? getSessionToken() : null;
     if (!sessionToken) {
       setError("Please sign in to view your friends network.");
       setLoading(false);
@@ -189,7 +189,7 @@ export default function Friends() {
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [authGetSessionToken]);
+  }, [hasSessionToken]);
 
   useEffect(() => {
     void load();
@@ -199,7 +199,7 @@ export default function Friends() {
     action: (token: string) => Promise<{ ok: boolean; error?: string }>,
     successMessage: string,
   ): Promise<boolean> {
-    const sessionToken = authGetSessionToken() ?? getSessionToken();
+    const sessionToken = hasSessionToken ? getSessionToken() : null;
     if (!sessionToken) return false;
     setSubmitting(true);
     try {
