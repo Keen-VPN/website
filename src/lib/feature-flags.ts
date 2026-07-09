@@ -16,8 +16,10 @@ const FLAGS_FETCH_TIMEOUT_MS = 5000;
 
 let cachedFlags: ClientFeatureFlags | null = null;
 let cachedAt = 0;
-let inFlight: Promise<ClientFeatureFlags> | null = null;
 let cacheGeneration = 0;
+let inFlight: Promise<ClientFeatureFlags> | null = null;
+let inFlightGeneration = -1;
+let inFlightAbort: AbortController | null = null;
 
 function isExplicitlyTrue(record: Record<string, unknown>, key: string): boolean {
   return record[key] === true;
@@ -27,18 +29,33 @@ export function resetFeatureFlags(): void {
   cacheGeneration += 1;
   cachedFlags = null;
   cachedAt = 0;
+  inFlightAbort?.abort();
+  inFlightAbort = null;
   inFlight = null;
+  inFlightGeneration = -1;
 }
 
-function fetchWithTimeout(url: string): Promise<Response> {
+function fetchWithTimeout(
+  url: string,
+  externalSignal?: AbortSignal,
+): Promise<Response> {
   const controller = new AbortController();
   const timeout = window.setTimeout(
     () => controller.abort(),
     FLAGS_FETCH_TIMEOUT_MS,
   );
 
-  return fetch(url, { method: "GET", signal: controller.signal }).finally(() =>
-    window.clearTimeout(timeout),
+  const abortFromExternal = () => controller.abort();
+  externalSignal?.addEventListener("abort", abortFromExternal, { once: true });
+  if (externalSignal?.aborted) {
+    controller.abort();
+  }
+
+  return fetch(url, { method: "GET", signal: controller.signal }).finally(
+    () => {
+      window.clearTimeout(timeout);
+      externalSignal?.removeEventListener("abort", abortFromExternal);
+    },
   );
 }
 
@@ -47,8 +64,20 @@ export async function fetchClientFeatureFlags(): Promise<ClientFeatureFlags> {
   if (cachedFlags && now - cachedAt < FLAGS_CACHE_TTL_MS) return cachedFlags;
 
   const requestGeneration = cacheGeneration;
-  inFlight ??= fetchWithTimeout(`${BACKEND_URL}/config/features`)
+  if (inFlight && inFlightGeneration === requestGeneration) {
+    return inFlight;
+  }
+
+  const abortController = new AbortController();
+  inFlightAbort = abortController;
+  inFlightGeneration = requestGeneration;
+
+  const request = fetchWithTimeout(
+    `${BACKEND_URL}/config/features`,
+    abortController.signal,
+  )
     .then(async (response) => {
+      if (requestGeneration !== cacheGeneration) return null;
       if (!response.ok) return null;
       const raw: unknown = await response.json().catch(() => ({}));
       if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -69,11 +98,16 @@ export async function fetchClientFeatureFlags(): Promise<ClientFeatureFlags> {
         cachedFlags = flags;
         cachedAt = Date.now();
       }
-      inFlight = null;
+      if (inFlightGeneration === requestGeneration) {
+        inFlight = null;
+        inFlightAbort = null;
+        inFlightGeneration = -1;
+      }
       return cachedFlags ?? DEFAULT_FLAGS;
     });
 
-  return inFlight;
+  inFlight = request;
+  return request;
 }
 
 export function useFeatureFlags(): ClientFeatureFlags {
