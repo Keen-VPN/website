@@ -371,9 +371,6 @@ export default function AdminPerks() {
   const { can } = useAdminAuth();
   const { workflowsEnabled } = useFeatureFlags();
   const canWrite = can("subscriptions.write");
-  const availableRedemptionTypes = workflowsEnabled
-    ? REDEMPTION_TYPES
-    : REDEMPTION_TYPES.filter((type) => type.value !== "workflow");
 
   const [perks, setPerks] = useState<AdminPerk[]>([]);
   const [expiredPerks, setExpiredPerks] = useState<AdminPerk[]>([]);
@@ -395,6 +392,12 @@ export default function AdminPerks() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<PerkFormState>(emptyForm());
+  const showDisabledWorkflowType =
+    !workflowsEnabled && Boolean(editingId) && form.redemptionType === "workflow";
+  const availableRedemptionTypes =
+    workflowsEnabled || showDisabledWorkflowType
+      ? REDEMPTION_TYPES
+      : REDEMPTION_TYPES.filter((type) => type.value !== "workflow");
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -1550,8 +1553,17 @@ export default function AdminPerks() {
                   </SelectTrigger>
                   <SelectContent>
                     {availableRedemptionTypes.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
+                      <SelectItem
+                        key={type.value}
+                        value={type.value}
+                        disabled={
+                          type.value === "workflow" && !workflowsEnabled
+                        }
+                      >
                         {type.label}
+                        {type.value === "workflow" && !workflowsEnabled
+                          ? " (disabled)"
+                          : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -11,24 +11,39 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   aiAssistantEnabled: false,
 };
 
+const FLAGS_CACHE_TTL_MS = 5 * 60 * 1000;
+const FLAGS_FETCH_TIMEOUT_MS = 5000;
+
 let cachedFlags: ClientFeatureFlags | null = null;
+let cachedAt = 0;
 let inFlight: Promise<ClientFeatureFlags> | null = null;
 
 function readBoolean(record: Record<string, unknown>, key: string): boolean {
   return record[key] === true;
 }
 
+function fetchWithTimeout(url: string): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    FLAGS_FETCH_TIMEOUT_MS,
+  );
+
+  return fetch(url, { method: "GET", signal: controller.signal }).finally(() =>
+    window.clearTimeout(timeout),
+  );
+}
+
 export async function fetchClientFeatureFlags(): Promise<ClientFeatureFlags> {
-  if (cachedFlags) return cachedFlags;
-  inFlight ??= fetch(`${BACKEND_URL}/config/features`, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-  })
+  const now = Date.now();
+  if (cachedFlags && now - cachedAt < FLAGS_CACHE_TTL_MS) return cachedFlags;
+
+  inFlight ??= fetchWithTimeout(`${BACKEND_URL}/config/features`)
     .then(async (response) => {
-      if (!response.ok) return DEFAULT_FLAGS;
+      if (!response.ok) return null;
       const raw: unknown = await response.json().catch(() => ({}));
       if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-        return DEFAULT_FLAGS;
+        return null;
       }
       const record = raw as Record<string, unknown>;
       return {
@@ -36,11 +51,14 @@ export async function fetchClientFeatureFlags(): Promise<ClientFeatureFlags> {
         aiAssistantEnabled: readBoolean(record, "aiAssistantEnabled"),
       };
     })
-    .catch(() => DEFAULT_FLAGS)
+    .catch(() => null)
     .then((flags) => {
-      cachedFlags = flags;
+      if (flags) {
+        cachedFlags = flags;
+        cachedAt = Date.now();
+      }
       inFlight = null;
-      return flags;
+      return cachedFlags ?? DEFAULT_FLAGS;
     });
 
   return inFlight;
