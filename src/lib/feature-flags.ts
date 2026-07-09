@@ -17,12 +17,14 @@ const FLAGS_FETCH_TIMEOUT_MS = 5000;
 let cachedFlags: ClientFeatureFlags | null = null;
 let cachedAt = 0;
 let inFlight: Promise<ClientFeatureFlags> | null = null;
+let cacheGeneration = 0;
 
 function isExplicitlyTrue(record: Record<string, unknown>, key: string): boolean {
   return record[key] === true;
 }
 
 export function resetFeatureFlags(): void {
+  cacheGeneration += 1;
   cachedFlags = null;
   cachedAt = 0;
   inFlight = null;
@@ -44,6 +46,7 @@ export async function fetchClientFeatureFlags(): Promise<ClientFeatureFlags> {
   const now = Date.now();
   if (cachedFlags && now - cachedAt < FLAGS_CACHE_TTL_MS) return cachedFlags;
 
+  const requestGeneration = cacheGeneration;
   inFlight ??= fetchWithTimeout(`${BACKEND_URL}/config/features`)
     .then(async (response) => {
       if (!response.ok) return null;
@@ -59,6 +62,9 @@ export async function fetchClientFeatureFlags(): Promise<ClientFeatureFlags> {
     })
     .catch(() => null)
     .then((flags) => {
+      if (requestGeneration !== cacheGeneration) {
+        return cachedFlags ?? DEFAULT_FLAGS;
+      }
       if (flags) {
         cachedFlags = flags;
         cachedAt = Date.now();
