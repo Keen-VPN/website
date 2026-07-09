@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { WorkspacePanel } from "@/components/workspace/WorkspacePanel";
+import { workspaceSectionSurface } from "@/components/workspace/workspace-ui";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
@@ -74,15 +69,12 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Email preferences</CardTitle>
-        <CardDescription>
-          Control optional personalized emails from KeenVPN
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-start justify-between gap-4">
+    <WorkspacePanel
+      title="Email preferences"
+      description="Control optional personalized emails from KeenVPN"
+    >
+        <div className={workspaceSectionSurface}>
+          <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <Label htmlFor="contextual-email-opt-in" className="text-base">
               Domain Insights for Perks
@@ -115,8 +107,8 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
               onCheckedChange={(checked) => void handleToggle(checked)}
             />
           )}
+          </div>
         </div>
-      </CardContent>
-    </Card>
+    </WorkspacePanel>
   );
 }

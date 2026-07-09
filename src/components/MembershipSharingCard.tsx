@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { WorkspacePanel } from "@/components/workspace/WorkspacePanel";
+import {
+  workspaceEmptyState,
+  workspaceListRow,
+  workspaceSectionSurface,
+} from "@/components/workspace/workspace-ui";
 import { Input } from "@/components/ui/input";
 import { Loader2, Users } from "lucide-react";
 import {
@@ -19,6 +18,7 @@ import {
 } from "@/auth/backend";
 import { MIN_BUSINESS_SEATS, MAX_BUSINESS_SEATS } from "@/constants/pricing";
 import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 interface MembershipSharingCardProps {
   sessionToken: string;
@@ -202,75 +202,53 @@ export function MembershipSharingCard({
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="flex items-center gap-2 py-8 text-muted-foreground">
+      <WorkspacePanel title="Membership sharing" icon={Users}>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading membership sharing…
-        </CardContent>
-      </Card>
+        </div>
+      </WorkspacePanel>
     );
   }
 
   if (!dashboard) {
     if (!error) return null;
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Membership sharing
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-destructive">{error}</p>
-        </CardContent>
-      </Card>
+      <WorkspacePanel title="Membership sharing" icon={Users}>
+        <p className="text-sm text-destructive">{error}</p>
+      </WorkspacePanel>
     );
   }
 
   if (dashboard.role === "member" && dashboard.membership) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Shared membership
-          </CardTitle>
-          <CardDescription>
-            Premium access through {dashboard.membership.ownerEmail}
-            {dashboard.membership.planName
-              ? ` (${dashboard.membership.planName})`
-              : ""}
-            .
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <WorkspacePanel
+        title="Shared membership"
+        icon={Users}
+        description={`Premium access through ${dashboard.membership.ownerEmail}${
+          dashboard.membership.planName
+            ? ` (${dashboard.membership.planName})`
+            : ""
+        }.`}
+      />
     );
   }
 
   if (!dashboard.eligible) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Membership sharing
-          </CardTitle>
-          <CardDescription>
-            Invite team members to share your KeenVPN Business subscription.
-            Available on the Business plan.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-            Upgrade to a Business plan to invite members with their own login
-            credentials.
-          </p>
-          <Button asChild className="mt-4" variant="outline">
-            <Link to="/pricing">View Business plan</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <WorkspacePanel
+        title="Membership sharing"
+        icon={Users}
+        description="Invite team members to share your KeenVPN Business subscription. Available on the Business plan."
+      >
+        <p className={cn(workspaceEmptyState, "text-sm text-muted-foreground")}>
+          Upgrade to a Business plan to invite members with their own login
+          credentials.
+        </p>
+        <Button asChild className="mt-4" variant="outline">
+          <Link to="/pricing">View Business plan</Link>
+        </Button>
+      </WorkspacePanel>
     );
   }
 
@@ -290,23 +268,19 @@ export function MembershipSharingCard({
   const seatsChanged = effectiveDraftSeats !== currentSeatLimit;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          Membership sharing
-        </CardTitle>
-        <CardDescription>
-          {seats
-            ? `${seats.activeSeats} of ${seats.seatLimit} seats used · ${seats.availableSeats} available`
-            : "Invite others to share your subscription."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <WorkspacePanel
+      title="Membership sharing"
+      icon={Users}
+      description={
+        seats
+          ? `${seats.activeSeats} of ${seats.seatLimit} seats used · ${seats.availableSeats} available`
+          : "Invite others to share your subscription."
+      }
+    >
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         {dashboard.canManageSeats && seats ? (
-          <div className="space-y-2 rounded-md border bg-muted/30 p-4">
+          <div className={cn(workspaceSectionSurface, "space-y-3")}>
             <h3 className="text-sm font-medium">Manage seats</h3>
             <p className="text-xs text-muted-foreground">
               Add or remove seats on your Business subscription. Stripe prorates
@@ -387,7 +361,7 @@ export function MembershipSharingCard({
             </div>
           </div>
         ) : (
-          <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+          <p className={cn(workspaceEmptyState, "text-sm text-muted-foreground")}>
             {currentSeatLimit <= 1
               ? "Membership sharing is not enabled on this subscription. Upgrade to Business to invite team members."
               : "All seats are currently used. Remove a member, cancel a pending invite, or add more seats."}
@@ -401,7 +375,10 @@ export function MembershipSharingCard({
               {dashboard.members.map((member) => (
                 <li
                   key={member.userId}
-                  className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
+                  className={cn(
+                    workspaceListRow,
+                    "flex flex-col gap-2 rounded-lg border border-border/80 sm:flex-row sm:items-center sm:justify-between",
+                  )}
                 >
                   <div>
                     <p className="font-medium">{member.email}</p>
@@ -430,7 +407,10 @@ export function MembershipSharingCard({
               {dashboard.pendingInvites.map((invite) => (
                 <li
                   key={invite.id}
-                  className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
+                  className={cn(
+                    workspaceListRow,
+                    "flex flex-col gap-2 rounded-lg border border-border/80 sm:flex-row sm:items-center sm:justify-between",
+                  )}
                 >
                   <div>
                     <p className="font-medium">{invite.email}</p>
@@ -482,7 +462,6 @@ export function MembershipSharingCard({
             </ul>
           </div>
         ) : null}
-      </CardContent>
-    </Card>
+    </WorkspacePanel>
   );
 }

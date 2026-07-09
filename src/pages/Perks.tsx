@@ -71,6 +71,7 @@ import {
 import { listWorkflows } from "@/auth/backend";
 import { trackPerksEvent } from "@/lib/product-analytics";
 import { isSafeHttpUrl } from "@/lib/safe-url";
+import { useFeatureFlags } from "@/lib/feature-flags";
 
 const CATEGORY_LABELS: Record<PerkCategory, string> = {
   privacy_security: "Privacy & Security",
@@ -206,6 +207,7 @@ function linkifyDescription(text: string): ReactNode[] {
 }
 
 const Perks = () => {
+  const { workflowsEnabled } = useFeatureFlags();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -366,9 +368,50 @@ const Perks = () => {
     void recordPerkEvent(session, "perk_viewed", { source: "perks_page" });
   }, [user, initialLoad, loading, refreshing, fetchError]);
 
+  const visiblePerks = useMemo(
+    () =>
+      workflowsEnabled
+        ? perks
+        : perks.filter((perk) => perk.redemptionType !== "workflow"),
+    [perks, workflowsEnabled],
+  );
+
+  const visibleCategories = useMemo(() => {
+    if (workflowsEnabled) return categories;
+    const nonWorkflowCategories = new Set(
+      perks
+        .filter((perk) => perk.redemptionType !== "workflow")
+        .map((perk) => perk.category),
+    );
+    return categories.filter((category) => nonWorkflowCategories.has(category));
+  }, [categories, perks, workflowsEnabled]);
+
+  useEffect(() => {
+    if (selectedCategory === "all") return;
+
+    if (!workflowsEnabled) {
+      const perksInCategory = perks.filter(
+        (perk) => perk.category === selectedCategory,
+      );
+      if (perksInCategory.length === 0) return;
+
+      const hasVisiblePerk = perksInCategory.some(
+        (perk) => perk.redemptionType !== "workflow",
+      );
+      if (!hasVisiblePerk) {
+        setSelectedCategory("all");
+      }
+      return;
+    }
+
+    if (categories.length > 0 && !categories.includes(selectedCategory)) {
+      setSelectedCategory("all");
+    }
+  }, [selectedCategory, workflowsEnabled, perks, categories]);
+
   const featuredPerks = useMemo(
-    () => perks.filter((perk) => perk.isFeatured),
-    [perks],
+    () => visiblePerks.filter((perk) => perk.isFeatured),
+    [visiblePerks],
   );
 
   const featuredIds = useMemo(
@@ -387,16 +430,18 @@ const Perks = () => {
 
   const allSectionPerks = useMemo(
     () =>
-      showFeaturedSection ? perks.filter((p) => !featuredIds.has(p.id)) : perks,
-    [perks, showFeaturedSection, featuredIds],
+      showFeaturedSection
+        ? visiblePerks.filter((p) => !featuredIds.has(p.id))
+        : visiblePerks,
+    [visiblePerks, showFeaturedSection, featuredIds],
   );
 
   const detailsPerk = useMemo(
     () =>
       detailsPerkId
-        ? (perks.find((perk) => perk.id === detailsPerkId) ?? null)
+        ? (visiblePerks.find((perk) => perk.id === detailsPerkId) ?? null)
         : null,
-    [detailsPerkId, perks],
+    [detailsPerkId, visiblePerks],
   );
 
   useEffect(() => {
@@ -805,7 +850,7 @@ const Perks = () => {
                   >
                     All
                   </Button>
-                  {categories.map((cat) => (
+                  {visibleCategories.map((cat) => (
                     <Button
                       key={cat}
                       size="sm"
