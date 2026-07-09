@@ -1,6 +1,10 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { WorkspacePanel } from '@/components/workspace/WorkspacePanel';
+import {
+  workspaceListRow,
+  workspaceListSurface,
+} from '@/components/workspace/workspace-ui';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -16,6 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { linkProvider, unlinkProvider } from '@/auth/backend';
+import { cn } from '@/lib/utils';
 import { getFirebaseAuth, getFirebaseApp } from '@/auth/firebase';
 import {
   linkWithPopup,
@@ -149,11 +154,8 @@ export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpd
 
   if (!providers) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Linked Accounts</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <WorkspacePanel title="Linked Accounts">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Skeleton className="h-5 w-24" />
             <Skeleton className="h-6 w-16 rounded-full" />
@@ -162,8 +164,8 @@ export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpd
             <Skeleton className="h-5 w-20" />
             <Skeleton className="h-9 w-32 rounded-md" />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </WorkspacePanel>
     );
   }
 
@@ -176,19 +178,15 @@ export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpd
   if (!showGoogle && !showApple) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Linked Accounts</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Primary provider indicator */}
-        <div className="flex items-center justify-between">
+    <WorkspacePanel title="Linked Accounts">
+      <ul className={workspaceListSurface}>
+        <li className={cn(workspaceListRow, "flex items-center justify-between")}>
           <span className="font-medium">{isGoogle ? 'Google' : 'Apple'}</span>
           <Badge variant="outline">Primary</Badge>
-        </div>
+        </li>
 
         {showGoogle && (
-          <div className="flex items-center justify-between">
+          <li className={cn(workspaceListRow, "flex items-center justify-between")}>
             <span className="font-medium">Google</span>
             {providers.google.linked ? (
               <AlertDialog>
@@ -227,10 +225,10 @@ export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpd
                 {linking === 'google' ? 'Linking...' : 'Link Google Account'}
               </Button>
             )}
-          </div>
+          </li>
         )}
         {showApple && (
-          <div className="flex items-center justify-between">
+          <li className={cn(workspaceListRow, "flex items-center justify-between")}>
             <span className="font-medium">Apple</span>
             {providers.apple.linked ? (
               <AlertDialog>
@@ -269,9 +267,9 @@ export function LinkedAccounts({ sessionToken, currentProvider, providers, onUpd
                 {linking === 'apple' ? 'Linking...' : 'Link Apple Account'}
               </Button>
             )}
-          </div>
+          </li>
         )}
-      </CardContent>
-    </Card>
+      </ul>
+    </WorkspacePanel>
   );
 }

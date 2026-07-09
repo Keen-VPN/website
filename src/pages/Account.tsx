@@ -56,15 +56,8 @@ import {
 } from "@/auth";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { LinkedAccounts } from "@/components/LinkedAccounts";
-import { MembershipSharingCard } from "@/components/MembershipSharingCard";
-import { ConnectedDevicesCard } from "@/components/ConnectedDevicesCard";
-import { WorkflowsCard } from "@/components/WorkflowsCard";
-import { SecureVaultCard } from "@/components/SecureVaultCard";
-import { AiAssistantCard } from "@/components/AiAssistantCard";
+import { AccountWorkspace } from "@/components/AccountWorkspace";
 import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
-import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
-import { UserInformationCard } from "@/components/UserInformationCard";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
 import {
   isAppDeepLinkSupported,
@@ -629,24 +622,21 @@ const Account = () => {
               </Card>
             </div>
 
-            {/* Linked Accounts Skeleton */}
-            <div className="mt-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Linked Accounts</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Skeleton className="h-5 w-24" />
-                    <Skeleton className="h-6 w-16 rounded-full" />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Skeleton className="h-5 w-20" />
-                    <Skeleton className="h-9 w-32 rounded-md" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="mt-10 border-accent/40 shadow-card">
+              <CardHeader>
+                <Skeleton className="h-7 w-36" />
+                <Skeleton className="mt-2 h-4 w-full max-w-md" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <Skeleton className="h-20 rounded-lg" />
+                  <Skeleton className="h-20 rounded-lg" />
+                  <Skeleton className="h-20 rounded-lg" />
+                  <Skeleton className="h-20 rounded-lg" />
+                </div>
+                <Skeleton className="h-64 w-full rounded-xl" />
+              </CardContent>
+            </Card>
           </div>
         </main>
         <Footer />
@@ -727,8 +717,8 @@ const Account = () => {
             <h1 className="text-4xl font-bold text-foreground mb-4">
               My <span className="text-primary">Account</span>
             </h1>
-            <p className="text-xl text-muted-foreground">
-              Manage your KeenVPN subscription and account settings
+            <p className="text-lg text-muted-foreground">
+              Subscription, perks, and account settings — organized in one place.
             </p>
           </div>
 
@@ -1128,162 +1118,118 @@ const Account = () => {
             </Card>
           </div>
 
-          {/* Linked Accounts */}
           {hasSessionToken && (
-            <div className="mt-8">
-              <MembershipSharingCard sessionToken={getSessionToken() ?? ""} />
-            </div>
+            <AccountWorkspace
+              sessionToken={getSessionToken() ?? ""}
+              authProvider={authProvider ?? undefined}
+              linkedProviders={linkedProviders}
+              onLinkedAccountsUpdate={() => {
+                refreshLinkedProviders();
+                refreshSubscription();
+              }}
+            />
           )}
 
-          {hasSessionToken && (
-            <div className="mt-8">
-              <ConnectedDevicesCard sessionToken={getSessionToken() ?? ""} />
-            </div>
-          )}
+          <div className="mt-8 grid gap-6 md:grid-cols-2">
+            <Card className="border-accent/40 shadow-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Need help?</CardTitle>
+                <CardDescription>
+                  Our support team can help with billing, perks, and account
+                  issues.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <a
+                  href="mailto:support@vpnkeen.com?subject=Support Request&body=Hello KeenVPN Support Team,%0D%0A%0D%0AI need assistance with:%0D%0A%0D%0A[Please describe your issue here]%0D%0A%0D%0AThank you!"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  Contact Support
+                </a>
+              </CardContent>
+            </Card>
 
-          {hasSessionToken && (
-            <div id="vault" className="mt-8 scroll-mt-24">
-              <SecureVaultCard sessionToken={getSessionToken() ?? ""} />
-            </div>
-          )}
-
-          {hasSessionToken && (
-            <div className="mt-8">
-              <AiAssistantCard sessionToken={getSessionToken() ?? ""} />
-            </div>
-          )}
-
-          {hasSessionToken && (
-            <div id="applications" className="mt-8 scroll-mt-24">
-              <WorkflowsCard sessionToken={getSessionToken() ?? ""} />
-            </div>
-          )}
-
-          {hasSessionToken && (
-            <div className="mt-8">
-              <LinkedAccounts
-                sessionToken={getSessionToken() ?? ""}
-                currentProvider={authProvider ?? undefined}
-                providers={linkedProviders}
-                onUpdate={() => {
-                  refreshLinkedProviders();
-                  refreshSubscription();
-                }}
-              />
-            </div>
-          )}
-
-          {hasSessionToken && (
-            <div className="mt-8">
-              <UserInformationCard sessionToken={getSessionToken() ?? ""} />
-            </div>
-          )}
-
-          {hasSessionToken && (
-            <div className="mt-8">
-              <EmailPreferencesCard sessionToken={getSessionToken() ?? ""} />
-            </div>
-          )}
-
-          {/* Support Section */}
-          <Card className="mt-8 border-accent/50 shadow-glow">
-            <CardHeader>
-              <CardTitle>Need Help?</CardTitle>
-              <CardDescription>
-                Contact our support team for assistance with your account
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <a
-                href="mailto:support@vpnkeen.com?subject=Support Request&body=Hello KeenVPN Support Team,%0D%0A%0D%0AI need assistance with:%0D%0A%0D%0A[Please describe your issue here]%0D%0A%0D%0AThank you!"
-                className="w-full inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
-              >
-                Contact Support
-              </a>
-            </CardContent>
-          </Card>
-
-          {/* Danger Zone */}
-          <Card className="mt-8 border-destructive/50">
-            <CardHeader>
-              <CardTitle className="text-destructive flex items-center">
-                <AlertTriangle className="h-5 w-5 mr-2" />
-                Danger Zone
-              </CardTitle>
-              <CardDescription>
-                Irreversible and destructive actions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="destructive"
-                    className="w-full"
-                    disabled={deleting}
-                  >
-                    {deleting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Deleting Account...
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Account
-                      </>
-                    )}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center text-destructive">
-                      <AlertTriangle className="h-5 w-5 mr-2" />
-                      Are you absolutely sure?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription className="space-y-3">
-                      <p>
-                        This action <strong>cannot be undone</strong>. Your
-                        account and all associated usage data will be
-                        permanently deleted from our servers. Please note that
-                        no refunds will be issued.
-                      </p>
-                      <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/20">
-                        <p className="text-sm font-medium text-destructive">
-                          This will delete:
-                        </p>
-                        <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
-                          <li>Your account and profile information</li>
-                          <li>All subscription data</li>
-                          <li>All associated preferences and settings</li>
-                        </ul>
-                      </div>
-                      {subscription && subscription.status === "active" && (
-                        <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                          <p className="text-sm font-medium text-yellow-800">
-                            ⚠️ You have an active subscription
-                          </p>
-                          <p className="text-xs text-yellow-700 mt-1">
-                            Please cancel your subscription before deleting your
-                            account to avoid future charges.
-                          </p>
-                        </div>
-                      )}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDeleteAccount}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            <Card className="border-destructive/40 shadow-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-lg text-destructive">
+                  <AlertTriangle className="mr-2 h-5 w-5" />
+                  Danger zone
+                </CardTitle>
+                <CardDescription>
+                  Permanently delete your account and associated data.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      disabled={deleting}
                     >
-                      Delete Account Permanently
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </CardContent>
-          </Card>
+                      {deleting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Deleting Account...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Account
+                        </>
+                      )}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center text-destructive">
+                        <AlertTriangle className="mr-2 h-5 w-5" />
+                        Are you absolutely sure?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="space-y-3">
+                        <p>
+                          This action <strong>cannot be undone</strong>. Your
+                          account and all associated usage data will be
+                          permanently deleted from our servers. Please note that
+                          no refunds will be issued.
+                        </p>
+                        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3">
+                          <p className="text-sm font-medium text-destructive">
+                            This will delete:
+                          </p>
+                          <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-muted-foreground">
+                            <li>Your account and profile information</li>
+                            <li>All subscription data</li>
+                            <li>All associated preferences and settings</li>
+                          </ul>
+                        </div>
+                        {subscription && subscription.status === "active" && (
+                          <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                            <p className="text-sm font-medium text-yellow-800">
+                              You have an active subscription
+                            </p>
+                            <p className="mt-1 text-xs text-yellow-700">
+                              Please cancel your subscription before deleting your
+                              account to avoid future charges.
+                            </p>
+                          </div>
+                        )}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteAccount}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete Account Permanently
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </main>
       <Footer />

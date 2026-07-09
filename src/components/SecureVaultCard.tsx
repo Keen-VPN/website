@@ -1,11 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +12,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Lock, Shield } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ChevronRight, Loader2, Lock, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   deleteVaultField,
@@ -34,6 +35,7 @@ import {
   getVaultFieldValidationError,
   isSensitiveVaultField,
 } from "@/lib/vault-fields";
+import { cn } from "@/lib/utils";
 
 const CATEGORY_LABELS: Record<string, string> = {
   IDENTITY: "Identity",
@@ -51,8 +53,11 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
   const [loading, setLoading] = useState(true);
   const [featureDisabled, setFeatureDisabled] = useState(false);
   const [sections, setSections] = useState<VaultOverviewSection[]>([]);
-  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [activeField, setActiveField] = useState<VaultFieldMetadata | null>(
+    null,
+  );
   const [editValue, setEditValue] = useState("");
+  const [loadingFieldValue, setLoadingFieldValue] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldToDelete, setFieldToDelete] = useState<VaultFieldMetadata | null>(
@@ -91,29 +96,37 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
     };
   }, [load]);
 
-  async function startEdit(field: VaultFieldMetadata) {
-    const requestedFieldKey = field.fieldKey;
-    editRequestKeyRef.current = requestedFieldKey;
-    setEditingKey(field.fieldKey);
+  function closeFieldModal() {
+    if (saving || loadingFieldValue) return;
+    editRequestKeyRef.current = null;
+    setActiveField(null);
     setEditValue("");
     setError(null);
-    if (field.isStored) {
-      const res = await getVaultFieldValue(sessionToken, field.fieldKey);
-      if (editRequestKeyRef.current !== requestedFieldKey) {
-        return;
-      }
-      if (res.ok && res.data?.field) {
-        setEditValue(res.data.field.value);
-      } else {
-        setError(res.error ?? `Failed to load ${field.label}`);
-      }
-    }
   }
 
-  function cancelEdit() {
-    editRequestKeyRef.current = null;
-    setEditingKey(null);
+  async function openField(field: VaultFieldMetadata) {
+    const requestedFieldKey = field.fieldKey;
+    editRequestKeyRef.current = requestedFieldKey;
+    setActiveField(field);
     setEditValue("");
+    setError(null);
+    setLoadingFieldValue(field.isStored);
+
+    if (!field.isStored) {
+      setLoadingFieldValue(false);
+      return;
+    }
+
+    const res = await getVaultFieldValue(sessionToken, field.fieldKey);
+    if (editRequestKeyRef.current !== requestedFieldKey) {
+      return;
+    }
+    if (res.ok && res.data?.field) {
+      setEditValue(res.data.field.value);
+    } else {
+      setError(res.error ?? `Failed to load ${field.label}`);
+    }
+    setLoadingFieldValue(false);
   }
 
   async function handleSave(field: VaultFieldMetadata) {
@@ -134,7 +147,7 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
       }
       toast({ title: `${field.label} saved securely` });
       editRequestKeyRef.current = null;
-      setEditingKey(null);
+      setActiveField(null);
       setEditValue("");
       await load();
     } finally {
@@ -152,7 +165,9 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
         return;
       }
       toast({ title: `${field.label} removed from vault` });
-      if (editingKey === field.fieldKey) cancelEdit();
+      editRequestKeyRef.current = null;
+      setActiveField(null);
+      setEditValue("");
       setFieldToDelete(null);
       await load();
     } finally {
@@ -162,18 +177,10 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Secure Vault
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading…
-        </CardContent>
-      </Card>
+      <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card/90 px-4 py-6 text-muted-foreground shadow-sm">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading secure vault…
+      </div>
     );
   }
 
@@ -182,109 +189,203 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Shield className="h-5 w-5" />
-          Secure Vault
-        </CardTitle>
-        <CardDescription>
-          Store sensitive details encrypted. Partner applications only access
-          vault fields after you explicitly approve each request.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {error && <p className="text-sm text-destructive">{error}</p>}
+    <>
+      <div className="space-y-5">
+        <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card px-4 py-4 shadow-sm sm:px-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/15 text-primary">
+              <Shield className="h-5 w-5" aria-hidden />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <h3 className="text-base font-semibold text-foreground">
+                Secure Vault
+              </h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Store sensitive details encrypted. Partner applications only
+                access vault fields after you explicitly approve each request.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {error && !activeField ? (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
 
         {sections.map((section) => (
-          <div key={section.category} className="space-y-3">
-            <h3 className="text-sm font-medium">
+          <section
+            key={section.category}
+            className="rounded-xl border border-border/80 bg-muted/25 p-3 shadow-sm sm:p-4"
+          >
+            <h3 className="mb-3 border-b border-border/70 pb-2 text-xs font-semibold uppercase tracking-[0.14em] text-foreground/80">
               {CATEGORY_LABELS[section.category] ?? section.category}
             </h3>
-            <ul className="space-y-3">
-              {section.fields.map((field) => {
-                const isEditing = editingKey === field.fieldKey;
-                return (
-                  <li
-                    key={field.fieldKey}
-                    className="rounded-md border p-3 space-y-2"
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {section.fields.map((field) => (
+                <li key={field.fieldKey}>
+                  <button
+                    type="button"
+                    onClick={() => void openField(field)}
+                    disabled={saving}
+                    className={cn(
+                      "group flex h-full w-full flex-col rounded-lg border p-3.5 text-left transition-all",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      field.isStored
+                        ? "border-primary/30 bg-card shadow-sm hover:border-primary/50 hover:bg-card/95"
+                        : "border-dashed border-muted-foreground/35 bg-background/70 hover:border-primary/40 hover:bg-muted/40",
+                    )}
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                        <span className="font-medium text-sm">{field.label}</span>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className={cn(
+                            "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border",
+                            field.isStored
+                              ? "border-primary/25 bg-primary/10 text-primary"
+                              : "border-border/80 bg-muted/60 text-muted-foreground",
+                          )}
+                        >
+                          <Lock className="h-3.5 w-3.5" aria-hidden />
+                        </span>
+                        <span className="truncate text-sm font-medium text-foreground">
+                          {field.label}
+                        </span>
                       </div>
+                      <ChevronRight
+                        className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
+                        aria-hidden
+                      />
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/50 pt-2.5">
                       {field.isStored ? (
-                        <Badge variant="secondary" className="text-[10px]">
+                        <Badge
+                          variant="secondary"
+                          className="border border-primary/20 bg-primary/10 text-[10px] text-primary"
+                        >
                           {field.maskedPreview ?? "On file"}
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge
+                          variant="outline"
+                          className="border-muted-foreground/40 bg-background/80 text-[10px] text-muted-foreground"
+                        >
                           Not stored
                         </Badge>
                       )}
-                    </div>
-
-                    {isEditing ? (
-                      <div className="space-y-2">
-                        <Label htmlFor={`vault-${field.fieldKey}`}>{field.label}</Label>
-                        <VaultFieldInput
-                          id={`vault-${field.fieldKey}`}
-                          inputType={field.inputType}
-                          value={editValue}
-                          onChange={setEditValue}
-                          disabled={saving}
-                          sensitive={isSensitiveVaultField(field.fieldKey)}
-                        />
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => void handleSave(field)}
-                            disabled={saving}
-                          >
-                            {saving ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                            ) : null}
-                            Save
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={cancelEdit}
-                            disabled={saving}
-                          >
-                            Cancel
-                          </Button>
-                          {field.isStored ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive"
-                              onClick={() => setFieldToDelete(field)}
-                              disabled={saving}
-                            >
-                              Remove
-                            </Button>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void startEdit(field)}
-                        disabled={saving}
+                      <span
+                        className={cn(
+                          "text-xs font-medium",
+                          field.isStored
+                            ? "text-muted-foreground"
+                            : "text-primary",
+                        )}
                       >
                         {field.isStored ? "Update" : "Add"}
-                      </Button>
-                    )}
-                  </li>
-                );
-              })}
+                      </span>
+                    </div>
+                  </button>
+                </li>
+              ))}
             </ul>
-          </div>
+          </section>
         ))}
-      </CardContent>
+      </div>
+
+      <Dialog
+        open={activeField !== null}
+        onOpenChange={(open) => {
+          if (!open) closeFieldModal();
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          {activeField ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  {activeField.label}
+                </DialogTitle>
+                <DialogDescription>
+                  {activeField.isStored
+                    ? "Update this encrypted field in your vault."
+                    : "Add this field to your secure vault."}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3 py-1">
+                {error ? (
+                  <p className="text-sm text-destructive">{error}</p>
+                ) : null}
+
+                {loadingFieldValue ? (
+                  <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading secure value…
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor={`vault-${activeField.fieldKey}`}>
+                      {activeField.label}
+                    </Label>
+                    <VaultFieldInput
+                      id={`vault-${activeField.fieldKey}`}
+                      inputType={activeField.inputType}
+                      value={editValue}
+                      onChange={setEditValue}
+                      disabled={saving}
+                      sensitive={isSensitiveVaultField(activeField.fieldKey)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter
+                className={cn(
+                  "gap-2",
+                  activeField.isStored
+                    ? "flex-col sm:flex-row sm:justify-between"
+                    : "sm:justify-end",
+                )}
+              >
+                {activeField.isStored ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive sm:mr-auto"
+                    onClick={() => setFieldToDelete(activeField)}
+                    disabled={saving || loadingFieldValue}
+                  >
+                    Remove
+                  </Button>
+                ) : null}
+                <div className="flex w-full gap-2 sm:w-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={closeFieldModal}
+                    disabled={saving || loadingFieldValue}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => void handleSave(activeField)}
+                    disabled={saving || loadingFieldValue}
+                  >
+                    {saving ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                    ) : null}
+                    Save
+                  </Button>
+                </div>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={fieldToDelete !== null}
@@ -316,6 +417,6 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </>
   );
 }
