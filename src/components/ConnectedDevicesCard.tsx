@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { WorkspacePanel } from "@/components/workspace/WorkspacePanel";
+import {
+  workspaceListRow,
+  workspaceListSurface,
+} from "@/components/workspace/workspace-ui";
 import { Loader2, MonitorSmartphone } from "lucide-react";
 import {
   fetchDeviceConnectionsStatus,
   restoreDeviceConnection,
   revokeDeviceConnection,
 } from "@/auth/backend";
+import { cn } from "@/lib/utils";
 
 interface ConnectedDevicesCardProps {
   sessionToken: string;
@@ -143,18 +142,12 @@ export function ConnectedDevicesCard({
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MonitorSmartphone className="h-5 w-5" />
-            Connected devices
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center gap-2 text-muted-foreground">
+      <WorkspacePanel title="Connected devices" icon={MonitorSmartphone}>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading devices…
-        </CardContent>
-      </Card>
+        </div>
+      </WorkspacePanel>
     );
   }
 
@@ -164,17 +157,9 @@ export function ConnectedDevicesCard({
 
   if (error && !status) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MonitorSmartphone className="h-5 w-5" />
-            Connected devices
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-destructive">{error}</p>
-        </CardContent>
-      </Card>
+      <WorkspacePanel title="Connected devices" icon={MonitorSmartphone}>
+        <p className="text-sm text-destructive">{error}</p>
+      </WorkspacePanel>
     );
   }
 
@@ -183,18 +168,11 @@ export function ConnectedDevicesCard({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MonitorSmartphone className="h-5 w-5" />
-          Connected devices
-        </CardTitle>
-        <CardDescription>
-          {status.activeCount} of {status.limit} devices connected ·{" "}
-          {status.available} available
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <WorkspacePanel
+      title="Connected devices"
+      icon={MonitorSmartphone}
+      description={`${status.activeCount} of ${status.limit} devices connected · ${status.available} available`}
+    >
         {error && <p className="text-sm text-destructive">{error}</p>}
         {status.devices.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -202,11 +180,14 @@ export function ConnectedDevicesCard({
             from the KeenVPN app.
           </p>
         ) : (
-          <ul className="divide-y rounded-md border">
+          <ul className={workspaceListSurface}>
             {status.devices.map((device) => (
               <li
                 key={device.id}
-                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                className={cn(
+                  workspaceListRow,
+                  "flex flex-wrap items-center justify-between gap-3",
+                )}
               >
                 <div>
                   <p className="font-medium">{deviceLabel(device)}</p>
@@ -239,11 +220,14 @@ export function ConnectedDevicesCard({
         {(status.revokedDevices?.length ?? 0) > 0 ? (
           <div className="space-y-2">
             <p className="text-sm font-medium">Removed devices</p>
-            <ul className="divide-y rounded-md border">
+            <ul className={workspaceListSurface}>
               {status.revokedDevices?.map((device) => (
                 <li
                   key={device.id}
-                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                  className={cn(
+                    workspaceListRow,
+                    "flex flex-wrap items-center justify-between gap-3",
+                  )}
                 >
                   <div>
                     <p className="font-medium">{deviceLabel(device)}</p>
@@ -273,7 +257,6 @@ export function ConnectedDevicesCard({
             </ul>
           </div>
         ) : null}
-      </CardContent>
-    </Card>
+    </WorkspacePanel>
   );
 }

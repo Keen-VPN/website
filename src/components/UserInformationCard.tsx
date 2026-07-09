@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { WorkspacePanel } from "@/components/workspace/WorkspacePanel";
+import { workspaceSectionSurface } from "@/components/workspace/workspace-ui";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2 } from "lucide-react";
@@ -129,15 +124,10 @@ export function UserInformationCard({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>User information</CardTitle>
-        <CardDescription>
-          Optional details to personalize perks, offers, and recommendations.
-          You can skip any question and update your answers later.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <WorkspacePanel
+      title="User information"
+      description="Optional details to personalize perks, offers, and recommendations. You can skip any question and update your answers later."
+    >
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -165,7 +155,11 @@ export function UserInformationCard({
             ) : null}
 
             {visibleProfileQuestions(questions, answers).map((question) => (
-              <div key={question.key} className="space-y-3">
+              <div
+                key={question.key}
+                className={workspaceSectionSurface}
+              >
+                <div className="space-y-3">
                 <div className="flex items-start justify-between gap-4">
                   <Label className="text-base leading-snug">
                     {question.label}
@@ -197,11 +191,11 @@ export function UserInformationCard({
                     </div>
                   ))}
                 </RadioGroup>
+                </div>
               </div>
             ))}
           </>
         )}
-      </CardContent>
-    </Card>
+    </WorkspacePanel>
   );
 }

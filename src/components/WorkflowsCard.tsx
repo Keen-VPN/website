@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { WorkspacePanel } from "@/components/workspace/WorkspacePanel";
+import {
+  workspaceEmptyState,
+  workspaceListRow,
+  workspaceListSurface,
+  workspaceSectionSurface,
+} from "@/components/workspace/workspace-ui";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -39,6 +39,7 @@ import {
   selectPrimaryActiveWorkflow,
   workflowStateBadge,
 } from "@/lib/workflow-ui";
+import { cn } from "@/lib/utils";
 
 interface WorkflowsCardProps {
   sessionToken: string;
@@ -304,18 +305,12 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5" />
-            Applications
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center gap-2 text-muted-foreground">
+      <WorkspacePanel title="Applications" icon={Sparkles}>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading…
-        </CardContent>
-      </Card>
+        </div>
+      </WorkspacePanel>
     );
   }
 
@@ -326,23 +321,15 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
   const badge = active ? workflowStateBadge(active.workflow.state) : null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5" />
-          Applications
-        </CardTitle>
-        <CardDescription>
-          Let KeenVPN guide you through partner applications, step by step.
-          We&apos;ll only submit anything on your behalf after you explicitly
-          approve it.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <WorkspacePanel
+      title="Applications"
+      icon={Sparkles}
+      description="Let KeenVPN guide you through partner applications, step by step. We'll only submit anything on your behalf after you explicitly approve it."
+    >
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         {!active ? (
-          <div className="rounded-md border border-dashed p-4 text-center space-y-3">
+          <div className={cn(workspaceEmptyState, "space-y-3")}>
             <p className="text-sm text-muted-foreground">
               No application in progress. Explore Perks to let KeenVPN
               auto-apply to partner offers on your behalf.
@@ -355,7 +342,7 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
             </Button>
           </div>
         ) : (
-          <div className="space-y-4 rounded-md border p-4">
+          <div className={cn(workspaceSectionSurface, "space-y-4")}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="font-medium">
@@ -417,7 +404,7 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
             )}
 
             {active.workflow.state === "WAITING_FOR_INPUT" && (
-              <div className="space-y-4 rounded-md bg-muted/40 p-3">
+              <div className={cn(workspaceSectionSurface, "space-y-4 bg-card/80")}>
                 <p className="text-sm font-medium">
                   We need a bit more information to continue.
                 </p>
@@ -453,7 +440,7 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
             )}
 
             {active.workflow.state === "WAITING_FOR_APPROVAL" && (
-              <div className="space-y-3 rounded-md bg-muted/40 p-3">
+              <div className={cn(workspaceSectionSurface, "space-y-3 bg-card/80")}>
                 <p className="text-sm font-medium">
                   Your approval is needed for &quot;
                   {humanize(active.workflow.currentStepKey ?? "")}&quot; before
@@ -495,7 +482,7 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
             )}
 
             {active.workflow.state === "WAITING_FOR_PARTNER_ACTION" && (
-              <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+              <div className={cn(workspaceSectionSurface, "text-sm text-muted-foreground")}>
                 {active.workflow.partnerName ?? "The partner"} is waiting for
                 browser review or partner action. We will update this
                 application after that step is completed.
@@ -564,13 +551,16 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
               )}
             </Button>
             {showHistory && (
-              <ul className="mt-2 divide-y rounded-md border">
+              <ul className={cn(workspaceListSurface, "mt-2")}>
                 {history.map((workflow) => {
                   const historyBadge = workflowStateBadge(workflow.state);
                   return (
                     <li
                       key={workflow.id}
-                      className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+                      className={cn(
+                        workspaceListRow,
+                        "flex flex-wrap items-center justify-between gap-2",
+                      )}
                     >
                       <div>
                         <p className="font-medium">
@@ -593,7 +583,6 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+    </WorkspacePanel>
   );
 }
