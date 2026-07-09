@@ -376,6 +376,25 @@ const Perks = () => {
     [perks, workflowsEnabled],
   );
 
+  const visibleCategories = useMemo(() => {
+    if (workflowsEnabled) return categories;
+    const nonWorkflowCategories = new Set(
+      perks
+        .filter((perk) => perk.redemptionType !== "workflow")
+        .map((perk) => perk.category),
+    );
+    return categories.filter((category) => nonWorkflowCategories.has(category));
+  }, [categories, perks, workflowsEnabled]);
+
+  useEffect(() => {
+    if (
+      selectedCategory !== "all" &&
+      !visibleCategories.includes(selectedCategory)
+    ) {
+      setSelectedCategory("all");
+    }
+  }, [selectedCategory, visibleCategories]);
+
   const featuredPerks = useMemo(
     () => visiblePerks.filter((perk) => perk.isFeatured),
     [visiblePerks],
@@ -817,7 +836,7 @@ const Perks = () => {
                   >
                     All
                   </Button>
-                  {categories.map((cat) => (
+                  {visibleCategories.map((cat) => (
                     <Button
                       key={cat}
                       size="sm"

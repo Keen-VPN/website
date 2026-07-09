@@ -18,8 +18,14 @@ let cachedFlags: ClientFeatureFlags | null = null;
 let cachedAt = 0;
 let inFlight: Promise<ClientFeatureFlags> | null = null;
 
-function readBoolean(record: Record<string, unknown>, key: string): boolean {
+function isExplicitlyTrue(record: Record<string, unknown>, key: string): boolean {
   return record[key] === true;
+}
+
+export function resetFeatureFlags(): void {
+  cachedFlags = null;
+  cachedAt = 0;
+  inFlight = null;
 }
 
 function fetchWithTimeout(url: string): Promise<Response> {
@@ -47,8 +53,8 @@ export async function fetchClientFeatureFlags(): Promise<ClientFeatureFlags> {
       }
       const record = raw as Record<string, unknown>;
       return {
-        workflowsEnabled: readBoolean(record, "workflowsEnabled"),
-        aiAssistantEnabled: readBoolean(record, "aiAssistantEnabled"),
+        workflowsEnabled: isExplicitlyTrue(record, "workflowsEnabled"),
+        aiAssistantEnabled: isExplicitlyTrue(record, "aiAssistantEnabled"),
       };
     })
     .catch(() => null)
