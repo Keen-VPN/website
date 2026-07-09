@@ -38,6 +38,7 @@ import {
   type PerkRedemptionType,
 } from "@/auth/backend";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import { useFeatureFlags } from "@/lib/feature-flags";
 import {
   AudienceTargetingPanel,
 } from "@/components/admin/AudienceTargetingPanel";
@@ -368,7 +369,11 @@ function statusLabel(status: AdminPerk["status"]) {
 
 export default function AdminPerks() {
   const { can } = useAdminAuth();
+  const { workflowsEnabled } = useFeatureFlags();
   const canWrite = can("subscriptions.write");
+  const availableRedemptionTypes = workflowsEnabled
+    ? REDEMPTION_TYPES
+    : REDEMPTION_TYPES.filter((type) => type.value !== "workflow");
 
   const [perks, setPerks] = useState<AdminPerk[]>([]);
   const [expiredPerks, setExpiredPerks] = useState<AdminPerk[]>([]);
@@ -1544,7 +1549,7 @@ export default function AdminPerks() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {REDEMPTION_TYPES.map((type) => (
+                    {availableRedemptionTypes.map((type) => (
                       <SelectItem key={type.value} value={type.value}>
                         {type.label}
                       </SelectItem>
