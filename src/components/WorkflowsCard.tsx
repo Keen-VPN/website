@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { WorkspacePanel } from "@/components/workspace/WorkspacePanel";
 import {
-  workspaceAlertBanner,
   workspaceEmptyState,
   workspaceListRow,
   workspaceListSurface,
