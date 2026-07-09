@@ -79,7 +79,7 @@ export async function fetchClientFeatureFlags(): Promise<ClientFeatureFlags> {
     .then(async (response) => {
       if (requestGeneration !== cacheGeneration) return null;
       if (!response.ok) return null;
-      const raw: unknown = await response.json().catch(() => ({}));
+      const raw: unknown = await response.json().catch(() => null);
       if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
         return null;
       }
@@ -117,11 +117,23 @@ export function useFeatureFlags(): ClientFeatureFlags {
 
   useEffect(() => {
     let cancelled = false;
-    void fetchClientFeatureFlags().then((nextFlags) => {
-      if (!cancelled) setFlags(nextFlags);
-    });
+
+    const refresh = () => {
+      void fetchClientFeatureFlags().then((nextFlags) => {
+        if (!cancelled) setFlags(nextFlags);
+      });
+    };
+
+    refresh();
+
+    const interval = window.setInterval(refresh, FLAGS_CACHE_TTL_MS);
+    const onFocus = () => refresh();
+    window.addEventListener("focus", onFocus);
+
     return () => {
       cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 

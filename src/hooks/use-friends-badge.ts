@@ -18,7 +18,7 @@ const POLL_INTERVAL_MS = 60_000;
 
 export function useFriendsBadge(options?: { poll?: boolean }): FriendsBadgeState {
   const poll = options?.poll ?? true;
-  const { user, hasSessionToken } = useAuth();
+  const { user } = useAuth();
   const [state, setState] = useState<FriendsBadgeState>({
     pendingReceived: 0,
     unreadNotifications: 0,
@@ -29,7 +29,7 @@ export function useFriendsBadge(options?: { poll?: boolean }): FriendsBadgeState
   const requestRef = useRef(0);
 
   const refresh = useCallback(async () => {
-    const sessionToken = hasSessionToken ? getSessionToken() : null;
+    const sessionToken = user ? getSessionToken() : null;
     if (!user || !sessionToken) {
       setState({
         pendingReceived: 0,
@@ -80,7 +80,7 @@ export function useFriendsBadge(options?: { poll?: boolean }): FriendsBadgeState
       loading: false,
       enabled: true,
     });
-  }, [hasSessionToken, user]);
+  }, [user]);
 
   useEffect(() => {
     if (!poll) return;
