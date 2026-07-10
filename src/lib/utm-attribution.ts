@@ -145,7 +145,11 @@ export function appendStoredUtmsToDeepLink(deepLink: string): string {
     ] as const;
     for (const key of keys) {
       const value = stored[key];
-      if (value && !url.searchParams.has(key)) {
+      if (
+        typeof value === "string" &&
+        value.trim() &&
+        !url.searchParams.has(key)
+      ) {
         url.searchParams.set(key, value);
       }
     }
