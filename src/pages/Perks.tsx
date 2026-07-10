@@ -50,11 +50,13 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WorkflowPerkDialog } from "@/components/WorkflowPerkDialog";
+import { FriendDiscoveriesSection } from "@/components/FriendDiscoveriesSection";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   claimPerk,
   dismissPerk,
+  fetchFriendsDashboard,
   fetchPerks,
   getUserProfileInformation,
   getSessionToken,
@@ -239,6 +241,18 @@ const Perks = () => {
   const [profileQuestionCount, setProfileQuestionCount] = useState(0);
   const [initialLoad, setInitialLoad] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [discoveryFriends, setDiscoveryFriends] = useState<
+    Array<{
+      userId: string;
+      displayName: string | null;
+      sharingPreferences?: {
+        shareRecommendations: boolean;
+        shareReferrals: boolean;
+        shareAiInsights: boolean;
+      };
+    }>
+  >([]);
+  const [friendsNetworkEnabled, setFriendsNetworkEnabled] = useState(false);
   const loadRequestId = useRef(0);
   const pageViewRecorded = useRef(false);
   const initialLoadRef = useRef(true);
@@ -349,6 +363,45 @@ const Perks = () => {
     if (authLoading || !user) return;
     void loadProfileSummary();
   }, [user, authLoading, loadProfileSummary]);
+
+  useEffect(() => {
+    if (authLoading || !user) {
+      setDiscoveryFriends([]);
+      setFriendsNetworkEnabled(false);
+      return;
+    }
+
+    const session = getSessionToken();
+    if (!session) return;
+
+    let cancelled = false;
+    void (async () => {
+      const res = await fetchFriendsDashboard(session);
+      if (cancelled) return;
+      if (!res.ok) {
+        setFriendsNetworkEnabled(false);
+        setDiscoveryFriends([]);
+        return;
+      }
+      const payload = res.data as {
+        friends?: Array<{
+          userId: string;
+          displayName: string | null;
+          sharingPreferences?: {
+            shareRecommendations: boolean;
+            shareReferrals: boolean;
+            shareAiInsights: boolean;
+          };
+        }>;
+      };
+      setFriendsNetworkEnabled(true);
+      setDiscoveryFriends(payload.friends ?? []);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading]);
 
   useEffect(() => {
     if (
@@ -463,6 +516,10 @@ const Perks = () => {
 
   const handleClaim = async (perk: PerkItem) => {
     if (!perk.accessible || perk.redeemed) return;
+    if (perk.applicationInProgress) {
+      void handleViewApplication(perk);
+      return;
+    }
 
     const session = getSessionToken();
     if (!session) {
@@ -503,7 +560,10 @@ const Perks = () => {
       return;
     }
 
-    trackPerksEvent("perk_claimed", { perk_id: perk.id, source: "perks_page" });
+    trackPerksEvent(
+      res.redemptionType === "workflow" ? "perk_application_started" : "perk_claimed",
+      { perk_id: perk.id, source: "perks_page" },
+    );
 
     if (res.redemptionType === "external_link" && res.redemptionUrl) {
       if (!isSafeHttpUrl(res.redemptionUrl)) {
@@ -566,6 +626,13 @@ const Perks = () => {
         title: "Session expired",
         description: "Sign in again to view this application.",
         variant: "destructive",
+      });
+      return;
+    }
+    if (perk.applicationWorkflowId) {
+      setWorkflowDialog({
+        workflowId: perk.applicationWorkflowId,
+        perkTitle: perk.title,
       });
       return;
     }
@@ -802,6 +869,15 @@ const Perks = () => {
                 </Button>
               </CardContent>
             </Card>
+          ) : null}
+
+          {user && friendsNetworkEnabled ? (
+            <div className="mb-8">
+              <FriendDiscoveriesSection
+                friends={discoveryFriends}
+                hasSession={Boolean(getSessionToken())}
+              />
+            </div>
           ) : null}
 
           {fetchError ? (
@@ -1086,6 +1162,7 @@ function PerkDetailsDialog({
 }) {
   const locked = perk ? !perk.accessible && !perk.redeemed : false;
   const isWorkflowPerk = perk?.redemptionType === "workflow";
+  const hasActiveApplication = perk?.applicationInProgress === true;
   const couponCode = perk?.couponCode?.trim() || undefined;
   const isCouponCard =
     perk?.redemptionType === "coupon_code" && couponCode !== undefined;
@@ -1207,17 +1284,22 @@ function PerkDetailsDialog({
               >
                 Close
               </Button>
-              {!locked && isWorkflowPerk && perk.redeemed ? (
+              {!locked && isWorkflowPerk && (perk.redeemed || hasActiveApplication) ? (
                 <Button disabled={claiming} onClick={onViewApplication}>
                   {claiming ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <FileText className="mr-2 h-4 w-4" />
                   )}
-                  View application
+                  {hasActiveApplication && !perk.redeemed
+                    ? perk.ctaLabel
+                    : "View application"}
                 </Button>
               ) : !locked ? (
-                <Button disabled={perk.redeemed || claiming} onClick={onClaim}>
+                <Button
+                  disabled={perk.redeemed || claiming || hasActiveApplication}
+                  onClick={onClaim}
+                >
                   {claiming ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (perk.redemptionType === "external_link" ||
@@ -1269,6 +1351,7 @@ function PerkCard({
 }) {
   const locked = !perk.accessible && !perk.redeemed;
   const isWorkflowPerk = perk.redemptionType === "workflow";
+  const hasActiveApplication = perk.applicationInProgress === true;
   const expirationLabel = formatExpirationLabel(perk);
   const couponCode = perk.couponCode?.trim() || undefined;
   const isCouponCard =
@@ -1328,6 +1411,11 @@ function PerkCard({
           ) : null}
           {perk.redeemed ? (
             <Badge className="bg-green-600">Claimed</Badge>
+          ) : null}
+          {hasActiveApplication ? (
+            <Badge variant="outline" className="border-primary/40 text-primary">
+              Application in progress
+            </Badge>
           ) : null}
           {expirationLabel ? (
             <Badge
@@ -1392,10 +1480,10 @@ function PerkCard({
               {perk.ctaLabel}
             </Button>
           </div>
-        ) : isWorkflowPerk && perk.redeemed ? (
+        ) : isWorkflowPerk && (perk.redeemed || hasActiveApplication) ? (
           <Button
             className="relative z-20 h-10 w-full"
-            variant="outline"
+            variant={hasActiveApplication && !perk.redeemed ? "default" : "outline"}
             disabled={locked || claiming}
             onClick={onViewApplication}
           >
@@ -1404,7 +1492,9 @@ function PerkCard({
             ) : (
               <FileText className="mr-2 h-4 w-4" />
             )}
-            View application
+            {hasActiveApplication && !perk.redeemed
+              ? perk.ctaLabel
+              : "View application"}
           </Button>
         ) : (
           <Button
@@ -1420,7 +1510,7 @@ function PerkCard({
             {perk.ctaLabel}
           </Button>
         )}
-        {tab === "new" && !locked && !perk.redeemed ? (
+        {tab === "new" && !locked && !perk.redeemed && !hasActiveApplication ? (
           <div className="relative z-20 flex flex-wrap gap-2">
             <Button
               type="button"

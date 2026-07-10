@@ -416,6 +416,9 @@ export interface PerkItem {
   redemptionUrl?: string;
   /** Workflow Engine type identifier for "workflow" redemption perks, e.g. "chase_signup". */
   workflowType?: string;
+  /** True when a workflow application is in progress but not yet completed. */
+  applicationInProgress?: boolean;
+  applicationWorkflowId?: string;
 }
 
 export interface PerksListPayload {
@@ -6397,5 +6400,178 @@ export async function markFriendsNotificationsRead(
     "/notifications/read",
     { method: "POST", body: JSON.stringify({ notificationIds }) },
     "Failed to mark notifications read",
+  );
+}
+
+export type DiscoverySharingMode = "auto" | "review" | "never";
+
+export type DiscoveryFeedFilter = "new" | "saved" | "dismissed" | "shared" | "pending";
+
+export type FriendShareAction = "view" | "save" | "dismiss" | "claim";
+
+export interface FriendDiscoveryShare {
+  id: string;
+  status: string;
+  message: string | null;
+  sharedAt: string;
+  viewedAt: string | null;
+  savedAt: string | null;
+  dismissedAt: string | null;
+  claimedAt: string | null;
+  sharer: { userId: string; displayName: string | null };
+  recommendation: {
+    id: string;
+    opportunityType: string;
+    partnerName: string | null;
+    perkId: string | null;
+    title: string;
+    valueLabel: string | null;
+    description: string | null;
+    ctaPath: string | null;
+    expiresAt: string | null;
+    source: string;
+  };
+}
+
+export interface FriendDiscoveryDraft {
+  id: string;
+  perkId: string;
+  friendUserIds: string[];
+  message: string | null;
+  trigger: string;
+  createdAt: string;
+  perk: {
+    title: string;
+    partnerName: string | null;
+    valueLabel: string;
+    expiresAt: string | null;
+  };
+}
+
+export async function fetchFriendDiscoveries(
+  sessionToken: string,
+  filter: DiscoveryFeedFilter = "new",
+): Promise<
+  FriendsApiResult<{
+    filter: DiscoveryFeedFilter;
+    counts: { new: number; saved: number; pending?: number };
+    items: FriendDiscoveryShare[] | FriendDiscoveryDraft[];
+  }>
+> {
+  return friendsRequest(
+    sessionToken,
+    `/discoveries?filter=${encodeURIComponent(filter)}`,
+    { method: "GET" },
+    "Failed to load discoveries",
+    { featureDisabledOn404: true },
+  );
+}
+
+export async function fetchDiscoveryPreferences(
+  sessionToken: string,
+): Promise<FriendsApiResult<{ sharingMode: DiscoverySharingMode }>> {
+  return friendsRequest(
+    sessionToken,
+    "/discoveries/preferences",
+    { method: "GET" },
+    "Failed to load discovery preferences",
+    { featureDisabledOn404: true },
+  );
+}
+
+export async function updateDiscoveryPreferences(
+  sessionToken: string,
+  sharingMode: DiscoverySharingMode,
+): Promise<
+  FriendsApiResult<{ success: boolean; sharingMode: DiscoverySharingMode }>
+> {
+  return friendsRequest(
+    sessionToken,
+    "/discoveries/preferences",
+    { method: "PATCH", body: JSON.stringify({ sharingMode }) },
+    "Failed to update discovery preferences",
+  );
+}
+
+export async function sharePerkWithFriends(
+  sessionToken: string,
+  params: {
+    perkId: string;
+    friendUserIds?: string[];
+    message?: string;
+  },
+): Promise<
+  FriendsApiResult<{
+    success: boolean;
+    recommendationId: string;
+    deliveredShareIds: string[];
+    skipped: { friendUserId: string; reason: string }[];
+  }>
+> {
+  return friendsRequest(
+    sessionToken,
+    "/discoveries/share",
+    { method: "POST", body: JSON.stringify(params) },
+    "Failed to share opportunity",
+  );
+}
+
+export async function updateFriendDiscoveryShare(
+  sessionToken: string,
+  shareId: string,
+  action: FriendShareAction,
+): Promise<
+  FriendsApiResult<{
+    success: boolean;
+    share: FriendDiscoveryShare;
+    claimCtaPath?: string | null;
+  }>
+> {
+  return friendsRequest(
+    sessionToken,
+    `/discoveries/shares/${encodeURIComponent(shareId)}`,
+    { method: "PATCH", body: JSON.stringify({ action }) },
+    "Failed to update share",
+  );
+}
+
+export async function approveFriendDiscoveryDraft(
+  sessionToken: string,
+  draftId: string,
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    `/discoveries/drafts/${encodeURIComponent(draftId)}/approve`,
+    { method: "POST" },
+    "Failed to approve share",
+  );
+}
+
+export async function dismissFriendDiscoveryDraft(
+  sessionToken: string,
+  draftId: string,
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    `/discoveries/drafts/${encodeURIComponent(draftId)}/dismiss`,
+    { method: "POST" },
+    "Failed to dismiss draft",
+  );
+}
+
+export async function updateFriendSharingPreferences(
+  sessionToken: string,
+  friendUserId: string,
+  preferences: {
+    shareRecommendations?: boolean;
+    shareReferrals?: boolean;
+    shareAiInsights?: boolean;
+  },
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    `/${encodeURIComponent(friendUserId)}/sharing`,
+    { method: "PATCH", body: JSON.stringify(preferences) },
+    "Failed to update sharing preferences",
   );
 }
