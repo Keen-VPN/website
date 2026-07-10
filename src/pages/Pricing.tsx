@@ -310,7 +310,7 @@ const Pricing = () => {
         )}
 
         {/* Pricing Cards */}
-        <section id="plans" className="container mx-auto px-4 mb-20">
+        <section id="plans" className="container mx-auto px-4 mt-16 md:mt-20 mb-20">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto items-stretch">
             {plans.map((plan, index) => {
               const isAnnual = billingPeriod === "annual";
