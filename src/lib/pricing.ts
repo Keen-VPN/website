@@ -146,7 +146,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       description: isPremium
         ? "Perfect for personal use"
         : isTeam
-          ? "Buy seats for your whole team — pay per person"
+          ? "Buy seats for your whole team, pay per person"
           : "Premium VPN service",
       monthlyPrice,
       annualPrice,
