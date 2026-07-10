@@ -1,3 +1,4 @@
+import { appendStoredUtmsToDeepLink } from "@/lib/utm-attribution";
 import {
   APP_STORE_URLS,
   isAppleAppStoreUrl,
@@ -29,7 +30,8 @@ const ASWEB_AUTH_AUTO_OPEN_DONE_KEY = "keenvpn_asweb_auth_auto_open_done";
 
 const STRIPE_CHECKOUT_RETURN_KEY = "keenvpn_stripe_checkout_return";
 const STRIPE_AUTO_OPEN_DONE_KEY = "keenvpn_stripe_auto_open_done";
-const STRIPE_POST_CHECKOUT_UI_DISMISSED_KEY = "keenvpn_stripe_post_checkout_ui_dismissed";
+const STRIPE_POST_CHECKOUT_UI_DISMISSED_KEY =
+  "keenvpn_stripe_post_checkout_ui_dismissed";
 
 function readStripeCheckoutReturnId(): string | null {
   try {
@@ -42,7 +44,10 @@ function readStripeCheckoutReturnId(): string | null {
 /** Stripe redirects to `/account?session_id=…` after checkout. */
 export function markStripeCheckoutReturn(sessionId?: string | null): void {
   try {
-    sessionStorage.setItem(STRIPE_CHECKOUT_RETURN_KEY, sessionId?.trim() || "1");
+    sessionStorage.setItem(
+      STRIPE_CHECKOUT_RETURN_KEY,
+      sessionId?.trim() || "1",
+    );
   } catch {
     /* private mode / blocked storage */
   }
@@ -85,7 +90,9 @@ export function shouldShowStripePostCheckoutUi(): boolean {
     return false;
   }
   try {
-    return sessionStorage.getItem(STRIPE_POST_CHECKOUT_UI_DISMISSED_KEY) !== returnId;
+    return (
+      sessionStorage.getItem(STRIPE_POST_CHECKOUT_UI_DISMISSED_KEY) !== returnId
+    );
   } catch {
     return false;
   }
@@ -162,10 +169,12 @@ export function openKeenVpnNativeApp(
     return;
   }
 
+  const resolvedDeepLink = appendStoredUtmsToDeepLink(deepLink);
+
   try {
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";
-    iframe.src = deepLink;
+    iframe.src = resolvedDeepLink;
     document.body.appendChild(iframe);
     window.setTimeout(() => iframe.remove(), 500);
   } catch {
@@ -173,7 +182,7 @@ export function openKeenVpnNativeApp(
   }
 
   const anchor = document.createElement("a");
-  anchor.href = deepLink;
+  anchor.href = resolvedDeepLink;
   document.body.appendChild(anchor);
   anchor.click();
   window.setTimeout(() => anchor.remove(), 100);
@@ -238,7 +247,9 @@ export function shouldAutoOpenAppAfterAsWebAuth(sessionToken: string): boolean {
     return false;
   }
   try {
-    return sessionStorage.getItem(ASWEB_AUTH_AUTO_OPEN_DONE_KEY) !== sessionToken;
+    return (
+      sessionStorage.getItem(ASWEB_AUTH_AUTO_OPEN_DONE_KEY) !== sessionToken
+    );
   } catch {
     return false;
   }

@@ -127,3 +127,34 @@ export function getUtmAttributionAuthPayload(): UtmAttributionAuthPayload {
   if (!stored) return {};
   return { utmAttribution: stored };
 }
+
+export function appendStoredUtmsToDeepLink(deepLink: string): string {
+  const stored = getStoredUtmAttribution();
+  if (!stored) return deepLink;
+
+  try {
+    const url = new URL(deepLink);
+    const keys = [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_content",
+      "utm_term",
+      "landing_path",
+      "captured_at",
+    ] as const;
+    for (const key of keys) {
+      const value = stored[key];
+      if (
+        typeof value === "string" &&
+        value.trim() &&
+        !url.searchParams.has(key)
+      ) {
+        url.searchParams.set(key, value);
+      }
+    }
+    return url.toString();
+  } catch {
+    return deepLink;
+  }
+}
