@@ -255,7 +255,13 @@ export default function AdminChurn() {
         <SummaryCard
           title="Active at month start"
           value={report ? String(report.startOfMonthActiveUsers) : "—"}
-          subtitle={formatMonthLabel(month, year)}
+          subtitle={
+            report &&
+            report.startOfMonthPaidUsers != null &&
+            report.startOfMonthTrialUsers != null
+              ? `${report.startOfMonthPaidUsers} paid · ${report.startOfMonthTrialUsers} trial`
+              : formatMonthLabel(month, year)
+          }
           loading={loading}
         />
         <SummaryCard

@@ -9,9 +9,11 @@ import {
 import {
   adminFetchWeeklyChurnReport,
   adminFetchWeeklyChurnTrend,
+  adminFetchWeeklySessionKpis,
   type AdminChurnSubscriptionSource,
   type AdminWeeklyChurnReport,
   type AdminWeeklyChurnTrendReport,
+  type AdminWeeklySessionKpiReport,
 } from "@/auth/backend";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +36,34 @@ import {
   trendWindowEnd,
   trendWindowStart,
 } from "@/lib/iso-week";
+
+function formatWeeklyActiveUsersValue(
+  engagement: AdminWeeklySessionKpiReport["summary"] | undefined,
+): string {
+  if (!engagement) return "—";
+  return String(engagement.active_users);
+}
+
+function formatSignedInteger(value: number): string {
+  if (value === 0) return "0";
+  return `${value > 0 ? "+" : ""}${value}`;
+}
+
+function formatWeeklyActiveUsersSubtitle(
+  engagement: AdminWeeklySessionKpiReport["summary"] | undefined,
+): string {
+  if (!engagement) {
+    return "Unavailable — engagement data failed to load";
+  }
+  if (
+    engagement.active_users_vpn_only != null &&
+    engagement.active_users_perk_only != null &&
+    engagement.active_users_vpn_and_perk != null
+  ) {
+    return `${engagement.active_users_vpn_only} VPN only · ${engagement.active_users_perk_only} perk only · ${engagement.active_users_vpn_and_perk} both`;
+  }
+  return "Breakdown unavailable for this week";
+}
 
 function pct(value: number): string {
   return `${value.toFixed(2)}%`;
@@ -117,9 +147,12 @@ export default function AdminChurnWeekly() {
   const [source, setSource] = useState<AdminChurnSubscriptionSource>("all");
   const [trendMetric, setTrendMetric] = useState<ChurnTrendMetric>("churned");
   const [report, setReport] = useState<AdminWeeklyChurnReport | null>(null);
+  const [engagement, setEngagement] =
+    useState<AdminWeeklySessionKpiReport | null>(null);
   const [trend, setTrend] = useState<AdminWeeklyChurnTrendReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [engagementWarning, setEngagementWarning] = useState<string | null>(null);
   const loadGeneration = useRef(0);
 
   const load = useCallback(
@@ -132,19 +165,27 @@ export default function AdminChurnWeekly() {
 
       setLoading(true);
       setError(null);
+      setEngagementWarning(null);
       setReport(null);
+      setEngagement(null);
       setTrend(null);
 
       const from = trendWindowStart(targetYear, targetWeek, 8);
       const to = trendWindowEnd(targetYear, targetWeek);
 
-      const [reportRes, trendRes] = await Promise.all([
+      const [reportRes, trendRes, engagementRes] = await Promise.all([
         adminFetchWeeklyChurnReport({
           year: targetYear,
           week: targetWeek,
           source: targetSource,
         }),
         adminFetchWeeklyChurnTrend({ from, to, source: targetSource }),
+        adminFetchWeeklySessionKpis({
+          year: targetYear,
+          week: targetWeek,
+          minDurationSeconds: 10,
+          includeWow: true,
+        }),
       ]);
 
       if (generation !== loadGeneration.current) {
@@ -153,6 +194,7 @@ export default function AdminChurnWeekly() {
 
       if (!reportRes.ok || !reportRes.data) {
         setReport(null);
+        setEngagement(null);
         setTrend(null);
         setError(reportRes.error ?? "Failed to load weekly churn report");
         setLoading(false);
@@ -160,6 +202,14 @@ export default function AdminChurnWeekly() {
       }
 
       setReport(reportRes.data);
+      if (engagementRes.ok && engagementRes.data) {
+        setEngagement(engagementRes.data);
+      } else {
+        setEngagement(null);
+        setEngagementWarning(
+          engagementRes.error ?? "Weekly active users unavailable for this week",
+        );
+      }
       if (trendRes.ok && trendRes.data) {
         setTrend(trendRes.data);
       } else {
@@ -216,7 +266,9 @@ export default function AdminChurnWeekly() {
           <p className="text-sm text-muted-foreground">
             ISO week (Monday UTC). Churn = subscribers lost this week (cancellations
             + account deletions) ÷ active at week start. Users who switch billing
-            source are not counted as churned. Internal test accounts are excluded.
+            source are not counted as churned. Weekly active users = VPN session or
+            perk click (breakdown sums to the total). Internal test accounts are
+            excluded.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -269,19 +321,49 @@ export default function AdminChurnWeekly() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {engagementWarning ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          {engagementWarning}
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <SummaryCard
           title="Active at week start"
           value={report ? String(report.startOfWeekActiveUsers) : "—"}
-          subtitle={report?.weekRangeLabel ?? weekInputValue}
+          subtitle={
+            report &&
+            report.startOfWeekPaidUsers != null &&
+            report.startOfWeekTrialUsers != null
+              ? `${report.startOfWeekPaidUsers} paid · ${report.startOfWeekTrialUsers} trial · ${report.weekRangeLabel}`
+              : (report?.weekRangeLabel ?? weekInputValue)
+          }
           loading={loading}
+        />
+        <SummaryCard
+          title="Weekly active users"
+          value={formatWeeklyActiveUsersValue(engagement?.summary)}
+          subtitle={formatWeeklyActiveUsersSubtitle(engagement?.summary)}
+          detail={
+            engagement?.summary.week_range_label ??
+            report?.weekRangeLabel ??
+            weekInputValue
+          }
+          loading={loading}
+          delta={
+            engagement?.week_over_week
+              ? formatSignedInteger(engagement.week_over_week.delta_active_users)
+              : undefined
+          }
         />
         <SummaryCard
           title="Weekly churn"
           value={report ? `${report.churned} (${pct(report.churnRate)})` : "—"}
           subtitle={
             report
-              ? `Lost this week: ${report.churnedFromCancellation} cancelled, ${report.accountsDeleted} deleted account${report.accountsDeleted === 1 ? "" : "s"}`
+              ? report.churnedPaidUsers != null && report.churnedTrialUsers != null
+                ? `Lost: ${report.churnedPaidUsers} paid, ${report.churnedTrialUsers} trial (${report.churnedFromCancellation} cancelled, ${report.accountsDeleted} deleted)`
+                : `Lost this week: ${report.churnedFromCancellation} cancelled, ${report.accountsDeleted} deleted account${report.accountsDeleted === 1 ? "" : "s"}`
               : "Subscribers lost this week"
           }
           loading={loading}
@@ -307,6 +389,52 @@ export default function AdminChurnWeekly() {
           loading={loading}
         />
       </div>
+
+      {!loading && report && report.bySubscriptionStatus && report.bySubscriptionStatus.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Churn by subscription status</CardTitle>
+            <CardDescription>Paid vs free trial at week start.</CardDescription>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-muted-foreground">
+                  <th className="pb-2 pr-4 font-medium">Status</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Active (start)</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Churned</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Churn %</th>
+                  <th className="pb-2 pr-4 font-medium text-right">Auto-renew off</th>
+                  <th className="pb-2 font-medium text-right">Expirations</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.bySubscriptionStatus.map((row) => (
+                  <tr
+                    key={row.subscriptionStatus}
+                    className="border-t border-border/60"
+                  >
+                    <td className="py-2 pr-4 capitalize">{row.subscriptionStatus}</td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {row.activeAtWeekStart}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">{row.churned}</td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {pct(row.churnRate)}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {row.autoRenewDisabled}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">
+                      {row.subscriptionExpirations}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {!loading && report && source === "all" && report.bySubscriptionSource.length > 0 ? (
         <Card>
@@ -474,11 +602,15 @@ function SummaryCard({
   value,
   subtitle,
   loading,
+  detail,
+  delta,
 }: {
   title: string;
   value: string;
   subtitle: string;
   loading: boolean;
+  detail?: string;
+  delta?: string;
 }) {
   return (
     <Card>
@@ -486,10 +618,18 @@ function SummaryCard({
         <CardDescription>{title}</CardDescription>
         <CardTitle className="text-2xl tabular-nums">
           {loading ? "…" : value}
+          {!loading && delta ? (
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              ({delta} WoW)
+            </span>
+          ) : null}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <p className="text-xs text-muted-foreground">{subtitle}</p>
+        {detail ? (
+          <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+        ) : null}
       </CardContent>
     </Card>
   );
