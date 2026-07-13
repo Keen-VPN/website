@@ -1182,26 +1182,38 @@ export default function AdminPerks() {
                       </td>
                       <td className="px-4 py-3.5 align-top">
                         <div className="space-y-2">
-                          <label className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                            <span>Featured</span>
+                          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                            <Label
+                              htmlFor={`perk-featured-${perk.id}`}
+                              className="text-xs font-normal text-muted-foreground"
+                            >
+                              Featured
+                            </Label>
                             <Switch
+                              id={`perk-featured-${perk.id}`}
                               checked={perk.isFeatured}
                               disabled={!canWrite}
                               onCheckedChange={(checked) =>
                                 void toggleFeatured(perk, checked)
                               }
                             />
-                          </label>
-                          <label className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                            <span>Active</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                            <Label
+                              htmlFor={`perk-active-${perk.id}`}
+                              className="text-xs font-normal text-muted-foreground"
+                            >
+                              Active
+                            </Label>
                             <Switch
+                              id={`perk-active-${perk.id}`}
                               checked={perk.isActive}
                               disabled={!canWrite}
                               onCheckedChange={(checked) =>
                                 void toggleActive(perk, checked)
                               }
                             />
-                          </label>
+                          </div>
                         </div>
                       </td>
                       {canWrite ? (

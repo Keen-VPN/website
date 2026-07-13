@@ -110,7 +110,7 @@ export function FriendDiscoveriesSection({
   const { toast } = useToast();
   const [filter, setFilter] = useState<DiscoveryFeedFilter>("new");
   const [items, setItems] = useState<
-    Array<FriendDiscoveryShare | FriendDiscoveryDraft>
+    (FriendDiscoveryShare | FriendDiscoveryDraft)[]
   >([]);
   const [counts, setCounts] = useState({ new: 0, saved: 0, pending: 0 });
   const [sharingMode, setSharingMode] =

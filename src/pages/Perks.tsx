@@ -245,7 +245,7 @@ const Perks = () => {
   const [initialLoad, setInitialLoad] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [discoveryFriends, setDiscoveryFriends] = useState<
-    Array<{
+    {
       userId: string;
       displayName: string | null;
       sharingPreferences?: {
@@ -253,7 +253,7 @@ const Perks = () => {
         shareReferrals: boolean;
         shareAiInsights: boolean;
       };
-    }>
+    }[]
   >([]);
   const [friendsNetworkEnabled, setFriendsNetworkEnabled] = useState(false);
   const [discoveryRefreshKey, setDiscoveryRefreshKey] = useState(0);
@@ -392,7 +392,7 @@ const Perks = () => {
         return;
       }
       const payload = res.data as {
-        friends?: Array<{
+        friends?: {
           userId: string;
           displayName: string | null;
           sharingPreferences?: {
@@ -400,7 +400,7 @@ const Perks = () => {
             shareReferrals: boolean;
             shareAiInsights: boolean;
           };
-        }>;
+        }[];
       };
       setFriendsNetworkEnabled(true);
       setDiscoveryFriends(payload.friends ?? []);

@@ -19,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -659,9 +660,15 @@ export default function Friends() {
                           <p className="text-xs font-medium text-muted-foreground">
                             Share with this friend
                           </p>
-                          <label className="flex items-center justify-between gap-3 text-sm">
-                            <span>Recommendations</span>
+                          <div className="flex items-center justify-between gap-3 text-sm">
+                            <Label
+                              htmlFor={`friend-share-recommendations-${friend.userId}`}
+                              className="font-normal"
+                            >
+                              Recommendations
+                            </Label>
                             <Switch
+                              id={`friend-share-recommendations-${friend.userId}`}
                               checked={
                                 friend.sharingPreferences?.shareRecommendations ??
                                 false
@@ -675,10 +682,16 @@ export default function Friends() {
                                 )
                               }
                             />
-                          </label>
-                          <label className="flex items-center justify-between gap-3 text-sm">
-                            <span>Referrals</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 text-sm">
+                            <Label
+                              htmlFor={`friend-share-referrals-${friend.userId}`}
+                              className="font-normal"
+                            >
+                              Referrals
+                            </Label>
                             <Switch
+                              id={`friend-share-referrals-${friend.userId}`}
                               checked={
                                 friend.sharingPreferences?.shareReferrals ?? false
                               }
@@ -691,10 +704,16 @@ export default function Friends() {
                                 )
                               }
                             />
-                          </label>
-                          <label className="flex items-center justify-between gap-3 text-sm">
-                            <span>AI insights</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 text-sm">
+                            <Label
+                              htmlFor={`friend-share-ai-${friend.userId}`}
+                              className="font-normal"
+                            >
+                              AI insights
+                            </Label>
                             <Switch
+                              id={`friend-share-ai-${friend.userId}`}
                               checked={
                                 friend.sharingPreferences?.shareAiInsights ?? false
                               }
@@ -707,7 +726,7 @@ export default function Friends() {
                                 )
                               }
                             />
-                          </label>
+                          </div>
                         </div>
                       </div>
                     ))}

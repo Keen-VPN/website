@@ -560,23 +560,27 @@ export default function AdminWorkflows() {
               <Label>Required vault fields</Label>
               <div className="mt-2 max-h-64 space-y-2 overflow-y-auto rounded-md border border-slate-800 bg-slate-950/60 p-3">
                 {vaultFields.map((field) => (
-                  <label
+                  <div
                     key={field.key}
                     className="flex items-start gap-2 text-sm text-slate-200"
                   >
                     <input
+                      id={`vault-field-${field.key}`}
                       type="checkbox"
                       className="mt-1"
                       checked={selectedVaultKeys.includes(field.key)}
                       onChange={() => toggleVaultKey(field.key)}
                     />
-                    <span>
+                    <Label
+                      htmlFor={`vault-field-${field.key}`}
+                      className="cursor-pointer font-normal text-slate-200"
+                    >
                       <span className="font-medium">{field.label}</span>
                       <span className="block text-xs text-slate-500">
                         {field.key} · {field.category.toLowerCase()}
                       </span>
-                    </span>
-                  </label>
+                    </Label>
+                  </div>
                 ))}
                 {vaultFields.length === 0 ? (
                   <p className="text-sm text-slate-500">
