@@ -115,6 +115,7 @@ export function FriendDiscoveriesSection({
   const [counts, setCounts] = useState({ new: 0, saved: 0, pending: 0 });
   const [sharingMode, setSharingMode] =
     useState<DiscoverySharingMode>("review");
+  const sharingModeRequestRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -164,17 +165,18 @@ export function FriendDiscoveriesSection({
   async function handleSharingModeChange(mode: DiscoverySharingMode) {
     const token = getSessionToken();
     if (!token) return;
-    const previous = sharingMode;
-    setSharingMode(mode);
+    const requestId = ++sharingModeRequestRef.current;
     const res = await updateDiscoveryPreferences(token, mode);
+    if (requestId !== sharingModeRequestRef.current) return;
     if (!res.ok) {
-      setSharingMode(previous);
       toast({
         title: "Could not update preference",
         description: res.error,
         variant: "destructive",
       });
+      return;
     }
+    setSharingMode(mode);
   }
 
   async function openShareDialog() {

@@ -30,7 +30,7 @@ import {
 } from "@/auth/backend";
 import { getUserProfileInformation, type ProfileQuestion } from "@/auth";
 import { getVisibleWorkflowQuestionKeys } from "@/components/WorkflowQuestionFields";
-import { getVaultAnswersValidationError } from "@/lib/vault-fields";
+import { getVaultAnswersValidationError, normalizeVaultFieldValueForSave } from "@/lib/vault-fields";
 import { WorkflowMissingInputFields } from "@/components/WorkflowMissingInputFields";
 import { WorkflowVaultConsentPanel } from "@/components/WorkflowVaultConsentPanel";
 import {
@@ -245,7 +245,10 @@ export function WorkflowsCard({ sessionToken }: WorkflowsCardProps) {
     }
     const sanitized = Object.fromEntries(
       visibleQuestionKeys
-        .map((key) => [key, (answers[key] ?? "").trim()])
+        .map((key) => [
+          key,
+          normalizeVaultFieldValueForSave(key, answers[key] ?? ""),
+        ])
         .filter(([, value]) => value.length > 0),
     );
     setSubmitting(true);

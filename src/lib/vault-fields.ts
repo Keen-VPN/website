@@ -170,11 +170,13 @@ export function parseVaultAddress(value: string): VaultAddress {
 
 /** Serialize address fields to the JSON string the vault API expects. */
 export function serializeVaultAddress(address: VaultAddress): string {
-  const line1 = address.line1.trim();
-  const line2 = address.line2?.trim() ?? "";
-  const city = address.city.trim();
-  const state = address.state.trim();
-  const postalCode = address.postalCode.trim();
+  // Do not trim here — this runs on every keystroke while editing. Trimming
+  // would drop trailing spaces and merge words (e.g. "123 Main" → "123Main").
+  const line1 = address.line1;
+  const line2 = address.line2 ?? "";
+  const city = address.city;
+  const state = address.state;
+  const postalCode = address.postalCode;
 
   if (!line1 && !line2 && !city && !state && !postalCode) {
     return "";
@@ -183,6 +185,29 @@ export function serializeVaultAddress(address: VaultAddress): string {
   const payload: VaultAddress = { line1, city, state, postalCode };
   if (line2) payload.line2 = line2;
   return JSON.stringify(payload);
+}
+
+/** Trim address field values for vault persistence / API submit. */
+export function normalizeVaultAddressValue(value: string): string {
+  const address = parseVaultAddress(value);
+  return serializeVaultAddress({
+    line1: address.line1.trim(),
+    line2: address.line2?.trim() ?? "",
+    city: address.city.trim(),
+    state: address.state.trim(),
+    postalCode: address.postalCode.trim(),
+  });
+}
+
+/** Normalize a vault field value before validation + persistence. */
+export function normalizeVaultFieldValueForSave(
+  fieldKey: string,
+  value: string,
+): string {
+  if (fieldKey === "home_address" || fieldKey === "mailing_address") {
+    return normalizeVaultAddressValue(value);
+  }
+  return value.trim();
 }
 
 export function isValidSsn(value: string): boolean {
@@ -273,7 +298,7 @@ export function getVaultAnswersValidationError(
 ): string | null {
   for (const key of keys) {
     if (!isVaultFieldKey(key)) continue;
-    const value = (answers[key] ?? "").trim();
+    const value = normalizeVaultFieldValueForSave(key, answers[key] ?? "");
     if (!value) continue;
     const error = getVaultFieldValidationError(key, value);
     if (error) {
