@@ -312,7 +312,11 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
           if (!open) closeFieldModal();
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent
+          className={
+            activeField?.inputType === "address" ? "sm:max-w-lg" : "sm:max-w-md"
+          }
+        >
           {activeField ? (
             <>
               <DialogHeader>
@@ -339,9 +343,11 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <Label htmlFor={`vault-${activeField.fieldKey}`}>
-                      {activeField.label}
-                    </Label>
+                    {activeField.inputType !== "address" ? (
+                      <Label htmlFor={`vault-${activeField.fieldKey}`}>
+                        {activeField.label}
+                      </Label>
+                    ) : null}
                     <VaultFieldInput
                       id={`vault-${activeField.fieldKey}`}
                       inputType={activeField.inputType}

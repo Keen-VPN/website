@@ -136,6 +136,55 @@ export function formatSsnInput(raw: string): string {
   return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
 }
 
+/** Structured address stored as JSON in vault fields. */
+export interface VaultAddress {
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+}
+
+export function emptyVaultAddress(): VaultAddress {
+  return { line1: "", line2: "", city: "", state: "", postalCode: "" };
+}
+
+export function parseVaultAddress(value: string): VaultAddress {
+  const trimmed = value.trim();
+  if (!trimmed) return emptyVaultAddress();
+
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    return {
+      line1: typeof parsed.line1 === "string" ? parsed.line1 : "",
+      line2: typeof parsed.line2 === "string" ? parsed.line2 : "",
+      city: typeof parsed.city === "string" ? parsed.city : "",
+      state: typeof parsed.state === "string" ? parsed.state : "",
+      postalCode:
+        typeof parsed.postalCode === "string" ? parsed.postalCode : "",
+    };
+  } catch {
+    return emptyVaultAddress();
+  }
+}
+
+/** Serialize address fields to the JSON string the vault API expects. */
+export function serializeVaultAddress(address: VaultAddress): string {
+  const line1 = address.line1.trim();
+  const line2 = address.line2?.trim() ?? "";
+  const city = address.city.trim();
+  const state = address.state.trim();
+  const postalCode = address.postalCode.trim();
+
+  if (!line1 && !line2 && !city && !state && !postalCode) {
+    return "";
+  }
+
+  const payload: VaultAddress = { line1, city, state, postalCode };
+  if (line2) payload.line2 = line2;
+  return JSON.stringify(payload);
+}
+
 export function isValidSsn(value: string): boolean {
   return SSN_PATTERN.test(value.trim());
 }
@@ -190,23 +239,23 @@ export function getVaultFieldValidationError(
       try {
         const parsed = JSON.parse(trimmed) as Record<string, unknown>;
         if (typeof parsed.line1 !== "string" || !parsed.line1.trim()) {
-          return "Address line1 is required";
+          return "Street address is required";
         }
         if (typeof parsed.city !== "string" || !parsed.city.trim()) {
-          return "Address city is required";
+          return "City is required";
         }
         if (typeof parsed.state !== "string" || !parsed.state.trim()) {
-          return "Address state is required";
+          return "State is required";
         }
         if (
           typeof parsed.postalCode !== "string" ||
           !parsed.postalCode.trim()
         ) {
-          return "Address postalCode is required";
+          return "ZIP / postal code is required";
         }
       } catch (error) {
         if (error instanceof SyntaxError) {
-          return "Address must be valid JSON";
+          return "Please fill in all address fields";
         }
         return error instanceof Error ? error.message : "Invalid address";
       }

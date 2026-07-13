@@ -53,9 +53,16 @@ export function WorkflowMissingInputFields({
 
         if (isVaultFieldKey(key)) {
           const vaultField = getVaultFieldDefinition(key);
+          const isAddress = vaultField.inputType === "address";
           return (
             <div key={key} className="space-y-2">
-              <Label htmlFor={`${idPrefix}-${key}`}>{vaultField.label}</Label>
+              {isAddress ? (
+                <p className="text-sm font-medium leading-none">
+                  {vaultField.label}
+                </p>
+              ) : (
+                <Label htmlFor={`${idPrefix}-${key}`}>{vaultField.label}</Label>
+              )}
               <VaultFieldInput
                 id={`${idPrefix}-${key}`}
                 inputType={vaultField.inputType}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Copy,
   Loader2,
@@ -18,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -46,13 +48,20 @@ import {
   markFriendsNotificationsRead,
   removeFriend,
   reportFriendUser,
+  updateFriendSharingPreferences,
 } from "@/auth";
+import { Switch } from "@/components/ui/switch";
 
 interface FriendRow {
   relationshipId: string;
   userId: string;
   displayName: string | null;
   friendsSince: string;
+  sharingPreferences?: {
+    shareRecommendations: boolean;
+    shareReferrals: boolean;
+    shareAiInsights: boolean;
+  };
 }
 
 interface PendingRow {
@@ -107,6 +116,8 @@ function notificationMessage(notification: FriendNotification): string {
       return `${name} accepted your friend request`;
     case "friend_removed":
       return "A friend removed you from their network";
+    case "friend_discovery_shared":
+      return `${name} shared an opportunity with you`;
     default:
       return "Friends network update";
   }
@@ -302,6 +313,52 @@ export default function Friends() {
     }
   }
 
+  async function handleSharingPreferenceChange(
+    friend: FriendRow,
+    key: "shareRecommendations" | "shareReferrals" | "shareAiInsights",
+    checked: boolean,
+  ) {
+    const token = getSessionToken();
+    if (!token || !dashboard) return;
+    setSubmitting(true);
+    const res = await updateFriendSharingPreferences(token, friend.userId, {
+      [key]: checked,
+    });
+    setSubmitting(false);
+    if (!res.ok) {
+      toast({
+        title: "Could not update sharing",
+        description: res.error,
+        variant: "destructive",
+      });
+      return;
+    }
+    setDashboard({
+      ...dashboard,
+      friends: dashboard.friends.map((row) =>
+        row.userId === friend.userId
+          ? {
+              ...row,
+              sharingPreferences: {
+                shareRecommendations:
+                  key === "shareRecommendations"
+                    ? checked
+                    : (row.sharingPreferences?.shareRecommendations ?? false),
+                shareReferrals:
+                  key === "shareReferrals"
+                    ? checked
+                    : (row.sharingPreferences?.shareReferrals ?? false),
+                shareAiInsights:
+                  key === "shareAiInsights"
+                    ? checked
+                    : (row.sharingPreferences?.shareAiInsights ?? false),
+              },
+            }
+          : row,
+      ),
+    });
+  }
+
   function copyInviteLink() {
     if (!dashboard?.inviteUrl) return;
     void navigator.clipboard.writeText(dashboard.inviteUrl);
@@ -329,8 +386,12 @@ export default function Friends() {
             ) : null}
           </div>
           <p className="mt-2 text-muted-foreground">
-            Build a trusted Private Value Network. Share discoveries with people
-            you know — nothing is shared unless you choose to.
+            Manage your trusted network and sharing preferences. Friend
+            discoveries and shared opportunities live on{" "}
+            <Link to="/perks" className="text-primary underline-offset-2 hover:underline">
+              Perks
+            </Link>
+            .
           </p>
         </div>
 
@@ -564,34 +625,108 @@ export default function Friends() {
                     {dashboard.friends.map((friend) => (
                       <div
                         key={friend.relationshipId}
-                        className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+                        className="rounded-lg border p-3"
                       >
-                        <div>
-                          <p className="font-medium">
-                            {friend.displayName?.trim() || "KeenVPN member"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Friends since {formatDate(friend.friendsSince)}
-                          </p>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="font-medium">
+                              {friend.displayName?.trim() || "KeenVPN member"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Friends since {formatDate(friend.friendsSince)}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={submitting}
+                              onClick={() => setRemoveTarget(friend)}
+                            >
+                              <UserMinus className="mr-1 h-4 w-4" />
+                              Remove
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={submitting}
+                              onClick={() => setReportTarget(friend)}
+                            >
+                              Report
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={submitting}
-                            onClick={() => setRemoveTarget(friend)}
-                          >
-                            <UserMinus className="mr-1 h-4 w-4" />
-                            Remove
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={submitting}
-                            onClick={() => setReportTarget(friend)}
-                          >
-                            Report
-                          </Button>
+                        <div className="mt-4 space-y-2 border-t pt-3">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Share with this friend
+                          </p>
+                          <div className="flex items-center justify-between gap-3 text-sm">
+                            <Label
+                              htmlFor={`friend-share-recommendations-${friend.userId}`}
+                              className="font-normal"
+                            >
+                              Recommendations
+                            </Label>
+                            <Switch
+                              id={`friend-share-recommendations-${friend.userId}`}
+                              checked={
+                                friend.sharingPreferences?.shareRecommendations ??
+                                false
+                              }
+                              disabled={submitting}
+                              onCheckedChange={(checked) =>
+                                void handleSharingPreferenceChange(
+                                  friend,
+                                  "shareRecommendations",
+                                  checked,
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-3 text-sm">
+                            <Label
+                              htmlFor={`friend-share-referrals-${friend.userId}`}
+                              className="font-normal"
+                            >
+                              Referrals
+                            </Label>
+                            <Switch
+                              id={`friend-share-referrals-${friend.userId}`}
+                              checked={
+                                friend.sharingPreferences?.shareReferrals ?? false
+                              }
+                              disabled={submitting}
+                              onCheckedChange={(checked) =>
+                                void handleSharingPreferenceChange(
+                                  friend,
+                                  "shareReferrals",
+                                  checked,
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-3 text-sm">
+                            <Label
+                              htmlFor={`friend-share-ai-${friend.userId}`}
+                              className="font-normal"
+                            >
+                              AI insights
+                            </Label>
+                            <Switch
+                              id={`friend-share-ai-${friend.userId}`}
+                              checked={
+                                friend.sharingPreferences?.shareAiInsights ?? false
+                              }
+                              disabled={submitting}
+                              onCheckedChange={(checked) =>
+                                void handleSharingPreferenceChange(
+                                  friend,
+                                  "shareAiInsights",
+                                  checked,
+                                )
+                              }
+                            />
+                          </div>
                         </div>
                       </div>
                     ))}
