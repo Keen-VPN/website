@@ -256,8 +256,10 @@ export default function AdminChurn() {
           title="Active at month start"
           value={report ? String(report.startOfMonthActiveUsers) : "—"}
           subtitle={
-            report
-              ? `${report.startOfMonthPaidUsers ?? report.startOfMonthActiveUsers} paid · ${report.startOfMonthTrialUsers ?? 0} trial`
+            report &&
+            report.startOfMonthPaidUsers != null &&
+            report.startOfMonthTrialUsers != null
+              ? `${report.startOfMonthPaidUsers} paid · ${report.startOfMonthTrialUsers} trial`
               : formatMonthLabel(month, year)
           }
           loading={loading}

@@ -283,7 +283,7 @@ export default function AdminConnectionEngagementWeekly() {
     () =>
       (trend?.points ?? []).map((p) => ({
         label: p.week_label,
-        vpnUsers: p.active_users_with_connections ?? p.active_users,
+        vpnUsers: p.active_users_with_connections ?? 0,
         medianConnections: p.median_connections_per_user,
         totalConnections: p.total_connections,
         medianConnectionSeconds: p.median_connection_seconds,
@@ -418,19 +418,16 @@ export default function AdminConnectionEngagementWeekly() {
         <KpiCard
           title="VPN users"
           value={
-            report
-              ? String(
-                  report.summary.active_users_with_connections ??
-                    report.summary.active_users,
-                )
+            report && report.summary.active_users_with_connections != null
+              ? String(report.summary.active_users_with_connections)
               : "—"
           }
           subtitle="Unique users with a qualifying VPN session"
           detail={report?.summary.week_range_label}
           loading={loading}
           delta={
-            wow
-              ? formatDelta(wow.delta_active_users_with_connections ?? wow.delta_active_users)
+            wow && wow.delta_active_users_with_connections != null
+              ? formatDelta(wow.delta_active_users_with_connections)
               : undefined
           }
         />

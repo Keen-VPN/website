@@ -53,7 +53,7 @@ function formatWeeklyActiveUsersSubtitle(
   engagement: AdminWeeklySessionKpiReport["summary"] | undefined,
 ): string {
   if (!engagement) {
-    return "VPN session or perk click-through (≥1 each)";
+    return "Unavailable — engagement data failed to load";
   }
   if (
     engagement.active_users_vpn_only != null &&
@@ -62,10 +62,7 @@ function formatWeeklyActiveUsersSubtitle(
   ) {
     return `${engagement.active_users_vpn_only} VPN only · ${engagement.active_users_perk_only} perk only · ${engagement.active_users_vpn_and_perk} both`;
   }
-  const viaVpn =
-    engagement.active_users_with_connections ?? engagement.active_users;
-  const viaPerk = engagement.active_users_with_perk_clicks ?? 0;
-  return `${viaVpn} via VPN · ${viaPerk} via perk click`;
+  return "Breakdown unavailable for this week";
 }
 
 function pct(value: number): string {
@@ -155,6 +152,7 @@ export default function AdminChurnWeekly() {
   const [trend, setTrend] = useState<AdminWeeklyChurnTrendReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [engagementWarning, setEngagementWarning] = useState<string | null>(null);
   const loadGeneration = useRef(0);
 
   const load = useCallback(
@@ -167,6 +165,7 @@ export default function AdminChurnWeekly() {
 
       setLoading(true);
       setError(null);
+      setEngagementWarning(null);
       setReport(null);
       setEngagement(null);
       setTrend(null);
@@ -207,6 +206,9 @@ export default function AdminChurnWeekly() {
         setEngagement(engagementRes.data);
       } else {
         setEngagement(null);
+        setEngagementWarning(
+          engagementRes.error ?? "Weekly active users unavailable for this week",
+        );
       }
       if (trendRes.ok && trendRes.data) {
         setTrend(trendRes.data);
@@ -319,14 +321,22 @@ export default function AdminChurnWeekly() {
         </div>
       ) : null}
 
+      {engagementWarning ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          {engagementWarning}
+        </div>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <SummaryCard
           title="Active at week start"
           value={report ? String(report.startOfWeekActiveUsers) : "—"}
           subtitle={
-            report
-              ? `${report.startOfWeekPaidUsers ?? report.startOfWeekActiveUsers} paid · ${report.startOfWeekTrialUsers ?? 0} trial · ${report.weekRangeLabel}`
-              : weekInputValue
+            report &&
+            report.startOfWeekPaidUsers != null &&
+            report.startOfWeekTrialUsers != null
+              ? `${report.startOfWeekPaidUsers} paid · ${report.startOfWeekTrialUsers} trial · ${report.weekRangeLabel}`
+              : (report?.weekRangeLabel ?? weekInputValue)
           }
           loading={loading}
         />
@@ -351,7 +361,9 @@ export default function AdminChurnWeekly() {
           value={report ? `${report.churned} (${pct(report.churnRate)})` : "—"}
           subtitle={
             report
-              ? `Lost: ${report.churnedPaidUsers ?? report.churned} paid, ${report.churnedTrialUsers ?? 0} trial (${report.churnedFromCancellation} cancelled, ${report.accountsDeleted} deleted)`
+              ? report.churnedPaidUsers != null && report.churnedTrialUsers != null
+                ? `Lost: ${report.churnedPaidUsers} paid, ${report.churnedTrialUsers} trial (${report.churnedFromCancellation} cancelled, ${report.accountsDeleted} deleted)`
+                : `Lost this week: ${report.churnedFromCancellation} cancelled, ${report.accountsDeleted} deleted account${report.accountsDeleted === 1 ? "" : "s"}`
               : "Subscribers lost this week"
           }
           loading={loading}
