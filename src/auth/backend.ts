@@ -6127,6 +6127,159 @@ export async function adminUpdateWorkflowHandoffStatus(
   }
 }
 
+export type AdminWorkflowTypeSource = "code" | "admin";
+
+export interface AdminWorkflowTypeOption {
+  source: AdminWorkflowTypeSource;
+  id: string | null;
+  type: string;
+  partnerName: string;
+  description: string | null;
+  requiredFieldKeys: string[];
+  requiresFinalApproval: boolean;
+  isActive: boolean;
+  selectable: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AdminVaultFieldOption {
+  key: string;
+  label: string;
+  category: string;
+  inputType: string;
+}
+
+export async function adminListWorkflowTypes(): Promise<
+  WorkflowApiResult<{
+    success: boolean;
+    types: AdminWorkflowTypeOption[];
+    vaultFields: AdminVaultFieldOption[];
+  }>
+> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/workflows/types`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load workflow types"),
+      };
+    }
+    return {
+      ok: true,
+      data: raw as {
+        success: boolean;
+        types: AdminWorkflowTypeOption[];
+        vaultFields: AdminVaultFieldOption[];
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to load workflow types",
+    };
+  }
+}
+
+export async function adminCreateWorkflowType(body: {
+  typeSlug: string;
+  partnerName: string;
+  description?: string;
+  requiredFieldKeys: string[];
+  requiresFinalApproval?: boolean;
+}): Promise<
+  WorkflowApiResult<{
+    success: boolean;
+    type: AdminWorkflowTypeOption;
+  }>
+> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/workflows/types`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to create workflow type",
+        ),
+      };
+    }
+    return {
+      ok: true,
+      data: raw as { success: boolean; type: AdminWorkflowTypeOption },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to create workflow type",
+    };
+  }
+}
+
+export async function adminUpdateWorkflowType(
+  id: string,
+  body: {
+    partnerName?: string;
+    description?: string | null;
+    requiredFieldKeys?: string[];
+    requiresFinalApproval?: boolean;
+    isActive?: boolean;
+  },
+): Promise<
+  WorkflowApiResult<{
+    success: boolean;
+    type: AdminWorkflowTypeOption;
+  }>
+> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/workflows/types/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to update workflow type",
+        ),
+      };
+    }
+    return {
+      ok: true,
+      data: raw as { success: boolean; type: AdminWorkflowTypeOption },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to update workflow type",
+    };
+  }
+}
 
 // ---------------------------------------------------------------------
 // AI Orchestrator (Claude) — conversational client on top of the Workflow Engine

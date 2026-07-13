@@ -2,12 +2,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
+  adminCreateWorkflowType,
   adminGetWorkflow,
   adminListWorkflows,
+  adminListWorkflowTypes,
   adminUpdateWorkflowHandoffStatus,
+  adminUpdateWorkflowType,
+  type AdminVaultFieldOption,
   type AdminWorkflowDetailResult,
   type AdminWorkflowSummary,
+  type AdminWorkflowTypeOption,
   type WorkflowExecutionHandoff,
   type WorkflowExecutionHandoffStatus,
   type WorkflowState,
@@ -26,6 +33,41 @@ const WORKFLOW_STATES: (WorkflowState | "")[] = [
   "FAILED",
   "CANCELLED",
 ];
+
+/** Build a valid workflow typeSlug from a business/partner display name. */
+function slugifyPartnerName(name: string): string {
+  let base = name
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+
+  if (!base) return "";
+  if (!/^[a-z]/.test(base)) {
+    base = `p_${base}`;
+  }
+  base = base.slice(0, 48);
+  const withSuffix = base.endsWith("_signup") ? base : `${base}_signup`;
+  return withSuffix.slice(0, 63);
+}
+
+function uniqueWorkflowTypeSlug(
+  preferred: string,
+  existingTypes: string[],
+): string {
+  if (!preferred) return "";
+  const taken = new Set(existingTypes);
+  if (!taken.has(preferred)) return preferred;
+
+  const root = preferred.replace(/_signup$/, "").slice(0, 54);
+  for (let n = 2; n < 100; n += 1) {
+    const candidate = `${root}_${n}_signup`.slice(0, 63);
+    if (!taken.has(candidate)) return candidate;
+  }
+  return `${root}_${Date.now().toString(36)}_signup`.slice(0, 63);
+}
 
 const TERMINAL_HANDOFF_STATUSES: WorkflowExecutionHandoffStatus[] = [
   "COMPLETED",
@@ -206,8 +248,39 @@ export default function AdminWorkflows() {
   const listRequestRef = useRef(0);
   const detailRequestRef = useRef(0);
 
+  const [workflowTypes, setWorkflowTypes] = useState<AdminWorkflowTypeOption[]>(
+    [],
+  );
+  const [vaultFields, setVaultFields] = useState<AdminVaultFieldOption[]>([]);
+  const [typesLoading, setTypesLoading] = useState(false);
+  const [creatingType, setCreatingType] = useState(false);
+  const [typeFormError, setTypeFormError] = useState<string | null>(null);
+  const [typeSlug, setTypeSlug] = useState("");
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  const [showSlugEditor, setShowSlugEditor] = useState(false);
+  const [partnerName, setPartnerName] = useState("");
+  const [typeDescription, setTypeDescription] = useState("");
+  const [selectedVaultKeys, setSelectedVaultKeys] = useState<string[]>([
+    "ssn",
+    "home_address",
+  ]);
+  const [requiresFinalApproval, setRequiresFinalApproval] = useState(true);
+
   const canWrite = can("workflows.write");
   const limit = 25;
+
+  const loadWorkflowTypes = useCallback(async () => {
+    setTypesLoading(true);
+    const res = await adminListWorkflowTypes();
+    setTypesLoading(false);
+    if (!res.ok) {
+      setTypeFormError(res.error ?? "Failed to load workflow types");
+      return;
+    }
+    setWorkflowTypes(res.data?.types ?? []);
+    setVaultFields(res.data?.vaultFields ?? []);
+    setTypeFormError(null);
+  }, []);
 
   const loadWorkflows = useCallback(async () => {
     const requestId = listRequestRef.current + 1;
@@ -263,6 +336,10 @@ export default function AdminWorkflows() {
   }, [loadWorkflows]);
 
   useEffect(() => {
+    void loadWorkflowTypes();
+  }, [loadWorkflowTypes]);
+
+  useEffect(() => {
     if (selectedId) {
       void loadDetail(selectedId);
     } else {
@@ -275,6 +352,74 @@ export default function AdminWorkflows() {
     setPage(1);
     setWorkflowType(workflowTypeDraft.trim());
     setSelectedId(null);
+  }
+
+  function toggleVaultKey(key: string) {
+    setSelectedVaultKeys((current) =>
+      current.includes(key)
+        ? current.filter((item) => item !== key)
+        : [...current, key],
+    );
+  }
+
+  function updatePartnerName(next: string) {
+    setPartnerName(next);
+    if (slugManuallyEdited) return;
+    const preferred = slugifyPartnerName(next);
+    setTypeSlug(
+      uniqueWorkflowTypeSlug(
+        preferred,
+        workflowTypes.map((type) => type.type),
+      ),
+    );
+  }
+
+  async function handleCreateWorkflowType() {
+    if (!canWrite || creatingType) return;
+    const resolvedSlug =
+      typeSlug.trim().toLowerCase() ||
+      uniqueWorkflowTypeSlug(
+        slugifyPartnerName(partnerName),
+        workflowTypes.map((type) => type.type),
+      );
+    if (!resolvedSlug) {
+      setTypeFormError("Enter a partner name so we can generate a type id.");
+      return;
+    }
+    setCreatingType(true);
+    setTypeFormError(null);
+    const res = await adminCreateWorkflowType({
+      typeSlug: resolvedSlug,
+      partnerName: partnerName.trim(),
+      description: typeDescription.trim() || undefined,
+      requiredFieldKeys: selectedVaultKeys,
+      requiresFinalApproval,
+    });
+    setCreatingType(false);
+    if (!res.ok) {
+      setTypeFormError(res.error ?? "Failed to create workflow type");
+      return;
+    }
+    setTypeSlug("");
+    setSlugManuallyEdited(false);
+    setShowSlugEditor(false);
+    setPartnerName("");
+    setTypeDescription("");
+    setSelectedVaultKeys(["ssn", "home_address"]);
+    setRequiresFinalApproval(true);
+    await loadWorkflowTypes();
+  }
+
+  async function handleToggleTypeActive(type: AdminWorkflowTypeOption) {
+    if (!canWrite || !type.id) return;
+    const res = await adminUpdateWorkflowType(type.id, {
+      isActive: !type.isActive,
+    });
+    if (!res.ok) {
+      setTypeFormError(res.error ?? "Failed to update workflow type");
+      return;
+    }
+    await loadWorkflowTypes();
   }
 
   async function updateHandoff(
@@ -303,8 +448,216 @@ export default function AdminWorkflows() {
       <div>
         <h1 className="text-2xl font-semibold text-white">Workflows</h1>
         <p className="mt-1 text-sm text-slate-400">
-          Monitor VIG execution and Chase handoffs that need support review.
+          Create partner application flows (with vault fields), then attach them
+          to perks. Also monitor live user runs and handoffs.
         </p>
+      </div>
+
+      <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-medium text-white">Workflow types</h2>
+            <p className="text-sm text-slate-400">
+              Pick vault fields (SSN, address, etc.). Claiming a perk with this
+              type will prompt the user to enter missing fields or approve vault
+              access.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => void loadWorkflowTypes()}
+            disabled={typesLoading}
+          >
+            Refresh types
+          </Button>
+        </div>
+
+        {canWrite ? (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="wf-partner">Business / partner name</Label>
+                <Input
+                  id="wf-partner"
+                  placeholder="e.g. Acme Bank"
+                  value={partnerName}
+                  onChange={(event) => updatePartnerName(event.target.value)}
+                  className="mt-1 bg-slate-950 border-slate-700"
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  Type id is generated automatically from this name.
+                </p>
+              </div>
+              <div className="rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500">Type id</p>
+                    <p className="truncate font-mono text-sm text-slate-200">
+                      {typeSlug || "—"}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowSlugEditor((open) => !open)}
+                  >
+                    {showSlugEditor ? "Done" : "Edit"}
+                  </Button>
+                </div>
+                {showSlugEditor ? (
+                  <div className="mt-2">
+                    <Input
+                      id="wf-type-slug"
+                      placeholder="acme_bank_signup"
+                      value={typeSlug}
+                      onChange={(event) => {
+                        setSlugManuallyEdited(true);
+                        setTypeSlug(event.target.value.toLowerCase());
+                      }}
+                      className="bg-slate-950 border-slate-700 font-mono text-sm"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      Only needed if you want a custom id. Lowercase letters,
+                      numbers, underscores.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+              <div>
+                <Label htmlFor="wf-description">Description (optional)</Label>
+                <Textarea
+                  id="wf-description"
+                  placeholder="Open an Acme business account"
+                  value={typeDescription}
+                  onChange={(event) => setTypeDescription(event.target.value)}
+                  className="mt-1 bg-slate-950 border-slate-700"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={requiresFinalApproval}
+                  onChange={(event) =>
+                    setRequiresFinalApproval(event.target.checked)
+                  }
+                />
+                Require final submission approval
+              </label>
+              <Button
+                onClick={() => void handleCreateWorkflowType()}
+                disabled={
+                  creatingType ||
+                  !partnerName.trim() ||
+                  !(typeSlug.trim() || slugifyPartnerName(partnerName)) ||
+                  selectedVaultKeys.length === 0
+                }
+              >
+                {creatingType ? "Creating…" : "Create workflow type"}
+              </Button>
+            </div>
+            <div>
+              <Label>Required vault fields</Label>
+              <div className="mt-2 max-h-64 space-y-2 overflow-y-auto rounded-md border border-slate-800 bg-slate-950/60 p-3">
+                {vaultFields.map((field) => (
+                  <label
+                    key={field.key}
+                    className="flex items-start gap-2 text-sm text-slate-200"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={selectedVaultKeys.includes(field.key)}
+                      onChange={() => toggleVaultKey(field.key)}
+                    />
+                    <span>
+                      <span className="font-medium">{field.label}</span>
+                      <span className="block text-xs text-slate-500">
+                        {field.key} · {field.category.toLowerCase()}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+                {vaultFields.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    {typesLoading
+                      ? "Loading vault fields…"
+                      : "No vault fields available."}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">
+            You need workflows.write to create workflow types.
+          </p>
+        )}
+
+        {typeFormError ? (
+          <div className="rounded-md border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200">
+            {typeFormError}
+          </div>
+        ) : null}
+
+        <div className="overflow-hidden rounded-md border border-slate-800">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-950 text-slate-400">
+              <tr>
+                <th className="px-3 py-2">Type</th>
+                <th className="px-3 py-2">Partner</th>
+                <th className="px-3 py-2">Vault fields</th>
+                <th className="px-3 py-2">Source</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {workflowTypes.map((type) => (
+                <tr key={`${type.source}-${type.type}`}>
+                  <td className="px-3 py-2 font-mono text-xs text-white">
+                    {type.type}
+                  </td>
+                  <td className="px-3 py-2 text-slate-200">{type.partnerName}</td>
+                  <td className="px-3 py-2 text-slate-300">
+                    {type.requiredFieldKeys.length > 0
+                      ? type.requiredFieldKeys.join(", ")
+                      : "—"}
+                  </td>
+                  <td className="px-3 py-2">
+                    <Badge variant="outline">{type.source}</Badge>
+                  </td>
+                  <td className="px-3 py-2">
+                    <Badge variant={type.isActive ? "secondary" : "destructive"}>
+                      {type.isActive ? "active" : "inactive"}
+                    </Badge>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {type.source === "admin" && type.id && canWrite ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void handleToggleTypeActive(type)}
+                      >
+                        {type.isActive ? "Deactivate" : "Activate"}
+                      </Button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+              {workflowTypes.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-3 py-6 text-center text-slate-500"
+                  >
+                    {typesLoading ? "Loading…" : "No workflow types yet."}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/40 p-4">

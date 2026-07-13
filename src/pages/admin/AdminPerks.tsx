@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,11 +28,13 @@ import {
   adminFetchPerksMetrics,
   adminListExpiredPerks,
   adminListPerks,
+  adminListWorkflowTypes,
   adminReactivatePerk,
   adminUpdatePerk,
   type AdminPerk,
   type AdminPerkReactivation,
   type AdminPerksMetrics,
+  type AdminWorkflowTypeOption,
   type CreateAdminPerkPayload,
   type ExtensionDomainRule,
   type PerkCategory,
@@ -65,9 +68,8 @@ const REDEMPTION_TYPES: { value: PerkRedemptionType; label: string }[] = [
   { value: "workflow", label: "Workflow (auto-apply)" },
 ];
 
-/** Registered backend workflow types available for "workflow" redemption perks —
- * see vpn-backend-service-v2/src/workflows/workflow-types/index.ts. */
-const WORKFLOW_TYPE_OPTIONS: { value: string; label: string }[] = [
+/** Fallback if /admin/workflows/types is unavailable. */
+const FALLBACK_WORKFLOW_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: "chase_signup", label: "Chase — Account signup (VIG)" },
   { value: "airwallex_signup", label: "Airwallex — Business signup" },
   { value: "mercury_signup", label: "Mercury — Business signup" },
@@ -226,6 +228,47 @@ function defaultPerkEndDateInput(startsAt = ""): string {
   return base.toISOString().slice(0, 10);
 }
 
+/** Build a stable perk id from partner and/or title for business-friendly create. */
+function slugifyPerkIdPart(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 40);
+}
+
+function buildPerkId(partnerName: string, title: string): string {
+  const partner = slugifyPerkIdPart(partnerName);
+  const titlePart = slugifyPerkIdPart(title);
+  let core = partner || titlePart;
+  if (!core) return "";
+  if (partner && titlePart && partner !== titlePart) {
+    const shortTitle = titlePart.slice(0, 24);
+    if (!partner.includes(shortTitle) && !shortTitle.includes(partner)) {
+      core = `${partner}_${shortTitle}`.slice(0, 48);
+    }
+  }
+  if (!/^[a-z]/.test(core)) {
+    core = `p_${core}`;
+  }
+  return `perk_${core}`.slice(0, 64);
+}
+
+function uniquePerkId(preferred: string, existingIds: string[]): string {
+  if (!preferred) return "";
+  const taken = new Set(existingIds);
+  if (!taken.has(preferred)) return preferred;
+  const root = preferred.slice(0, 58);
+  for (let n = 2; n < 100; n += 1) {
+    const candidate = `${root}_${n}`.slice(0, 64);
+    if (!taken.has(candidate)) return candidate;
+  }
+  return `${root}_${Date.now().toString(36)}`.slice(0, 64);
+}
+
 const emptyForm = (): PerkFormState => ({
   id: "",
   title: "",
@@ -367,6 +410,50 @@ function statusLabel(status: AdminPerk["status"]) {
   }
 }
 
+function statusBadgeVariant(
+  status: AdminPerk["status"],
+): "default" | "secondary" | "destructive" | "outline" {
+  switch (status) {
+    case "active":
+      return "default";
+    case "scheduled":
+      return "secondary";
+    case "expired":
+    case "cooling_off":
+      return "destructive";
+    case "eligible_for_readd":
+      return "outline";
+    default:
+      return "outline";
+  }
+}
+
+function accessLabel(level: AdminPerk["accessLevel"]) {
+  return (
+    ACCESS_LEVELS.find((entry) => entry.value === level)?.label ?? level
+  );
+}
+
+function accessBadgeClass(level: AdminPerk["accessLevel"]) {
+  switch (level) {
+    case "free":
+      return "border-emerald-400 bg-emerald-500/40 text-emerald-100";
+    case "paid":
+      return "border-sky-400 bg-sky-500/40 text-sky-100";
+    case "annual":
+      return "border-amber-400 bg-amber-500/40 text-amber-100";
+    default:
+      return "";
+  }
+}
+
+function redemptionLabel(type: PerkRedemptionType) {
+  return (
+    REDEMPTION_TYPES.find((entry) => entry.value === type)?.label ??
+    type.replace(/_/g, " ")
+  );
+}
+
 export default function AdminPerks() {
   const { can } = useAdminAuth();
   const { workflowsEnabled } = useFeatureFlags();
@@ -392,6 +479,8 @@ export default function AdminPerks() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<PerkFormState>(emptyForm());
+  const [idManuallyEdited, setIdManuallyEdited] = useState(false);
+  const [showIdEditor, setShowIdEditor] = useState(false);
   const showDisabledWorkflowType =
     !workflowsEnabled && Boolean(editingId) && form.redemptionType === "workflow";
   const availableRedemptionTypes =
@@ -400,6 +489,9 @@ export default function AdminPerks() {
       : REDEMPTION_TYPES.filter((type) => type.value !== "workflow");
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [workflowTypeOptions, setWorkflowTypeOptions] = useState<
+    { value: string; label: string }[]
+  >(FALLBACK_WORKFLOW_TYPE_OPTIONS);
 
   const [metrics, setMetrics] = useState<AdminPerksMetrics | null>(null);
   const [loadingMetrics, setLoadingMetrics] = useState(true);
@@ -503,6 +595,26 @@ export default function AdminPerks() {
   }, [loadPerks]);
 
   useEffect(() => {
+    void (async () => {
+      const res = await adminListWorkflowTypes();
+      if (!res.ok || !res.data?.types?.length) return;
+      const options = res.data.types
+        .filter((type: AdminWorkflowTypeOption) => type.selectable)
+        .map((type: AdminWorkflowTypeOption) => ({
+          value: type.type,
+          label: `${type.partnerName} — ${type.type}${
+            type.requiredFieldKeys.length
+              ? ` (${type.requiredFieldKeys.join(", ")})`
+              : ""
+          }`,
+        }));
+      if (options.length > 0) {
+        setWorkflowTypeOptions(options);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
     void loadExpired();
     void loadReactivationHistory();
   }, [loadExpired, loadReactivationHistory]);
@@ -515,6 +627,8 @@ export default function AdminPerks() {
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyForm());
+    setIdManuallyEdited(false);
+    setShowIdEditor(false);
     setDialogError(null);
     setDialogOpen(true);
   };
@@ -522,8 +636,22 @@ export default function AdminPerks() {
   const openEdit = (perk: AdminPerk) => {
     setEditingId(perk.id);
     setForm(perkToForm(perk));
+    setIdManuallyEdited(false);
+    setShowIdEditor(false);
     setDialogError(null);
     setDialogOpen(true);
+  };
+
+  const existingPerkIds = [
+    ...perks.map((perk) => perk.id),
+    ...expiredPerks.map((perk) => perk.id),
+  ];
+
+  const syncGeneratedPerkId = (partnerName: string, title: string) => {
+    if (editingId || idManuallyEdited) return;
+    const preferred = buildPerkId(partnerName, title);
+    const nextId = uniquePerkId(preferred, existingPerkIds);
+    setForm((prev) => ({ ...prev, id: nextId }));
   };
 
   const toggleActive = async (perk: AdminPerk, isActive: boolean) => {
@@ -637,12 +765,20 @@ export default function AdminPerks() {
         return;
       }
     } else {
-      if (!form.id.trim() || !form.title.trim()) {
+      const resolvedId =
+        form.id.trim() ||
+        uniquePerkId(
+          buildPerkId(form.partnerName, form.title),
+          existingPerkIds,
+        );
+      if (!resolvedId || !form.title.trim()) {
         setSaving(false);
-        setDialogError("ID and title are required.");
+        setDialogError("Title is required (partner name helps generate the id).");
         return;
       }
-      const res = await adminCreatePerk(formToCreatePayload(form));
+      const res = await adminCreatePerk(
+        formToCreatePayload({ ...form, id: resolvedId }),
+      );
       setSaving(false);
       if (!res.ok) {
         setDialogError(res.error ?? "Failed to create perk");
@@ -874,10 +1010,23 @@ export default function AdminPerks() {
       </section>
 
       <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold">Perks catalog</h3>
-            <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="text-lg font-semibold tracking-tight">
+                Perks catalog
+              </h3>
+              <Badge variant="secondary" className="font-normal">
+                {loading ? "…" : `${perks.length} offer${perks.length === 1 ? "" : "s"}`}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Partner offers shown to members. Toggle visibility without opening
+              each perk.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 rounded-full border border-border bg-muted/30 px-3 py-1.5">
               <Switch
                 id="admin-perks-show-inactive"
                 checked={showInactive}
@@ -885,140 +1034,205 @@ export default function AdminPerks() {
               />
               <Label
                 htmlFor="admin-perks-show-inactive"
-                className="text-sm font-normal text-muted-foreground"
+                className="cursor-pointer text-sm font-normal text-muted-foreground"
               >
                 Show inactive
               </Label>
             </div>
+            {canWrite ? (
+              <Button type="button" onClick={openCreate}>
+                Add perk
+              </Button>
+            ) : null}
           </div>
-          {canWrite ? (
-            <Button type="button" variant="outline" onClick={openCreate}>
-              Add perk
-            </Button>
-          ) : null}
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[960px] text-left text-sm">
-            <thead className="border-b border-border bg-muted/40">
-              <tr>
-                <th className="px-3 py-2 font-medium">Perk</th>
-                <th className="px-3 py-2 font-medium">Category</th>
-                <th className="px-3 py-2 font-medium">Access</th>
-                <th className="px-3 py-2 font-medium">Redemption</th>
-                <th className="px-3 py-2 font-medium">Extension sites</th>
-                <th className="px-3 py-2 font-medium">Expires</th>
-                <th className="px-3 py-2 font-medium">Status</th>
-                <th className="px-3 py-2 font-medium">Featured</th>
-                <th className="px-3 py-2 font-medium">Active</th>
-                {canWrite ? (
-                  <th className="px-3 py-2 font-medium">Actions</th>
-                ) : null}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={canWrite ? 10 : 9}
-                    className="px-3 py-4 text-muted-foreground"
-                  >
-                    Loading perks…
-                  </td>
+        <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1080px] text-left text-sm">
+              <thead className="sticky top-0 z-10 border-b border-border/80 bg-muted/60 backdrop-blur">
+                <tr className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                  <th className="px-4 py-3 font-medium">Offer</th>
+                  <th className="px-4 py-3 font-medium">Audience</th>
+                  <th className="px-4 py-3 font-medium">Redemption</th>
+                  <th className="px-4 py-3 font-medium">Schedule</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Visibility</th>
+                  {canWrite ? (
+                    <th className="px-4 py-3 font-medium text-right">Actions</th>
+                  ) : null}
                 </tr>
-              ) : perks.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={canWrite ? 10 : 9}
-                    className="px-3 py-4 text-muted-foreground"
-                  >
-                    No perks configured.
-                  </td>
-                </tr>
-              ) : (
-                perks.map((perk) => (
-                  <tr key={perk.id} className="border-b border-border/60">
-                    <td className="px-3 py-2">
-                      <div className="font-medium">{perk.title}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {perk.partnerName ?? perk.id}
-                      </div>
-                      <div className="mt-0.5 text-xs text-primary">
-                        {perk.offerText}
-                      </div>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={canWrite ? 7 : 6}
+                      className="px-4 py-10 text-center text-muted-foreground"
+                    >
+                      Loading catalog…
                     </td>
-                    <td className="px-3 py-2">
-                      {categoryLabel(perk.category)}
+                  </tr>
+                ) : perks.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={canWrite ? 7 : 6}
+                      className="px-4 py-10 text-center text-muted-foreground"
+                    >
+                      No perks configured yet.
+                      {canWrite ? " Create one to populate the catalog." : null}
                     </td>
-                    <td className="px-3 py-2 capitalize">{perk.accessLevel}</td>
-                    <td className="px-3 py-2">
-                      {perk.redemptionType.replace(/_/g, " ")}
-                      {perk.redemptionType === "workflow" &&
-                      perk.workflowType ? (
-                        <div className="text-xs text-muted-foreground">
-                          {perk.workflowType}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {formatExtensionSiteSummary(perk.extensionDomains)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div>{formatAdminDate(perk.endsAt)}</div>
-                      {perk.daysRemaining != null ? (
-                        <div className="text-xs text-muted-foreground">
-                          {perk.daysRemaining}d left
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-2 capitalize">
-                      {statusLabel(perk.status)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Switch
-                        checked={perk.isFeatured}
-                        disabled={!canWrite}
-                        onCheckedChange={(checked) =>
-                          void toggleFeatured(perk, checked)
-                        }
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <Switch
-                        checked={perk.isActive}
-                        disabled={!canWrite}
-                        onCheckedChange={(checked) =>
-                          void toggleActive(perk, checked)
-                        }
-                      />
-                    </td>
-                    {canWrite ? (
-                      <td className="px-3 py-2">
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEdit(perk)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void deletePerk(perk)}
-                          >
-                            Delete
-                          </Button>
+                  </tr>
+                ) : (
+                  perks.map((perk) => (
+                    <tr
+                      key={perk.id}
+                      className="group transition-colors hover:bg-muted/35"
+                    >
+                      <td className="px-4 py-3.5 align-top">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            {(perk.partnerName || perk.title)
+                              .trim()
+                              .slice(0, 2) || "PK"}
+                          </div>
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium leading-tight text-foreground">
+                                {perk.title}
+                              </span>
+                              {perk.isFeatured ? (
+                                <Badge className="h-5 px-1.5 text-[10px] font-medium">
+                                  Featured
+                                </Badge>
+                              ) : null}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {perk.partnerName || "No partner"} ·{" "}
+                              <span className="font-mono">{perk.id}</span>
+                            </div>
+                            {perk.offerText ? (
+                              <div className="line-clamp-1 text-xs text-foreground/80">
+                                {perk.offerText}
+                              </div>
+                            ) : null}
+                            <div className="pt-0.5">
+                              <Badge
+                                variant="outline"
+                                className="h-5 border-border/70 px-1.5 text-[10px] font-normal text-muted-foreground"
+                              >
+                                {categoryLabel(perk.category)}
+                              </Badge>
+                            </div>
+                          </div>
                         </div>
                       </td>
-                    ) : null}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                      <td className="px-4 py-3.5 align-top">
+                        <Badge
+                          variant="outline"
+                          className={`h-6 whitespace-nowrap px-2 text-[11px] font-medium ${accessBadgeClass(perk.accessLevel)}`}
+                        >
+                          {accessLabel(perk.accessLevel)}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3.5 align-top">
+                        <div className="space-y-1">
+                          <div className="font-medium text-foreground/90">
+                            {redemptionLabel(perk.redemptionType)}
+                          </div>
+                          {perk.redemptionType === "workflow" &&
+                          perk.workflowType ? (
+                            <div className="font-mono text-[11px] text-muted-foreground">
+                              {perk.workflowType}
+                            </div>
+                          ) : null}
+                          {formatExtensionSiteSummary(perk.extensionDomains) !==
+                          "—" ? (
+                            <div className="text-[11px] text-muted-foreground">
+                              Ext:{" "}
+                              {formatExtensionSiteSummary(perk.extensionDomains)}
+                            </div>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 align-top">
+                        <div className="font-medium tabular-nums">
+                          {formatAdminDate(perk.endsAt)}
+                        </div>
+                        {perk.daysRemaining != null ? (
+                          <div
+                            className={`mt-0.5 text-xs tabular-nums ${
+                              perk.daysRemaining <= 7
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {perk.daysRemaining}d remaining
+                          </div>
+                        ) : (
+                          <div className="mt-0.5 text-xs text-muted-foreground">
+                            No end date
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 align-top">
+                        <Badge variant={statusBadgeVariant(perk.status)}>
+                          {statusLabel(perk.status)}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3.5 align-top">
+                        <div className="space-y-2">
+                          <label className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                            <span>Featured</span>
+                            <Switch
+                              checked={perk.isFeatured}
+                              disabled={!canWrite}
+                              onCheckedChange={(checked) =>
+                                void toggleFeatured(perk, checked)
+                              }
+                            />
+                          </label>
+                          <label className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                            <span>Active</span>
+                            <Switch
+                              checked={perk.isActive}
+                              disabled={!canWrite}
+                              onCheckedChange={(checked) =>
+                                void toggleActive(perk, checked)
+                              }
+                            />
+                          </label>
+                        </div>
+                      </td>
+                      {canWrite ? (
+                        <td className="px-4 py-3.5 align-top">
+                          <div className="flex justify-end gap-2 opacity-90 transition-opacity group-hover:opacity-100">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEdit(perk)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => void deletePerk(perk)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -1283,29 +1497,17 @@ export default function AdminPerks() {
             </div>
           ) : null}
           <div className="space-y-3">
-            {!editingId ? (
-              <div>
-                <Label htmlFor="perk-id">Perk ID</Label>
-                <Input
-                  id="perk-id"
-                  value={form.id}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, id: e.target.value }))
-                  }
-                  placeholder="perk_1password"
-                  className="mt-1"
-                />
-              </div>
-            ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="perk-title">Title</Label>
                 <Input
                   id="perk-title"
                   value={form.title}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, title: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    const title = e.target.value;
+                    setForm((prev) => ({ ...prev, title }));
+                    syncGeneratedPerkId(form.partnerName, title);
+                  }}
                   className="mt-1"
                 />
               </div>
@@ -1314,16 +1516,59 @@ export default function AdminPerks() {
                 <Input
                   id="perk-partner"
                   value={form.partnerName}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const partnerName = e.target.value;
                     setForm((prev) => ({
                       ...prev,
-                      partnerName: e.target.value,
-                    }))
-                  }
+                      partnerName,
+                    }));
+                    syncGeneratedPerkId(partnerName, form.title);
+                  }}
                   className="mt-1"
                 />
               </div>
             </div>
+            {!editingId ? (
+              <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Perk id</p>
+                    <p className="truncate font-mono text-sm">
+                      {form.id || "—"}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowIdEditor((open) => !open)}
+                  >
+                    {showIdEditor ? "Done" : "Edit"}
+                  </Button>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Generated from partner and title. Edit only if you need a
+                  custom id.
+                </p>
+                {showIdEditor ? (
+                  <Input
+                    id="perk-id"
+                    value={form.id}
+                    onChange={(e) => {
+                      setIdManuallyEdited(true);
+                      setForm((prev) => ({
+                        ...prev,
+                        id: e.target.value
+                          .toLowerCase()
+                          .replace(/[^a-z0-9_]/g, "_"),
+                      }));
+                    }}
+                    placeholder="perk_acme_bank"
+                    className="mt-2 font-mono text-sm"
+                  />
+                ) : null}
+              </div>
+            ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label>Category</Label>
@@ -1655,7 +1900,7 @@ export default function AdminPerks() {
                     <SelectValue placeholder="Select a workflow type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {WORKFLOW_TYPE_OPTIONS.map((option) => (
+                    {workflowTypeOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -1663,8 +1908,8 @@ export default function AdminPerks() {
                   </SelectContent>
                 </Select>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Claiming this perk starts the AI Workflow Engine application
-                  for the selected partner instead of opening a link.
+                  Claiming this perk starts the selected workflow. Create new
+                  types (with vault fields) under Admin → Workflows.
                 </p>
               </div>
             ) : null}
