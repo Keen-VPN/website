@@ -34,6 +34,7 @@ import { VaultFieldInput } from "@/components/VaultFieldInput";
 import {
   getVaultFieldValidationError,
   isSensitiveVaultField,
+  normalizeVaultFieldValueForSave,
 } from "@/lib/vault-fields";
 import { cn } from "@/lib/utils";
 
@@ -130,7 +131,7 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
   }
 
   async function handleSave(field: VaultFieldMetadata) {
-    const trimmed = editValue.trim();
+    const trimmed = normalizeVaultFieldValueForSave(field.fieldKey, editValue);
     const validationError = getVaultFieldValidationError(field.fieldKey, trimmed);
     if (validationError) {
       setError(validationError);
