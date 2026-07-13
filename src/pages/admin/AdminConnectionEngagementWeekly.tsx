@@ -283,7 +283,10 @@ export default function AdminConnectionEngagementWeekly() {
     () =>
       (trend?.points ?? []).map((p) => ({
         label: p.week_label,
-        vpnUsers: p.active_users_with_connections ?? 0,
+        vpnUsers:
+          p.active_users_with_connections != null
+            ? p.active_users_with_connections
+            : null,
         medianConnections: p.median_connections_per_user,
         totalConnections: p.total_connections,
         medianConnectionSeconds: p.median_connection_seconds,
@@ -538,6 +541,7 @@ export default function AdminConnectionEngagementWeekly() {
                   stroke={`var(--color-${selectedTrendMetric.dataKey})`}
                   strokeWidth={2}
                   dot={false}
+                  connectNulls={false}
                 />
               </LineChart>
             </ChartContainer>

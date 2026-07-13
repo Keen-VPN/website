@@ -184,7 +184,6 @@ export default function AdminChurnWeekly() {
           year: targetYear,
           week: targetWeek,
           minDurationSeconds: 10,
-          includeWow: true,
         }),
       ]);
 
@@ -345,9 +344,11 @@ export default function AdminChurnWeekly() {
           value={formatWeeklyActiveUsersValue(engagement?.summary)}
           subtitle={formatWeeklyActiveUsersSubtitle(engagement?.summary)}
           detail={
-            engagement?.summary.week_range_label ??
-            report?.weekRangeLabel ??
-            weekInputValue
+            source !== "all"
+              ? `All users (not filtered by ${source === "stripe" ? "Stripe" : "Apple"}) · ${report?.weekRangeLabel ?? weekInputValue}`
+              : (engagement?.summary.week_range_label ??
+                report?.weekRangeLabel ??
+                weekInputValue)
           }
           loading={loading}
           delta={
