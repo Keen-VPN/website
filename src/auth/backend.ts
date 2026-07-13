@@ -2506,7 +2506,13 @@ export interface AdminWeeklySessionKpiSummary {
   iso_week: number;
   week_label: string;
   week_range_label: string;
+  /** Users with ≥1 qualifying VPN connection OR ≥1 perk click-through in the week. */
   active_users: number;
+  active_users_with_connections?: number;
+  active_users_with_perk_clicks?: number;
+  active_users_vpn_only?: number;
+  active_users_perk_only?: number;
+  active_users_vpn_and_perk?: number;
   median_connections_per_user: number;
   total_connections: number;
   median_connection_seconds: number;
@@ -2525,11 +2531,13 @@ export interface AdminWeeklySessionKpiReport {
   week_over_week: {
     previous_week: string;
     active_users: number;
+    active_users_with_connections?: number;
     median_connections_per_user: number;
     total_connections: number;
     median_connection_seconds: number;
     total_connection_seconds: number;
     delta_active_users: number;
+    delta_active_users_with_connections?: number;
     delta_median_connections: number;
   } | null;
   segments: {
@@ -2583,6 +2591,8 @@ export interface AdminChurnReport {
   year: number;
   monthLabel: string;
   startOfMonthActiveUsers: number;
+  startOfMonthTrialUsers?: number;
+  startOfMonthPaidUsers?: number;
   hardChurned: number;
   hardChurnRate: number;
   churnedFromCancellation: number;
@@ -2636,13 +2646,26 @@ export interface AdminWeeklyChurnClientPlatformBreakdown {
   subscriptionExpirations: number;
 }
 
+export interface AdminWeeklyChurnSubscriptionStatusBreakdown {
+  subscriptionStatus: "trial" | "paid";
+  activeAtWeekStart: number;
+  churned: number;
+  churnRate: number;
+  autoRenewDisabled: number;
+  subscriptionExpirations: number;
+}
+
 export interface AdminWeeklyChurnReport {
   isoYear: number;
   isoWeek: number;
   weekLabel: string;
   weekRangeLabel: string;
   startOfWeekActiveUsers: number;
+  startOfWeekTrialUsers?: number;
+  startOfWeekPaidUsers?: number;
   churned: number;
+  churnedTrialUsers?: number;
+  churnedPaidUsers?: number;
   churnRate: number;
   churnedFromCancellation: number;
   accountsDeleted: number;
@@ -2651,6 +2674,7 @@ export interface AdminWeeklyChurnReport {
   subscriptionExpirations: number;
   subscriptionExpirationsRate: number;
   subscriptionSourceFilter: string | null;
+  bySubscriptionStatus?: AdminWeeklyChurnSubscriptionStatusBreakdown[];
   bySubscriptionSource: AdminWeeklyChurnSubscriptionSourceBreakdown[];
   byClientPlatform: AdminWeeklyChurnClientPlatformBreakdown[];
 }

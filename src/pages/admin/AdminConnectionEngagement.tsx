@@ -332,8 +332,8 @@ export default function AdminConnectionEngagement() {
         <div>
           <h2 className="text-2xl font-bold">Connection engagement</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Weekly session KPIs and monthly median usage (UTC). Internal test
-            accounts are excluded.
+            VPN session usage (UTC). Weekly active users (VPN + perks) are on
+            the weekly churn tab. Internal test accounts are excluded.
           </p>
         </div>
         <div className="inline-flex rounded-lg border border-border p-1">

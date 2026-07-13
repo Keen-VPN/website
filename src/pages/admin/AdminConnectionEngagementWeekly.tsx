@@ -54,7 +54,7 @@ function formatDuration(seconds: number): string {
 }
 
 type EngagementTrendMetric =
-  | "active_users"
+  | "vpn_users"
   | "median_connections"
   | "total_connections"
   | "median_connection_time"
@@ -69,9 +69,9 @@ const ENGAGEMENT_TREND_METRICS: {
   allowDecimals: boolean;
 }[] = [
   {
-    value: "active_users",
-    label: "Active users",
-    dataKey: "activeUsers",
+    value: "vpn_users",
+    label: "VPN users",
+    dataKey: "vpnUsers",
     color: "hsl(var(--primary))",
     formatValue: (value) => String(Math.round(value)),
     allowDecimals: false,
@@ -190,7 +190,7 @@ export default function AdminConnectionEngagementWeekly() {
   const [error, setError] = useState<string | null>(null);
   const [trendWarning, setTrendWarning] = useState<string | null>(null);
   const [trendMetric, setTrendMetric] =
-    useState<EngagementTrendMetric>("active_users");
+    useState<EngagementTrendMetric>("vpn_users");
   const activeRequest = useRef<AbortController | null>(null);
 
   const load = useCallback(
@@ -283,7 +283,10 @@ export default function AdminConnectionEngagementWeekly() {
     () =>
       (trend?.points ?? []).map((p) => ({
         label: p.week_label,
-        activeUsers: p.active_users,
+        vpnUsers:
+          p.active_users_with_connections != null
+            ? p.active_users_with_connections
+            : null,
         medianConnections: p.median_connections_per_user,
         totalConnections: p.total_connections,
         medianConnectionSeconds: p.median_connection_seconds,
@@ -315,8 +318,8 @@ export default function AdminConnectionEngagementWeekly() {
       <div>
         <h3 className="text-lg font-semibold">Weekly session KPIs</h3>
         <p className="text-sm text-muted-foreground">
-          ISO week (Monday UTC). Sessions count after min duration filter.
-          Internal test accounts are excluded.
+          ISO week (Monday UTC). VPN connection metrics only — sessions count
+          after min duration filter. Internal test accounts are excluded.
         </p>
       </div>
 
@@ -416,17 +419,25 @@ export default function AdminConnectionEngagementWeekly() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard
-          title="Active users"
-          value={report ? String(report.summary.active_users) : "—"}
-          subtitle="Unique users who connected"
+          title="VPN users"
+          value={
+            report && report.summary.active_users_with_connections != null
+              ? String(report.summary.active_users_with_connections)
+              : "—"
+          }
+          subtitle="Unique users with a qualifying VPN session"
           detail={report?.summary.week_range_label}
           loading={loading}
-          delta={wow ? formatDelta(wow.delta_active_users) : undefined}
+          delta={
+            wow && wow.delta_active_users_with_connections != null
+              ? formatDelta(wow.delta_active_users_with_connections)
+              : undefined
+          }
         />
         <KpiCard
           title="Median connections"
           value={report ? String(report.summary.median_connections_per_user) : "—"}
-          subtitle="Per active user"
+          subtitle="Per user with VPN sessions"
           loading={loading}
           delta={wow ? formatDelta(wow.delta_median_connections, true) : undefined}
         />
@@ -530,6 +541,7 @@ export default function AdminConnectionEngagementWeekly() {
                   stroke={`var(--color-${selectedTrendMetric.dataKey})`}
                   strokeWidth={2}
                   dot={false}
+                  connectNulls={false}
                 />
               </LineChart>
             </ChartContainer>
