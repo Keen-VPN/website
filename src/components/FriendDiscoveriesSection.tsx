@@ -115,7 +115,8 @@ export function FriendDiscoveriesSection({
   const [counts, setCounts] = useState({ new: 0, saved: 0, pending: 0 });
   const [sharingMode, setSharingMode] =
     useState<DiscoverySharingMode>("review");
-  const sharingModeRequestRef = useRef(0);
+  const sharingModeInflightRef = useRef(false);
+  const sharingModePendingRef = useRef<DiscoverySharingMode | null>(null);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -162,21 +163,53 @@ export function FriendDiscoveriesSection({
     void load();
   }, [load, refreshKey]);
 
+  async function flushSharingModeUpdates(token: string) {
+    if (sharingModeInflightRef.current) return;
+    sharingModeInflightRef.current = true;
+
+    try {
+      while (sharingModePendingRef.current !== null) {
+        const next = sharingModePendingRef.current;
+        sharingModePendingRef.current = null;
+
+        const res = await updateDiscoveryPreferences(token, next);
+
+        // A newer selection arrived while this request was in flight — flush that next.
+        if (sharingModePendingRef.current !== null) continue;
+
+        if (!res.ok) {
+          toast({
+            title: "Could not update preference",
+            description: res.error,
+            variant: "destructive",
+          });
+          // Reconcile UI with whatever the server actually persisted.
+          const prefRes = await fetchDiscoveryPreferences(token);
+          if (sharingModePendingRef.current !== null) continue;
+          if (prefRes.ok && prefRes.data) {
+            setSharingMode(prefRes.data.sharingMode);
+          }
+          continue;
+        }
+
+        setSharingMode(next);
+      }
+    } finally {
+      sharingModeInflightRef.current = false;
+      // A change may have been queued after the loop exited but before inflight cleared.
+      if (sharingModePendingRef.current !== null) {
+        void flushSharingModeUpdates(token);
+      }
+    }
+  }
+
   async function handleSharingModeChange(mode: DiscoverySharingMode) {
     const token = getSessionToken();
     if (!token) return;
-    const requestId = ++sharingModeRequestRef.current;
-    const res = await updateDiscoveryPreferences(token, mode);
-    if (requestId !== sharingModeRequestRef.current) return;
-    if (!res.ok) {
-      toast({
-        title: "Could not update preference",
-        description: res.error,
-        variant: "destructive",
-      });
-      return;
-    }
+
+    sharingModePendingRef.current = mode;
     setSharingMode(mode);
+    await flushSharingModeUpdates(token);
   }
 
   async function openShareDialog() {
