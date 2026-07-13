@@ -466,6 +466,30 @@ export async function fetchPerks(
   }
 }
 
+export type PerkDiscoveryOutcome =
+  | {
+      status: "skipped";
+      reason:
+        | "friends_disabled"
+        | "never"
+        | "no_eligible_friends"
+        | "perk_unavailable"
+        | "error";
+    }
+  | {
+      status: "draft_created";
+      draftId: string;
+      friendCount: number;
+      perkTitle: string;
+      partnerName: string | null;
+      valueLabel: string;
+    }
+  | {
+      status: "auto_shared";
+      deliveredCount: number;
+      skippedCount: number;
+    };
+
 export async function claimPerk(
   sessionToken: string,
   perkId: string,
@@ -479,6 +503,7 @@ export async function claimPerk(
   /** Present when redemptionType is "workflow" — the auto-started/resumed workflow. */
   workflowId?: string;
   workflowState?: WorkflowState;
+  discovery?: PerkDiscoveryOutcome;
 }> {
   try {
     const response = await fetch(
@@ -509,7 +534,8 @@ export async function claimPerk(
     return {
       success: true,
       redemptionType: payload["redemptionType"] as
-        PerkRedemptionType | undefined,
+        | PerkRedemptionType
+        | undefined,
       redemptionUrl:
         typeof payload["redemptionUrl"] === "string"
           ? payload["redemptionUrl"]
@@ -528,6 +554,7 @@ export async function claimPerk(
         typeof payload["workflowState"] === "string"
           ? (payload["workflowState"] as WorkflowState)
           : undefined,
+      discovery: parsePerkDiscoveryOutcome(payload["discovery"]),
     };
   } catch (error) {
     return {
@@ -535,6 +562,46 @@ export async function claimPerk(
       error: error instanceof Error ? error.message : "Failed to claim perk",
     };
   }
+}
+
+function parsePerkDiscoveryOutcome(raw: unknown): PerkDiscoveryOutcome | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const value = raw as Record<string, unknown>;
+  if (value.status === "draft_created" && typeof value.draftId === "string") {
+    return {
+      status: "draft_created",
+      draftId: value.draftId,
+      friendCount:
+        typeof value.friendCount === "number" ? value.friendCount : 0,
+      perkTitle: typeof value.perkTitle === "string" ? value.perkTitle : "Opportunity",
+      partnerName:
+        typeof value.partnerName === "string" ? value.partnerName : null,
+      valueLabel: typeof value.valueLabel === "string" ? value.valueLabel : "",
+    };
+  }
+  if (value.status === "auto_shared") {
+    return {
+      status: "auto_shared",
+      deliveredCount:
+        typeof value.deliveredCount === "number" ? value.deliveredCount : 0,
+      skippedCount:
+        typeof value.skippedCount === "number" ? value.skippedCount : 0,
+    };
+  }
+  if (value.status === "skipped") {
+    const reason = value.reason;
+    if (
+      reason === "friends_disabled" ||
+      reason === "never" ||
+      reason === "no_eligible_friends" ||
+      reason === "perk_unavailable" ||
+      reason === "error"
+    ) {
+      return { status: "skipped", reason };
+    }
+    return { status: "skipped", reason: "error" };
+  }
+  return undefined;
 }
 
 export async function unclaimPerk(

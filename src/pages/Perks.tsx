@@ -32,6 +32,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -54,6 +55,7 @@ import { FriendDiscoveriesSection } from "@/components/FriendDiscoveriesSection"
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
+  approveFriendDiscoveryDraft,
   claimPerk,
   dismissPerk,
   fetchFriendsDashboard,
@@ -66,6 +68,7 @@ import {
   submitPerkRequest,
   unclaimPerk,
   type PerkCategory,
+  type PerkDiscoveryOutcome,
   type PerkItem,
   type PerkRequestCategory,
   type PerkUserTab,
@@ -253,6 +256,11 @@ const Perks = () => {
     }>
   >([]);
   const [friendsNetworkEnabled, setFriendsNetworkEnabled] = useState(false);
+  const [discoveryRefreshKey, setDiscoveryRefreshKey] = useState(0);
+  const [discoveryPrompt, setDiscoveryPrompt] = useState<
+    Extract<PerkDiscoveryOutcome, { status: "draft_created" }> | null
+  >(null);
+  const [discoveryPromptActing, setDiscoveryPromptActing] = useState(false);
   const loadRequestId = useRef(0);
   const pageViewRecorded = useRef(false);
   const initialLoadRef = useRef(true);
@@ -608,6 +616,20 @@ const Perks = () => {
       toast({ title: "Request received", description: res.message });
     }
 
+    if (res.discovery?.status === "draft_created") {
+      setDiscoveryPrompt(res.discovery);
+    } else if (res.discovery?.status === "auto_shared") {
+      const count = res.discovery.deliveredCount;
+      toast({
+        title: "Shared with friends",
+        description:
+          count > 0
+            ? `Shared with ${count} friend${count === 1 ? "" : "s"}.`
+            : "No friends received this share (they may already have it).",
+      });
+      setDiscoveryRefreshKey((key) => key + 1);
+    }
+
     void loadPerks();
   };
 
@@ -876,6 +898,7 @@ const Perks = () => {
               <FriendDiscoveriesSection
                 friends={discoveryFriends}
                 hasSession={Boolean(getSessionToken())}
+                refreshKey={discoveryRefreshKey}
               />
             </div>
           ) : null}
@@ -1104,6 +1127,86 @@ const Perks = () => {
         }}
         onSettled={() => void loadPerks()}
       />
+      <Dialog
+        open={discoveryPrompt !== null}
+        onOpenChange={(open) => {
+          if (!open && !discoveryPromptActing) setDiscoveryPrompt(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share with friends?</DialogTitle>
+            <DialogDescription>
+              Friends see the offer — not how you found it. You can also review
+              this later under Private Value Network → Review.
+            </DialogDescription>
+          </DialogHeader>
+          {discoveryPrompt ? (
+            <div className="space-y-2 rounded-md border bg-muted/40 p-3">
+              <p className="font-semibold">{discoveryPrompt.perkTitle}</p>
+              {discoveryPrompt.partnerName ? (
+                <p className="text-sm text-muted-foreground">
+                  {discoveryPrompt.partnerName}
+                </p>
+              ) : null}
+              {discoveryPrompt.valueLabel ? (
+                <p className="text-sm font-medium text-primary">
+                  {discoveryPrompt.valueLabel}
+                </p>
+              ) : null}
+              <p className="text-xs text-muted-foreground">
+                Will share with {discoveryPrompt.friendCount} friend
+                {discoveryPrompt.friendCount === 1 ? "" : "s"} who have
+                recommendation sharing enabled.
+              </p>
+            </div>
+          ) : null}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              disabled={discoveryPromptActing}
+              onClick={() => setDiscoveryPrompt(null)}
+            >
+              Not now
+            </Button>
+            <Button
+              disabled={discoveryPromptActing || !discoveryPrompt}
+              onClick={() => {
+                if (!discoveryPrompt) return;
+                const token = getSessionToken();
+                if (!token) return;
+                setDiscoveryPromptActing(true);
+                void (async () => {
+                  const res = await approveFriendDiscoveryDraft(
+                    token,
+                    discoveryPrompt.draftId,
+                  );
+                  setDiscoveryPromptActing(false);
+                  if (!res.ok) {
+                    toast({
+                      title: "Could not share",
+                      description: res.error ?? "Please try again.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  toast({
+                    title: "Shared with friends",
+                    description: "Your friends can claim this opportunity.",
+                  });
+                  setDiscoveryPrompt(null);
+                  setDiscoveryRefreshKey((key) => key + 1);
+                })();
+              }}
+            >
+              {discoveryPromptActing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Share now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Footer />
     </div>
   );

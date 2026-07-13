@@ -74,6 +74,7 @@ interface PerkOption {
 interface FriendDiscoveriesSectionProps {
   friends: FriendRow[];
   hasSession: boolean;
+  refreshKey?: number;
 }
 
 const FEED_TABS: { value: DiscoveryFeedFilter; label: string }[] = [
@@ -103,6 +104,7 @@ function sharerLabel(share: FriendDiscoveryShare): string {
 export function FriendDiscoveriesSection({
   friends,
   hasSession,
+  refreshKey = 0,
 }: FriendDiscoveriesSectionProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -157,7 +159,7 @@ export function FriendDiscoveriesSection({
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   async function handleSharingModeChange(mode: DiscoverySharingMode) {
     const token = getSessionToken();
