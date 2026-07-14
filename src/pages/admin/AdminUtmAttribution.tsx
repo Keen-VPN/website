@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   adminFetchUtmFunnelReport,
@@ -7,35 +8,16 @@ import {
   type AdminUtmSignupReport,
 } from "@/auth/backend";
 import { downloadUtmFunnelCsv } from "@/lib/utm-attribution-export";
-
-function defaultFromValue(): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() - 30);
-  return date.toISOString().slice(0, 10);
-}
-
-function defaultToValue(): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
-
-function formatRate(value: number): string {
-  return `${value.toFixed(2)}%`;
-}
-
-function formatRevenue(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
+import {
+  defaultAdminReportFromValue,
+  defaultAdminReportToValue,
+  formatAdminRate,
+  formatAdminRevenue,
+} from "@/lib/admin-utils";
 
 export default function AdminUtmAttribution() {
-  const [fromInput, setFromInput] = useState(defaultFromValue);
-  const [toInput, setToInput] = useState(defaultToValue);
+  const [fromInput, setFromInput] = useState(defaultAdminReportFromValue);
+  const [toInput, setToInput] = useState(defaultAdminReportToValue);
   const [signupReport, setSignupReport] = useState<AdminUtmSignupReport | null>(
     null,
   );
@@ -48,6 +30,9 @@ export default function AdminUtmAttribution() {
 
   const load = useCallback(async (from: string, to: string) => {
     if (!from.trim() || !to.trim()) {
+      setSignupReport(null);
+      setFunnelReport(null);
+      setError(null);
       setLoading(false);
       return;
     }
@@ -111,7 +96,14 @@ export default function AdminUtmAttribution() {
         <h2 className="text-2xl font-semibold tracking-tight">UTM attribution</h2>
         <p className="text-sm text-muted-foreground">
           First-touch sign-ups and conversion funnel by UTM source, campaign, and
-          medium.
+          medium. Physical stickers:{" "}
+          <Link
+            to="/admin/sticker-campaigns"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            Sticker campaigns
+          </Link>
+          .
         </p>
       </div>
 
@@ -181,7 +173,7 @@ export default function AdminUtmAttribution() {
           <p className="text-xs text-muted-foreground">
             {loading || error
               ? ""
-              : formatRate(totals?.signup_completed_to_trial_rate ?? 0) +
+              : formatAdminRate(totals?.signup_completed_to_trial_rate ?? 0) +
                   " of attributed sign-ups"}
           </p>
         </div>
@@ -193,7 +185,7 @@ export default function AdminUtmAttribution() {
           <p className="text-xs text-muted-foreground">
             {loading || error
               ? ""
-              : formatRate(totals?.signup_completed_to_paid_rate ?? 0) +
+              : formatAdminRate(totals?.signup_completed_to_paid_rate ?? 0) +
                   " of attributed sign-ups"}
           </p>
         </div>
@@ -202,13 +194,13 @@ export default function AdminUtmAttribution() {
       <div className="rounded-lg border border-border bg-card p-4">
         <p className="text-sm text-muted-foreground">Attributed revenue</p>
         <p className="text-3xl font-semibold">
-          {loading || error ? "—" : formatRevenue(totals?.revenue ?? 0)}
+          {loading || error ? "—" : formatAdminRevenue(totals?.revenue ?? 0)}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           Completed rate:{" "}
           {loading || error
             ? "—"
-            : formatRate(totals?.signup_to_completed_rate ?? 0)}
+            : formatAdminRate(totals?.signup_to_completed_rate ?? 0)}
         </p>
       </div>
 
@@ -260,16 +252,16 @@ export default function AdminUtmAttribution() {
                       <td className="p-3 text-right">{row.trials}</td>
                       <td className="p-3 text-right">{row.subscriptions}</td>
                       <td className="p-3 text-right">
-                        {formatRevenue(row.revenue)}
+                        {formatAdminRevenue(row.revenue)}
                       </td>
                       <td className="p-3 text-right">
-                        {formatRate(row.signup_to_completed_rate)}
+                        {formatAdminRate(row.signup_to_completed_rate)}
                       </td>
                       <td className="p-3 text-right">
-                        {formatRate(row.signup_completed_to_trial_rate)}
+                        {formatAdminRate(row.signup_completed_to_trial_rate)}
                       </td>
                       <td className="p-3 text-right">
-                        {formatRate(row.signup_completed_to_paid_rate)}
+                        {formatAdminRate(row.signup_completed_to_paid_rate)}
                       </td>
                     </tr>
                   ))

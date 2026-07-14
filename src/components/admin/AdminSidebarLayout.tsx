@@ -157,6 +157,13 @@ export default function AdminSidebarLayout() {
               Churn
             </NavLink>
             <NavLink
+              to="/admin/sticker-campaigns"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Megaphone className="h-4 w-4" />
+              Sticker Campaigns
+            </NavLink>
+            <NavLink
               to="/admin/utm-attribution"
               className={({ isActive }) => linkClass(isActive)}
             >

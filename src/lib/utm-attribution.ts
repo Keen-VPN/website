@@ -27,6 +27,28 @@ function trimParam(value: string | null): string | undefined {
   return trimmed ? trimmed.slice(0, 500) : undefined;
 }
 
+function buildAttributionFromSearch(
+  search: string,
+  landingPath: string,
+): StoredUtmAttribution | null {
+  const params = new URLSearchParams(search);
+  const captured: StoredUtmAttribution = {
+    landing_path: landingPath.slice(0, 500),
+    captured_at: new Date().toISOString(),
+  };
+
+  let hasUtm = false;
+  for (const key of UTM_PARAM_KEYS) {
+    const value = trimParam(params.get(key));
+    if (value) {
+      captured[key] = value;
+      hasUtm = true;
+    }
+  }
+
+  return hasUtm ? captured : null;
+}
+
 function storedUtmParam(
   record: Record<string, unknown>,
   key: (typeof UTM_PARAM_KEYS)[number],
@@ -95,31 +117,26 @@ export function clearUtmAttributionStorage(): void {
   }
 }
 
+/** Parse UTMs from the current URL without reading or writing localStorage. */
+export function parseUtmAttributionFromSearch(
+  search: string,
+  landingPath: string,
+): StoredUtmAttribution | null {
+  return buildAttributionFromSearch(search, landingPath);
+}
+
 /** First-touch capture: only stores the first UTM set seen in this browser. */
 export function captureUtmFromSearch(
   search: string,
   landingPath: string,
-): void {
-  if (typeof window === "undefined") return;
-  if (getStoredUtmAttribution()) return;
+): StoredUtmAttribution | null {
+  if (typeof window === "undefined") return null;
+  if (getStoredUtmAttribution()) return null;
 
-  const params = new URLSearchParams(search);
-  const captured: StoredUtmAttribution = {
-    landing_path: landingPath.slice(0, 500),
-    captured_at: new Date().toISOString(),
-  };
-
-  let hasUtm = false;
-  for (const key of UTM_PARAM_KEYS) {
-    const value = trimParam(params.get(key));
-    if (value) {
-      captured[key] = value;
-      hasUtm = true;
-    }
-  }
-
-  if (!hasUtm) return;
+  const captured = buildAttributionFromSearch(search, landingPath);
+  if (!captured) return null;
   setStoredUtmAttribution(captured);
+  return captured;
 }
 
 export function getUtmAttributionAuthPayload(): UtmAttributionAuthPayload {
