@@ -119,10 +119,10 @@ export function AccountWorkspace({
   const navigate = useNavigate();
   const bodyScrollRef = useRef<HTMLDivElement>(null);
   const impressionTrackedRef = useRef(false);
-  const lastTrackedTabRef = useRef<AccountWorkspaceTab | null>(null);
   const [activeTab, setActiveTab] = useState<AccountWorkspaceTab>(() =>
     resolveTabFromLocation(location.search, location.hash),
   );
+  const lastTrackedTabRef = useRef<AccountWorkspaceTab>(activeTab);
   const [mountedTabs, setMountedTabs] = useState<Set<AccountWorkspaceTab>>(
     () =>
       new Set([

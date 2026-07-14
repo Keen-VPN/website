@@ -158,6 +158,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await fetchSubscriptionStatusWithSession(sessionToken);
 
       if (response.success) {
+        // Ignore a response from a session that was replaced while this
+        // request was in flight (for example, logout followed by another login).
+        if (getSessionToken() !== sessionToken) {
+          return null;
+        }
         setSubscription(response.subscription ?? null);
         setTrial(response.trial ?? null);
         setEntitlements(response.entitlements);
