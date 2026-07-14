@@ -36,11 +36,12 @@ function formatRevenue(value: number): string {
   }).format(value);
 }
 
-async function copyText(value: string): Promise<void> {
+async function copyText(value: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(value);
+    return true;
   } catch {
-    /* ignore */
+    return false;
   }
 }
 
@@ -52,7 +53,9 @@ export default function AdminStickerCampaigns() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyErrorId, setCopyErrorId] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
+  const copiedTimeoutRef = useRef<number | null>(null);
 
   const load = useCallback(async (from: string, to: string) => {
     if (!from.trim() || !to.trim()) {
@@ -95,7 +98,12 @@ export default function AdminStickerCampaigns() {
 
   useEffect(() => {
     void load(fromInput, toInput);
-    return () => activeRequest.current?.abort();
+    return () => {
+      activeRequest.current?.abort();
+      if (copiedTimeoutRef.current != null) {
+        window.clearTimeout(copiedTimeoutRef.current);
+      }
+    };
   }, [load, fromInput, toInput]);
 
   const totals = funnelReport?.totals;
@@ -159,13 +167,33 @@ export default function AdminStickerCampaigns() {
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          void copyText(url).then(() => {
-                            setCopiedId(template.id);
-                            window.setTimeout(() => setCopiedId(null), 1500);
+                          void copyText(url).then((ok) => {
+                            if (copiedTimeoutRef.current != null) {
+                              window.clearTimeout(copiedTimeoutRef.current);
+                            }
+                            if (ok) {
+                              setCopyErrorId(null);
+                              setCopiedId(template.id);
+                              copiedTimeoutRef.current = window.setTimeout(
+                                () => setCopiedId(null),
+                                1500,
+                              );
+                              return;
+                            }
+                            setCopiedId(null);
+                            setCopyErrorId(template.id);
+                            copiedTimeoutRef.current = window.setTimeout(
+                              () => setCopyErrorId(null),
+                              2500,
+                            );
                           });
                         }}
                       >
-                        {copiedId === template.id ? "Copied" : "Copy URL"}
+                        {copiedId === template.id
+                          ? "Copied"
+                          : copyErrorId === template.id
+                            ? "Copy failed"
+                            : "Copy URL"}
                       </Button>
                       <Button type="button" size="sm" variant="outline" asChild>
                         <a href={url} target="_blank" rel="noopener noreferrer">
@@ -174,7 +202,7 @@ export default function AdminStickerCampaigns() {
                       </Button>
                       <Button type="button" size="sm" variant="outline" asChild>
                         <a href={qrUrl} target="_blank" rel="noopener noreferrer">
-                          Download QR
+                          Open QR
                         </a>
                       </Button>
                     </div>

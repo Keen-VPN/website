@@ -85,13 +85,22 @@ export function buildStickerCampaignUrl(
   params: BuildStickerUrlParams = {},
 ): string {
   const origin = (params.origin ?? KEENVPN_MARKETING_ORIGIN).replace(/\/$/, "");
-  const landingPath = params.landingPath ?? "/";
+  const rawPath = params.landingPath?.trim() || "/";
+  const landingPath =
+    rawPath.startsWith("http://") || rawPath.startsWith("https://")
+      ? "/"
+      : rawPath.startsWith("/")
+        ? rawPath
+        : `/${rawPath}`;
   const url = new URL(landingPath, `${origin}/`);
   url.searchParams.set("utm_source", STICKER_UTM_SOURCE);
-  url.searchParams.set("utm_medium", params.medium ?? STICKER_UTM_MEDIUM);
+  url.searchParams.set(
+    "utm_medium",
+    params.medium?.trim() || STICKER_UTM_MEDIUM,
+  );
   url.searchParams.set(
     "utm_campaign",
-    params.campaign ?? DEFAULT_STICKER_CAMPAIGN,
+    params.campaign?.trim() || DEFAULT_STICKER_CAMPAIGN,
   );
   if (params.content?.trim()) {
     url.searchParams.set("utm_content", params.content.trim());

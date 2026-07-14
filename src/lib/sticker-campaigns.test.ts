@@ -42,4 +42,22 @@ describe("sticker-campaigns", () => {
     expect(isStickerUtmSource("Sticker")).toBe(true);
     expect(isStickerUtmSource("google")).toBe(false);
   });
+  it("falls back to defaults for blank medium and campaign", () => {
+    const url = buildStickerCampaignUrl({
+      content: "generic",
+      medium: "   ",
+      campaign: "",
+    });
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("utm_medium")).toBe("physical");
+    expect(parsed.searchParams.get("utm_campaign")).toBe("launch_2026");
+  });
+
+  it("ignores absolute landing paths", () => {
+    const url = buildStickerCampaignUrl({
+      landingPath: "https://evil.example/phish",
+      content: "generic",
+    });
+    expect(url.startsWith("https://vpnkeen.com/")).toBe(true);
+  });
 });

@@ -3166,6 +3166,16 @@ export interface AdminUtmSignupReport {
 const SIGNUP_STARTED_SESSION_KEY = "keen_signup_started_tracked";
 const STICKER_LANDING_SESSION_KEY = "keen_sticker_landing_tracked";
 
+function stickerLandingSessionKey(
+  attribution: NonNullable<
+    ReturnType<typeof getUtmAttributionAuthPayload>["utmAttribution"]
+  >,
+): string {
+  const campaign = attribution.utm_campaign ?? "";
+  const content = attribution.utm_content ?? "";
+  return `${STICKER_LANDING_SESSION_KEY}:${campaign}:${content}`;
+}
+
 let signupStartedInFlight: Promise<void> | null = null;
 let stickerLandingInFlight: Promise<void> | null = null;
 
@@ -3224,13 +3234,19 @@ export async function recordSignupStarted(): Promise<void> {
 }
 
 /** Records sticker_landing when a sticker QR/URL is opened (pre-account). */
-export async function recordStickerLanding(): Promise<void> {
-  const payload = getUtmAttributionAuthPayload();
+export async function recordStickerLanding(
+  utmAttribution?: import("@/lib/utm-attribution").StoredUtmAttribution,
+): Promise<void> {
+  const payload = utmAttribution
+    ? { utmAttribution }
+    : getUtmAttributionAuthPayload();
   if (!payload.utmAttribution) return;
+
+  const sessionKey = stickerLandingSessionKey(payload.utmAttribution);
 
   if (typeof window !== "undefined") {
     try {
-      if (sessionStorage.getItem(STICKER_LANDING_SESSION_KEY)) return;
+      if (sessionStorage.getItem(sessionKey)) return;
     } catch {
       /* private mode / blocked storage */
     }
@@ -3247,7 +3263,7 @@ export async function recordStickerLanding(): Promise<void> {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...payload, platform: "web" }),
           keepalive: true,
         },
       );
@@ -3262,7 +3278,7 @@ export async function recordStickerLanding(): Promise<void> {
 
       if (typeof window !== "undefined") {
         try {
-          sessionStorage.setItem(STICKER_LANDING_SESSION_KEY, "1");
+          sessionStorage.setItem(sessionKey, "1");
         } catch {
           /* private mode / blocked storage */
         }
