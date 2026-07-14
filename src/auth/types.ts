@@ -32,10 +32,23 @@ export interface TrialData {
   tier?: string | null;
 }
 
+export type WorkspaceEntitlementReason =
+  | "active_subscription"
+  | "active_trial"
+  | "not_eligible";
+
+export interface UserEntitlements {
+  workspace: {
+    enabled: boolean;
+    reason: WorkspaceEntitlementReason;
+  };
+}
+
 export interface AuthState {
   user: FirebaseUser | null;
   subscription: SubscriptionData | null;
   trial: TrialData | null;
+  entitlements: UserEntitlements | null;
   loading: boolean;
 }
 

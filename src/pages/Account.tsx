@@ -136,6 +136,7 @@ const Account = () => {
     logout,
     subscription,
     trial,
+    entitlements,
     refreshSubscription,
     linkedProviders,
     refreshLinkedProviders,
@@ -148,6 +149,7 @@ const Account = () => {
     subscription,
     trial,
   );
+  const workspaceEnabled = entitlements?.workspace.enabled === true;
   const canManageBilling = subscription?.canManageBilling === true;
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
@@ -1118,7 +1120,7 @@ const Account = () => {
             </Card>
           </div>
 
-          {hasSessionToken && (
+          {hasSessionToken && workspaceEnabled && (
             <AccountWorkspace
               sessionToken={getSessionToken() ?? ""}
               authProvider={authProvider ?? undefined}

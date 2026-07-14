@@ -21,6 +21,7 @@ import {
   RETENTION_WINBACK_TOKEN_STORAGE_KEY,
   type SubscriptionData,
   type TrialData,
+  type UserEntitlements,
   type SignInResult,
   getSignupSourceStatus,
 } from '@/auth';
@@ -51,6 +52,7 @@ interface AuthContextType {
   user: FirebaseUser | null;
   subscription: SubscriptionData | null;
   trial: TrialData | null;
+  entitlements: UserEntitlements | null;
   loading: boolean;
   isAuthenticating: boolean;
   linkedProviders: LinkedProviders | null;
@@ -73,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [trial, setTrial] = useState<TrialData | null>(null);
+  const [entitlements, setEntitlements] = useState<UserEntitlements | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [linkedProviders, setLinkedProviders] = useState<LinkedProviders | null>(null);
@@ -157,6 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.success) {
         setSubscription(response.subscription ?? null);
         setTrial(response.trial ?? null);
+        setEntitlements(response.entitlements);
         return response.subscription;
       }
       if (response.unauthorized) {
@@ -170,6 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
           setSubscription(null);
           setTrial(null);
+          setEntitlements(null);
           try {
             await firebaseSignOut();
           } catch {
@@ -338,6 +343,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(null);
               setSubscription(null);
               setTrial(null);
+              setEntitlements(null);
 
               toast({
                 title: "Account Recently Deleted",
@@ -359,6 +365,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(null);
               setSubscription(null);
               setTrial(null);
+              setEntitlements(null);
 
               toast({
                 title: "Sign-In Failed",
@@ -496,6 +503,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setUser(null);
                 setSubscription(null);
                 setTrial(null);
+                setEntitlements(null);
 
                 toast({
                   title: "Sign-In Failed",
@@ -517,6 +525,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (!getSessionToken()) {
             setSubscription(null);
             setTrial(null);
+            setEntitlements(null);
           }
           setAuthProvider(null);
           syncHasSessionToken();
@@ -695,6 +704,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(null);
               setSubscription(null);
               setTrial(null);
+              setEntitlements(null);
               try {
                 await firebaseSignOut();
               } catch {
@@ -801,6 +811,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setSubscription(null);
         setTrial(null);
+        setEntitlements(null);
 
         setIsAuthenticating(false);
 
@@ -827,6 +838,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setSubscription(null);
         setTrial(null);
+        setEntitlements(null);
 
         toast({
           title: "Sign-In Failed",
@@ -872,6 +884,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setSubscription(null);
       setTrial(null);
+      setEntitlements(null);
       setAuthProvider(null);
 
       toast({
@@ -922,6 +935,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     subscription,
     trial,
+    entitlements,
     loading,
     isAuthenticating,
     linkedProviders,
@@ -931,7 +945,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     refreshSubscription,
     refreshLinkedProviders,
-  }), [user, subscription, trial, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, refreshLinkedProviders]);
+  }), [user, subscription, trial, entitlements, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, refreshLinkedProviders]);
 
   const sessionTokenForSignupSource = React.useMemo(() => {
     if (!hasSessionToken || !signupSourceDialogOpen) {
@@ -966,4 +980,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

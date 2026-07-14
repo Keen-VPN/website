@@ -45,6 +45,25 @@ export function trackProductEngagement(
   );
 }
 
+export type WorkspaceEventName =
+  | "workspace_impression"
+  | "workspace_feature_opened";
+
+export function trackWorkspaceEvent(
+  eventName: WorkspaceEventName,
+  payload: ProductAnalyticsPayload = {},
+): void {
+  if (typeof window === "undefined") return;
+
+  const detail = {
+    ...payload,
+    event: eventName,
+  };
+
+  window.dataLayer?.push(detail);
+  window.dispatchEvent(new CustomEvent("keen_workspace", { detail }));
+}
+
 export type SwitchPageEventName =
   | "switch_page_viewed"
   | "switch_cta_clicked"
