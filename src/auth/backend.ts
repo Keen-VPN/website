@@ -3253,8 +3253,9 @@ export async function recordStickerLanding(
     }
   }
 
-  if (stickerLandingInFlightByKey.has(sessionKey)) {
-    return stickerLandingInFlightByKey.get(sessionKey)!;
+  const existing = stickerLandingInFlightByKey.get(sessionKey);
+  if (existing) {
+    return existing;
   }
 
   const inFlight = (async () => {
