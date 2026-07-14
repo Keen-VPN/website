@@ -247,6 +247,7 @@ export default function AdminWorkflows() {
   const [error, setError] = useState<string | null>(null);
   const listRequestRef = useRef(0);
   const detailRequestRef = useRef(0);
+  const typesRequestRef = useRef(0);
 
   const [workflowTypes, setWorkflowTypes] = useState<AdminWorkflowTypeOption[]>(
     [],
@@ -270,8 +271,11 @@ export default function AdminWorkflows() {
   const limit = 25;
 
   const loadWorkflowTypes = useCallback(async () => {
+    const requestId = typesRequestRef.current + 1;
+    typesRequestRef.current = requestId;
     setTypesLoading(true);
     const res = await adminListWorkflowTypes();
+    if (typesRequestRef.current !== requestId) return;
     setTypesLoading(false);
     if (!res.ok) {
       setTypeFormError(res.error ?? "Failed to load workflow types");
@@ -513,7 +517,11 @@ export default function AdminWorkflows() {
                       value={typeSlug}
                       onChange={(event) => {
                         setSlugManuallyEdited(true);
-                        setTypeSlug(event.target.value.toLowerCase());
+                        setTypeSlug(
+                          event.target.value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9_]/g, ""),
+                        );
                       }}
                       className="bg-slate-950 border-slate-700 font-mono text-sm"
                     />

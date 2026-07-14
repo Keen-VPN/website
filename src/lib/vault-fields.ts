@@ -171,7 +171,8 @@ export function parseVaultAddress(value: string): VaultAddress {
 /** Serialize address fields to the JSON string the vault API expects. */
 export function serializeVaultAddress(address: VaultAddress): string {
   // Do not trim here — this runs on every keystroke while editing. Trimming
-  // would drop trailing spaces and merge words (e.g. "123 Main" → "123Main").
+  // would strip intentional trailing spaces as the user types (e.g. "123 " →
+  // "123"), which jumps the cursor and makes multi-word fields hard to edit.
   const line1 = address.line1;
   const line2 = address.line2 ?? "";
   const city = address.city;
@@ -204,7 +205,7 @@ export function normalizeVaultFieldValueForSave(
   fieldKey: string,
   value: string,
 ): string {
-  if (fieldKey === "home_address" || fieldKey === "mailing_address") {
+  if (getVaultFieldDefinition(fieldKey)?.inputType === "address") {
     return normalizeVaultAddressValue(value);
   }
   return value.trim();
