@@ -48,11 +48,14 @@ interface LinkedProviders {
   apple: { linked: boolean; email?: string };
 }
 
+type EntitlementsStatus = "idle" | "loading" | "ready" | "error";
+
 interface AuthContextType {
   user: FirebaseUser | null;
   subscription: SubscriptionData | null;
   trial: TrialData | null;
   entitlements: UserEntitlements | null;
+  entitlementsStatus: EntitlementsStatus;
   loading: boolean;
   isAuthenticating: boolean;
   linkedProviders: LinkedProviders | null;
@@ -76,6 +79,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [trial, setTrial] = useState<TrialData | null>(null);
   const [entitlements, setEntitlements] = useState<UserEntitlements | null>(null);
+  const [entitlementsStatus, setEntitlementsStatus] =
+    useState<EntitlementsStatus>("idle");
   const [loading, setLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [linkedProviders, setLinkedProviders] = useState<LinkedProviders | null>(null);
@@ -154,6 +159,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ============================================================================
 
   const fetchSubscriptionFromBackend = React.useCallback(async (sessionToken: string) => {
+    if (getSessionToken() === sessionToken) {
+      setEntitlementsStatus("loading");
+    }
     try {
       const response = await fetchSubscriptionStatusWithSession(sessionToken);
 
@@ -166,6 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSubscription(response.subscription ?? null);
         setTrial(response.trial ?? null);
         setEntitlements(response.entitlements);
+        setEntitlementsStatus(response.entitlements ? "ready" : "error");
         return response.subscription;
       }
       if (response.unauthorized) {
@@ -180,15 +189,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setSubscription(null);
           setTrial(null);
           setEntitlements(null);
+          setEntitlementsStatus("idle");
           try {
             await firebaseSignOut();
           } catch {
             // Ignore sign-out errors while clearing invalid auth state.
           }
         }
+      } else if (getSessionToken() === sessionToken) {
+        setEntitlementsStatus("error");
       }
       return null;
     } catch {
+      if (getSessionToken() === sessionToken) {
+        setEntitlementsStatus("error");
+      }
       return null;
     }
   }, [setAuthProvider]);
@@ -890,6 +905,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSubscription(null);
       setTrial(null);
       setEntitlements(null);
+      setEntitlementsStatus("idle");
       setAuthProvider(null);
 
       toast({
@@ -941,6 +957,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     subscription,
     trial,
     entitlements,
+    entitlementsStatus,
     loading,
     isAuthenticating,
     linkedProviders,
@@ -950,7 +967,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     refreshSubscription,
     refreshLinkedProviders,
-  }), [user, subscription, trial, entitlements, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, refreshLinkedProviders]);
+  }), [user, subscription, trial, entitlements, entitlementsStatus, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, refreshLinkedProviders]);
 
   const sessionTokenForSignupSource = React.useMemo(() => {
     if (!hasSessionToken || !signupSourceDialogOpen) {

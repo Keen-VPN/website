@@ -137,6 +137,7 @@ const Account = () => {
     subscription,
     trial,
     entitlements,
+    entitlementsStatus,
     refreshSubscription,
     linkedProviders,
     refreshLinkedProviders,
@@ -150,6 +151,17 @@ const Account = () => {
     trial,
   );
   const workspaceEnabled = entitlements?.workspace.enabled === true;
+  const mayHaveWorkspaceAccess = Boolean(subscription || trial?.active);
+  const workspaceEntitlementLoading =
+    hasSessionToken &&
+    mayHaveWorkspaceAccess &&
+    !entitlements &&
+    (entitlementsStatus === "idle" || entitlementsStatus === "loading");
+  const workspaceEntitlementError =
+    hasSessionToken &&
+    mayHaveWorkspaceAccess &&
+    !entitlements &&
+    entitlementsStatus === "error";
   const canManageBilling = subscription?.canManageBilling === true;
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
@@ -1130,6 +1142,43 @@ const Account = () => {
                 refreshSubscription();
               }}
             />
+          )}
+
+          {workspaceEntitlementLoading && (
+            <Card className="mt-10 border-accent/40 shadow-card">
+              <CardHeader>
+                <Skeleton className="h-7 w-36" />
+                <Skeleton className="h-4 w-full max-w-md" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-24 w-full rounded-xl" />
+              </CardContent>
+            </Card>
+          )}
+
+          {workspaceEntitlementError && (
+            <Card className="mt-10 border-accent/40 shadow-card">
+              <CardHeader>
+                <CardTitle className="text-xl">Workspace unavailable</CardTitle>
+                <CardDescription>
+                  We couldn&apos;t confirm your Workspace access. Refresh your
+                  membership status to try again.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleRefreshSubscription()}
+                  disabled={subscriptionLoading}
+                >
+                  {subscriptionLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  Refresh status
+                </Button>
+              </CardContent>
+            </Card>
           )}
 
           <div className="mt-8 grid gap-6 md:grid-cols-2">
