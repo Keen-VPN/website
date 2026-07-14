@@ -18,6 +18,7 @@ import { AiAssistantCard } from "@/components/AiAssistantCard";
 import { UserInformationCard } from "@/components/UserInformationCard";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
 import { cn } from "@/lib/utils";
+import { trackWorkspaceEvent } from "@/lib/product-analytics";
 
 export type AccountWorkspaceTab =
   | "perks"
@@ -117,15 +118,35 @@ export function AccountWorkspace({
   const location = useLocation();
   const navigate = useNavigate();
   const bodyScrollRef = useRef<HTMLDivElement>(null);
+  const impressionTrackedRef = useRef(false);
   const [activeTab, setActiveTab] = useState<AccountWorkspaceTab>(() =>
     resolveTabFromLocation(location.search, location.hash),
   );
+  const lastTrackedTabRef = useRef<AccountWorkspaceTab>(activeTab);
   const [mountedTabs, setMountedTabs] = useState<Set<AccountWorkspaceTab>>(
     () =>
       new Set([
         resolveTabFromLocation(location.search, location.hash),
       ]),
   );
+
+  useEffect(() => {
+    if (impressionTrackedRef.current) return;
+    impressionTrackedRef.current = true;
+    trackWorkspaceEvent("workspace_impression", {
+      entry_section: activeTab,
+      navigation_path: `${location.pathname}${location.search}${location.hash}`,
+    });
+  }, [activeTab, location.hash, location.pathname, location.search]);
+
+  useEffect(() => {
+    if (lastTrackedTabRef.current === activeTab) return;
+    lastTrackedTabRef.current = activeTab;
+    trackWorkspaceEvent("workspace_feature_opened", {
+      section: activeTab,
+      navigation_path: `${location.pathname}${location.search}${location.hash}`,
+    });
+  }, [activeTab, location.hash, location.pathname, location.search]);
 
   useEffect(() => {
     setMountedTabs((prev) => {
@@ -254,7 +275,7 @@ export function AccountWorkspace({
             <div ref={bodyScrollRef} className="relative min-h-0 flex-1">
               <TabsContent
                 value="perks"
-                forceMount={mountedTabs.has("perks")}
+                forceMount={mountedTabs.has("perks") ? true : undefined}
                 className={cn(tabPanelClassName, "space-y-4")}
               >
                 <div id="applications" className="scroll-mt-24 space-y-4">
@@ -265,7 +286,7 @@ export function AccountWorkspace({
 
               <TabsContent
                 value="vault"
-                forceMount={mountedTabs.has("vault")}
+                forceMount={mountedTabs.has("vault") ? true : undefined}
                 className={tabPanelClassName}
               >
                 <div id="vault" className="scroll-mt-24">
@@ -275,7 +296,7 @@ export function AccountWorkspace({
 
               <TabsContent
                 value="profile"
-                forceMount={mountedTabs.has("profile")}
+                forceMount={mountedTabs.has("profile") ? true : undefined}
                 className={cn(tabPanelClassName, "space-y-4")}
               >
                 <div className="grid gap-4 xl:grid-cols-2">
@@ -286,7 +307,7 @@ export function AccountWorkspace({
 
               <TabsContent
                 value="connections"
-                forceMount={mountedTabs.has("connections")}
+                forceMount={mountedTabs.has("connections") ? true : undefined}
                 className={cn(tabPanelClassName, "space-y-4")}
               >
                 <div className="grid gap-4 xl:grid-cols-2">

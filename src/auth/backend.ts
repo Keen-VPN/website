@@ -3,7 +3,12 @@ import type {
   VaultFieldCategory,
   VaultFieldInputType,
 } from "@/lib/vault-fields";
-import { BackendAuthResponse, SubscriptionData, TrialData } from "./types";
+import {
+  BackendAuthResponse,
+  SubscriptionData,
+  TrialData,
+  UserEntitlements,
+} from "./types";
 import {
   getReferralTokenFromStorage,
   clearReferralTokenStorage,
@@ -190,6 +195,7 @@ function normalizeBackendAuthResponse(
 export interface SubscriptionStatusResult {
   success: boolean;
   hasActiveSubscription?: boolean;
+  entitlements: UserEntitlements | null;
   subscription: SubscriptionData | null;
   trial: TrialData | null;
   annualSavings?: {
@@ -199,6 +205,20 @@ export interface SubscriptionStatusResult {
   } | null;
   error?: string;
   unauthorized?: boolean;
+}
+
+function parseUserEntitlements(value: unknown): UserEntitlements | null {
+  if (!isJsonObject(value) || !isJsonObject(value.workspace)) return null;
+
+  const { enabled, reason } = value.workspace;
+  const validReason =
+    reason === "active_subscription" ||
+    reason === "active_trial" ||
+    reason === "not_eligible";
+
+  if (typeof enabled !== "boolean" || !validReason) return null;
+
+  return { workspace: { enabled, reason } };
 }
 
 // ============================================================================
@@ -1559,6 +1579,7 @@ export async function fetchSubscriptionStatusWithSession(
     if (!response.ok) {
       return {
         success: false,
+        entitlements: null,
         subscription: null,
         trial: null,
         error: data?.error || "Failed to fetch subscription status",
@@ -1579,10 +1600,14 @@ export async function fetchSubscriptionStatusWithSession(
             }
           ).annualSavings ?? null)
         : null;
+    const entitlements = isJsonObject(data)
+      ? parseUserEntitlements(data.entitlements)
+      : null;
 
     return {
       success: normalized.success,
       hasActiveSubscription: Boolean(normalized.subscription),
+      entitlements,
       subscription: normalized.subscription ?? null,
       trial: normalized.trial ?? null,
       annualSavings,
@@ -1592,6 +1617,7 @@ export async function fetchSubscriptionStatusWithSession(
   } catch (error) {
     return {
       success: false,
+      entitlements: null,
       subscription: null,
       trial: null,
       annualSavings: null,

@@ -159,6 +159,8 @@ export {
 export type {
   SubscriptionData,
   TrialData,
+  UserEntitlements,
+  WorkspaceEntitlementReason,
   AuthState,
   BackendAuthResponse
 } from './types';
