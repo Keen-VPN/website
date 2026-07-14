@@ -99,9 +99,9 @@ export function clearUtmAttributionStorage(): void {
 export function captureUtmFromSearch(
   search: string,
   landingPath: string,
-): void {
-  if (typeof window === "undefined") return;
-  if (getStoredUtmAttribution()) return;
+): StoredUtmAttribution | null {
+  if (typeof window === "undefined") return null;
+  if (getStoredUtmAttribution()) return null;
 
   const params = new URLSearchParams(search);
   const captured: StoredUtmAttribution = {
@@ -118,8 +118,9 @@ export function captureUtmFromSearch(
     }
   }
 
-  if (!hasUtm) return;
+  if (!hasUtm) return null;
   setStoredUtmAttribution(captured);
+  return captured;
 }
 
 export function getUtmAttributionAuthPayload(): UtmAttributionAuthPayload {

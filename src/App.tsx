@@ -78,6 +78,9 @@ const AdminUserSessions = lazy(
 const AdminUtmAttribution = lazy(
   () => import("./pages/admin/AdminUtmAttribution"),
 );
+const AdminStickerCampaigns = lazy(
+  () => import("./pages/admin/AdminStickerCampaigns"),
+);
 const AdminBroadcastEmail = lazy(
   () => import("./pages/admin/AdminBroadcastEmail"),
 );
@@ -238,6 +241,10 @@ const App = () => (
                 <Route path="churn" element={<AdminChurn />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="utm-attribution" element={<AdminUtmAttribution />} />
+                <Route
+                  path="sticker-campaigns"
+                  element={<AdminStickerCampaigns />}
+                />
                 <Route path="broadcast-email" element={<AdminBroadcastEmail />} />
               </Route>
               <Route path="*" element={<NotFound />} />

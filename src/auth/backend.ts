@@ -3164,8 +3164,10 @@ export interface AdminUtmSignupReport {
 }
 
 const SIGNUP_STARTED_SESSION_KEY = "keen_signup_started_tracked";
+const STICKER_LANDING_SESSION_KEY = "keen_sticker_landing_tracked";
 
 let signupStartedInFlight: Promise<void> | null = null;
+let stickerLandingInFlight: Promise<void> | null = null;
 
 /** Records signup_started with stored first-touch UTMs (pre-account). */
 export async function recordSignupStarted(): Promise<void> {
@@ -3219,6 +3221,60 @@ export async function recordSignupStarted(): Promise<void> {
   })();
 
   return signupStartedInFlight;
+}
+
+/** Records sticker_landing when a sticker QR/URL is opened (pre-account). */
+export async function recordStickerLanding(): Promise<void> {
+  const payload = getUtmAttributionAuthPayload();
+  if (!payload.utmAttribution) return;
+
+  if (typeof window !== "undefined") {
+    try {
+      if (sessionStorage.getItem(STICKER_LANDING_SESSION_KEY)) return;
+    } catch {
+      /* private mode / blocked storage */
+    }
+  }
+
+  if (stickerLandingInFlight) {
+    return stickerLandingInFlight;
+  }
+
+  stickerLandingInFlight = (async () => {
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/marketing-attribution/sticker-landing`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          keepalive: true,
+        },
+      );
+      if (!response.ok) return;
+
+      const data: unknown = await response.json().catch(() => ({}));
+      const tracked =
+        typeof data === "object" &&
+        data !== null &&
+        (data as { tracked?: boolean }).tracked === true;
+      if (!tracked) return;
+
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.setItem(STICKER_LANDING_SESSION_KEY, "1");
+        } catch {
+          /* private mode / blocked storage */
+        }
+      }
+    } catch {
+      /* non-fatal */
+    } finally {
+      stickerLandingInFlight = null;
+    }
+  })();
+
+  return stickerLandingInFlight;
 }
 
 export interface AdminUtmFunnelRow {
@@ -3286,6 +3342,88 @@ export async function adminFetchUtmFunnelReport(params?: {
     const record = data as { data?: AdminUtmFunnelReport };
     if (!record.data) {
       return { ok: false, error: "Invalid UTM funnel report response" };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export interface AdminStickerFunnelRow {
+  utm_campaign: string;
+  utm_content: string;
+  utm_medium: string;
+  sticker_landings: number;
+  signup_started: number;
+  signups_completed: number;
+  trials: number;
+  subscriptions: number;
+  revenue: number;
+  landing_to_signup_started_rate: number;
+  signup_to_completed_rate: number;
+  signup_completed_to_trial_rate: number;
+  signup_completed_to_paid_rate: number;
+}
+
+export interface AdminStickerFunnelReport {
+  from: string;
+  to: string;
+  totals: {
+    sticker_landings: number;
+    signup_started: number;
+    signups_completed: number;
+    trials: number;
+    subscriptions: number;
+    revenue: number;
+    landing_to_signup_started_rate: number;
+    signup_to_completed_rate: number;
+    signup_completed_to_trial_rate: number;
+    signup_completed_to_paid_rate: number;
+  };
+  rows: AdminStickerFunnelRow[];
+}
+
+export async function adminFetchStickerFunnelReport(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminStickerFunnelReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/utm-attribution/stickers/funnel${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load sticker funnel report",
+        ),
+      };
+    }
+    const record = data as { data?: AdminStickerFunnelReport };
+    if (!record.data) {
+      return { ok: false, error: "Invalid sticker funnel report response" };
     }
     return { ok: true, data: record.data };
   } catch (e) {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   adminFetchUtmFunnelReport,
@@ -111,7 +112,14 @@ export default function AdminUtmAttribution() {
         <h2 className="text-2xl font-semibold tracking-tight">UTM attribution</h2>
         <p className="text-sm text-muted-foreground">
           First-touch sign-ups and conversion funnel by UTM source, campaign, and
-          medium.
+          medium. Physical stickers:{" "}
+          <Link
+            to="/admin/sticker-campaigns"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            Sticker campaigns
+          </Link>
+          .
         </p>
       </div>
 
