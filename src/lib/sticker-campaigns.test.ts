@@ -79,4 +79,13 @@ describe("sticker-campaigns", () => {
       expect(parsed.pathname).toBe("/");
     }
   });
+
+  it("ignores whitespace protocol-relative landing paths", () => {
+    for (const landingPath of ["/\t//evil.example/phish", "/\r//evil.example/phish"]) {
+      const url = buildStickerCampaignUrl({ landingPath, content: "generic" });
+      const parsed = new URL(url);
+      expect(parsed.origin).toBe("https://vpnkeen.com");
+      expect(parsed.pathname).toBe("/");
+    }
+  });
 });

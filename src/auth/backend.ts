@@ -3173,11 +3173,12 @@ function stickerLandingSessionKey(
 ): string {
   const campaign = attribution.utm_campaign ?? "";
   const content = attribution.utm_content ?? "";
-  return `${STICKER_LANDING_SESSION_KEY}:${campaign}:${content}`;
+  const medium = attribution.utm_medium ?? "";
+  return `${STICKER_LANDING_SESSION_KEY}:${campaign}:${content}:${medium}`;
 }
 
 let signupStartedInFlight: Promise<void> | null = null;
-let stickerLandingInFlight: Promise<void> | null = null;
+const stickerLandingInFlightByKey = new Map<string, Promise<void>>();
 
 /** Records signup_started with stored first-touch UTMs (pre-account). */
 export async function recordSignupStarted(): Promise<void> {
@@ -3252,11 +3253,11 @@ export async function recordStickerLanding(
     }
   }
 
-  if (stickerLandingInFlight) {
-    return stickerLandingInFlight;
+  if (stickerLandingInFlightByKey.has(sessionKey)) {
+    return stickerLandingInFlightByKey.get(sessionKey)!;
   }
 
-  stickerLandingInFlight = (async () => {
+  const inFlight = (async () => {
     try {
       const response = await fetch(
         `${BACKEND_URL}/marketing-attribution/sticker-landing`,
@@ -3286,11 +3287,12 @@ export async function recordStickerLanding(
     } catch {
       /* non-fatal */
     } finally {
-      stickerLandingInFlight = null;
+      stickerLandingInFlightByKey.delete(sessionKey);
     }
   })();
 
-  return stickerLandingInFlight;
+  stickerLandingInFlightByKey.set(sessionKey, inFlight);
+  return inFlight;
 }
 
 export interface AdminUtmFunnelRow {

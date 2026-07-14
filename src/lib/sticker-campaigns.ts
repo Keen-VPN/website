@@ -81,8 +81,14 @@ export interface BuildStickerUrlParams {
   origin?: string;
 }
 
+/** C0 controls the URL parser treats as whitespace when resolving paths. */
+const URL_PATH_WHITESPACE = /[\t\r\n\f\v]/;
+
 function normalizeStickerLandingPath(rawPath: string): string {
   const trimmed = rawPath.trim() || "/";
+  if (URL_PATH_WHITESPACE.test(trimmed)) {
+    return "/";
+  }
   const normalized = trimmed.replace(/\\/g, "/");
   if (
     normalized.startsWith("//") ||

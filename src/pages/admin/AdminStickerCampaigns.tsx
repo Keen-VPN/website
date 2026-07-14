@@ -10,31 +10,12 @@ import {
   buildStickerUrlFromTemplate,
   stickerQrCodeImageUrl,
 } from "@/lib/sticker-campaigns";
-
-function defaultFromValue(): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() - 30);
-  return date.toISOString().slice(0, 10);
-}
-
-function defaultToValue(): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
-
-function formatRate(value: number): string {
-  return `${value.toFixed(2)}%`;
-}
-
-function formatRevenue(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
+import {
+  defaultAdminReportFromValue,
+  defaultAdminReportToValue,
+  formatAdminRate,
+  formatAdminRevenue,
+} from "@/lib/admin-utils";
 
 async function copyText(value: string): Promise<boolean> {
   try {
@@ -46,8 +27,8 @@ async function copyText(value: string): Promise<boolean> {
 }
 
 export default function AdminStickerCampaigns() {
-  const [fromInput, setFromInput] = useState(defaultFromValue);
-  const [toInput, setToInput] = useState(defaultToValue);
+  const [fromInput, setFromInput] = useState(defaultAdminReportFromValue);
+  const [toInput, setToInput] = useState(defaultAdminReportToValue);
   const [funnelReport, setFunnelReport] =
     useState<AdminStickerFunnelReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,6 +40,8 @@ export default function AdminStickerCampaigns() {
 
   const load = useCallback(async (from: string, to: string) => {
     if (!from.trim() || !to.trim()) {
+      setFunnelReport(null);
+      setError(null);
       setLoading(false);
       return;
     }
@@ -294,13 +277,13 @@ export default function AdminStickerCampaigns() {
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm text-muted-foreground">Attributed revenue</p>
           <p className="text-3xl font-semibold">
-            {loading || error ? "—" : formatRevenue(totals?.revenue ?? 0)}
+            {loading || error ? "—" : formatAdminRevenue(totals?.revenue ?? 0)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             Landing → sign-up started:{" "}
             {loading || error
               ? "—"
-              : formatRate(totals?.landing_to_signup_started_rate ?? 0)}
+              : formatAdminRate(totals?.landing_to_signup_started_rate ?? 0)}
           </p>
         </div>
 
@@ -351,13 +334,13 @@ export default function AdminStickerCampaigns() {
                       <td className="p-3 text-right">{row.trials}</td>
                       <td className="p-3 text-right">{row.subscriptions}</td>
                       <td className="p-3 text-right">
-                        {formatRevenue(row.revenue)}
+                        {formatAdminRevenue(row.revenue)}
                       </td>
                       <td className="p-3 text-right">
-                        {formatRate(row.landing_to_signup_started_rate)}
+                        {formatAdminRate(row.landing_to_signup_started_rate)}
                       </td>
                       <td className="p-3 text-right">
-                        {formatRate(row.signup_to_completed_rate)}
+                        {formatAdminRate(row.signup_to_completed_rate)}
                       </td>
                     </tr>
                   ))

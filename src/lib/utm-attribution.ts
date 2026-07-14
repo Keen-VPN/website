@@ -122,7 +122,6 @@ export function parseUtmAttributionFromSearch(
   search: string,
   landingPath: string,
 ): StoredUtmAttribution | null {
-  if (typeof window === "undefined") return null;
   return buildAttributionFromSearch(search, landingPath);
 }
 
