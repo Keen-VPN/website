@@ -236,9 +236,7 @@ export function FriendDiscoveriesSection({
           offerText: p.offerText,
         })),
       );
-      if (res.data.perks[0]) {
-        setSelectedPerkId(res.data.perks[0].id);
-      }
+      setSelectedPerkId(res.data.perks[0]?.id ?? "");
     }
   }
 
@@ -389,14 +387,16 @@ export function FriendDiscoveriesSection({
               ))}
             </div>
             <div className="w-full sm:w-56">
-              <Label className="sr-only">Sharing preference</Label>
+              <Label htmlFor="discovery-sharing-mode" className="sr-only">
+                Sharing preference
+              </Label>
               <Select
                 value={sharingMode}
                 onValueChange={(v) =>
                   void handleSharingModeChange(v as DiscoverySharingMode)
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="discovery-sharing-mode">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -593,9 +593,9 @@ export function FriendDiscoveriesSection({
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Opportunity</Label>
+              <Label htmlFor="share-opportunity">Opportunity</Label>
               <Select value={selectedPerkId} onValueChange={setSelectedPerkId}>
-                <SelectTrigger>
+                <SelectTrigger id="share-opportunity">
                   <SelectValue placeholder="Choose a perk" />
                 </SelectTrigger>
                 <SelectContent>

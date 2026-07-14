@@ -597,7 +597,7 @@ export default function AdminPerks() {
   useEffect(() => {
     void (async () => {
       const res = await adminListWorkflowTypes();
-      if (!res.ok || !res.data?.types?.length) return;
+      if (!res.ok || !res.data?.types) return;
       const options = res.data.types
         .filter((type: AdminWorkflowTypeOption) => type.selectable)
         .map((type: AdminWorkflowTypeOption) => ({
@@ -608,9 +608,8 @@ export default function AdminPerks() {
               : ""
           }`,
         }));
-      if (options.length > 0) {
-        setWorkflowTypeOptions(options);
-      }
+      // Always apply — an empty selectable list must clear the fallback options.
+      setWorkflowTypeOptions(options);
     })();
   }, []);
 

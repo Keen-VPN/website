@@ -896,6 +896,7 @@ const Perks = () => {
           {user && friendsNetworkEnabled ? (
             <div className="mb-8">
               <FriendDiscoveriesSection
+                key={user.uid}
                 friends={discoveryFriends}
                 hasSession={Boolean(getSessionToken())}
                 refreshKey={discoveryRefreshKey}
