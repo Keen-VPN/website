@@ -56,6 +56,14 @@ export {
   joinFriendNetworkViaLink,
   fetchFriendsNotifications,
   markFriendsNotificationsRead,
+  fetchFriendDiscoveries,
+  fetchDiscoveryPreferences,
+  updateDiscoveryPreferences,
+  sharePerkWithFriends,
+  updateFriendDiscoveryShare,
+  updateFriendSharingPreferences,
+  approveFriendDiscoveryDraft,
+  dismissFriendDiscoveryDraft,
   fetchPerks,
   claimPerk,
   recordPerkEvent,
@@ -107,6 +115,7 @@ export type {
   PerkAccessTier,
   PerkUserTab,
   PerkRequestCategory,
+  PerkDiscoveryOutcome,
   PerksListPayload,
   ProfileQuestionOption,
   ProfileQuestion,
@@ -150,6 +159,8 @@ export {
 export type {
   SubscriptionData,
   TrialData,
+  UserEntitlements,
+  WorkspaceEntitlementReason,
   AuthState,
   BackendAuthResponse
 } from './types';

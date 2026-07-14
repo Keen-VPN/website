@@ -34,6 +34,7 @@ import { VaultFieldInput } from "@/components/VaultFieldInput";
 import {
   getVaultFieldValidationError,
   isSensitiveVaultField,
+  normalizeVaultFieldValueForSave,
 } from "@/lib/vault-fields";
 import { cn } from "@/lib/utils";
 
@@ -130,7 +131,7 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
   }
 
   async function handleSave(field: VaultFieldMetadata) {
-    const trimmed = editValue.trim();
+    const trimmed = normalizeVaultFieldValueForSave(field.fieldKey, editValue);
     const validationError = getVaultFieldValidationError(field.fieldKey, trimmed);
     if (validationError) {
       setError(validationError);
@@ -312,7 +313,11 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
           if (!open) closeFieldModal();
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent
+          className={
+            activeField?.inputType === "address" ? "sm:max-w-lg" : "sm:max-w-md"
+          }
+        >
           {activeField ? (
             <>
               <DialogHeader>
@@ -339,9 +344,11 @@ export function SecureVaultCard({ sessionToken }: SecureVaultCardProps) {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <Label htmlFor={`vault-${activeField.fieldKey}`}>
-                      {activeField.label}
-                    </Label>
+                    {activeField.inputType !== "address" ? (
+                      <Label htmlFor={`vault-${activeField.fieldKey}`}>
+                        {activeField.label}
+                      </Label>
+                    ) : null}
                     <VaultFieldInput
                       id={`vault-${activeField.fieldKey}`}
                       inputType={activeField.inputType}

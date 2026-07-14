@@ -3,7 +3,12 @@ import type {
   VaultFieldCategory,
   VaultFieldInputType,
 } from "@/lib/vault-fields";
-import { BackendAuthResponse, SubscriptionData, TrialData } from "./types";
+import {
+  BackendAuthResponse,
+  SubscriptionData,
+  TrialData,
+  UserEntitlements,
+} from "./types";
 import {
   getReferralTokenFromStorage,
   clearReferralTokenStorage,
@@ -190,6 +195,7 @@ function normalizeBackendAuthResponse(
 export interface SubscriptionStatusResult {
   success: boolean;
   hasActiveSubscription?: boolean;
+  entitlements: UserEntitlements | null;
   subscription: SubscriptionData | null;
   trial: TrialData | null;
   annualSavings?: {
@@ -199,6 +205,20 @@ export interface SubscriptionStatusResult {
   } | null;
   error?: string;
   unauthorized?: boolean;
+}
+
+function parseUserEntitlements(value: unknown): UserEntitlements | null {
+  if (!isJsonObject(value) || !isJsonObject(value.workspace)) return null;
+
+  const { enabled, reason } = value.workspace;
+  const validReason =
+    reason === "active_subscription" ||
+    reason === "active_trial" ||
+    reason === "not_eligible";
+
+  if (typeof enabled !== "boolean" || !validReason) return null;
+
+  return { workspace: { enabled, reason } };
 }
 
 // ============================================================================
@@ -416,6 +436,9 @@ export interface PerkItem {
   redemptionUrl?: string;
   /** Workflow Engine type identifier for "workflow" redemption perks, e.g. "chase_signup". */
   workflowType?: string;
+  /** True when a workflow application is in progress but not yet completed. */
+  applicationInProgress?: boolean;
+  applicationWorkflowId?: string;
 }
 
 export interface PerksListPayload {
@@ -463,6 +486,30 @@ export async function fetchPerks(
   }
 }
 
+export type PerkDiscoveryOutcome =
+  | {
+      status: "skipped";
+      reason:
+        | "friends_disabled"
+        | "never"
+        | "no_eligible_friends"
+        | "perk_unavailable"
+        | "error";
+    }
+  | {
+      status: "draft_created";
+      draftId: string;
+      friendCount: number;
+      perkTitle: string;
+      partnerName: string | null;
+      valueLabel: string;
+    }
+  | {
+      status: "auto_shared";
+      deliveredCount: number;
+      skippedCount: number;
+    };
+
 export async function claimPerk(
   sessionToken: string,
   perkId: string,
@@ -476,6 +523,7 @@ export async function claimPerk(
   /** Present when redemptionType is "workflow" — the auto-started/resumed workflow. */
   workflowId?: string;
   workflowState?: WorkflowState;
+  discovery?: PerkDiscoveryOutcome;
 }> {
   try {
     const response = await fetch(
@@ -506,7 +554,8 @@ export async function claimPerk(
     return {
       success: true,
       redemptionType: payload["redemptionType"] as
-        PerkRedemptionType | undefined,
+        | PerkRedemptionType
+        | undefined,
       redemptionUrl:
         typeof payload["redemptionUrl"] === "string"
           ? payload["redemptionUrl"]
@@ -525,6 +574,7 @@ export async function claimPerk(
         typeof payload["workflowState"] === "string"
           ? (payload["workflowState"] as WorkflowState)
           : undefined,
+      discovery: parsePerkDiscoveryOutcome(payload["discovery"]),
     };
   } catch (error) {
     return {
@@ -532,6 +582,46 @@ export async function claimPerk(
       error: error instanceof Error ? error.message : "Failed to claim perk",
     };
   }
+}
+
+function parsePerkDiscoveryOutcome(raw: unknown): PerkDiscoveryOutcome | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const value = raw as Record<string, unknown>;
+  if (value.status === "draft_created" && typeof value.draftId === "string") {
+    return {
+      status: "draft_created",
+      draftId: value.draftId,
+      friendCount:
+        typeof value.friendCount === "number" ? value.friendCount : 0,
+      perkTitle: typeof value.perkTitle === "string" ? value.perkTitle : "Opportunity",
+      partnerName:
+        typeof value.partnerName === "string" ? value.partnerName : null,
+      valueLabel: typeof value.valueLabel === "string" ? value.valueLabel : "",
+    };
+  }
+  if (value.status === "auto_shared") {
+    return {
+      status: "auto_shared",
+      deliveredCount:
+        typeof value.deliveredCount === "number" ? value.deliveredCount : 0,
+      skippedCount:
+        typeof value.skippedCount === "number" ? value.skippedCount : 0,
+    };
+  }
+  if (value.status === "skipped") {
+    const reason = value.reason;
+    if (
+      reason === "friends_disabled" ||
+      reason === "never" ||
+      reason === "no_eligible_friends" ||
+      reason === "perk_unavailable" ||
+      reason === "error"
+    ) {
+      return { status: "skipped", reason };
+    }
+    return { status: "skipped", reason: "error" };
+  }
+  return undefined;
 }
 
 export async function unclaimPerk(
@@ -1489,6 +1579,7 @@ export async function fetchSubscriptionStatusWithSession(
     if (!response.ok) {
       return {
         success: false,
+        entitlements: null,
         subscription: null,
         trial: null,
         error: data?.error || "Failed to fetch subscription status",
@@ -1509,10 +1600,14 @@ export async function fetchSubscriptionStatusWithSession(
             }
           ).annualSavings ?? null)
         : null;
+    const entitlements = isJsonObject(data)
+      ? parseUserEntitlements(data.entitlements)
+      : null;
 
     return {
       success: normalized.success,
       hasActiveSubscription: Boolean(normalized.subscription),
+      entitlements,
       subscription: normalized.subscription ?? null,
       trial: normalized.trial ?? null,
       annualSavings,
@@ -1522,6 +1617,7 @@ export async function fetchSubscriptionStatusWithSession(
   } catch (error) {
     return {
       success: false,
+      entitlements: null,
       subscription: null,
       trial: null,
       annualSavings: null,
@@ -6081,6 +6177,159 @@ export async function adminUpdateWorkflowHandoffStatus(
   }
 }
 
+export type AdminWorkflowTypeSource = "code" | "admin";
+
+export interface AdminWorkflowTypeOption {
+  source: AdminWorkflowTypeSource;
+  id: string | null;
+  type: string;
+  partnerName: string;
+  description: string | null;
+  requiredFieldKeys: string[];
+  requiresFinalApproval: boolean;
+  isActive: boolean;
+  selectable: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AdminVaultFieldOption {
+  key: string;
+  label: string;
+  category: string;
+  inputType: string;
+}
+
+export async function adminListWorkflowTypes(): Promise<
+  WorkflowApiResult<{
+    success: boolean;
+    types: AdminWorkflowTypeOption[];
+    vaultFields: AdminVaultFieldOption[];
+  }>
+> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/workflows/types`, {
+      credentials: "include",
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load workflow types"),
+      };
+    }
+    return {
+      ok: true,
+      data: raw as {
+        success: boolean;
+        types: AdminWorkflowTypeOption[];
+        vaultFields: AdminVaultFieldOption[];
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to load workflow types",
+    };
+  }
+}
+
+export async function adminCreateWorkflowType(body: {
+  typeSlug: string;
+  partnerName: string;
+  description?: string;
+  requiredFieldKeys: string[];
+  requiresFinalApproval?: boolean;
+}): Promise<
+  WorkflowApiResult<{
+    success: boolean;
+    type: AdminWorkflowTypeOption;
+  }>
+> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/workflows/types`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to create workflow type",
+        ),
+      };
+    }
+    return {
+      ok: true,
+      data: raw as { success: boolean; type: AdminWorkflowTypeOption },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to create workflow type",
+    };
+  }
+}
+
+export async function adminUpdateWorkflowType(
+  id: string,
+  body: {
+    partnerName?: string;
+    description?: string | null;
+    requiredFieldKeys?: string[];
+    requiresFinalApproval?: boolean;
+    isActive?: boolean;
+  },
+): Promise<
+  WorkflowApiResult<{
+    success: boolean;
+    type: AdminWorkflowTypeOption;
+  }>
+> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/workflows/types/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to update workflow type",
+        ),
+      };
+    }
+    return {
+      ok: true,
+      data: raw as { success: boolean; type: AdminWorkflowTypeOption },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to update workflow type",
+    };
+  }
+}
 
 // ---------------------------------------------------------------------
 // AI Orchestrator (Claude) — conversational client on top of the Workflow Engine
@@ -6421,5 +6670,178 @@ export async function markFriendsNotificationsRead(
     "/notifications/read",
     { method: "POST", body: JSON.stringify({ notificationIds }) },
     "Failed to mark notifications read",
+  );
+}
+
+export type DiscoverySharingMode = "auto" | "review" | "never";
+
+export type DiscoveryFeedFilter = "new" | "saved" | "dismissed" | "shared" | "pending";
+
+export type FriendShareAction = "view" | "save" | "dismiss" | "claim";
+
+export interface FriendDiscoveryShare {
+  id: string;
+  status: string;
+  message: string | null;
+  sharedAt: string;
+  viewedAt: string | null;
+  savedAt: string | null;
+  dismissedAt: string | null;
+  claimedAt: string | null;
+  sharer: { userId: string; displayName: string | null };
+  recommendation: {
+    id: string;
+    opportunityType: string;
+    partnerName: string | null;
+    perkId: string | null;
+    title: string;
+    valueLabel: string | null;
+    description: string | null;
+    ctaPath: string | null;
+    expiresAt: string | null;
+    source: string;
+  };
+}
+
+export interface FriendDiscoveryDraft {
+  id: string;
+  perkId: string;
+  friendUserIds: string[];
+  message: string | null;
+  trigger: string;
+  createdAt: string;
+  perk: {
+    title: string;
+    partnerName: string | null;
+    valueLabel: string;
+    expiresAt: string | null;
+  };
+}
+
+export async function fetchFriendDiscoveries(
+  sessionToken: string,
+  filter: DiscoveryFeedFilter = "new",
+): Promise<
+  FriendsApiResult<{
+    filter: DiscoveryFeedFilter;
+    counts: { new: number; saved: number; pending?: number };
+    items: FriendDiscoveryShare[] | FriendDiscoveryDraft[];
+  }>
+> {
+  return friendsRequest(
+    sessionToken,
+    `/discoveries?filter=${encodeURIComponent(filter)}`,
+    { method: "GET" },
+    "Failed to load discoveries",
+    { featureDisabledOn404: true },
+  );
+}
+
+export async function fetchDiscoveryPreferences(
+  sessionToken: string,
+): Promise<FriendsApiResult<{ sharingMode: DiscoverySharingMode }>> {
+  return friendsRequest(
+    sessionToken,
+    "/discoveries/preferences",
+    { method: "GET" },
+    "Failed to load discovery preferences",
+    { featureDisabledOn404: true },
+  );
+}
+
+export async function updateDiscoveryPreferences(
+  sessionToken: string,
+  sharingMode: DiscoverySharingMode,
+): Promise<
+  FriendsApiResult<{ success: boolean; sharingMode: DiscoverySharingMode }>
+> {
+  return friendsRequest(
+    sessionToken,
+    "/discoveries/preferences",
+    { method: "PATCH", body: JSON.stringify({ sharingMode }) },
+    "Failed to update discovery preferences",
+  );
+}
+
+export async function sharePerkWithFriends(
+  sessionToken: string,
+  params: {
+    perkId: string;
+    friendUserIds?: string[];
+    message?: string;
+  },
+): Promise<
+  FriendsApiResult<{
+    success: boolean;
+    recommendationId: string;
+    deliveredShareIds: string[];
+    skipped: { friendUserId: string; reason: string }[];
+  }>
+> {
+  return friendsRequest(
+    sessionToken,
+    "/discoveries/share",
+    { method: "POST", body: JSON.stringify(params) },
+    "Failed to share opportunity",
+  );
+}
+
+export async function updateFriendDiscoveryShare(
+  sessionToken: string,
+  shareId: string,
+  action: FriendShareAction,
+): Promise<
+  FriendsApiResult<{
+    success: boolean;
+    share: FriendDiscoveryShare;
+    claimCtaPath?: string | null;
+  }>
+> {
+  return friendsRequest(
+    sessionToken,
+    `/discoveries/shares/${encodeURIComponent(shareId)}`,
+    { method: "PATCH", body: JSON.stringify({ action }) },
+    "Failed to update share",
+  );
+}
+
+export async function approveFriendDiscoveryDraft(
+  sessionToken: string,
+  draftId: string,
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    `/discoveries/drafts/${encodeURIComponent(draftId)}/approve`,
+    { method: "POST" },
+    "Failed to approve share",
+  );
+}
+
+export async function dismissFriendDiscoveryDraft(
+  sessionToken: string,
+  draftId: string,
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    `/discoveries/drafts/${encodeURIComponent(draftId)}/dismiss`,
+    { method: "POST" },
+    "Failed to dismiss draft",
+  );
+}
+
+export async function updateFriendSharingPreferences(
+  sessionToken: string,
+  friendUserId: string,
+  preferences: {
+    shareRecommendations?: boolean;
+    shareReferrals?: boolean;
+    shareAiInsights?: boolean;
+  },
+): Promise<FriendsApiResult> {
+  return friendsRequest(
+    sessionToken,
+    `/${encodeURIComponent(friendUserId)}/sharing`,
+    { method: "PATCH", body: JSON.stringify(preferences) },
+    "Failed to update sharing preferences",
   );
 }
