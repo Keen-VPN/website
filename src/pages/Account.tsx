@@ -150,17 +150,19 @@ const Account = () => {
     subscription,
     trial,
   );
-  const workspaceEnabled = entitlements?.workspace.enabled === true;
-  const mayHaveWorkspaceAccess = Boolean(subscription || trial?.active);
+  const workspaceEnabled =
+    entitlementsStatus === "ready" &&
+    entitlements?.workspace.enabled === true;
+  const mayHaveWorkspaceAccess = Boolean(
+    subscription || trial?.active || entitlements?.workspace.enabled,
+  );
   const workspaceEntitlementLoading =
     hasSessionToken &&
     mayHaveWorkspaceAccess &&
-    !entitlements &&
     (entitlementsStatus === "idle" || entitlementsStatus === "loading");
   const workspaceEntitlementError =
     hasSessionToken &&
     mayHaveWorkspaceAccess &&
-    !entitlements &&
     entitlementsStatus === "error";
   const canManageBilling = subscription?.canManageBilling === true;
 
