@@ -70,4 +70,13 @@ describe("sticker-campaigns", () => {
     expect(parsed.origin).toBe("https://vpnkeen.com");
     expect(parsed.pathname).toBe("/");
   });
+
+  it("ignores backslash protocol-relative landing paths", () => {
+    for (const landingPath of ["\\\\evil.example\\phish", "/\\evil.example/phish"]) {
+      const url = buildStickerCampaignUrl({ landingPath, content: "generic" });
+      const parsed = new URL(url);
+      expect(parsed.origin).toBe("https://vpnkeen.com");
+      expect(parsed.pathname).toBe("/");
+    }
+  });
 });

@@ -83,15 +83,14 @@ export interface BuildStickerUrlParams {
 
 function normalizeStickerLandingPath(rawPath: string): string {
   const trimmed = rawPath.trim() || "/";
-  const lowered = trimmed.toLowerCase();
+  const normalized = trimmed.replace(/\\/g, "/");
   if (
-    lowered.startsWith("http://") ||
-    lowered.startsWith("https://") ||
-    trimmed.startsWith("//")
+    normalized.startsWith("//") ||
+    /^[a-z][a-z0-9+.-]*:/i.test(normalized)
   ) {
     return "/";
   }
-  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  return normalized.startsWith("/") ? normalized : `/${normalized}`;
 }
 
 export function buildStickerCampaignUrl(
