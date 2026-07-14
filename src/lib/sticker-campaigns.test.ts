@@ -60,4 +60,14 @@ describe("sticker-campaigns", () => {
     });
     expect(url.startsWith("https://vpnkeen.com/")).toBe(true);
   });
+
+  it("ignores protocol-relative landing paths", () => {
+    const url = buildStickerCampaignUrl({
+      landingPath: "//evil.example/phish",
+      content: "generic",
+    });
+    const parsed = new URL(url);
+    expect(parsed.origin).toBe("https://vpnkeen.com");
+    expect(parsed.pathname).toBe("/");
+  });
 });

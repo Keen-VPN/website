@@ -81,17 +81,25 @@ export interface BuildStickerUrlParams {
   origin?: string;
 }
 
+function normalizeStickerLandingPath(rawPath: string): string {
+  const trimmed = rawPath.trim() || "/";
+  const lowered = trimmed.toLowerCase();
+  if (
+    lowered.startsWith("http://") ||
+    lowered.startsWith("https://") ||
+    trimmed.startsWith("//")
+  ) {
+    return "/";
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
 export function buildStickerCampaignUrl(
   params: BuildStickerUrlParams = {},
 ): string {
   const origin = (params.origin ?? KEENVPN_MARKETING_ORIGIN).replace(/\/$/, "");
   const rawPath = params.landingPath?.trim() || "/";
-  const landingPath =
-    rawPath.startsWith("http://") || rawPath.startsWith("https://")
-      ? "/"
-      : rawPath.startsWith("/")
-        ? rawPath
-        : `/${rawPath}`;
+  const landingPath = normalizeStickerLandingPath(rawPath);
   const url = new URL(landingPath, `${origin}/`);
   url.searchParams.set("utm_source", STICKER_UTM_SOURCE);
   url.searchParams.set(
