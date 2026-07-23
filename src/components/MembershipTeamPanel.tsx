@@ -319,8 +319,8 @@ export function MembershipTeamPanel({
                       : `Expires ${formatDate(pending.expiresAt)}`}
                   </p>
                 </div>
-                {!pending.billingPending ? (
-                  <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {!pending.billingPending ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -329,16 +329,16 @@ export function MembershipTeamPanel({
                     >
                       Resend
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void cancelInvite(pending.id)}
-                      disabled={submitting}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                ) : null}
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void cancelInvite(pending.id)}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
