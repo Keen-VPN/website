@@ -1,16 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Minus, Plus, Users } from "lucide-react";
+import { Loader2, Users } from "lucide-react";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import type { SubscriptionData } from "@/auth/types";
 import type { ApiPlan } from "@/lib/pricing";
-import { canUpgradeStripeMembershipPlan } from "@/lib/subscription-cta";
 import {
-  DEFAULT_BUSINESS_SEATS,
-  MAX_BUSINESS_SEATS,
-  resolvePlanDefaultSeats,
-  resolvePlanMinSeats,
-} from "@/constants/pricing";
+  canUpgradeToBusinessPlan,
+  isAppleIapSubscription,
+} from "@/lib/subscription-cta";
 
 interface MembershipPlanUpgradeCardProps {
   subscription: SubscriptionData;
@@ -26,7 +23,6 @@ export function MembershipPlanUpgradeCard({
   const [plans, setPlans] = useState<ApiPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [billingPeriod, setBillingPeriod] = useState<"month" | "year">("year");
-  const [seatCount, setSeatCount] = useState(DEFAULT_BUSINESS_SEATS);
 
   useEffect(() => {
     let ignore = false;
@@ -77,16 +73,8 @@ export function MembershipPlanUpgradeCard({
     billingPeriod === "year"
       ? (annualPlan ?? monthlyPlan)
       : (monthlyPlan ?? annualPlan);
-  const minSeats = resolvePlanMinSeats(selectedPlan);
-  const defaultSeats = resolvePlanDefaultSeats(selectedPlan);
   const hasBothPeriods = Boolean(monthlyPlan && annualPlan);
-
-  useEffect(() => {
-    if (!selectedPlan) return;
-    setSeatCount((current) =>
-      Math.max(minSeats, Math.min(MAX_BUSINESS_SEATS, current || defaultSeats)),
-    );
-  }, [defaultSeats, minSeats, selectedPlan]);
+  const isAppleBilling = isAppleIapSubscription(subscription);
 
   useEffect(() => {
     if (billingPeriod === "year" && !annualPlan && monthlyPlan) {
@@ -94,16 +82,16 @@ export function MembershipPlanUpgradeCard({
     }
   }, [annualPlan, billingPeriod, monthlyPlan]);
 
-  if (!canUpgradeStripeMembershipPlan(subscription)) {
+  if (!canUpgradeToBusinessPlan(subscription)) {
     return null;
   }
   if (!plansLoading && !selectedPlan) {
     return null;
   }
 
-  const totalPrice =
+  const unitPrice =
     selectedPlan && Number.isFinite(selectedPlan.price)
-      ? selectedPlan.price * seatCount
+      ? selectedPlan.price
       : null;
   const pricePeriod =
     selectedPlan?.billingPeriod === "year" || selectedPlan?.period === "year"
@@ -119,8 +107,9 @@ export function MembershipPlanUpgradeCard({
             Share KeenVPN with your team
           </p>
           <p className="text-xs text-muted-foreground">
-            Upgrade to Business to invite members with their own logins. Choose
-            seats here, then Stripe updates your subscription.
+            {isAppleBilling
+              ? "Switch billing to Stripe to enable Business and invite teammates. You are only charged for teammates when they accept."
+              : "Upgrade to Business, then invite teammates below. You are only charged per person when they accept and join."}
           </p>
         </div>
       </div>
@@ -137,7 +126,7 @@ export function MembershipPlanUpgradeCard({
               <div>
                 <p className="text-sm font-medium">Business</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Pay per seat · 5 connected devices per seat
+                  Pay per active member · 5 connected devices per seat
                 </p>
               </div>
               {hasBothPeriods ? (
@@ -164,67 +153,43 @@ export function MembershipPlanUpgradeCard({
               ) : null}
             </div>
 
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-medium text-muted-foreground">
-                Seats
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  disabled={seatCount <= minSeats || upgrading}
-                  onClick={() =>
-                    setSeatCount((count) => Math.max(minSeats, count - 1))
-                  }
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <span className="min-w-[2rem] text-center text-sm font-semibold">
-                  {seatCount}
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  disabled={seatCount >= MAX_BUSINESS_SEATS || upgrading}
-                  onClick={() =>
-                    setSeatCount((count) =>
-                      Math.min(MAX_BUSINESS_SEATS, count + 1),
-                    )
-                  }
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {totalPrice !== null ? (
+            {unitPrice !== null ? (
               <p className="text-xs text-muted-foreground">
-                ${totalPrice.toFixed(2)}/{pricePeriod} for {seatCount} seats
+                Checkout covers you only (1 seat). When teammates accept, your card
+                is charged about one seat (
+                {pricePeriod === "year"
+                  ? `$${unitPrice.toFixed(2)}/seat/year`
+                  : `$${unitPrice.toFixed(2)}/seat/month`}
+                , prorated for the rest of the billing period). Invites are free
+                until someone accepts.
               </p>
             ) : null}
           </>
         )}
       </div>
 
+      {isAppleBilling ? (
+        <p className="text-xs text-muted-foreground">
+          After checkout, cancel your App Store subscription to avoid being billed
+          twice.
+        </p>
+      ) : null}
+
       <Button
         type="button"
         className="w-full"
         onClick={() =>
-          selectedPlan
-            ? void onUpgradePlan(selectedPlan.id, seatCount)
-            : undefined
+          selectedPlan ? void onUpgradePlan(selectedPlan.id, 1) : undefined
         }
         disabled={plansLoading || !selectedPlan || upgrading}
       >
         {upgrading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Updating subscription…
+            {isAppleBilling ? "Opening Stripe checkout…" : "Updating subscription…"}
           </>
+        ) : isAppleBilling ? (
+          "Continue with Stripe"
         ) : (
           "Upgrade to Business"
         )}

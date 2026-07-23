@@ -13,7 +13,14 @@ import {
 } from "@/components/ui/accordion";
 import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import PricingNoticeTooltip from "@/components/PricingNoticeTooltip";
-import { enterprisePlan, featureComparison, featureComparisonValueForPlan, faqs, DEFAULT_BUSINESS_SEATS, MAX_BUSINESS_SEATS, resolvePlanDefaultSeats, resolvePlanMinSeats } from "@/constants/pricing";
+import {
+  enterprisePlan,
+  featureComparison,
+  featureComparisonValueForPlan,
+  faqs,
+  DEFAULT_BUSINESS_SEATS,
+  resolvePlanDefaultSeats,
+} from "@/constants/pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import {
@@ -28,7 +35,7 @@ import { PricingPlan } from "@/lib/pricing";
 import SEOHead from "@/components/SEOHead";
 import {
   canStartFreeTrial,
-  canUpgradeStripeMembershipPlan,
+  canUpgradeToBusinessPlan,
   canUpgradeStripeToAnnual,
   resolveMembershipPlanTier,
 } from "@/lib/subscription-cta";
@@ -87,7 +94,7 @@ const Pricing = () => {
   const isMonthlyStripeUpgradeEligible =
     canUpgradeStripeToAnnual(subscription);
 
-  const showMembershipPlanUpgrade = canUpgradeStripeMembershipPlan(subscription);
+  const showMembershipPlanUpgrade = canUpgradeToBusinessPlan(subscription);
   const membershipTier = resolveMembershipPlanTier(subscription);
 
   const { businessUpgradeLoading, upgradeToBusinessPlan } =
@@ -152,7 +159,6 @@ const Pricing = () => {
     () => plans.find((p) => p.isPerSeat),
     [plans],
   );
-  const businessMinSeats = resolvePlanMinSeats(businessPlan);
   const businessDefaultSeats = resolvePlanDefaultSeats(businessPlan);
   const annualSavingsLabel =
     premiumPlan?.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL;
@@ -208,9 +214,9 @@ const Pricing = () => {
       if (!selectedPlanId) {
         return;
       }
-      await upgradeToBusinessPlan(selectedPlanId, businessSeatCount);
+      await upgradeToBusinessPlan(selectedPlanId, 1);
     },
-    [billingPeriod, businessSeatCount, upgradeToBusinessPlan],
+    [billingPeriod, upgradeToBusinessPlan],
   );
 
   if (loading) {
@@ -391,52 +397,22 @@ const Pricing = () => {
                         {annualBillingDetail}
                       </p>
                     )}
-                    {plan.isPerSeat && plan.monthlyPrice !== null ? (
+                    {plan.isPerSeat &&
+                    plan.monthlyPrice !== null &&
+                    !showBusinessPlanUpgrade ? (
                       <div className="mt-4 space-y-2 rounded-lg border border-border/80 bg-muted/30 p-3">
                         <p className="text-sm font-medium text-foreground">
-                          Seats
+                          Per-seat pricing
                         </p>
-                        <div className="flex items-center gap-3">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            disabled={businessSeatCount <= businessMinSeats}
-                            onClick={() =>
-                              setBusinessSeatCount((count) =>
-                                Math.max(businessMinSeats, count - 1),
-                              )
-                            }
-                          >
-                            −
-                          </Button>
-                          <span className="min-w-[2rem] text-center text-lg font-semibold">
-                            {businessSeatCount}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            disabled={businessSeatCount >= MAX_BUSINESS_SEATS}
-                            onClick={() =>
-                              setBusinessSeatCount((count) =>
-                                Math.min(MAX_BUSINESS_SEATS, count + 1),
-                              )
-                            }
-                          >
-                            +
-                          </Button>
-                        </div>
                         <p className="text-xs text-muted-foreground">
-                          Total: $
-                          {(
-                            ((isAnnual ? plan.annualPrice : plan.monthlyPrice) ??
-                              0) * businessSeatCount
-                          ).toFixed(2)}
-                          {isAnnual ? "/year" : "/month"} for {businessSeatCount}{" "}
-                          seats
+                          Starts with you — add teammates later; each member is
+                          billed when they accept your invite.
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          From $
+                          {((isAnnual ? plan.annualPrice : plan.monthlyPrice) ??
+                            0).toFixed(2)}
+                          {isAnnual ? "/year" : "/month"} for your seat
                         </p>
                       </div>
                     ) : null}

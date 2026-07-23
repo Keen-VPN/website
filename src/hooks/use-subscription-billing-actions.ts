@@ -223,11 +223,12 @@ export function useSubscriptionBillingActions(
         );
 
         if (result.success) {
-          toast({
-            title: "Business plan updated",
-            description: `Your subscription now includes ${result.seatLimit ?? seatCount} seats.`,
-          });
-          await refreshSubscription();
+          if (result.mode === "checkout" && result.url) {
+            window.location.href = result.url;
+            return;
+          }
+
+          window.location.href = "/account?tab=connections&business=upgraded";
         } else {
           throw new Error(result.error || "Failed to upgrade to Business");
         }
@@ -242,7 +243,7 @@ export function useSubscriptionBillingActions(
         setBusinessUpgradeLoading(false);
       }
     },
-    [requireSessionToken, toast, refreshSubscription],
+    [requireSessionToken, toast],
   );
 
   return {
