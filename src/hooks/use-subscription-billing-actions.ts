@@ -228,13 +228,7 @@ export function useSubscriptionBillingActions(
             return;
           }
 
-          toast({
-            title: "Business plan updated",
-            description:
-              "Invite your teammates in the Team section below — you are charged when they accept.",
-          });
           window.location.href = "/account?tab=connections&business=upgraded";
-          await refreshSubscription();
         } else {
           throw new Error(result.error || "Failed to upgrade to Business");
         }
@@ -249,7 +243,7 @@ export function useSubscriptionBillingActions(
         setBusinessUpgradeLoading(false);
       }
     },
-    [requireSessionToken, toast, refreshSubscription],
+    [requireSessionToken, toast],
   );
 
   return {

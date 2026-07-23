@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SubscriptionData } from "@/auth/types";
 import {
-  canUpgradeStripeToBusinessPlan,
+  canUpgradeToBusinessPlan,
   resolveMembershipPlanTier,
 } from "@/lib/subscription-cta";
 
@@ -62,9 +62,9 @@ describe("membership plan tier helpers", () => {
       subscriptionType: "apple_iap",
     });
 
-    expect(canUpgradeStripeToBusinessPlan(individual)).toBe(true);
-    expect(canUpgradeStripeToBusinessPlan(family)).toBe(true);
-    expect(canUpgradeStripeToBusinessPlan(apple)).toBe(true);
-    expect(canUpgradeStripeToBusinessPlan(business)).toBe(false);
+    expect(canUpgradeToBusinessPlan(individual)).toBe(true);
+    expect(canUpgradeToBusinessPlan(family)).toBe(true);
+    expect(canUpgradeToBusinessPlan(apple)).toBe(true);
+    expect(canUpgradeToBusinessPlan(business)).toBe(false);
   });
 });

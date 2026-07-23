@@ -206,10 +206,7 @@ export function useMembershipSharing(sessionToken: string | null) {
 
   const seats = dashboard?.seats;
   const canInvite =
-    dashboard?.eligible &&
-    (dashboard.chargeOnAccept
-      ? (seats?.availableSeats ?? 0) > 0
-      : (seats?.availableSeats ?? 0) > 0);
+    dashboard?.eligible && (seats?.availableSeats ?? 0) > 0;
   const seatFloor = Math.max(
     dashboard?.minSeats ?? MIN_BUSINESS_SEATS,
     (seats?.activeSeats ?? 0) + (seats?.pendingInvites ?? 0),

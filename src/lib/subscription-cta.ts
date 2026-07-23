@@ -212,19 +212,6 @@ export function canUpgradeToBusinessPlan(
   );
 }
 
-/** @deprecated Use canUpgradeToBusinessPlan — kept for call-site compatibility. */
-export function canUpgradeStripeToBusinessPlan(
-  subscription: SubscriptionData | null | undefined,
-): boolean {
-  return canUpgradeToBusinessPlan(subscription);
-}
-
-export function canUpgradeStripeMembershipPlan(
-  subscription: SubscriptionData | null | undefined,
-): boolean {
-  return canUpgradeToBusinessPlan(subscription);
-}
-
 export function isBusinessPlanSubscription(
   subscription: SubscriptionData | null | undefined,
 ): boolean {

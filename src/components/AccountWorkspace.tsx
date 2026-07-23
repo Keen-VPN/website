@@ -19,6 +19,7 @@ import { UserInformationCard } from "@/components/UserInformationCard";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
 import { cn } from "@/lib/utils";
 import { trackWorkspaceEvent } from "@/lib/product-analytics";
+import { useToast } from "@/hooks/use-toast";
 
 export type AccountWorkspaceTab =
   | "perks"
@@ -125,8 +126,10 @@ export function AccountWorkspace({
 }: AccountWorkspaceProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const bodyScrollRef = useRef<HTMLDivElement>(null);
   const impressionTrackedRef = useRef(false);
+  const businessUpgradeHandledRef = useRef(false);
   const [activeTab, setActiveTab] = useState<AccountWorkspaceTab>(() =>
     resolveTabFromLocation(location.search, location.hash),
   );
@@ -165,10 +168,40 @@ export function AccountWorkspace({
     });
   }, [activeTab]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("business") !== "upgraded") return;
+
+    if (!businessUpgradeHandledRef.current) {
+      businessUpgradeHandledRef.current = true;
+      toast({
+        title: "Business plan updated",
+        description:
+          "Invite your teammates in the Team section — you are charged when they accept.",
+      });
+    }
+
+    params.delete("business");
+    const nextSearch = params.toString();
+    navigate(
+      `${location.pathname}${nextSearch ? `?${nextSearch}` : ""}${
+        location.hash
+      }`,
+      { replace: true },
+    );
+  }, [
+    location.hash,
+    location.pathname,
+    location.search,
+    navigate,
+    toast,
+  ]);
+
   const syncLocationToTab = useCallback(
     (tab: AccountWorkspaceTab) => {
       const params = new URLSearchParams(location.search);
       params.set("tab", tab);
+      params.delete("business");
       const nextHash = hashForTab(tab);
       const nextSearch = params.toString();
       const nextUrl = `${location.pathname}?${nextSearch}${
