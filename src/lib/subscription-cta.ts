@@ -188,14 +188,10 @@ export function resolveMembershipPlanTier(
   return "individual";
 }
 
-function isEligibleStripePlanManager(
+function isEligibleBusinessPlanManager(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
-  if (
-    !subscription ||
-    subscription.canManageBilling !== true ||
-    !isStripeSubscription(subscription)
-  ) {
+  if (!subscription || subscription.canManageBilling !== true) {
     return false;
   }
   if (subscription.cancelAtPeriodEnd) return false;
@@ -204,21 +200,14 @@ function isEligibleStripePlanManager(
 }
 
 /**
- * Stripe owner not already on Business — can upgrade to Business (seat-based, Slack/Devin-style)
- * via the billing portal. Covers both current Individual subscribers and legacy/grandfathered
- * Family subscribers, since Family is retired from the purchasable catalog.
+ * Owner with an active/trialing subscription not already on Business — eligible to
+ * start Business (in-place Stripe upgrade or Stripe checkout migration).
  */
-export function canUpgradeStripeToBusinessPlan(
+export function canUpgradeToBusinessPlan(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
   return (
-    isEligibleStripePlanManager(subscription) &&
+    isEligibleBusinessPlanManager(subscription) &&
     resolveMembershipPlanTier(subscription) !== "business"
   );
-}
-
-export function canUpgradeStripeMembershipPlan(
-  subscription: SubscriptionData | null | undefined,
-): boolean {
-  return canUpgradeStripeToBusinessPlan(subscription);
 }

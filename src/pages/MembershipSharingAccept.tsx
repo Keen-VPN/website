@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -16,9 +16,15 @@ export default function MembershipSharingAccept() {
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState<string | null>(null);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(
+    null,
+  );
+  const [chargeOnAccept, setChargeOnAccept] = useState(false);
+  const [prepaidAvailableSeats, setPrepaidAvailableSeats] = useState(0);
+  const [nextAcceptanceWillCharge, setNextAcceptanceWillCharge] =
+    useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
-  const autoAcceptAttemptedRef = useRef(false);
 
   useEffect(() => {
     if (!token) {
@@ -35,6 +41,10 @@ export default function MembershipSharingAccept() {
           valid?: boolean;
           inviteeEmail?: string;
           ownerEmail?: string;
+          subscriptionStatus?: string;
+          chargeOnAccept?: boolean;
+          prepaidAvailableSeats?: number | null;
+          nextAcceptanceWillCharge?: boolean;
         };
         if (cancelled) return;
         if (!res.ok || !data.valid) {
@@ -44,6 +54,20 @@ export default function MembershipSharingAccept() {
         }
         setInviteEmail(data.inviteeEmail ?? null);
         setOwnerEmail(data.ownerEmail ?? null);
+        setSubscriptionStatus(data.subscriptionStatus ?? null);
+        setChargeOnAccept(data.chargeOnAccept === true);
+        setPrepaidAvailableSeats(
+          typeof data.prepaidAvailableSeats === "number"
+            ? Math.max(0, data.prepaidAvailableSeats)
+            : 0,
+        );
+        setNextAcceptanceWillCharge(
+          data.nextAcceptanceWillCharge ??
+            !(
+              typeof data.prepaidAvailableSeats === "number" &&
+              Math.max(0, data.prepaidAvailableSeats) > 0
+            ),
+        );
         setLoading(false);
       })
       .catch(() => {
@@ -84,16 +108,6 @@ export default function MembershipSharingAccept() {
     await acceptWithSessionToken(sessionToken);
   }
 
-  useEffect(() => {
-    if (loading || accepted || error || autoAcceptAttemptedRef.current) return;
-
-    const sessionToken = getSessionToken();
-    if (!sessionToken) return;
-
-    autoAcceptAttemptedRef.current = true;
-    void acceptWithSessionToken(sessionToken);
-  }, [accepted, error, loading]);
-
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <Header />
@@ -125,6 +139,17 @@ export default function MembershipSharingAccept() {
                 Sign in with <strong>{inviteEmail}</strong> to accept.
               </p>
             ) : null}
+            <p className="rounded-md border border-slate-700 bg-slate-900 p-3 text-sm text-slate-400">
+              {!chargeOnAccept
+                ? "Accepting uses one of the membership owner's existing seats."
+                : subscriptionStatus?.toLowerCase() === "trialing"
+                  ? "Accepting adds you to the Business subscription now, with no additional seat charge during the trial. The membership owner is billed for active seats when the trial ends."
+                  : nextAcceptanceWillCharge
+                    ? "No already-paid seat is currently available. Accepting adds a paid Business seat and immediately charges the membership owner a prorated amount for the rest of the current billing period. If their payment cannot be completed, the invitation remains pending and no access is granted."
+                    : `The membership currently has ${prepaidAvailableSeats} already-paid ${
+                        prepaidAvailableSeats === 1 ? "seat" : "seats"
+                      } available, so accepting is not expected to create an additional charge. Seat availability is confirmed again when you accept.`}
+            </p>
             <Button onClick={() => void handleAccept()} disabled={loading}>
               Accept invitation
             </Button>

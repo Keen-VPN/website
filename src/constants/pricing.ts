@@ -4,16 +4,20 @@ export const MIN_BUSINESS_SEATS = 2;
 export const DEFAULT_BUSINESS_SEATS = 5;
 export const MAX_BUSINESS_SEATS = 25;
 
-export function resolvePlanMinSeats(plan?: {
-  minSeats?: number;
-} | null): number {
+export function resolvePlanMinSeats(
+  plan?: {
+    minSeats?: number;
+  } | null,
+): number {
   return plan?.minSeats ?? MIN_BUSINESS_SEATS;
 }
 
-export function resolvePlanDefaultSeats(plan?: {
-  minSeats?: number;
-  defaultSeats?: number;
-} | null): number {
+export function resolvePlanDefaultSeats(
+  plan?: {
+    minSeats?: number;
+    defaultSeats?: number;
+  } | null,
+): number {
   const minSeats = resolvePlanMinSeats(plan);
   return Math.max(
     minSeats,
@@ -68,7 +72,7 @@ export const faqs = [
   {
     question: "How does Business seat billing work?",
     answer:
-      "Business is priced per seat. Choose how many seats you need (minimum 2), invite teammates by email, and each seat includes 5 connected devices. You can buy or reduce seats anytime from your account dashboard.",
+      "Business is priced per active team member. Start with your seat and invite teammates by email for free. Accepted teammates use available trial or already-paid seats first; additional seats are charged when a teammate accepts, and trial seats are billed when the trial ends. Each seat includes 5 connected devices.",
   },
   {
     question: "Do you keep logs of my activity?",

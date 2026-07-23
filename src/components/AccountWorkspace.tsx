@@ -19,12 +19,9 @@ import { UserInformationCard } from "@/components/UserInformationCard";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
 import { cn } from "@/lib/utils";
 import { trackWorkspaceEvent } from "@/lib/product-analytics";
+import { useToast } from "@/hooks/use-toast";
 
-export type AccountWorkspaceTab =
-  | "perks"
-  | "vault"
-  | "profile"
-  | "connections";
+export type AccountWorkspaceTab = "perks" | "vault" | "profile" | "connections";
 
 const TAB_HASH: Record<string, AccountWorkspaceTab> = {
   vault: "vault",
@@ -72,6 +69,14 @@ function resolveTabFromLocation(
   search: string,
   hash: string,
 ): AccountWorkspaceTab {
+  const params = new URLSearchParams(search);
+  if (
+    params.get("tab") === "connections" ||
+    params.get("business") === "upgraded"
+  ) {
+    return "connections";
+  }
+
   const hashKey = hash.replace(/^#/, "");
   if (hashKey && TAB_HASH[hashKey]) {
     return TAB_HASH[hashKey];
@@ -117,17 +122,16 @@ export function AccountWorkspace({
 }: AccountWorkspaceProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const bodyScrollRef = useRef<HTMLDivElement>(null);
   const impressionTrackedRef = useRef(false);
+  const businessUpgradeHandledRef = useRef(false);
   const [activeTab, setActiveTab] = useState<AccountWorkspaceTab>(() =>
     resolveTabFromLocation(location.search, location.hash),
   );
   const lastTrackedTabRef = useRef<AccountWorkspaceTab>(activeTab);
   const [mountedTabs, setMountedTabs] = useState<Set<AccountWorkspaceTab>>(
-    () =>
-      new Set([
-        resolveTabFromLocation(location.search, location.hash),
-      ]),
+    () => new Set([resolveTabFromLocation(location.search, location.hash)]),
   );
 
   useEffect(() => {
@@ -157,10 +161,32 @@ export function AccountWorkspace({
     });
   }, [activeTab]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("business") !== "upgraded") return;
+
+    if (!businessUpgradeHandledRef.current) {
+      businessUpgradeHandledRef.current = true;
+      toast({
+        title: "Business plan updated",
+        description:
+          "Invite your teammates in the Team section — you are charged when they accept.",
+      });
+    }
+
+    params.set("tab", "connections");
+    params.delete("business");
+    const nextSearch = params.toString();
+    navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ""}`, {
+      replace: true,
+    });
+  }, [location.hash, location.pathname, location.search, navigate, toast]);
+
   const syncLocationToTab = useCallback(
     (tab: AccountWorkspaceTab) => {
       const params = new URLSearchParams(location.search);
       params.set("tab", tab);
+      params.delete("business");
       const nextHash = hashForTab(tab);
       const nextSearch = params.toString();
       const nextUrl = `${location.pathname}?${nextSearch}${
@@ -175,10 +201,12 @@ export function AccountWorkspace({
     const nextTab = resolveTabFromLocation(location.search, location.hash);
     setActiveTab((current) => (current === nextTab ? current : nextTab));
 
+    const params = new URLSearchParams(location.search);
+    if (params.get("business") === "upgraded") return;
+
     const hashTab = tabFromHash(location.hash);
     if (!hashTab) return;
 
-    const params = new URLSearchParams(location.search);
     const queryTab = params.get("tab");
     if (queryTab === hashTab) return;
 
@@ -193,17 +221,27 @@ export function AccountWorkspace({
   }, [location.search, location.hash, location.pathname, navigate]);
 
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
     const hashKey = location.hash.replace(/^#/, "");
-    if (!hashKey || !TAB_HASH[hashKey]) return;
+    const anchorId =
+      hashKey && TAB_HASH[hashKey]
+        ? hashKey
+        : params.get("tab") === "connections" ||
+            params.get("business") === "upgraded"
+          ? "team-sharing"
+          : null;
+    if (!anchorId) return;
 
-    const anchor = document.getElementById(hashKey);
+    const anchor = document.getElementById(anchorId);
     if (!anchor) return;
 
     const frame = window.requestAnimationFrame(() => {
+      const workspace = document.getElementById("account-workspace");
       anchor.scrollIntoView({ block: "start" });
+      workspace?.scrollIntoView({ block: "start" });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [location.hash, activeTab]);
+  }, [location.hash, location.search, activeTab]);
 
   useEffect(() => {
     const activePanel = bodyScrollRef.current?.querySelector<HTMLElement>(
@@ -227,7 +265,10 @@ export function AccountWorkspace({
   );
 
   return (
-    <Card className="mt-10 overflow-hidden border-accent/40 bg-gradient-card shadow-card">
+    <Card
+      id="account-workspace"
+      className="mt-10 scroll-mt-24 overflow-hidden border-accent/40 bg-gradient-card shadow-card"
+    >
       <CardHeader className="border-b border-border/60 pb-4">
         <CardTitle className="text-2xl">Workspace</CardTitle>
         <CardDescription>
@@ -319,7 +360,7 @@ export function AccountWorkspace({
                   />
                   <ConnectedDevicesCard sessionToken={sessionToken} />
                 </div>
-                <div className="space-y-2">
+                <div id="team-sharing" className="scroll-mt-4 space-y-2">
                   <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground sm:text-sm">
                     <Users className="h-3.5 w-3.5 text-primary" />
                     <span>Membership sharing for business plans</span>
