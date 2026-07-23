@@ -496,9 +496,6 @@ const Pricing = () => {
                             ? plan.annualId || ""
                             : plan.monthlyId || "",
                         });
-                        if (plan.isPerSeat) {
-                          queryParams.set("seats", "1");
-                        }
                         navigate(`/subscribe?${queryParams.toString()}`);
                       }}
                       disabled={ctaKind === "loading"}

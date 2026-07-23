@@ -110,6 +110,7 @@ export function useMembershipSharing(sessionToken: string | null) {
   }, [sessionToken]);
 
   useEffect(() => {
+    setSubmitting(false);
     void load();
   }, [load]);
 
@@ -231,8 +232,9 @@ export function useMembershipSharing(sessionToken: string | null) {
   const canInvite =
     dashboard?.eligible &&
     (seats?.canInvite ?? (seats?.availableSeats ?? 0) > 0);
+  const defaultSeatFloor = dashboard?.chargeOnAccept ? 1 : MIN_BUSINESS_SEATS;
   const seatFloor = Math.max(
-    dashboard?.minSeats ?? MIN_BUSINESS_SEATS,
+    dashboard?.minSeats ?? defaultSeatFloor,
     (seats?.activeSeats ?? 0) + (seats?.pendingInvites ?? 0),
   );
   const currentSeatLimit = seats?.seatLimit ?? seatFloor;

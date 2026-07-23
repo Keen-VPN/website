@@ -238,7 +238,8 @@ const Subscribe = () => {
     trial,
   );
   const hasTrialHistory = Boolean(trial?.active || trial?.endsAt);
-  const subscribePageTitle = canStartFreeTrial(user, subscription, trial)
+  const startsWithFreeTrial = canStartFreeTrial(user, subscription, trial);
+  const subscribePageTitle = startsWithFreeTrial
     ? "Start Free VPN Trial"
     : hasTrialHistory && !subscription
       ? "Subscribe to Keen VPN"
@@ -711,8 +712,9 @@ const Subscribe = () => {
                       Starts with your seat
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Send team invitations for free after checkout. Additional
-                      seats are added and billed only when teammates accept.
+                      {startsWithFreeTrial
+                        ? "Send team invitations for free after checkout. Seats are added when teammates accept and billed when your free trial ends."
+                        : "Send team invitations for free after checkout. Additional seats are added and billed only when teammates accept."}
                     </p>
                   </div>
                 ) : null}

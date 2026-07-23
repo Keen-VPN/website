@@ -177,12 +177,9 @@ export function AccountWorkspace({
     params.set("tab", "connections");
     params.delete("business");
     const nextSearch = params.toString();
-    navigate(
-      `${location.pathname}${nextSearch ? `?${nextSearch}` : ""}${
-        location.hash
-      }`,
-      { replace: true },
-    );
+    navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ""}`, {
+      replace: true,
+    });
   }, [location.hash, location.pathname, location.search, navigate, toast]);
 
   const syncLocationToTab = useCallback(
@@ -204,10 +201,12 @@ export function AccountWorkspace({
     const nextTab = resolveTabFromLocation(location.search, location.hash);
     setActiveTab((current) => (current === nextTab ? current : nextTab));
 
+    const params = new URLSearchParams(location.search);
+    if (params.get("business") === "upgraded") return;
+
     const hashTab = tabFromHash(location.hash);
     if (!hashTab) return;
 
-    const params = new URLSearchParams(location.search);
     const queryTab = params.get("tab");
     if (queryTab === hashTab) return;
 
