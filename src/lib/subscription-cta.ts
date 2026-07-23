@@ -211,9 +211,3 @@ export function canUpgradeToBusinessPlan(
     resolveMembershipPlanTier(subscription) !== "business"
   );
 }
-
-export function isBusinessPlanSubscription(
-  subscription: SubscriptionData | null | undefined,
-): boolean {
-  return resolveMembershipPlanTier(subscription) === "business";
-}

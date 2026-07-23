@@ -189,6 +189,7 @@ export function MembershipTeamPanel({
               variant="outline"
               size="icon"
               className="h-8 w-8"
+              aria-label="Decrease pre-paid seats"
               disabled={submitting || effectiveDraftSeats <= seatFloor}
               onClick={() =>
                 setDraftSeatCount((count) =>
@@ -206,6 +207,7 @@ export function MembershipTeamPanel({
               variant="outline"
               size="icon"
               className="h-8 w-8"
+              aria-label="Increase pre-paid seats"
               disabled={submitting || effectiveDraftSeats >= MAX_BUSINESS_SEATS}
               onClick={() =>
                 setDraftSeatCount((count) =>
@@ -333,6 +335,27 @@ export function MembershipTeamPanel({
                     Cancel
                   </Button>
                 </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {dashboard.revokedInvites && dashboard.revokedInvites.length > 0 ? (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">Cancelled invites</h3>
+          <ul className="space-y-2">
+            {dashboard.revokedInvites.map((revoked) => (
+              <li
+                key={revoked.id}
+                className="rounded-lg border border-border/80 p-3"
+              >
+                <p className="text-sm font-medium">{revoked.email}</p>
+                {revoked.revokedAt ? (
+                  <p className="text-xs text-muted-foreground">
+                    Cancelled {formatDate(revoked.revokedAt)}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>

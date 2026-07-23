@@ -61,7 +61,13 @@ export default function MembershipSharingAccept() {
             ? Math.max(0, data.prepaidAvailableSeats)
             : 0,
         );
-        setNextAcceptanceWillCharge(data.nextAcceptanceWillCharge === true);
+        setNextAcceptanceWillCharge(
+          data.nextAcceptanceWillCharge ??
+            !(
+              typeof data.prepaidAvailableSeats === "number" &&
+              Math.max(0, data.prepaidAvailableSeats) > 0
+            ),
+        );
         setLoading(false);
       })
       .catch(() => {

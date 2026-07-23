@@ -1,6 +1,13 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Check, X, HelpCircle, ArrowUpCircle, Loader2, Gift } from "lucide-react";
+import {
+  Check,
+  X,
+  HelpCircle,
+  ArrowUpCircle,
+  Loader2,
+  Gift,
+} from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -18,8 +25,6 @@ import {
   featureComparison,
   featureComparisonValueForPlan,
   faqs,
-  DEFAULT_BUSINESS_SEATS,
-  resolvePlanDefaultSeats,
 } from "@/constants/pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
@@ -53,16 +58,14 @@ import {
 
 const pricingSEOProps = {
   title: "KeenVPN Pricing — Affordable VPN Plans for iOS & macOS",
-  description: "Choose a KeenVPN plan that fits your needs. Simple, transparent pricing with monthly and annual options. Start with a free trial today.",
+  description:
+    "Choose a KeenVPN plan that fits your needs. Simple, transparent pricing with monthly and annual options. Start with a free trial today.",
   canonical: "https://vpnkeen.com/pricing",
 } as const;
 
 /** Hero, plan cards, and bottom CTA: which primary action to show based on auth + subscription. */
 export type PricingCtaKind =
-  | "loading"
-  | "start_free_trial"
-  | "manage_account"
-  | "subscribe";
+  "loading" | "start_free_trial" | "manage_account" | "subscribe";
 
 export function getPricingCtaKind(
   authLoading: boolean,
@@ -75,13 +78,10 @@ export function getPricingCtaKind(
   if (s === "active" || s === "trialing" || s === "past_due") {
     return "manage_account";
   }
-  return canStartFreeTrial(user, s, trial)
-    ? "start_free_trial"
-    : "subscribe";
+  return canStartFreeTrial(user, s, trial) ? "start_free_trial" : "subscribe";
 }
 
 const Pricing = () => {
-
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, subscription, trial, loading: authLoading } = useAuth();
@@ -91,8 +91,7 @@ const Pricing = () => {
     [authLoading, user, subscription?.status, trial],
   );
 
-  const isMonthlyStripeUpgradeEligible =
-    canUpgradeStripeToAnnual(subscription);
+  const isMonthlyStripeUpgradeEligible = canUpgradeStripeToAnnual(subscription);
 
   const showMembershipPlanUpgrade = canUpgradeToBusinessPlan(subscription);
   const membershipTier = resolveMembershipPlanTier(subscription);
@@ -144,9 +143,6 @@ const Pricing = () => {
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
     "annual",
   );
-  const [businessSeatCount, setBusinessSeatCount] = useState(
-    DEFAULT_BUSINESS_SEATS,
-  );
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -155,17 +151,9 @@ const Pricing = () => {
     () => plans.find((p) => p.name === "Individual" || p.name === "Premium"),
     [plans],
   );
-  const businessPlan = useMemo(
-    () => plans.find((p) => p.isPerSeat),
-    [plans],
-  );
-  const businessDefaultSeats = resolvePlanDefaultSeats(businessPlan);
+  const businessPlan = useMemo(() => plans.find((p) => p.isPerSeat), [plans]);
   const annualSavingsLabel =
     premiumPlan?.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL;
-
-  useEffect(() => {
-    setBusinessSeatCount(businessDefaultSeats);
-  }, [businessDefaultSeats]);
 
   useEffect(() => {
     if (billingPeriod !== "annual" || annualViewTrackedRef.current) {
@@ -280,8 +268,8 @@ const Pricing = () => {
 
           <div className="max-w-2xl mx-auto mt-10 rounded-xl border border-border bg-card/80 px-6 py-5 text-left">
             <p className="text-sm text-muted-foreground mb-3">
-              Already have a VPN? Switch to KeenVPN today and we&apos;ll transfer your remaining
-              membership time for free.
+              Already have a VPN? Switch to KeenVPN today and we&apos;ll
+              transfer your remaining membership time for free.
             </p>
             <div className="flex justify-center">
               <Button
@@ -316,7 +304,10 @@ const Pricing = () => {
         )}
 
         {/* Pricing Cards */}
-        <section id="plans" className="container mx-auto px-4 mt-16 md:mt-20 mb-20">
+        <section
+          id="plans"
+          className="container mx-auto px-4 mt-16 md:mt-20 mb-20"
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto items-stretch">
             {plans.map((plan, index) => {
               const isAnnual = billingPeriod === "annual";
@@ -384,14 +375,16 @@ const Pricing = () => {
                       )}
                       {plan.name !== "Enterprise" && <PricingNoticeTooltip />}
                     </div>
-                    {plan.name !== "Enterprise" && isAnnual && plan.annualSavingsLabel && (
-                      <p className="mt-2 text-sm font-medium text-primary">
-                        {plan.annualSavingsLabel}
-                        {plan.annualYearlySavingsDisplay
-                          ? ` · ${plan.annualYearlySavingsDisplay} saved per year`
-                          : ""}
-                      </p>
-                    )}
+                    {plan.name !== "Enterprise" &&
+                      isAnnual &&
+                      plan.annualSavingsLabel && (
+                        <p className="mt-2 text-sm font-medium text-primary">
+                          {plan.annualSavingsLabel}
+                          {plan.annualYearlySavingsDisplay
+                            ? ` · ${plan.annualYearlySavingsDisplay} saved per year`
+                            : ""}
+                        </p>
+                      )}
                     {plan.name !== "Enterprise" && annualBillingDetail && (
                       <p className="mt-1 text-xs text-muted-foreground">
                         {annualBillingDetail}
@@ -410,8 +403,10 @@ const Pricing = () => {
                         </p>
                         <p className="text-xs text-muted-foreground">
                           From $
-                          {((isAnnual ? plan.annualPrice : plan.monthlyPrice) ??
-                            0).toFixed(2)}
+                          {(
+                            (isAnnual ? plan.annualPrice : plan.monthlyPrice) ??
+                            0
+                          ).toFixed(2)}
                           {isAnnual ? "/year" : "/month"} for your seat
                         </p>
                       </div>
@@ -473,7 +468,8 @@ const Pricing = () => {
                         <>
                           <ArrowUpCircle className="h-4 w-4 mr-2" />
                           Upgrade to Annual (
-                          {plan.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL}
+                          {plan.annualSavingsLabel ??
+                            DEFAULT_ANNUAL_SAVINGS_LABEL}
                           )
                         </>
                       )}
@@ -501,10 +497,7 @@ const Pricing = () => {
                             : plan.monthlyId || "",
                         });
                         if (plan.isPerSeat) {
-                          queryParams.set(
-                            "seats",
-                            String(businessSeatCount),
-                          );
+                          queryParams.set("seats", "1");
                         }
                         navigate(`/subscribe?${queryParams.toString()}`);
                       }}
@@ -804,32 +797,32 @@ const Pricing = () => {
                 </Button>
               </div>
             ) : (
-            <Button
-              onClick={() => {
-                if (ctaKind === "loading") return;
-                if (ctaKind === "manage_account") {
-                  navigate("/account");
-                  return;
-                }
-                navigate("/subscribe");
-              }}
-              disabled={ctaKind === "loading"}
-              className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-              size="lg"
-            >
-              {ctaKind === "loading" ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading…
-                </span>
-              ) : ctaKind === "manage_account" ? (
-                "Manage account"
-              ) : ctaKind === "subscribe" ? (
-                "Subscribe"
-              ) : (
-                "Start free trial"
-              )}
-            </Button>
+              <Button
+                onClick={() => {
+                  if (ctaKind === "loading") return;
+                  if (ctaKind === "manage_account") {
+                    navigate("/account");
+                    return;
+                  }
+                  navigate("/subscribe");
+                }}
+                disabled={ctaKind === "loading"}
+                className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                size="lg"
+              >
+                {ctaKind === "loading" ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading…
+                  </span>
+                ) : ctaKind === "manage_account" ? (
+                  "Manage account"
+                ) : ctaKind === "subscribe" ? (
+                  "Subscribe"
+                ) : (
+                  "Start free trial"
+                )}
+              </Button>
             )}
             <p className="text-sm text-muted-foreground mt-4">
               {ctaKind === "manage_account"

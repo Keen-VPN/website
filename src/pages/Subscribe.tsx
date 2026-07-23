@@ -23,13 +23,7 @@ import {
   recordSignupStarted,
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
-import {
-  enterprisePlan,
-  DEFAULT_BUSINESS_SEATS,
-  MIN_BUSINESS_SEATS,
-  MAX_BUSINESS_SEATS,
-  resolvePlanMinSeats,
-} from "@/constants/pricing";
+import { enterprisePlan } from "@/constants/pricing";
 import {
   canStartFreeTrial,
   getSubscriptionCtaLabel,
@@ -223,23 +217,8 @@ const Subscribe = () => {
   const [planLoading, setPlanLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const seatsParam = searchParams.get("seats");
-  const initialSeatCount = (() => {
-    const parsed = Number(seatsParam);
-    return Number.isInteger(parsed) && parsed >= MIN_BUSINESS_SEATS
-      ? Math.min(MAX_BUSINESS_SEATS, parsed)
-      : DEFAULT_BUSINESS_SEATS;
-  })();
-  const [seatCount, setSeatCount] = useState(initialSeatCount);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!isPerSeatPlan(selectedPlan)) return;
-    const minSeats = resolvePlanMinSeats(selectedPlan);
-    setSeatCount((count) =>
-      Math.max(minSeats, Math.min(MAX_BUSINESS_SEATS, count)),
-    );
-  }, [selectedPlan]);
   const {
     user,
     loading,
@@ -440,9 +419,9 @@ const Subscribe = () => {
           const tierOrder = ["premium", "team"];
           const initialTier = requestedReturnedPlan
             ? getPlanTier(requestedReturnedPlan)
-            : tierOrder.find((tier) =>
+            : (tierOrder.find((tier) =>
                 response.plans.some((plan) => getPlanTier(plan) === tier),
-              ) ?? "premium";
+              ) ?? "premium");
 
           applyTierSelection(initialTier, response.plans, planIdParam);
         } else {
@@ -537,7 +516,7 @@ const Subscribe = () => {
         planId,
         successUrl,
         cancelUrl,
-        isPerSeatPlan(selectedPlan) ? seatCount : undefined,
+        isPerSeatPlan(selectedPlan) ? 1 : undefined,
       );
 
       if (!result.success) {
@@ -634,7 +613,8 @@ const Subscribe = () => {
             <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-2 mt-2">
               <Gift className="h-4 w-4 text-primary" />
               <span className="text-sm text-primary font-medium">
-                Every membership includes access to exclusive rewards and discounts
+                Every membership includes access to exclusive rewards and
+                discounts
               </span>
             </div>
           </div>
@@ -727,47 +707,12 @@ const Subscribe = () => {
 
                 {isPerSeatPlan(selectedPlan) && "price" in selectedPlan ? (
                   <div className="mb-6 space-y-2 rounded-lg border border-border/80 bg-muted/30 p-4">
-                    <p className="text-sm font-medium text-foreground">Seats</p>
-                    <div className="flex items-center gap-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        disabled={seatCount <= resolvePlanMinSeats(selectedPlan)}
-                        onClick={() =>
-                          setSeatCount((count) =>
-                            Math.max(resolvePlanMinSeats(selectedPlan), count - 1),
-                          )
-                        }
-                      >
-                        −
-                      </Button>
-                      <span className="min-w-[2rem] text-center text-lg font-semibold">
-                        {seatCount}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        disabled={seatCount >= MAX_BUSINESS_SEATS}
-                        onClick={() =>
-                          setSeatCount((count) =>
-                            Math.min(MAX_BUSINESS_SEATS, count + 1),
-                          )
-                        }
-                      >
-                        +
-                      </Button>
-                    </div>
+                    <p className="text-sm font-medium text-foreground">
+                      Starts with your seat
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      Total: ${(selectedPlan.price * seatCount).toFixed(2)}
-                      {isAnnualPlan(selectedPlan) ? "/year" : "/month"} for{" "}
-                      {seatCount} seats
-                      {isAnnualPlan(selectedPlan)
-                        ? ` ($${(selectedPlan.price / 12).toFixed(2)}/seat/mo)`
-                        : ` ($${selectedPlan.price}/seat/mo)`}
+                      Send team invitations for free after checkout. Additional
+                      seats are added and billed only when teammates accept.
                     </p>
                   </div>
                 ) : null}

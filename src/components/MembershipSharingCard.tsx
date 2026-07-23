@@ -10,11 +10,7 @@ export function MembershipSharingCard({
   sessionToken,
 }: MembershipSharingCardProps) {
   return (
-    <WorkspacePanel
-      title="Team sharing"
-      icon={Users}
-      description="Invite teammates, manage members, and pending invites."
-    >
+    <WorkspacePanel title="Team sharing" icon={Users}>
       <MembershipTeamPanel sessionToken={sessionToken} variant="full" />
     </WorkspacePanel>
   );

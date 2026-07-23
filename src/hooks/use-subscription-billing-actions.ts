@@ -223,7 +223,10 @@ export function useSubscriptionBillingActions(
         );
 
         if (result.success) {
-          if (result.mode === "checkout" && result.url) {
+          if (result.mode === "checkout") {
+            if (!result.url) {
+              throw new Error("No checkout URL received");
+            }
             window.location.href = result.url;
             return;
           }

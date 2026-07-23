@@ -45,6 +45,7 @@ export interface MembershipSharingDashboard {
     pendingInvites: number;
     prepaidAvailableSeats?: number;
     nextAcceptanceWillCharge?: boolean;
+    canInvite?: boolean;
   } | null;
   membership?: {
     ownerEmail: string;
@@ -66,6 +67,8 @@ export function useMembershipSharing(sessionToken: string | null) {
   const [sharingDisabled, setSharingDisabled] = useState(false);
   const [draftSeatCount, setDraftSeatCount] = useState<number | null>(null);
   const loadRequestRef = useRef(0);
+  const activeSessionTokenRef = useRef(sessionToken);
+  activeSessionTokenRef.current = sessionToken;
 
   const load = useCallback(async () => {
     if (!sessionToken) {
@@ -113,10 +116,12 @@ export function useMembershipSharing(sessionToken: string | null) {
   const invite = useCallback(
     async (email: string) => {
       if (!sessionToken) return false;
+      const requestToken = sessionToken;
       setSubmitting(true);
       setError(null);
       try {
-        const res = await inviteMembershipMember(sessionToken, email);
+        const res = await inviteMembershipMember(requestToken, email);
+        if (activeSessionTokenRef.current !== requestToken) return false;
         if (!res.ok) {
           setError(res.error ?? "Could not send invite.");
           return false;
@@ -124,7 +129,9 @@ export function useMembershipSharing(sessionToken: string | null) {
         setDashboard(res.data as MembershipSharingDashboard);
         return true;
       } finally {
-        setSubmitting(false);
+        if (activeSessionTokenRef.current === requestToken) {
+          setSubmitting(false);
+        }
       }
     },
     [sessionToken],
@@ -133,17 +140,21 @@ export function useMembershipSharing(sessionToken: string | null) {
   const revokeMember = useCallback(
     async (userId: string) => {
       if (!sessionToken) return;
+      const requestToken = sessionToken;
       setSubmitting(true);
       setError(null);
       try {
-        const res = await revokeMembershipMember(sessionToken, userId);
+        const res = await revokeMembershipMember(requestToken, userId);
+        if (activeSessionTokenRef.current !== requestToken) return;
         if (!res.ok) {
           setError(res.error ?? "Could not remove member.");
           return;
         }
         setDashboard(res.data as MembershipSharingDashboard);
       } finally {
-        setSubmitting(false);
+        if (activeSessionTokenRef.current === requestToken) {
+          setSubmitting(false);
+        }
       }
     },
     [sessionToken],
@@ -152,17 +163,21 @@ export function useMembershipSharing(sessionToken: string | null) {
   const resendInvite = useCallback(
     async (inviteId: string) => {
       if (!sessionToken) return;
+      const requestToken = sessionToken;
       setSubmitting(true);
       setError(null);
       try {
-        const res = await resendMembershipInvite(sessionToken, inviteId);
+        const res = await resendMembershipInvite(requestToken, inviteId);
+        if (activeSessionTokenRef.current !== requestToken) return;
         if (!res.ok) {
           setError(res.error ?? "Could not resend invite.");
           return;
         }
         setDashboard(res.data as MembershipSharingDashboard);
       } finally {
-        setSubmitting(false);
+        if (activeSessionTokenRef.current === requestToken) {
+          setSubmitting(false);
+        }
       }
     },
     [sessionToken],
@@ -171,17 +186,21 @@ export function useMembershipSharing(sessionToken: string | null) {
   const cancelInvite = useCallback(
     async (inviteId: string) => {
       if (!sessionToken) return;
+      const requestToken = sessionToken;
       setSubmitting(true);
       setError(null);
       try {
-        const res = await revokeMembershipInvite(sessionToken, inviteId);
+        const res = await revokeMembershipInvite(requestToken, inviteId);
+        if (activeSessionTokenRef.current !== requestToken) return;
         if (!res.ok) {
           setError(res.error ?? "Could not cancel invite.");
           return;
         }
         setDashboard(res.data as MembershipSharingDashboard);
       } finally {
-        setSubmitting(false);
+        if (activeSessionTokenRef.current === requestToken) {
+          setSubmitting(false);
+        }
       }
     },
     [sessionToken],
@@ -189,10 +208,12 @@ export function useMembershipSharing(sessionToken: string | null) {
 
   const updateSeats = useCallback(async () => {
     if (!sessionToken || draftSeatCount == null) return false;
+    const requestToken = sessionToken;
     setSubmitting(true);
     setError(null);
     try {
-      const res = await updateMembershipSeatCount(sessionToken, draftSeatCount);
+      const res = await updateMembershipSeatCount(requestToken, draftSeatCount);
+      if (activeSessionTokenRef.current !== requestToken) return false;
       if (!res.ok) {
         setError(res.error ?? "Could not update seat count.");
         return false;
@@ -200,13 +221,16 @@ export function useMembershipSharing(sessionToken: string | null) {
       await load();
       return true;
     } finally {
-      setSubmitting(false);
+      if (activeSessionTokenRef.current === requestToken) {
+        setSubmitting(false);
+      }
     }
   }, [draftSeatCount, load, sessionToken]);
 
   const seats = dashboard?.seats;
   const canInvite =
-    dashboard?.eligible && (seats?.availableSeats ?? 0) > 0;
+    dashboard?.eligible &&
+    (seats?.canInvite ?? (seats?.availableSeats ?? 0) > 0);
   const seatFloor = Math.max(
     dashboard?.minSeats ?? MIN_BUSINESS_SEATS,
     (seats?.activeSeats ?? 0) + (seats?.pendingInvites ?? 0),

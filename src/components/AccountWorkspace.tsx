@@ -21,11 +21,7 @@ import { cn } from "@/lib/utils";
 import { trackWorkspaceEvent } from "@/lib/product-analytics";
 import { useToast } from "@/hooks/use-toast";
 
-export type AccountWorkspaceTab =
-  | "perks"
-  | "vault"
-  | "profile"
-  | "connections";
+export type AccountWorkspaceTab = "perks" | "vault" | "profile" | "connections";
 
 const TAB_HASH: Record<string, AccountWorkspaceTab> = {
   vault: "vault",
@@ -135,10 +131,7 @@ export function AccountWorkspace({
   );
   const lastTrackedTabRef = useRef<AccountWorkspaceTab>(activeTab);
   const [mountedTabs, setMountedTabs] = useState<Set<AccountWorkspaceTab>>(
-    () =>
-      new Set([
-        resolveTabFromLocation(location.search, location.hash),
-      ]),
+    () => new Set([resolveTabFromLocation(location.search, location.hash)]),
   );
 
   useEffect(() => {
@@ -181,6 +174,7 @@ export function AccountWorkspace({
       });
     }
 
+    params.set("tab", "connections");
     params.delete("business");
     const nextSearch = params.toString();
     navigate(
@@ -189,13 +183,7 @@ export function AccountWorkspace({
       }`,
       { replace: true },
     );
-  }, [
-    location.hash,
-    location.pathname,
-    location.search,
-    navigate,
-    toast,
-  ]);
+  }, [location.hash, location.pathname, location.search, navigate, toast]);
 
   const syncLocationToTab = useCallback(
     (tab: AccountWorkspaceTab) => {

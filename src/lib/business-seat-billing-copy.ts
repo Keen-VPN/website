@@ -53,7 +53,10 @@ export function estimateSeatAcceptCharge(
     return { amount, currency };
   }
 
-  return { amount: price, currency };
+  // Stripe determines the exact proration. Without a valid current billing
+  // period, quoting the full renewal price as the immediate charge is
+  // misleading, so let callers use their non-numeric fallback copy.
+  return null;
 }
 
 export function formatSeatRenewalRate(
