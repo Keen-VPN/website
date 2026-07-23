@@ -13,7 +13,14 @@ import {
 } from "@/components/ui/accordion";
 import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import PricingNoticeTooltip from "@/components/PricingNoticeTooltip";
-import { enterprisePlan, featureComparison, featureComparisonValueForPlan, faqs, DEFAULT_BUSINESS_SEATS, MAX_BUSINESS_SEATS, resolvePlanDefaultSeats, resolvePlanMinSeats } from "@/constants/pricing";
+import {
+  enterprisePlan,
+  featureComparison,
+  featureComparisonValueForPlan,
+  faqs,
+  DEFAULT_BUSINESS_SEATS,
+  resolvePlanDefaultSeats,
+} from "@/constants/pricing";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import {
@@ -152,7 +159,6 @@ const Pricing = () => {
     () => plans.find((p) => p.isPerSeat),
     [plans],
   );
-  const businessMinSeats = resolvePlanMinSeats(businessPlan);
   const businessDefaultSeats = resolvePlanDefaultSeats(businessPlan);
   const annualSavingsLabel =
     premiumPlan?.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL;

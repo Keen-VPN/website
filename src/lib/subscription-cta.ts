@@ -188,21 +188,6 @@ export function resolveMembershipPlanTier(
   return "individual";
 }
 
-function isEligibleStripePlanManager(
-  subscription: SubscriptionData | null | undefined,
-): boolean {
-  if (
-    !subscription ||
-    subscription.canManageBilling !== true ||
-    !isStripeSubscription(subscription)
-  ) {
-    return false;
-  }
-  if (subscription.cancelAtPeriodEnd) return false;
-  const status = getSubscriptionStatus(subscription);
-  return status === "active" || status === "trialing";
-}
-
 function isEligibleBusinessPlanManager(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
