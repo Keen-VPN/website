@@ -85,15 +85,15 @@ export function formatChargeOnAcceptInviteCopy(
   );
 
   if (!estimate) {
-    return "When a teammate accepts, your card on file is charged for one seat for the rest of this billing period (not when you send the invite).";
+    return "Sending an invite is free. Your subscription and billing update only after your teammate creates or signs in to a KeenVPN account and accepts. If no already-paid seat is available, your card is charged for one seat for the rest of the billing period.";
   }
 
   const chargeLabel = formatMoney(estimate.amount, estimate.currency);
   if (renewal) {
-    return `When a teammate accepts, your card is charged about ${chargeLabel} for one seat for the rest of this billing period, then ${renewal} at renewal. Sending an invite is free.`;
+    return `Sending an invite is free. After your teammate creates or signs in to a KeenVPN account and accepts, your card is charged about ${chargeLabel} for one seat for the rest of this billing period, then ${renewal} at renewal.`;
   }
 
-  return `When a teammate accepts, your card is charged about ${chargeLabel} for one seat for the rest of this billing period. Sending an invite is free.`;
+  return `Sending an invite is free. After your teammate creates or signs in to a KeenVPN account and accepts, your card is charged about ${chargeLabel} for one seat for the rest of this billing period.`;
 }
 
 export function formatChargeAfterPrepaidSeatsCopy(
@@ -107,15 +107,15 @@ export function formatChargeAfterPrepaidSeatsCopy(
   );
 
   if (!estimate) {
-    return "After your already-paid seats are used, each additional accepted teammate is charged for one prorated seat. Sending an invite is always free.";
+    return "Sending an invite is free. After your already-paid seats are used, each additional teammate adds a prorated seat only after they create or sign in to a KeenVPN account and accept.";
   }
 
   const chargeLabel = formatMoney(estimate.amount, estimate.currency);
   if (renewal) {
-    return `After your already-paid seats are used, each additional accepted teammate is charged about ${chargeLabel} for the rest of this billing period, then ${renewal} at renewal.`;
+    return `Sending an invite is free. After your already-paid seats are used, each additional teammate adds a charge of about ${chargeLabel} after they create or sign in to a KeenVPN account and accept, then ${renewal} at renewal.`;
   }
 
-  return `After your already-paid seats are used, each additional accepted teammate is charged about ${chargeLabel} for the rest of this billing period.`;
+  return `Sending an invite is free. After your already-paid seats are used, each additional teammate adds a charge of about ${chargeLabel} after they create or sign in to a KeenVPN account and accept.`;
 }
 
 export function formatTrialSeatBillingCopy(
@@ -128,6 +128,6 @@ export function formatTrialSeatBillingCopy(
   );
 
   return renewal
-    ? `Accepted teammates are added now with no seat charge during the trial. When the trial ends, active seats are billed at ${renewal}.`
-    : "Accepted teammates are added now with no seat charge during the trial. Active seats are billed when the trial ends.";
+    ? `Sending an invite is free. After your teammate creates or signs in to a KeenVPN account and accepts, they are added with no seat charge during the trial. When the trial ends, active seats are billed at ${renewal}.`
+    : "Sending an invite is free. After your teammate creates or signs in to a KeenVPN account and accepts, they are added with no seat charge during the trial. Active seats are billed when the trial ends.";
 }

@@ -47,6 +47,8 @@ describe("business-seat-billing-copy", () => {
     });
 
     expect(copy).toContain("Sending an invite is free");
+    expect(copy).toContain("KeenVPN account");
+    expect(copy).toContain("accepts");
     expect(copy).toContain("40");
     expect(copy).toContain("/seat/year");
     expect(copy).toContain("about");
@@ -63,6 +65,7 @@ describe("business-seat-billing-copy", () => {
     });
 
     expect(copy).toContain("After your already-paid seats are used");
+    expect(copy).toContain("KeenVPN account");
     expect(copy).toContain("40");
     expect(copy).toContain("/seat/year");
   });
@@ -75,6 +78,7 @@ describe("business-seat-billing-copy", () => {
     });
 
     expect(copy).toContain("no seat charge during the trial");
+    expect(copy).toContain("KeenVPN account");
     expect(copy).toContain("40");
     expect(copy).toContain("/seat/year");
   });

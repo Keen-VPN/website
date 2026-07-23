@@ -1,5 +1,3 @@
-import type { PricingPlan } from "@/lib/pricing";
-
 export const MIN_BUSINESS_SEATS = 2;
 export const DEFAULT_BUSINESS_SEATS = 5;
 export const MAX_BUSINESS_SEATS = 25;
@@ -25,34 +23,6 @@ export function resolvePlanDefaultSeats(
   );
 }
 
-export const enterprisePlan: PricingPlan = {
-  name: "Enterprise",
-  description: "Custom solutions for large organizations (50+ users)",
-  monthlyPrice: null,
-  annualPrice: null,
-  monthlyPriceDisplay: "Custom",
-  annualPriceDisplay: "Custom",
-  annualMonthlyEquivalent: null,
-  annualSavingsPercent: null,
-  annualYearlySavingsDisplay: null,
-  annualSavingsLabel: null,
-  features: [
-    { name: "1 month free trial", included: true, highlighted: true },
-    { name: "Access to all server locations", included: true },
-    { name: "Unlimited bandwidth", included: true },
-    { name: "Military-grade encryption", included: true },
-    { name: "Custom simultaneous device policy", included: true },
-    { name: "24/7 customer support", included: true },
-    { name: "No-log policy guaranteed", included: true },
-    { name: "Kill switch protection", included: true },
-    { name: "Team management dashboard", included: true },
-    { name: "Priority support", included: true },
-    { name: "Custom solutions", included: true },
-  ],
-  buttonText: "Contact Sales",
-  popular: false,
-};
-
 export const faqs = [
   {
     question: "What's included in the 1 month free trial?",
@@ -72,7 +42,7 @@ export const faqs = [
   {
     question: "How does Business seat billing work?",
     answer:
-      "Business is priced per active team member. Start with your seat and invite teammates by email for free. Accepted teammates use available trial or already-paid seats first; additional seats are charged when a teammate accepts, and trial seats are billed when the trial ends. Each seat includes 5 connected devices.",
+      "Business is priced per active team member. Start with your seat and invite teammates by email for free. Your subscription and billing update only after a teammate creates or signs in to a KeenVPN account and accepts. Available trial or already-paid seats are used first, and trial seats are billed when the trial ends. Each seat includes 5 connected devices.",
   },
   {
     question: "Do you keep logs of my activity?",
@@ -83,12 +53,6 @@ export const faqs = [
     question: "What happens after my trial ends?",
     answer:
       "After your 1 month free trial ends, you'll be automatically enrolled in your selected plan and billing will begin. You can cancel at any time before the trial ends with no charges.",
-  },
-  {
-    question: "How do I get started with Enterprise solutions?",
-    answer:
-      "For Enterprise solutions with 50+ users, we offer custom pricing and dedicated support. Contact our sales team to discuss your specific requirements and get a personalized quote.",
-    isEnterprise: true,
   },
   {
     question: "How do I request a refund?",
@@ -107,15 +71,12 @@ export const allFeatures = [
   "Free trial duration",
   "Team management dashboard",
   "Priority support",
-  "Custom security solutions",
-  "Dedicated account manager",
 ];
 
 export interface FeatureComparisonRow {
   feature: string;
   individual: string | boolean;
   business: string | boolean;
-  enterprise: string | boolean;
 }
 
 export const featureComparison: FeatureComparisonRow[] = [
@@ -123,67 +84,46 @@ export const featureComparison: FeatureComparisonRow[] = [
     feature: "Simultaneous device connections",
     individual: "Up to 3",
     business: "5 per seat",
-    enterprise: "Custom",
   },
   {
     feature: "Bandwidth",
     individual: "Unlimited",
     business: "Unlimited",
-    enterprise: "Unlimited",
   },
   {
     feature: "Military-grade encryption",
     individual: true,
     business: true,
-    enterprise: true,
   },
   {
     feature: "No-log policy",
     individual: true,
     business: true,
-    enterprise: true,
   },
   {
     feature: "Kill switch protection",
     individual: true,
     business: true,
-    enterprise: true,
   },
   {
     feature: "24/7 customer support",
     individual: true,
     business: true,
-    enterprise: true,
   },
   {
     feature: "Free trial duration",
     individual: "1 month",
     business: "1 month",
-    enterprise: "1 month",
   },
   {
     feature: "Team management dashboard",
     individual: false,
     business: true,
-    enterprise: true,
   },
   {
     feature: "Priority support",
     individual: false,
     business: true,
-    enterprise: true,
-  },
-  {
-    feature: "Custom security solutions",
-    individual: false,
-    business: false,
-    enterprise: true,
-  },
-  {
-    feature: "Dedicated account manager",
-    individual: false,
-    business: false,
-    enterprise: true,
   },
 ];
 
@@ -196,8 +136,6 @@ export function featureComparisonValueForPlan(
     case "Business":
     case "Team":
       return row.business;
-    case "Enterprise":
-      return row.enterprise;
     default:
       return row.individual;
   }
