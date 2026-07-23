@@ -221,17 +221,25 @@ export function AccountWorkspace({
   }, [location.search, location.hash, location.pathname, navigate]);
 
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
     const hashKey = location.hash.replace(/^#/, "");
-    if (!hashKey || !TAB_HASH[hashKey]) return;
+    const anchorId =
+      hashKey && TAB_HASH[hashKey]
+        ? hashKey
+        : params.get("tab") === "connections" ||
+            params.get("business") === "upgraded"
+          ? "team-sharing"
+          : null;
+    if (!anchorId) return;
 
-    const anchor = document.getElementById(hashKey);
+    const anchor = document.getElementById(anchorId);
     if (!anchor) return;
 
     const frame = window.requestAnimationFrame(() => {
       anchor.scrollIntoView({ block: "start" });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [location.hash, activeTab]);
+  }, [location.hash, location.search, activeTab]);
 
   useEffect(() => {
     const activePanel = bodyScrollRef.current?.querySelector<HTMLElement>(
@@ -347,7 +355,7 @@ export function AccountWorkspace({
                   />
                   <ConnectedDevicesCard sessionToken={sessionToken} />
                 </div>
-                <div className="space-y-2">
+                <div id="team-sharing" className="scroll-mt-4 space-y-2">
                   <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground sm:text-sm">
                     <Users className="h-3.5 w-3.5 text-primary" />
                     <span>Membership sharing for business plans</span>
