@@ -72,7 +72,7 @@ export const faqs = [
   {
     question: "How does Business seat billing work?",
     answer:
-      "Business is priced per active team member. Start with your seat and invite teammates by email for free. Accepted teammates use available trial or already-paid seats first; additional seats are charged when a teammate accepts, and trial seats are billed when the trial ends. Each seat includes 5 connected devices.",
+      "Business is priced per active team member. Start with your seat and invite teammates by email for free. Your subscription and billing update only after a teammate creates or signs in to a KeenVPN account and accepts. Available trial or already-paid seats are used first, and trial seats are billed when the trial ends. Each seat includes 5 connected devices.",
   },
   {
     question: "Do you keep logs of my activity?",

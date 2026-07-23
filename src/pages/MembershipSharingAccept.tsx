@@ -23,6 +23,7 @@ export default function MembershipSharingAccept() {
   const [prepaidAvailableSeats, setPrepaidAvailableSeats] = useState(0);
   const [nextAcceptanceWillCharge, setNextAcceptanceWillCharge] =
     useState(false);
+  const [billingPending, setBillingPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
 
@@ -43,6 +44,7 @@ export default function MembershipSharingAccept() {
           ownerEmail?: string;
           subscriptionStatus?: string;
           chargeOnAccept?: boolean;
+          billingPending?: boolean;
           prepaidAvailableSeats?: number | null;
           nextAcceptanceWillCharge?: boolean;
         };
@@ -56,6 +58,7 @@ export default function MembershipSharingAccept() {
         setOwnerEmail(data.ownerEmail ?? null);
         setSubscriptionStatus(data.subscriptionStatus ?? null);
         setChargeOnAccept(data.chargeOnAccept === true);
+        setBillingPending(data.billingPending === true);
         setPrepaidAvailableSeats(
           typeof data.prepaidAvailableSeats === "number"
             ? Math.max(0, data.prepaidAvailableSeats)
@@ -140,18 +143,20 @@ export default function MembershipSharingAccept() {
               </p>
             ) : null}
             <p className="rounded-md border border-slate-700 bg-slate-900 p-3 text-sm text-slate-400">
-              {!chargeOnAccept
-                ? "Accepting uses one of the membership owner's existing seats."
-                : subscriptionStatus?.toLowerCase() === "trialing"
-                  ? "Accepting adds you to the Business subscription now, with no additional seat charge during the trial. The membership owner is billed for active seats when the trial ends."
-                  : nextAcceptanceWillCharge
-                    ? "No already-paid seat is currently available. Accepting adds a paid Business seat and immediately charges the membership owner a prorated amount for the rest of the current billing period. If their payment cannot be completed, the invitation remains pending and no access is granted."
-                    : `The membership currently has ${prepaidAvailableSeats} already-paid ${
-                        prepaidAvailableSeats === 1 ? "seat" : "seats"
-                      } available, so accepting is not expected to create an additional charge. Seat availability is confirmed again when you accept.`}
+              {billingPending
+                ? "Your KeenVPN account is already associated with this invitation. Complete the invitation to confirm billing and activate your shared membership; retrying will not create a duplicate seat charge."
+                : !chargeOnAccept
+                  ? "Accepting uses one of the membership owner's existing seats."
+                  : subscriptionStatus?.toLowerCase() === "trialing"
+                    ? "Accepting adds you to the Business subscription now, with no additional seat charge during the trial. The membership owner is billed for active seats when the trial ends."
+                    : nextAcceptanceWillCharge
+                      ? "No already-paid seat is currently available. Accepting adds a paid Business seat and immediately charges the membership owner a prorated amount for the rest of the current billing period. If their payment cannot be completed, the invitation remains pending and no access is granted."
+                      : `The membership currently has ${prepaidAvailableSeats} already-paid ${
+                          prepaidAvailableSeats === 1 ? "seat" : "seats"
+                        } available, so accepting is not expected to create an additional charge. Seat availability is confirmed again when you accept.`}
             </p>
             <Button onClick={() => void handleAccept()} disabled={loading}>
-              Accept invitation
+              {billingPending ? "Complete invitation" : "Accept invitation"}
             </Button>
           </div>
         ) : null}

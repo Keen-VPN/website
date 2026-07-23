@@ -301,7 +301,7 @@ export function MembershipTeamPanel({
             Pending invites
             {chargeOnAccept ? (
               <span className="ml-1 font-normal text-muted-foreground">
-                (free until they accept)
+                (sending is free)
               </span>
             ) : null}
           </h3>
@@ -314,27 +314,31 @@ export function MembershipTeamPanel({
                 <div>
                   <p className="font-medium text-sm">{pending.email}</p>
                   <p className="text-xs text-muted-foreground">
-                    Expires {formatDate(pending.expiresAt)}
+                    {pending.billingPending
+                      ? "Account created · completing membership"
+                      : `Expires ${formatDate(pending.expiresAt)}`}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void resendInvite(pending.id)}
-                    disabled={submitting}
-                  >
-                    Resend
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void cancelInvite(pending.id)}
-                    disabled={submitting}
-                  >
-                    Cancel
-                  </Button>
-                </div>
+                {!pending.billingPending ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void resendInvite(pending.id)}
+                      disabled={submitting}
+                    >
+                      Resend
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void cancelInvite(pending.id)}
+                      disabled={submitting}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
