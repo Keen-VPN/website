@@ -236,7 +236,9 @@ export function AccountWorkspace({
     if (!anchor) return;
 
     const frame = window.requestAnimationFrame(() => {
+      const workspace = document.getElementById("account-workspace");
       anchor.scrollIntoView({ block: "start" });
+      workspace?.scrollIntoView({ block: "start" });
     });
     return () => window.cancelAnimationFrame(frame);
   }, [location.hash, location.search, activeTab]);
@@ -263,7 +265,10 @@ export function AccountWorkspace({
   );
 
   return (
-    <Card className="mt-10 overflow-hidden border-accent/40 bg-gradient-card shadow-card">
+    <Card
+      id="account-workspace"
+      className="mt-10 scroll-mt-24 overflow-hidden border-accent/40 bg-gradient-card shadow-card"
+    >
       <CardHeader className="border-b border-border/60 pb-4">
         <CardTitle className="text-2xl">Workspace</CardTitle>
         <CardDescription>
