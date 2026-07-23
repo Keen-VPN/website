@@ -23,7 +23,6 @@ import {
   recordSignupStarted,
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
-import { enterprisePlan } from "@/constants/pricing";
 import {
   canStartFreeTrial,
   getSubscriptionCtaLabel,
@@ -390,7 +389,7 @@ const Subscribe = () => {
 
       setSelectedTier(tier);
       setPlanOptions(options);
-      setSelectedPlan(defaultPlan ?? enterprisePlan);
+      setSelectedPlan(defaultPlan);
     },
     [],
   );
@@ -432,15 +431,15 @@ const Subscribe = () => {
             setSelectedPlan(
               planResponse.success && planResponse.plan
                 ? (planResponse.plan as unknown as ApiPlan)
-                : enterprisePlan,
+                : null,
             );
           } else {
-            setSelectedPlan(enterprisePlan);
+            setSelectedPlan(null);
           }
         }
       } catch (err) {
         console.error("Failed to load plan:", err);
-        setSelectedPlan(enterprisePlan);
+        setSelectedPlan(null);
       } finally {
         setPlanLoading(false);
       }
@@ -549,16 +548,13 @@ const Subscribe = () => {
   // Create plan display object from selectedPlan
   const planDisplay = selectedPlan
     ? {
-        name:
-          selectedPlan.name === "Enterprise"
-            ? "KeenVPN Enterprise"
-            : selectedPlan.name || "KeenVPN Premium",
+        name: selectedPlan.name || "KeenVPN Premium",
         price:
           "period" in selectedPlan
             ? isAnnualPlan(selectedPlan)
               ? `$${(selectedPlan.price / 12).toFixed(2)}`
               : `$${selectedPlan.price}`
-            : selectedPlan.monthlyPriceDisplay, // Fallback for PricingPlan (Enterprise)
+            : selectedPlan.monthlyPriceDisplay,
         period:
           "period" in selectedPlan
             ? isAnnualPlan(selectedPlan)
@@ -574,7 +570,6 @@ const Subscribe = () => {
             ?.map((f) => f.name) || [],
       }
     : null;
-  const isEnterprisePlan = selectedPlan?.name === "Enterprise";
 
   if (loading || planLoading || initialStatusLoading) {
     return (
@@ -689,7 +684,7 @@ const Subscribe = () => {
                   <span className="text-muted-foreground">
                     {planDisplay.period}
                   </span>
-                  {!isEnterprisePlan && <PricingNoticeTooltip />}
+                  <PricingNoticeTooltip />
                 </div>
               </CardHeader>
               <CardContent>
