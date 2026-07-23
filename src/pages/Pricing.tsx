@@ -18,10 +18,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ContactSalesDialog } from "@/components/ContactSalesForm";
 import PricingNoticeTooltip from "@/components/PricingNoticeTooltip";
 import {
-  enterprisePlan,
   featureComparison,
   featureComparisonValueForPlan,
   faqs,
@@ -173,18 +171,18 @@ const Pricing = () => {
           const transformedPlans = transformApiPlans(response.plans);
           if (transformedPlans.length > 0) {
             setError(null);
-            setPlans([...transformedPlans, enterprisePlan]);
+            setPlans(transformedPlans);
           } else {
             setError(response.error || "Failed to load plans");
-            setPlans([enterprisePlan]);
+            setPlans([]);
           }
         } else {
           setError(response.error || "Failed to load plans");
-          setPlans([enterprisePlan]);
+          setPlans([]);
         }
       } catch {
         setError("Failed to load plans");
-        setPlans([enterprisePlan]);
+        setPlans([]);
       } finally {
         setLoading(false);
       }
@@ -354,11 +352,9 @@ const Pricing = () => {
                       {plan.name}
                     </h3>
                     <p className="text-muted-foreground text-sm">
-                      {plan.name === "Enterprise"
-                        ? plan.description
-                        : isAnnual
-                          ? "Complete VPN protection for the entire year"
-                          : "Complete VPN protection with monthly flexibility"}
+                      {isAnnual
+                        ? "Complete VPN protection for the entire year"
+                        : "Complete VPN protection with monthly flexibility"}
                     </p>
                   </div>
 
@@ -373,19 +369,17 @@ const Pricing = () => {
                           {plan.isPerSeat ? " per seat" : ""}
                         </span>
                       )}
-                      {plan.name !== "Enterprise" && <PricingNoticeTooltip />}
+                      <PricingNoticeTooltip />
                     </div>
-                    {plan.name !== "Enterprise" &&
-                      isAnnual &&
-                      plan.annualSavingsLabel && (
-                        <p className="mt-2 text-sm font-medium text-primary">
-                          {plan.annualSavingsLabel}
-                          {plan.annualYearlySavingsDisplay
-                            ? ` · ${plan.annualYearlySavingsDisplay} saved per year`
-                            : ""}
-                        </p>
-                      )}
-                    {plan.name !== "Enterprise" && annualBillingDetail && (
+                    {isAnnual && plan.annualSavingsLabel && (
+                      <p className="mt-2 text-sm font-medium text-primary">
+                        {plan.annualSavingsLabel}
+                        {plan.annualYearlySavingsDisplay
+                          ? ` · ${plan.annualYearlySavingsDisplay} saved per year`
+                          : ""}
+                      </p>
+                    )}
+                    {annualBillingDetail && (
                       <p className="mt-1 text-xs text-muted-foreground">
                         {annualBillingDetail}
                       </p>
@@ -413,21 +407,7 @@ const Pricing = () => {
                     ) : null}
                   </div>
 
-                  {plan.name === "Enterprise" ? (
-                    <ContactSalesDialog>
-                      <Button
-                        className={`w-full mb-6 ${
-                          plan.popular
-                            ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                            : "border-primary/50 hover:bg-primary/10"
-                        }`}
-                        variant={plan.popular ? "default" : "outline"}
-                        size="lg"
-                      >
-                        {plan.buttonText}
-                      </Button>
-                    </ContactSalesDialog>
-                  ) : showBusinessPlanUpgrade ? (
+                  {showBusinessPlanUpgrade ? (
                     <Button
                       onClick={() => void handleBusinessUpgrade(plan)}
                       disabled={
@@ -584,17 +564,6 @@ const Pricing = () => {
                           ? "Custom"
                           : plan.monthlyPriceDisplay}
                     </div>
-                    {plan.name === "Enterprise" && (
-                      <ContactSalesDialog>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2 text-xs hidden md:inline-flex"
-                        >
-                          Contact Sales
-                        </Button>
-                      </ContactSalesDialog>
-                    )}
                   </div>
                 ))}
               </div>
@@ -733,16 +702,6 @@ const Pricing = () => {
                         ) : (
                           <span key={i}>{part}</span>
                         ),
-                      )}
-                    {"isEnterprise" in faq &&
-                      (faq as { isEnterprise: boolean }).isEnterprise && (
-                        <div className="mt-4">
-                          <ContactSalesDialog>
-                            <Button variant="outline" size="sm">
-                              Contact Sales Team
-                            </Button>
-                          </ContactSalesDialog>
-                        </div>
                       )}
                   </AccordionContent>
                 </AccordionItem>
