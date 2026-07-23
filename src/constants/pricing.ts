@@ -68,7 +68,7 @@ export const faqs = [
   {
     question: "How does Business seat billing work?",
     answer:
-      "Business is priced per seat. Choose how many seats you need (minimum 2), invite teammates by email, and each seat includes 5 connected devices. You can buy or reduce seats anytime from your account dashboard.",
+      "Business is priced per active team member. Upgrade to Business for yourself, invite teammates by email, and you are charged for each person when they accept — not when you send an invite. Each seat includes 5 connected devices.",
   },
   {
     question: "Do you keep logs of my activity?",

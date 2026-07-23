@@ -223,10 +223,17 @@ export function useSubscriptionBillingActions(
         );
 
         if (result.success) {
+          if (result.mode === "checkout" && result.url) {
+            window.location.href = result.url;
+            return;
+          }
+
           toast({
             title: "Business plan updated",
-            description: `Your subscription now includes ${result.seatLimit ?? seatCount} seats.`,
+            description:
+              "Invite your teammates in the Team section below — you are charged when they accept.",
           });
+          window.location.href = "/account?tab=connections&business=upgraded";
           await refreshSubscription();
         } else {
           throw new Error(result.error || "Failed to upgrade to Business");

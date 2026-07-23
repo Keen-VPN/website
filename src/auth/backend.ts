@@ -2032,14 +2032,19 @@ export async function upgradeSubscriptionToBusiness(
   sessionToken: string,
   planId: string,
   seatCount: number,
+  options?: { successUrl?: string; cancelUrl?: string },
 ): Promise<{
   success: boolean;
+  mode?: "upgraded" | "checkout";
+  url?: string | null;
   planId?: string;
   seatLimit?: number;
   message?: string;
   error?: string;
 }> {
   try {
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "https://vpnkeen.com";
     const response = await fetch(
       `${BACKEND_URL}/payment/stripe/upgrade-business`,
       {
@@ -2048,12 +2053,21 @@ export async function upgradeSubscriptionToBusiness(
           "Content-Type": "application/json",
           Authorization: `Bearer ${sessionToken}`,
         },
-        body: JSON.stringify({ planId, seatCount }),
+        body: JSON.stringify({
+          planId,
+          seatCount,
+          successUrl:
+            options?.successUrl ??
+            `${origin}/account?tab=connections&business=upgraded`,
+          cancelUrl: options?.cancelUrl ?? `${origin}/account`,
+        }),
       },
     );
 
     const data = (await response.json().catch(() => ({}))) as {
       success?: boolean;
+      mode?: "upgraded" | "checkout";
+      url?: string | null;
       planId?: string;
       seatLimit?: number;
       message?: string;
@@ -2073,6 +2087,8 @@ export async function upgradeSubscriptionToBusiness(
     if (data?.success === true) {
       return {
         success: true,
+        mode: data.mode,
+        url: data.url,
         planId: data.planId,
         seatLimit: data.seatLimit,
         message: data.message,

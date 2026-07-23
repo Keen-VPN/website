@@ -58,6 +58,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { AccountWorkspace } from "@/components/AccountWorkspace";
 import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
+import { MembershipTeamPanel } from "@/components/MembershipTeamPanel";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
 import {
   isAppDeepLinkSupported,
@@ -81,6 +82,7 @@ import {
   canUpgradeStripeToAnnual,
   getSubscriptionCtaLabel,
   hasManageableSubscription,
+  isBusinessPlanSubscription,
   shouldShowAnnualUpgradeOffer,
 } from "@/lib/subscription-cta";
 import {
@@ -932,6 +934,14 @@ const Account = () => {
                       upgrading={businessUpgradeLoading}
                       onUpgradePlan={upgradeToBusinessPlan}
                     />
+
+                    {canManageBilling &&
+                    isBusinessPlanSubscription(subscription) &&
+                    hasSessionToken ? (
+                      <MembershipTeamPanel
+                        sessionToken={getSessionToken() ?? ""}
+                      />
+                    ) : null}
 
                     {/* Upgrade to Annual */}
                     {showStripeUpgradeInCard && (

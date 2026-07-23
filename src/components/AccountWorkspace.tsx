@@ -72,6 +72,14 @@ function resolveTabFromLocation(
   search: string,
   hash: string,
 ): AccountWorkspaceTab {
+  const params = new URLSearchParams(search);
+  if (
+    params.get("tab") === "connections" ||
+    params.get("business") === "upgraded"
+  ) {
+    return "connections";
+  }
+
   const hashKey = hash.replace(/^#/, "");
   if (hashKey && TAB_HASH[hashKey]) {
     return TAB_HASH[hashKey];
