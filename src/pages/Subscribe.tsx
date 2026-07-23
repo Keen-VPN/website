@@ -708,8 +708,8 @@ const Subscribe = () => {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {startsWithFreeTrial
-                        ? "Send team invitations for free after checkout. Seats are added when teammates accept and billed when your free trial ends."
-                        : "Send team invitations for free after checkout. Additional seats are added and billed only when teammates accept."}
+                        ? "Send team invitations for free after checkout. Seats are added only after teammates create or sign in to KeenVPN and accept, then billed when your free trial ends."
+                        : "Send team invitations for free after checkout. Additional seats are added and billed only after teammates create or sign in to KeenVPN and accept."}
                     </p>
                   </div>
                 ) : null}
