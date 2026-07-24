@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import {
   CheckCircle2,
-  Download,
   Gift,
   Globe,
   Lock,
@@ -11,18 +10,9 @@ import {
   UserRound,
   Zap,
 } from "lucide-react";
-import { useAppStoreUrl } from "@/hooks/use-app-store-url";
-import {
-  getAppStoreInstallButtonLabel,
-  resolveAppStoreUrl,
-} from "@/lib/open-app-or-store";
-import { openKeenVpnAppStore } from "@/lib/keenvpn-deep-links";
 import { Link } from "react-router-dom";
 
 const Hero = () => {
-  const appStoreUrl = useAppStoreUrl();
-  const downloadAppLabel = getAppStoreInstallButtonLabel();
-
   return (
     <section className="relative bg-gradient-hero overflow-hidden pt-28 pb-14 md:pt-32 md:pb-20">
       {/* Background Effects with Brand Colors */}
@@ -53,16 +43,6 @@ const Hero = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
-            <Button
-              size="lg"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-lg px-8 py-6 font-semibold transition-all hover:scale-105"
-              onClick={() =>
-                openKeenVpnAppStore(resolveAppStoreUrl(appStoreUrl))
-              }
-            >
-              <Download className="h-5 w-5" />
-              {downloadAppLabel}
-            </Button>
             <Button
               asChild
               size="lg"

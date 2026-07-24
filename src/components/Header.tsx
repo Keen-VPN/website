@@ -11,12 +11,6 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFriendsBadge } from "@/hooks/use-friends-badge";
-import { useAppStoreUrl } from "@/hooks/use-app-store-url";
-import {
-  getAppStoreInstallButtonLabel,
-  resolveAppStoreUrl,
-} from "@/lib/open-app-or-store";
-import { openKeenVpnAppStore } from "@/lib/keenvpn-deep-links";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -26,10 +20,6 @@ const Header = () => {
   const friendsBadge = useFriendsBadge({
     poll: !location.pathname.startsWith("/friends"),
   });
-  const appStoreUrl = useAppStoreUrl();
-  const downloadAppLabel = getAppStoreInstallButtonLabel();
-  const handleDownloadApp = () =>
-    openKeenVpnAppStore(resolveAppStoreUrl(appStoreUrl));
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -153,12 +143,6 @@ const Header = () => {
                 Sign In
               </Button>
             )}
-            <Button
-              className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-glow transition-all"
-              onClick={handleDownloadApp}
-            >
-              {downloadAppLabel}
-            </Button>
           </div>
 
           {/* Mobile Menu Button */}
@@ -322,15 +306,6 @@ const Header = () => {
                     Sign In
                   </Button>
                 )}
-                <Button
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-glow transition-all"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    handleDownloadApp();
-                  }}
-                >
-                  {downloadAppLabel}
-                </Button>
               </div>
             </div>
           </nav>
