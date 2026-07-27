@@ -90,9 +90,35 @@ const Pricing = () => {
   );
 
   const isMonthlyStripeUpgradeEligible = canUpgradeStripeToAnnual(subscription);
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
+    "annual",
+  );
 
   const showMembershipPlanUpgrade = canUpgradeToBusinessPlan(subscription);
   const membershipTier = resolveMembershipPlanTier(subscription);
+  const currentSubscriptionLabel =
+    `${subscription?.planId ?? ""} ${subscription?.plan ?? ""}`.toLowerCase();
+  const currentSubscriptionPeriod =
+    subscription?.billingPeriod === "year" ||
+    currentSubscriptionLabel.includes("year") ||
+    currentSubscriptionLabel.includes("annual")
+      ? "year"
+      : "month";
+  const selectedBusinessPeriod = billingPeriod === "annual" ? "year" : "month";
+  const schedulesBusinessIntervalChange =
+    showMembershipPlanUpgrade &&
+    currentSubscriptionPeriod !== selectedBusinessPeriod;
+  const paidThroughLabel = useMemo(() => {
+    const value = subscription?.currentPeriodEnd ?? subscription?.endDate;
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(date);
+  }, [subscription?.currentPeriodEnd, subscription?.endDate]);
 
   const { businessUpgradeLoading, upgradeToBusinessPlan } =
     useSubscriptionBillingActions({
@@ -138,9 +164,6 @@ const Pricing = () => {
     setSearchParams(next, { replace: true });
   }, [authLoading, user, searchParams, navigate, setSearchParams]);
 
-  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
-    "annual",
-  );
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -393,7 +416,8 @@ const Pricing = () => {
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Starts with you — add teammates later; each member is
-                          billed when they accept your invite.
+                          billed only after they accept and use any KeenVPN time
+                          they already paid for.
                         </p>
                         <p className="text-xs text-muted-foreground">
                           From $
@@ -408,28 +432,45 @@ const Pricing = () => {
                   </div>
 
                   {showBusinessPlanUpgrade ? (
-                    <Button
-                      onClick={() => void handleBusinessUpgrade(plan)}
-                      disabled={
-                        businessUpgradeLoading || !businessUpgradePlanId
-                      }
-                      className={`w-full mb-6 ${
-                        plan.popular
-                          ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                          : "border-primary/50 hover:bg-primary/10"
-                      }`}
-                      variant={plan.popular ? "default" : "outline"}
-                      size="lg"
-                    >
-                      {businessUpgradeLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Updating subscription…
-                        </>
-                      ) : (
-                        "Upgrade to Business"
-                      )}
-                    </Button>
+                    <>
+                      {schedulesBusinessIntervalChange ? (
+                        <p className="mb-3 text-xs text-muted-foreground">
+                          Business activates now for $0.{" "}
+                          {selectedBusinessPeriod === "year"
+                            ? "Annual"
+                            : "Monthly"}{" "}
+                          billing starts
+                          {paidThroughLabel
+                            ? ` on ${paidThroughLabel}`
+                            : " when your current paid period ends"}
+                          .
+                        </p>
+                      ) : null}
+                      <Button
+                        onClick={() => void handleBusinessUpgrade(plan)}
+                        disabled={
+                          businessUpgradeLoading || !businessUpgradePlanId
+                        }
+                        className={`w-full mb-6 ${
+                          plan.popular
+                            ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                            : "border-primary/50 hover:bg-primary/10"
+                        }`}
+                        variant={plan.popular ? "default" : "outline"}
+                        size="lg"
+                      >
+                        {businessUpgradeLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Updating subscription…
+                          </>
+                        ) : schedulesBusinessIntervalChange ? (
+                          `Enable Business — ${selectedBusinessPeriod}ly at renewal`
+                        ) : (
+                          "Enable Business for free"
+                        )}
+                      </Button>
+                    </>
                   ) : ctaKind === "manage_account" &&
                     isMonthlyStripeUpgradeEligible &&
                     isAnnual ? (
@@ -721,7 +762,7 @@ const Pricing = () => {
             <p className="text-xl text-muted-foreground mb-8">
               {ctaKind === "manage_account"
                 ? showMembershipPlanUpgrade
-                  ? "Upgrade to Business to buy seats and invite your team."
+                  ? "Enable Business at no upgrade cost, then invite your team."
                   : "Manage billing, plan details, and settings in one place."
                 : ctaKind === "subscribe"
                   ? "Choose a plan and subscribe to get full protection."
@@ -740,8 +781,10 @@ const Pricing = () => {
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Updating subscription…
                     </>
+                  ) : schedulesBusinessIntervalChange ? (
+                    `Enable Business — ${selectedBusinessPeriod}ly at renewal`
                   ) : (
-                    "Upgrade plan"
+                    "Enable Business for free"
                   )}
                 </Button>
                 <Button

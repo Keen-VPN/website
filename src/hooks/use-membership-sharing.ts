@@ -22,6 +22,8 @@ export interface MembershipSharingPendingInvite {
   invitedAt: string;
   expiresAt: string;
   billingPending?: boolean;
+  creditPending?: boolean;
+  billingDeferredUntil?: string | null;
 }
 
 export interface MembershipSharingDashboard {

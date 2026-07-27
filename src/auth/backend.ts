@@ -554,8 +554,7 @@ export async function claimPerk(
     return {
       success: true,
       redemptionType: payload["redemptionType"] as
-        | PerkRedemptionType
-        | undefined,
+        PerkRedemptionType | undefined,
       redemptionUrl:
         typeof payload["redemptionUrl"] === "string"
           ? payload["redemptionUrl"]
@@ -584,7 +583,9 @@ export async function claimPerk(
   }
 }
 
-function parsePerkDiscoveryOutcome(raw: unknown): PerkDiscoveryOutcome | undefined {
+function parsePerkDiscoveryOutcome(
+  raw: unknown,
+): PerkDiscoveryOutcome | undefined {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const value = raw as Record<string, unknown>;
   if (value.status === "draft_created" && typeof value.draftId === "string") {
@@ -593,7 +594,8 @@ function parsePerkDiscoveryOutcome(raw: unknown): PerkDiscoveryOutcome | undefin
       draftId: value.draftId,
       friendCount:
         typeof value.friendCount === "number" ? value.friendCount : 0,
-      perkTitle: typeof value.perkTitle === "string" ? value.perkTitle : "Opportunity",
+      perkTitle:
+        typeof value.perkTitle === "string" ? value.perkTitle : "Opportunity",
       partnerName:
         typeof value.partnerName === "string" ? value.partnerName : null,
       valueLabel: typeof value.valueLabel === "string" ? value.valueLabel : "",
@@ -2024,9 +2026,9 @@ export async function upgradeSubscriptionToAnnual(
 }
 
 /**
- * Upgrade the current Stripe subscription to Business with a selected seat count.
- * KeenVPN collects the seat quantity before this call; Stripe receives one
- * subscription item update with the Business price and matching quantity.
+ * Enable Business on the current subscription without charging for the account
+ * type change. If the selected interval differs, the backend schedules it for
+ * the end of the already-paid period.
  */
 export async function upgradeSubscriptionToBusiness(
   sessionToken: string,
@@ -2039,12 +2041,19 @@ export async function upgradeSubscriptionToBusiness(
   url?: string | null;
   planId?: string;
   seatLimit?: number;
+  billingIntervalChange?: {
+    from: "month" | "year";
+    to: "month" | "year";
+    effectiveAt: string;
+  };
   message?: string;
   error?: string;
 }> {
   try {
     const origin =
-      typeof window !== "undefined" ? window.location.origin : "https://vpnkeen.com";
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "https://vpnkeen.com";
     const response = await fetch(
       `${BACKEND_URL}/payment/stripe/upgrade-business`,
       {
@@ -2058,7 +2067,7 @@ export async function upgradeSubscriptionToBusiness(
           seatCount,
           successUrl:
             options?.successUrl ??
-            `${origin}/account?tab=connections&business=upgraded`,
+            `${origin}/account?tab=team&business=upgraded`,
           cancelUrl: options?.cancelUrl ?? `${origin}/account`,
         }),
       },
@@ -2070,6 +2079,11 @@ export async function upgradeSubscriptionToBusiness(
       url?: string | null;
       planId?: string;
       seatLimit?: number;
+      billingIntervalChange?: {
+        from: "month" | "year";
+        to: "month" | "year";
+        effectiveAt: string;
+      };
       message?: string;
       error?: string;
     };
@@ -2091,6 +2105,7 @@ export async function upgradeSubscriptionToBusiness(
         url: data.url,
         planId: data.planId,
         seatLimit: data.seatLimit,
+        billingIntervalChange: data.billingIntervalChange,
         message: data.message,
       };
     }
@@ -4744,7 +4759,17 @@ export async function adminUpdateMembershipSeatLimit(
 export async function acceptMembershipInvite(
   sessionToken: string,
   token: string,
-): Promise<{ ok: boolean; error?: string }> {
+  confirmations: {
+    acceptsBusinessBilling: boolean;
+    acknowledgesPrivacy: boolean;
+  },
+): Promise<{
+  ok: boolean;
+  pending?: boolean;
+  billingDeferredUntil?: string | null;
+  requiresAppleCancellation?: boolean;
+  error?: string;
+}> {
   try {
     const response = await fetch(`${BACKEND_URL}/membership-sharing/accept`, {
       method: "POST",
@@ -4753,16 +4778,25 @@ export async function acceptMembershipInvite(
         Authorization: `Bearer ${sessionToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token, ...confirmations }),
     });
-    const raw: unknown = await response.json().catch(() => ({}));
+    const raw = (await response.json().catch(() => ({}))) as {
+      pending?: boolean;
+      billingDeferredUntil?: string | null;
+      requiresAppleCancellation?: boolean;
+    };
     if (!response.ok) {
       return {
         ok: false,
         error: extractBackendErrorMessage(raw, "Failed to accept invitation"),
       };
     }
-    return { ok: true };
+    return {
+      ok: true,
+      pending: raw.pending === true,
+      billingDeferredUntil: raw.billingDeferredUntil ?? null,
+      requiresAppleCancellation: raw.requiresAppleCancellation === true,
+    };
   } catch (error) {
     return {
       ok: false,
@@ -6118,7 +6152,10 @@ export async function denyWorkflowVaultAccess(
 // Secure User Vault
 // ---------------------------------------------------------------------
 
-export type { VaultFieldCategory, VaultFieldInputType } from "@/lib/vault-fields";
+export type {
+  VaultFieldCategory,
+  VaultFieldInputType,
+} from "@/lib/vault-fields";
 
 export interface VaultFieldMetadata {
   fieldKey: string;
@@ -6224,10 +6261,7 @@ export async function upsertVaultField(
   );
 }
 
-export async function deleteVaultField(
-  sessionToken: string,
-  fieldKey: string,
-) {
+export async function deleteVaultField(sessionToken: string, fieldKey: string) {
   return vaultRequest<{ success: boolean; fieldKey: string }>(
     sessionToken,
     `/fields/${encodeURIComponent(fieldKey)}`,
@@ -6848,7 +6882,8 @@ export async function markFriendsNotificationsRead(
 
 export type DiscoverySharingMode = "auto" | "review" | "never";
 
-export type DiscoveryFeedFilter = "new" | "saved" | "dismissed" | "shared" | "pending";
+export type DiscoveryFeedFilter =
+  "new" | "saved" | "dismissed" | "shared" | "pending";
 
 export type FriendShareAction = "view" | "save" | "dismiss" | "claim";
 

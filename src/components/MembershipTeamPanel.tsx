@@ -164,7 +164,7 @@ export function MembershipTeamPanel({
                   } before any additional charge.`
                 : subscriptionTrialing
                   ? "Send invites for free. Accepted teammates are added during the trial and billing begins when the trial ends."
-                  : "Send invites for free. You are billed when a teammate accepts and joins — not when you send the invite."
+                  : "Send invites for free. Billing starts only after a teammate accepts and has used any paid KeenVPN time they already have."
               : seats
                 ? `${seats.activeSeats} of ${seats.seatLimit} seats in use · ${seats.availableSeats} available`
                 : "Invite teammates by email. Each person gets their own login."}
@@ -316,11 +316,17 @@ export function MembershipTeamPanel({
                   <p className="text-xs text-muted-foreground">
                     {pending.billingPending
                       ? "Account created · completing membership"
+                      : pending.creditPending
+                        ? pending.billingDeferredUntil
+                          ? `Transfer confirmed · existing subscription paid through ${formatDate(
+                              pending.billingDeferredUntil,
+                            )}`
+                          : "Transfer confirmed · existing paid time is being applied"
                       : `Expires ${formatDate(pending.expiresAt)}`}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {!pending.billingPending ? (
+                  {!pending.billingPending && !pending.creditPending ? (
                     <Button
                       variant="outline"
                       size="sm"
