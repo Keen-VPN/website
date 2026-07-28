@@ -203,6 +203,7 @@ export function AccountWorkspace({
     params.delete("business");
     params.delete("billing");
     params.delete("billingEffectiveAt");
+    // Keep Stripe return session_id until Account finishes checkout hydration.
     const nextSearch = params.toString();
     navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ""}`, {
       replace: true,
