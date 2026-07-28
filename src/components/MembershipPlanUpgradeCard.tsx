@@ -7,6 +7,7 @@ import type { ApiPlan } from "@/lib/pricing";
 import {
   canUpgradeToBusinessPlan,
   isAppleIapSubscription,
+  resolveSubscriptionBillingPeriod,
 } from "@/lib/subscription-cta";
 
 interface MembershipPlanUpgradeCardProps {
@@ -68,14 +69,7 @@ export function MembershipPlanUpgradeCard({
       ) ?? null,
     [plans],
   );
-  const currentPlanLabel =
-    `${subscription.planId ?? ""} ${subscription.plan ?? ""}`.toLowerCase();
-  const currentBillingPeriod =
-    subscription.billingPeriod === "year" ||
-    currentPlanLabel.includes("year") ||
-    currentPlanLabel.includes("annual")
-      ? "year"
-      : "month";
+  const currentBillingPeriod = resolveSubscriptionBillingPeriod(subscription);
   const selectedPlan =
     currentBillingPeriod === "year"
       ? (annualPlan ?? monthlyPlan)

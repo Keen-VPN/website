@@ -3,6 +3,7 @@ import type { SubscriptionData } from "@/auth/types";
 import {
   canUpgradeToBusinessPlan,
   resolveMembershipPlanTier,
+  resolveSubscriptionBillingPeriod,
 } from "@/lib/subscription-cta";
 
 function stripeSub(
@@ -66,5 +67,34 @@ describe("membership plan tier helpers", () => {
     expect(canUpgradeToBusinessPlan(family)).toBe(true);
     expect(canUpgradeToBusinessPlan(apple)).toBe(true);
     expect(canUpgradeToBusinessPlan(business)).toBe(false);
+  });
+
+  it("uses the backend billing period before legacy plan-name fallbacks", () => {
+    expect(
+      resolveSubscriptionBillingPeriod(
+        stripeSub({
+          billingPeriod: "year",
+          plan: "Premium VPN",
+          planId: "premium",
+        }),
+      ),
+    ).toBe("year");
+    expect(
+      resolveSubscriptionBillingPeriod(
+        stripeSub({
+          billingPeriod: "month",
+          plan: "Premium VPN - Annual",
+          planId: "premium_yearly",
+        }),
+      ),
+    ).toBe("month");
+    expect(
+      resolveSubscriptionBillingPeriod(
+        stripeSub({
+          plan: "Premium VPN - Annual",
+          planId: null,
+        }),
+      ),
+    ).toBe("year");
   });
 });

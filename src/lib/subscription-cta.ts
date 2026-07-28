@@ -52,6 +52,20 @@ export function isAppleIapSubscription(
   return subscription?.subscriptionType === "apple_iap";
 }
 
+/** Resolve the active billing interval from backend data, with legacy plan labels as fallback. */
+export function resolveSubscriptionBillingPeriod(
+  subscription: SubscriptionData | null | undefined,
+): "month" | "year" {
+  if (subscription?.billingPeriod === "year") return "year";
+  if (subscription?.billingPeriod === "month") return "month";
+
+  const planLabel =
+    `${subscription?.planId ?? ""} ${subscription?.plan ?? ""}`.toLowerCase();
+  return planLabel.includes("year") || planLabel.includes("annual")
+    ? "year"
+    : "month";
+}
+
 function isMonthlyPlanName(planName?: string | null): boolean {
   return (planName ?? "").toLowerCase().includes("monthly");
 }

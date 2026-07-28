@@ -42,6 +42,22 @@ export default function MembershipSharingAccept() {
       return;
     }
 
+    setLoading(true);
+    setInviteEmail(null);
+    setOwnerEmail(null);
+    setSubscriptionStatus(null);
+    setChargeOnAccept(false);
+    setPrepaidAvailableSeats(0);
+    setNextAcceptanceWillCharge(false);
+    setBillingPending(false);
+    setCreditPending(false);
+    setAcceptsBusinessBilling(false);
+    setAcknowledgesPrivacy(false);
+    setBillingDeferredUntil(null);
+    setRequiresAppleCancellation(false);
+    setError(null);
+    setAccepted(false);
+
     let cancelled = false;
     void fetch(
       `${BACKEND_URL}/membership-sharing/invite/${encodeURIComponent(token)}`,
@@ -191,7 +207,7 @@ export default function MembershipSharingAccept() {
                   : subscriptionStatus?.toLowerCase() === "trialing"
                     ? "Accepting adds you to the Business subscription now, with no additional seat charge during the trial. The membership owner is billed for active seats when the trial ends."
                     : nextAcceptanceWillCharge
-                      ? "No already-paid seat is currently available. Accepting adds a paid Business seat and immediately charges the membership owner a prorated amount for the rest of the current billing period. If their payment cannot be completed, the invitation remains pending and no access is granted."
+                      ? "No already-paid Business seat is currently available. If you already pay for KeenVPN, your paid time is used first. Otherwise, after you create or sign in to your KeenVPN account and accept, Stripe calculates the exact prorated seat charge for the membership owner. If payment cannot be completed, the invitation remains pending and no access is granted."
                       : `The membership currently has ${prepaidAvailableSeats} already-paid ${
                           prepaidAvailableSeats === 1 ? "seat" : "seats"
                         } available, so accepting is not expected to create an additional charge. Seat availability is confirmed again when you accept.`}

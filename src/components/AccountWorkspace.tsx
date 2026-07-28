@@ -195,7 +195,7 @@ export function AccountWorkspace({
             ? `Business is active with no upgrade charge. ${
                 scheduledBillingPeriod === "year" ? "Annual" : "Monthly"
               } billing starts on ${scheduledBillingDate}, after your current paid period ends.`
-            : "Business is enabled with no upgrade charge. Invite teammates in the Team section; their existing paid time is always used first.",
+            : "Business is enabled. Invite teammates in the Team section; their existing paid time is always used first.",
       });
     }
 

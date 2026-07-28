@@ -30,6 +30,7 @@ import {
   annualHeroPriceDisplay,
   formatAnnualBillingDetail,
   formatAnnualComparisonPrice,
+  resolvePricingPlanSelection,
   transformApiPlans,
 } from "@/lib/pricing";
 import { DEFAULT_ANNUAL_SAVINGS_LABEL } from "@/lib/subscription-pricing";
@@ -40,7 +41,9 @@ import {
   canStartFreeTrial,
   canUpgradeToBusinessPlan,
   canUpgradeStripeToAnnual,
+  isAppleIapSubscription,
   resolveMembershipPlanTier,
+  resolveSubscriptionBillingPeriod,
 } from "@/lib/subscription-cta";
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import type { TrialData } from "@/auth/types";
@@ -96,18 +99,8 @@ const Pricing = () => {
 
   const showMembershipPlanUpgrade = canUpgradeToBusinessPlan(subscription);
   const membershipTier = resolveMembershipPlanTier(subscription);
-  const currentSubscriptionLabel =
-    `${subscription?.planId ?? ""} ${subscription?.plan ?? ""}`.toLowerCase();
-  const currentSubscriptionPeriod =
-    subscription?.billingPeriod === "year" ||
-    currentSubscriptionLabel.includes("year") ||
-    currentSubscriptionLabel.includes("annual")
-      ? "year"
-      : "month";
-  const selectedBusinessPeriod = billingPeriod === "annual" ? "year" : "month";
-  const schedulesBusinessIntervalChange =
-    showMembershipPlanUpgrade &&
-    currentSubscriptionPeriod !== selectedBusinessPeriod;
+  const isAppleBusinessMigration =
+    showMembershipPlanUpgrade && isAppleIapSubscription(subscription);
   const paidThroughLabel = useMemo(() => {
     const value = subscription?.currentPeriodEnd ?? subscription?.endDate;
     if (!value) return null;
@@ -173,6 +166,18 @@ const Pricing = () => {
     [plans],
   );
   const businessPlan = useMemo(() => plans.find((p) => p.isPerSeat), [plans]);
+  const businessPlanSelection = useMemo(
+    () => resolvePricingPlanSelection(businessPlan, billingPeriod),
+    [billingPeriod, businessPlan],
+  );
+  const currentSubscriptionPeriod =
+    resolveSubscriptionBillingPeriod(subscription);
+  const selectedBusinessPeriod =
+    businessPlanSelection?.billingPeriod ??
+    (billingPeriod === "annual" ? "year" : "month");
+  const schedulesBusinessIntervalChange =
+    showMembershipPlanUpgrade &&
+    currentSubscriptionPeriod !== selectedBusinessPeriod;
   const annualSavingsLabel =
     premiumPlan?.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL;
 
@@ -216,14 +221,11 @@ const Pricing = () => {
 
   const handleBusinessUpgrade = useCallback(
     async (plan?: PricingPlan | null) => {
-      const selectedPlanId =
-        billingPeriod === "annual"
-          ? (plan?.annualId ?? plan?.monthlyId)
-          : (plan?.monthlyId ?? plan?.annualId);
-      if (!selectedPlanId) {
+      const selection = resolvePricingPlanSelection(plan, billingPeriod);
+      if (!selection) {
         return;
       }
-      await upgradeToBusinessPlan(selectedPlanId, 1);
+      await upgradeToBusinessPlan(selection.planId, 1);
     },
     [billingPeriod, upgradeToBusinessPlan],
   );
@@ -331,7 +333,13 @@ const Pricing = () => {
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto items-stretch">
             {plans.map((plan, index) => {
-              const isAnnual = billingPeriod === "annual";
+              const planSelection = resolvePricingPlanSelection(
+                plan,
+                billingPeriod,
+              );
+              const isAnnual =
+                planSelection?.billingPeriod === "year" ||
+                (!planSelection && billingPeriod === "annual");
               const period =
                 plan.monthlyPrice === null
                   ? ""
@@ -348,10 +356,7 @@ const Pricing = () => {
                 plan.name === "Business" &&
                 membershipTier !== "business" &&
                 showMembershipPlanUpgrade;
-              const businessUpgradePlanId =
-                billingPeriod === "annual"
-                  ? (plan.annualId ?? plan.monthlyId)
-                  : (plan.monthlyId ?? plan.annualId);
+              const businessUpgradePlanId = planSelection?.planId;
 
               return (
                 <div
@@ -433,7 +438,13 @@ const Pricing = () => {
 
                   {showBusinessPlanUpgrade ? (
                     <>
-                      {schedulesBusinessIntervalChange ? (
+                      {isAppleBusinessMigration ? (
+                        <p className="mb-3 text-xs text-muted-foreground">
+                          Complete Stripe setup to enable Business. Your
+                          existing Apple paid time is used first, and Stripe
+                          billing begins after it ends.
+                        </p>
+                      ) : schedulesBusinessIntervalChange ? (
                         <p className="mb-3 text-xs text-muted-foreground">
                           Business activates now for $0.{" "}
                           {selectedBusinessPeriod === "year"
@@ -464,6 +475,8 @@ const Pricing = () => {
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                             Updating subscription…
                           </>
+                        ) : isAppleBusinessMigration ? (
+                          "Set up future Business billing"
                         ) : schedulesBusinessIntervalChange ? (
                           `Enable Business — ${selectedBusinessPeriod}ly at renewal`
                         ) : (
@@ -762,7 +775,9 @@ const Pricing = () => {
             <p className="text-xl text-muted-foreground mb-8">
               {ctaKind === "manage_account"
                 ? showMembershipPlanUpgrade
-                  ? "Enable Business at no upgrade cost, then invite your team."
+                  ? isAppleBusinessMigration
+                    ? "Set up Business with Stripe. Your existing Apple paid time is used first."
+                    : "Enable Business at no upgrade cost, then invite your team."
                   : "Manage billing, plan details, and settings in one place."
                 : ctaKind === "subscribe"
                   ? "Choose a plan and subscribe to get full protection."
@@ -781,6 +796,8 @@ const Pricing = () => {
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Updating subscription…
                     </>
+                  ) : isAppleBusinessMigration ? (
+                    "Set up future Business billing"
                   ) : schedulesBusinessIntervalChange ? (
                     `Enable Business — ${selectedBusinessPeriod}ly at renewal`
                   ) : (
