@@ -188,6 +188,22 @@ const Account = () => {
     const urlParams = new URLSearchParams(location.search);
     return urlParams.get("session_id");
   }, [location.search]);
+  const accountPathAfterStripeReturn = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    params.delete("session_id");
+    if (isASWeb) {
+      params.set("asweb", "1");
+    }
+    // Keep Business checkout on the Team tab after Stripe returns.
+    if (
+      params.get("business") === "upgraded" ||
+      params.get("tab") === "team"
+    ) {
+      params.set("tab", "team");
+    }
+    const nextSearch = params.toString();
+    return nextSearch ? `/account?${nextSearch}` : "/account";
+  }, [isASWeb, location.search]);
   const processedStripeSessionRef = useRef<string | null>(null);
   const handledEmailUnsubscribeRef = useRef(false);
   const [showPostCheckoutUi, setShowPostCheckoutUi] = useState(() =>
@@ -324,7 +340,7 @@ const Account = () => {
         if (!cancelled) {
           setSubscriptionLoading(false);
           setInitialSubscriptionChecked(true);
-          navigate(isASWeb ? "/account?asweb=1" : "/account", {
+          navigate(accountPathAfterStripeReturn, {
             replace: true,
           });
         }
@@ -381,7 +397,7 @@ const Account = () => {
       if (!cancelled) {
         setSubscriptionLoading(false);
         setInitialSubscriptionChecked(true);
-        navigate(isASWeb ? "/account?asweb=1" : "/account", { replace: true });
+        navigate(accountPathAfterStripeReturn, { replace: true });
       }
     };
 
@@ -398,7 +414,7 @@ const Account = () => {
     hasStripeSessionId,
     stripeSessionId,
     navigate,
-    isASWeb,
+    accountPathAfterStripeReturn,
   ]);
 
   const handleRefreshSubscription = async () => {
