@@ -61,6 +61,7 @@ export function MembershipTeamPanel({
 
   useEffect(() => {
     let ignore = false;
+    setCatalogSeatPrice(null);
     void fetchSubscriptionPlans().then((res) => {
       if (ignore || !res.success || !res.plans) return;
       const billingPeriod =

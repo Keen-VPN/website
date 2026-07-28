@@ -43,7 +43,7 @@ import { useToast } from "@/hooks/use-toast";
 const sanitizeOtpCode = (value: string) => value.replace(/\D/g, "").slice(0, 6);
 
 const SignIn = () => {
-  const { signIn, loading: authLoading, isAuthenticating, user, subscription } = useAuth();
+  const { signIn, loading: authLoading, isAuthenticating, user, subscription, hasSessionToken } = useAuth();
   const { toast } = useToast();
   const [otpEmail, setOtpEmail] = React.useState("");
   const [otpCode, setOtpCode] = React.useState("");
@@ -119,14 +119,19 @@ const SignIn = () => {
           return;
         }
 
-        capturePostLoginRedirectFromSearch(window.location.search);
+        // Wait for the backend session before leaving /signin so invite accept
+        // (and similar redirects) can call authenticated APIs immediately.
+        if (!hasSessionToken) return;
+
+        // Redirect was captured on mount. Do not call capture again here —
+        // OAuth return URLs often omit ?redirect=, which would clear storage.
         const redirectUrl = consumePostLoginRedirect();
         if (redirectUrl) {
           window.location.href = redirectUrl;
         }
       }
     }
-  }, [user, authLoading, subscription]);
+  }, [user, authLoading, subscription, hasSessionToken]);
 
   // Debounce sign-in to prevent double-clicks
   const [handleGoogleSignIn, isGoogleDebouncing] = useDebounce(async () => {

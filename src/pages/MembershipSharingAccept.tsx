@@ -239,12 +239,27 @@ export default function MembershipSharingAccept() {
     const sessionToken = getSessionToken();
     if (!sessionToken) return;
 
+    // Wait until invite identity is known, then only auto-accept for the
+    // invited email. Keep the intent if a different account signed in.
+    const signedInEmail = user?.email?.trim().toLowerCase() ?? null;
+    const inviteEmailNormalized = inviteEmail?.trim().toLowerCase() ?? null;
+    if (!inviteEmailNormalized || !signedInEmail) return;
+    if (signedInEmail !== inviteEmailNormalized) return;
+
     resumeAcceptAttemptedRef.current = true;
     void acceptWithSessionToken(sessionToken, {
       acceptsBusinessBilling: pendingIntent.acceptsBusinessBilling,
       acknowledgesPrivacy: pendingIntent.acknowledgesPrivacy,
     });
-  }, [acceptWithSessionToken, accepted, error, loading, token]);
+  }, [
+    acceptWithSessionToken,
+    accepted,
+    error,
+    inviteEmail,
+    loading,
+    token,
+    user?.email,
+  ]);
 
   const signedInEmail = user?.email?.trim().toLowerCase() ?? null;
   const inviteEmailNormalized = inviteEmail?.trim().toLowerCase() ?? null;
