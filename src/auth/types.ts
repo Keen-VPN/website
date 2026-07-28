@@ -17,7 +17,7 @@ export interface SubscriptionData {
   subscriptionType?: string;
   currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
-  billingPeriod?: "month" | "year" | string | null;
+  billingPeriod?: "month" | "year" | null;
   subscriptionStartedAt?: string | null;
   daysSinceSubscriptionStart?: number | null;
   showAnnualUpgradePrompt?: boolean;

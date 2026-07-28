@@ -235,14 +235,16 @@ export function useSubscriptionBillingActions(
           accountUrl.searchParams.set("tab", "team");
           accountUrl.searchParams.set("business", "upgraded");
           if (result.billingIntervalChange) {
-            accountUrl.searchParams.set(
-              "billing",
-              result.billingIntervalChange.to,
-            );
-            accountUrl.searchParams.set(
-              "billingEffectiveAt",
-              result.billingIntervalChange.effectiveAt,
-            );
+            const { to, effectiveAt } = result.billingIntervalChange;
+            if (to === "month" || to === "year") {
+              accountUrl.searchParams.set("billing", to);
+            }
+            if (
+              typeof effectiveAt === "string" &&
+              effectiveAt.trim().length > 0
+            ) {
+              accountUrl.searchParams.set("billingEffectiveAt", effectiveAt);
+            }
           }
           window.location.href = `${accountUrl.pathname}${accountUrl.search}`;
         } else {

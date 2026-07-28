@@ -25,6 +25,7 @@ export default function MembershipSharingAccept() {
   const [nextAcceptanceWillCharge, setNextAcceptanceWillCharge] =
     useState(false);
   const [billingPending, setBillingPending] = useState(false);
+  const [creditPending, setCreditPending] = useState(false);
   const [acceptsBusinessBilling, setAcceptsBusinessBilling] = useState(false);
   const [acknowledgesPrivacy, setAcknowledgesPrivacy] = useState(false);
   const [billingDeferredUntil, setBillingDeferredUntil] = useState<
@@ -55,6 +56,7 @@ export default function MembershipSharingAccept() {
           billingPending?: boolean;
           creditPending?: boolean;
           billingDeferredUntil?: string | null;
+          requiresAppleCancellation?: boolean;
           prepaidAvailableSeats?: number | null;
           nextAcceptanceWillCharge?: boolean;
         };
@@ -69,7 +71,9 @@ export default function MembershipSharingAccept() {
         setSubscriptionStatus(data.subscriptionStatus ?? null);
         setChargeOnAccept(data.chargeOnAccept === true);
         setBillingPending(data.billingPending === true);
+        setRequiresAppleCancellation(data.requiresAppleCancellation === true);
         if (data.creditPending === true) {
+          setCreditPending(true);
           setBillingDeferredUntil(data.billingDeferredUntil ?? null);
           setAccepted(true);
         }
@@ -113,6 +117,7 @@ export default function MembershipSharingAccept() {
       }
       setBillingDeferredUntil(res.billingDeferredUntil ?? null);
       setRequiresAppleCancellation(res.requiresAppleCancellation === true);
+      setCreditPending(res.pending === true);
       setAccepted(true);
     } finally {
       setLoading(false);
@@ -139,16 +144,19 @@ export default function MembershipSharingAccept() {
         {!loading && accepted ? (
           <div className="mt-6 space-y-4">
             <p className="text-slate-300">
-              {billingDeferredUntil
+              {creditPending && billingDeferredUntil
                 ? `Your transfer is confirmed. Your existing subscription remains active through ${new Date(
                     billingDeferredUntil,
                   ).toLocaleDateString()}; after that, the Business account will pay for your KeenVPN access.`
-                : "You now have premium access through this shared membership."}
+                : creditPending
+                  ? "Your transfer is confirmed and pending. Your current paid KeenVPN access remains in place while we determine when the Business account should take over billing."
+                  : "You now have premium access through this shared membership."}
             </p>
             {requiresAppleCancellation ? (
               <p className="rounded-md border border-amber-700/60 bg-amber-950/40 p-3 text-sm text-amber-100">
-                Turn off App Store auto-renewal before that date. Apple does not
-                allow KeenVPN to cancel it for you.
+                {billingDeferredUntil
+                  ? "Turn off App Store auto-renewal before that date. Apple does not allow KeenVPN to cancel it for you."
+                  : "Turn off App Store auto-renewal to prevent future duplicate billing. Apple does not allow KeenVPN to cancel it for you."}
               </p>
             ) : null}
             <p className="text-sm text-slate-400">
@@ -227,9 +235,7 @@ export default function MembershipSharingAccept() {
             <Button
               onClick={() => void handleAccept()}
               disabled={
-                loading ||
-                !acceptsBusinessBilling ||
-                !acknowledgesPrivacy
+                loading || !acceptsBusinessBilling || !acknowledgesPrivacy
               }
             >
               {billingPending ? "Complete invitation" : "Accept invitation"}

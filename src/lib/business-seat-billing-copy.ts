@@ -77,45 +77,33 @@ export function formatSeatRenewalRate(
 export function formatChargeOnAcceptInviteCopy(
   input: SeatAcceptChargeEstimateInput,
 ): string {
-  const estimate = estimateSeatAcceptCharge(input);
   const renewal = formatSeatRenewalRate(
     input.priceAmount,
     input.billingPeriod,
     input.priceCurrency,
   );
 
-  if (!estimate) {
-    return "Sending an invite is free. Billing updates only after your teammate creates or signs in, accepts, and has used any paid KeenVPN time they already have. If no already-paid seat is available then, your card is charged for one seat for the rest of the billing period.";
-  }
-
-  const chargeLabel = formatMoney(estimate.amount, estimate.currency);
   if (renewal) {
-    return `Sending an invite is free. After your teammate accepts and has used any paid KeenVPN time they already have, your card is charged about ${chargeLabel} for one seat for the rest of this billing period, then ${renewal} at renewal.`;
+    return `Sending an invite is free. Billing updates only after your teammate creates or signs in to a KeenVPN account, accepts, and has used any paid KeenVPN time they already have. If no already-paid seat is available then, Stripe calculates the exact charge for the rest of the billing period. The renewal rate is ${renewal}.`;
   }
 
-  return `Sending an invite is free. After your teammate accepts and has used any paid KeenVPN time they already have, your card is charged about ${chargeLabel} for one seat for the rest of this billing period.`;
+  return "Sending an invite is free. Billing updates only after your teammate creates or signs in to a KeenVPN account, accepts, and has used any paid KeenVPN time they already have. If no already-paid seat is available then, Stripe calculates the exact charge for the rest of the billing period.";
 }
 
 export function formatChargeAfterPrepaidSeatsCopy(
   input: SeatAcceptChargeEstimateInput,
 ): string {
-  const estimate = estimateSeatAcceptCharge(input);
   const renewal = formatSeatRenewalRate(
     input.priceAmount,
     input.billingPeriod,
     input.priceCurrency,
   );
 
-  if (!estimate) {
-    return "Sending an invite is free. Your already-paid seats remain available until renewal. After they are used, each additional teammate adds a prorated seat only after they accept and have used any paid KeenVPN time they already have. At renewal, billing adjusts to the owner plus accepted teammates.";
-  }
-
-  const chargeLabel = formatMoney(estimate.amount, estimate.currency);
   if (renewal) {
-    return `Sending an invite is free. Your already-paid seats remain available until renewal. After they are used, each additional teammate adds a charge of about ${chargeLabel} after they accept and have used any paid KeenVPN time they already have. At renewal, billing adjusts to the owner plus accepted teammates at ${renewal}.`;
+    return `Sending an invite is free. Your already-paid seats remain available until renewal. After they are used, each additional teammate can add a prorated seat charge only after they create or sign in to a KeenVPN account, accept, and have used any paid KeenVPN time they already have. Stripe calculates that charge when it applies. At renewal, billing adjusts to the owner plus accepted teammates at ${renewal}.`;
   }
 
-  return `Sending an invite is free. Your already-paid seats remain available until renewal. After they are used, each additional teammate adds a charge of about ${chargeLabel} after they accept and have used any paid KeenVPN time they already have. At renewal, billing adjusts to the owner plus accepted teammates.`;
+  return "Sending an invite is free. Your already-paid seats remain available until renewal. After they are used, each additional teammate can add a prorated seat charge only after they create or sign in to a KeenVPN account, accept, and have used any paid KeenVPN time they already have. Stripe calculates that charge when it applies. At renewal, billing adjusts to the owner plus accepted teammates.";
 }
 
 export function formatTrialSeatBillingCopy(

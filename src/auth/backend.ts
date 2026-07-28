@@ -53,6 +53,7 @@ export interface RawSubscription {
   endDate?: string;
   currentPeriodEnd?: string;
   currentPeriodStart?: string;
+  billingPeriod?: string | null;
   subscriptionStartedAt?: string;
   daysSinceSubscriptionStart?: number;
   showAnnualUpgradePrompt?: boolean;
@@ -154,6 +155,13 @@ function normalizeBackendAuthResponse(
   }
   if (rawSubscription.currentPeriodEnd !== undefined) {
     normalizedSubscription.currentPeriodEnd = rawSubscription.currentPeriodEnd;
+  }
+  if (
+    rawSubscription.billingPeriod === "month" ||
+    rawSubscription.billingPeriod === "year" ||
+    rawSubscription.billingPeriod === null
+  ) {
+    normalizedSubscription.billingPeriod = rawSubscription.billingPeriod;
   }
   if (rawSubscription.subscriptionStartedAt !== undefined) {
     normalizedSubscription.subscriptionStartedAt =

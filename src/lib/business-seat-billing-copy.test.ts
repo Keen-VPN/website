@@ -36,7 +36,7 @@ describe("business-seat-billing-copy", () => {
     ).toBeNull();
   });
 
-  it("formats invite copy with estimate and renewal rate", () => {
+  it("avoids a stale proration quote while showing the renewal rate", () => {
     const copy = formatChargeOnAcceptInviteCopy({
       priceAmount: 40,
       billingPeriod: "year",
@@ -51,7 +51,8 @@ describe("business-seat-billing-copy", () => {
     expect(copy).toContain("accepts");
     expect(copy).toContain("40");
     expect(copy).toContain("/seat/year");
-    expect(copy).toContain("about");
+    expect(copy).toContain("Stripe calculates the exact charge");
+    expect(copy).not.toContain("26.63");
   });
 
   it("explains that already-paid seats are consumed before new charges", () => {
@@ -64,8 +65,8 @@ describe("business-seat-billing-copy", () => {
       now: new Date("2026-07-23T00:00:00.000Z"),
     });
 
-    expect(copy).toContain("After your already-paid seats are used");
-    expect(copy).toContain("KeenVPN account");
+    expect(copy).toContain("already-paid seats");
+    expect(copy).toContain("Stripe calculates that charge when it applies");
     expect(copy).toContain("40");
     expect(copy).toContain("/seat/year");
   });

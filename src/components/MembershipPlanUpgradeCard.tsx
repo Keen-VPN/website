@@ -81,6 +81,7 @@ export function MembershipPlanUpgradeCard({
       ? (annualPlan ?? monthlyPlan)
       : (monthlyPlan ?? annualPlan);
   const isAppleBilling = isAppleIapSubscription(subscription);
+  const isTrialing = subscription.status.toLowerCase() === "trialing";
 
   if (!canUpgradeToBusinessPlan(subscription)) {
     return null;
@@ -136,14 +137,15 @@ export function MembershipPlanUpgradeCard({
 
             {unitPrice !== null ? (
               <p className="text-xs text-muted-foreground">
-                Your upgrade costs $0 today. Your owner seat stays at the same
-                Individual rate (
+                Your upgrade costs $0 today. Business is billed per active
+                member at the per-seat rate (
                 {pricePeriod === "year"
                   ? `$${unitPrice.toFixed(2)}/year`
                   : `$${unitPrice.toFixed(2)}/month`}
-                ). Invites are free; an additional seat is billed only after a
-                teammate accepts and has used any paid KeenVPN time they already
-                have.
+                ).{" "}
+                {isTrialing
+                  ? "Invites are free, and accepted teammates add no seat charge during the trial. Active seats are billed when the trial ends."
+                  : "Invites are free. Already-paid seats and any paid KeenVPN time a teammate already has are used before an additional seat charge applies."}
               </p>
             ) : null}
           </>
@@ -152,9 +154,9 @@ export function MembershipPlanUpgradeCard({
 
       {isAppleBilling ? (
         <p className="text-xs text-muted-foreground">
-          Stripe will collect your payment method but will not bill it until your
-          current Apple paid period ends. Turn off App Store auto-renewal to avoid
-          future duplicate billing.
+          Stripe will collect your payment method but will not bill it until
+          your current Apple paid period ends. Turn off App Store auto-renewal
+          to avoid future duplicate billing.
         </p>
       ) : null}
 
@@ -169,9 +171,7 @@ export function MembershipPlanUpgradeCard({
         {upgrading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            {isAppleBilling
-              ? "Opening secure setup…"
-              : "Enabling Business…"}
+            {isAppleBilling ? "Opening secure setup…" : "Enabling Business…"}
           </>
         ) : isAppleBilling ? (
           "Set up future Business billing"
