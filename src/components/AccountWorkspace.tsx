@@ -21,7 +21,8 @@ import { cn } from "@/lib/utils";
 import { trackWorkspaceEvent } from "@/lib/product-analytics";
 import { useToast } from "@/hooks/use-toast";
 
-export type AccountWorkspaceTab = "perks" | "vault" | "profile" | "connections";
+export type AccountWorkspaceTab =
+  "perks" | "vault" | "profile" | "team" | "connections";
 
 const TAB_HASH: Record<string, AccountWorkspaceTab> = {
   vault: "vault",
@@ -33,6 +34,7 @@ const TAB_QUERY: Record<string, AccountWorkspaceTab> = {
   applications: "perks",
   vault: "vault",
   profile: "profile",
+  team: "team",
   connections: "connections",
 };
 
@@ -55,9 +57,14 @@ const TAB_META: Record<
     description: "Your information and email preferences",
     icon: UserRound,
   },
+  team: {
+    label: "Team",
+    description: "Invite teammates and manage Business membership",
+    icon: Users,
+  },
   connections: {
     label: "Connections",
-    description: "Linked accounts, devices, and sharing",
+    description: "Linked accounts and connected devices",
     icon: Link2,
   },
 };
@@ -65,16 +72,24 @@ const TAB_META: Record<
 const WORKSPACE_BODY_HEIGHT =
   "h-[min(28rem,calc(100dvh-20rem))] sm:h-[min(32rem,calc(100dvh-18rem))]";
 
+function formatScheduledBillingDate(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+}
+
 function resolveTabFromLocation(
   search: string,
   hash: string,
 ): AccountWorkspaceTab {
   const params = new URLSearchParams(search);
-  if (
-    params.get("tab") === "connections" ||
-    params.get("business") === "upgraded"
-  ) {
-    return "connections";
+  if (params.get("business") === "upgraded") {
+    return "team";
   }
 
   const hashKey = hash.replace(/^#/, "");
@@ -167,15 +182,27 @@ export function AccountWorkspace({
 
     if (!businessUpgradeHandledRef.current) {
       businessUpgradeHandledRef.current = true;
+      const scheduledBillingPeriod = params.get("billing");
+      const scheduledBillingDate = formatScheduledBillingDate(
+        params.get("billingEffectiveAt"),
+      );
       toast({
         title: "Business plan updated",
         description:
-          "Invite your teammates in the Team section — you are charged when they accept.",
+          (scheduledBillingPeriod === "year" ||
+            scheduledBillingPeriod === "month") &&
+          scheduledBillingDate
+            ? `Business is active with no upgrade charge. ${
+                scheduledBillingPeriod === "year" ? "Annual" : "Monthly"
+              } billing starts on ${scheduledBillingDate}, after your current paid period ends.`
+            : "Business is enabled with no upgrade charge. Invite teammates in the Team section; their existing paid time is always used first.",
       });
     }
 
-    params.set("tab", "connections");
+    params.set("tab", "team");
     params.delete("business");
+    params.delete("billing");
+    params.delete("billingEffectiveAt");
     const nextSearch = params.toString();
     navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ""}`, {
       replace: true,
@@ -226,8 +253,7 @@ export function AccountWorkspace({
     const anchorId =
       hashKey && TAB_HASH[hashKey]
         ? hashKey
-        : params.get("tab") === "connections" ||
-            params.get("business") === "upgraded"
+        : params.get("tab") === "team" || params.get("business") === "upgraded"
           ? "team-sharing"
           : null;
     if (!anchorId) return;
@@ -272,12 +298,13 @@ export function AccountWorkspace({
       <CardHeader className="border-b border-border/60 pb-4">
         <CardTitle className="text-2xl">Workspace</CardTitle>
         <CardDescription>
-          Manage perks, your secure vault, profile, and connected accounts.
+          Manage perks, your secure vault, profile, team, and connected
+          accounts.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-4 sm:p-6">
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid h-10 w-full grid-cols-4 gap-1 rounded-lg bg-muted/50 p-1">
+          <TabsList className="grid h-10 w-full grid-cols-5 gap-1 rounded-lg bg-muted/50 p-1">
             {(Object.keys(TAB_META) as AccountWorkspaceTab[]).map((tab) => {
               const meta = TAB_META[tab];
               const Icon = meta.icon;
@@ -347,6 +374,20 @@ export function AccountWorkspace({
               </TabsContent>
 
               <TabsContent
+                value="team"
+                forceMount={mountedTabs.has("team") ? true : undefined}
+                className={cn(tabPanelClassName, "space-y-4")}
+              >
+                <div id="team-sharing" className="scroll-mt-4 space-y-2">
+                  <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground sm:text-sm">
+                    <Users className="h-3.5 w-3.5 text-primary" />
+                    <span>Membership sharing for business plans</span>
+                  </div>
+                  <MembershipSharingCard sessionToken={sessionToken} />
+                </div>
+              </TabsContent>
+
+              <TabsContent
                 value="connections"
                 forceMount={mountedTabs.has("connections") ? true : undefined}
                 className={cn(tabPanelClassName, "space-y-4")}
@@ -359,13 +400,6 @@ export function AccountWorkspace({
                     onUpdate={onLinkedAccountsUpdate}
                   />
                   <ConnectedDevicesCard sessionToken={sessionToken} />
-                </div>
-                <div id="team-sharing" className="scroll-mt-4 space-y-2">
-                  <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground sm:text-sm">
-                    <Users className="h-3.5 w-3.5 text-primary" />
-                    <span>Membership sharing for business plans</span>
-                  </div>
-                  <MembershipSharingCard sessionToken={sessionToken} />
                 </div>
               </TabsContent>
             </div>
