@@ -28,7 +28,7 @@ export function formatSeatRenewalRate(
   }
   const currency = (priceCurrency ?? "USD").toUpperCase();
   const period = billingPeriod === "year" ? "year" : "month";
-  return `${formatMoney(price, currency)}/seat/${period}`;
+  return `${formatMoney(price, currency)} per person per ${period}`;
 }
 
 /** User-facing copy for charge-on-accept team invites. */
@@ -42,10 +42,10 @@ export function formatChargeOnAcceptInviteCopy(
   );
 
   if (renewal) {
-    return `Sending an invite is free. Billing updates only after your teammate creates or signs in to a KeenVPN account, accepts, and has used any paid KeenVPN time they already have. If no already-paid seat is available then, Stripe calculates the exact charge for the rest of the billing period. The renewal rate is ${renewal}.`;
+    return `Invites are free. You are charged only after a teammate signs in, accepts, and has used any KeenVPN time they already paid for. If you do not already have a paid seat free for them, your card is charged for one seat for the rest of this billing period, then ${renewal} at renewal.`;
   }
 
-  return "Sending an invite is free. Billing updates only after your teammate creates or signs in to a KeenVPN account, accepts, and has used any paid KeenVPN time they already have. If no already-paid seat is available then, Stripe calculates the exact charge for the rest of the billing period.";
+  return "Invites are free. You are charged only after a teammate signs in, accepts, and has used any KeenVPN time they already paid for. If you do not already have a paid seat free for them, your card is charged for one seat for the rest of this billing period.";
 }
 
 export function formatChargeAfterPrepaidSeatsCopy(
@@ -58,10 +58,10 @@ export function formatChargeAfterPrepaidSeatsCopy(
   );
 
   if (renewal) {
-    return `Sending an invite is free. Your already-paid seats remain available until renewal. After they are used, each additional teammate can add a prorated seat charge only after they create or sign in to a KeenVPN account, accept, and have used any paid KeenVPN time they already have. Stripe calculates that charge when it applies. At renewal, billing adjusts to the owner plus accepted teammates at ${renewal}.`;
+    return `Invites are free. Paid seats you already have stay available until renewal. After those are used, each new teammate can add a prorated seat charge only after they sign in, accept, and have used any KeenVPN time they already paid for. At renewal, billing adjusts to you plus accepted teammates at ${renewal}.`;
   }
 
-  return "Sending an invite is free. Your already-paid seats remain available until renewal. After they are used, each additional teammate can add a prorated seat charge only after they create or sign in to a KeenVPN account, accept, and have used any paid KeenVPN time they already have. Stripe calculates that charge when it applies. At renewal, billing adjusts to the owner plus accepted teammates.";
+  return "Invites are free. Paid seats you already have stay available until renewal. After those are used, each new teammate can add a prorated seat charge only after they sign in, accept, and have used any KeenVPN time they already paid for. At renewal, billing adjusts to you plus accepted teammates.";
 }
 
 export function formatTrialSeatBillingCopy(
@@ -74,6 +74,6 @@ export function formatTrialSeatBillingCopy(
   );
 
   return renewal
-    ? `Sending an invite is free. After your teammate creates or signs in to a KeenVPN account and accepts, they are added with no seat charge during the trial. When the trial ends, active seats are billed at ${renewal}.`
-    : "Sending an invite is free. After your teammate creates or signs in to a KeenVPN account and accepts, they are added with no seat charge during the trial. Active seats are billed when the trial ends.";
+    ? `Invites are free. After a teammate signs in and accepts, they join with no seat charge during the trial. When the trial ends, active seats are billed at ${renewal}.`
+    : "Invites are free. After a teammate signs in and accepts, they join with no seat charge during the trial. Active seats are billed when the trial ends.";
 }
