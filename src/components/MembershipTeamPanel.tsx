@@ -135,8 +135,6 @@ export function MembershipTeamPanel({
     priceAmount: dashboard.priceAmount,
     billingPeriod: dashboard.billingPeriod,
     priceCurrency: dashboard.priceCurrency,
-    currentPeriodStart: dashboard.currentPeriodStart,
-    currentPeriodEnd: dashboard.currentPeriodEnd,
   };
   const acceptChargeCopy = chargeOnAccept
     ? subscriptionTrialing

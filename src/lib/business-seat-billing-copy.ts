@@ -1,10 +1,7 @@
-export interface SeatAcceptChargeEstimateInput {
+export interface SeatBillingCopyInput {
   priceAmount: number | null | undefined;
   billingPeriod: string | null | undefined;
   priceCurrency?: string | null;
-  currentPeriodStart?: string | null;
-  currentPeriodEnd?: string | null;
-  now?: Date;
 }
 
 function formatMoney(amount: number, currency: string): string {
@@ -18,45 +15,6 @@ function formatMoney(amount: number, currency: string): string {
   } catch {
     return `$${amount.toFixed(2)}`;
   }
-}
-
-/** Prorated one-seat charge for the remainder of the current billing period. */
-export function estimateSeatAcceptCharge(
-  input: SeatAcceptChargeEstimateInput,
-): { amount: number; currency: string } | null {
-  const price = Number(input.priceAmount);
-  if (!Number.isFinite(price) || price <= 0) {
-    return null;
-  }
-
-  const currency = (input.priceCurrency ?? "USD").toUpperCase();
-  const now = input.now ?? new Date();
-  const periodEnd = input.currentPeriodEnd
-    ? new Date(input.currentPeriodEnd)
-    : null;
-  const periodStart = input.currentPeriodStart
-    ? new Date(input.currentPeriodStart)
-    : null;
-
-  if (
-    periodEnd &&
-    periodStart &&
-    !Number.isNaN(periodEnd.getTime()) &&
-    !Number.isNaN(periodStart.getTime()) &&
-    periodEnd.getTime() > now.getTime() &&
-    periodEnd.getTime() > periodStart.getTime()
-  ) {
-    const totalMs = periodEnd.getTime() - periodStart.getTime();
-    const remainingMs = periodEnd.getTime() - now.getTime();
-    const ratio = Math.min(1, Math.max(0, remainingMs / totalMs));
-    const amount = Math.max(0.01, Math.round(price * ratio * 100) / 100);
-    return { amount, currency };
-  }
-
-  // Stripe determines the exact proration. Without a valid current billing
-  // period, quoting the full renewal price as the immediate charge is
-  // misleading, so let callers use their non-numeric fallback copy.
-  return null;
 }
 
 export function formatSeatRenewalRate(
@@ -75,7 +33,7 @@ export function formatSeatRenewalRate(
 
 /** User-facing copy for charge-on-accept team invites. */
 export function formatChargeOnAcceptInviteCopy(
-  input: SeatAcceptChargeEstimateInput,
+  input: SeatBillingCopyInput,
 ): string {
   const renewal = formatSeatRenewalRate(
     input.priceAmount,
@@ -91,7 +49,7 @@ export function formatChargeOnAcceptInviteCopy(
 }
 
 export function formatChargeAfterPrepaidSeatsCopy(
-  input: SeatAcceptChargeEstimateInput,
+  input: SeatBillingCopyInput,
 ): string {
   const renewal = formatSeatRenewalRate(
     input.priceAmount,
@@ -107,7 +65,7 @@ export function formatChargeAfterPrepaidSeatsCopy(
 }
 
 export function formatTrialSeatBillingCopy(
-  input: SeatAcceptChargeEstimateInput,
+  input: SeatBillingCopyInput,
 ): string {
   const renewal = formatSeatRenewalRate(
     input.priceAmount,
