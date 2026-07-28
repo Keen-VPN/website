@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { fetchSubscriptionPlans } from "@/auth/backend";
 import { useMembershipSharing } from "@/hooks/use-membership-sharing";
 import {
   formatChargeAfterPrepaidSeatsCopy,
@@ -53,6 +54,44 @@ export function MembershipTeamPanel({
     seatsChanged,
     MAX_BUSINESS_SEATS,
   } = useMembershipSharing(sessionToken);
+  const [catalogSeatPrice, setCatalogSeatPrice] = useState<{
+    amount: number;
+    period: "month" | "year";
+  } | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+    void fetchSubscriptionPlans().then((res) => {
+      if (ignore || !res.success || !res.plans) return;
+      const billingPeriod =
+        dashboard?.billingPeriod === "year" ? "year" : "month";
+      const match =
+        res.plans.find((plan) => {
+          const id = plan.id.toLowerCase();
+          const isBusiness =
+            plan.isPerSeat === true ||
+            id.includes("team") ||
+            id.includes("business");
+          if (!isBusiness) return false;
+          const period = plan.period ?? plan.billingPeriod;
+          return period === billingPeriod;
+        }) ?? null;
+      if (
+        match &&
+        typeof match.price === "number" &&
+        Number.isFinite(match.price) &&
+        match.price > 0
+      ) {
+        setCatalogSeatPrice({
+          amount: match.price,
+          period: billingPeriod,
+        });
+      }
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [dashboard?.billingPeriod]);
 
   const isCompact = variant === "compact";
   const shellClass = isCompact
@@ -132,8 +171,9 @@ export function MembershipTeamPanel({
     chargeOnAccept &&
     (seats?.nextAcceptanceWillCharge ?? prepaidAvailableSeats === 0);
   const billingCopyInput = {
-    priceAmount: dashboard.priceAmount,
-    billingPeriod: dashboard.billingPeriod,
+    priceAmount: catalogSeatPrice?.amount ?? dashboard.priceAmount,
+    billingPeriod:
+      catalogSeatPrice?.period ?? dashboard.billingPeriod ?? undefined,
     priceCurrency: dashboard.priceCurrency,
   };
   const acceptChargeCopy = chargeOnAccept
@@ -153,16 +193,20 @@ export function MembershipTeamPanel({
           <p className="text-xs text-muted-foreground">
             {chargeOnAccept
               ? prepaidAvailableSeats > 0
-                ? `${prepaidAvailableSeats} ${
-                    subscriptionTrialing ? "included trial" : "already-paid"
-                  } ${
-                    prepaidAvailableSeats === 1 ? "seat" : "seats"
-                  } available. Accepted teammates use ${
-                    prepaidAvailableSeats === 1 ? "it" : "them"
-                  } before any additional charge.`
+                ? subscriptionTrialing
+                  ? `${prepaidAvailableSeats} trial ${
+                      prepaidAvailableSeats === 1 ? "seat" : "seats"
+                    } available. Accepted teammates use ${
+                      prepaidAvailableSeats === 1 ? "it" : "them"
+                    } before any additional charge.`
+                  : `${prepaidAvailableSeats} paid ${
+                      prepaidAvailableSeats === 1 ? "seat" : "seats"
+                    } available. Accepted teammates use ${
+                      prepaidAvailableSeats === 1 ? "it" : "them"
+                    } before any additional charge.`
                 : subscriptionTrialing
-                  ? "Send invites for free. Accepted teammates are added during the trial and billing begins when the trial ends."
-                  : "Send invites for free. Billing starts only after a teammate accepts and has used any paid KeenVPN time they already have."
+                  ? "Send invites for free. Accepted teammates join during the trial, and billing begins when the trial ends."
+                  : "Send invites for free. Billing starts only after a teammate accepts and has used any KeenVPN time they already paid for."
               : seats
                 ? `${seats.activeSeats} of ${seats.seatLimit} seats in use · ${seats.availableSeats} available`
                 : "Invite teammates by email. Each person gets their own login."}
@@ -179,7 +223,7 @@ export function MembershipTeamPanel({
       {dashboard.canManageSeats && seats ? (
         <div className="space-y-2 rounded-md border border-border/80 bg-background/80 p-3">
           <p className="text-xs font-medium text-muted-foreground">
-            Pre-paid seats
+            Paid seats
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Button
@@ -187,7 +231,7 @@ export function MembershipTeamPanel({
               variant="outline"
               size="icon"
               className="h-8 w-8"
-              aria-label="Decrease pre-paid seats"
+              aria-label="Decrease paid seats"
               disabled={submitting || effectiveDraftSeats <= seatFloor}
               onClick={() =>
                 setDraftSeatCount((count) =>
@@ -205,7 +249,7 @@ export function MembershipTeamPanel({
               variant="outline"
               size="icon"
               className="h-8 w-8"
-              aria-label="Increase pre-paid seats"
+              aria-label="Increase paid seats"
               disabled={submitting || effectiveDraftSeats >= MAX_BUSINESS_SEATS}
               onClick={() =>
                 setDraftSeatCount((count) =>

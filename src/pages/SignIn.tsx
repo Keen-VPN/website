@@ -118,6 +118,12 @@ const SignIn = () => {
           window.location.href = "/account?asweb=1";
           return;
         }
+
+        capturePostLoginRedirectFromSearch(window.location.search);
+        const redirectUrl = consumePostLoginRedirect();
+        if (redirectUrl) {
+          window.location.href = redirectUrl;
+        }
       }
     }
   }, [user, authLoading, subscription]);
