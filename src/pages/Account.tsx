@@ -171,7 +171,6 @@ const AccountInner = () => {
     mayHaveWorkspaceAccess &&
     entitlementsStatus === "error";
   const canManageBilling = subscription?.canManageBilling === true;
-  const sessionToken = hasSessionToken ? getSessionToken() : null;
   const { dashboard: membershipDashboard } = useMembershipSharingContext();
   const pendingBusinessTransfer =
     membershipDashboard?.role === "transfer_pending"

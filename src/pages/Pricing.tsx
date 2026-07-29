@@ -93,7 +93,6 @@ const Pricing = () => {
   const {
     dashboard: membershipDashboard,
     loading: membershipLoading,
-    error: membershipError,
   } = useMembershipSharing(sessionToken);
 
   const ctaKind = useMemo(
@@ -107,12 +106,12 @@ const Pricing = () => {
     "annual",
   );
 
+  // Hide only while role is unresolved or a transfer is confirmed. Dashboard
+  // errors/404s fail open so a membership API outage does not remove upgrade.
   const membershipBlocksBusinessUpgrade =
+    Boolean(sessionToken && membershipLoading) ||
     membershipDashboard?.role === "transfer_pending" ||
-    Boolean(membershipDashboard?.pendingTransfer) ||
-    // Conservative: hide while loading, or if the dashboard failed to load for
-    // a signed-in user (role would otherwise be treated as allowed).
-    Boolean(sessionToken && (membershipLoading || membershipError));
+    Boolean(membershipDashboard?.pendingTransfer);
   const showMembershipPlanUpgrade =
     canUpgradeToBusinessPlan(subscription) && !membershipBlocksBusinessUpgrade;
   const membershipTier = resolveMembershipPlanTier(subscription);
