@@ -50,16 +50,6 @@ function teamTabDescription(role: string | undefined): string | null {
   return "Upgrade to invite teammates";
 }
 
-function teamSectionEyebrow(role: string | undefined): string | null {
-  if (role === "member" || role === "transfer_pending") {
-    return null;
-  }
-  if (role === "owner") {
-    return "Invite and manage teammates";
-  }
-  return "Team membership";
-}
-
 const TAB_META: Record<
   AccountWorkspaceTab,
   { label: string; description: string | null; icon: typeof Gift }
@@ -331,7 +321,6 @@ export function AccountWorkspace({
           description: teamTabDescription(membershipDashboard?.role),
         }
       : TAB_META[activeTab];
-  const teamEyebrow = teamSectionEyebrow(membershipDashboard?.role);
 
   const tabPanelClassName = cn(
     "absolute inset-0 mt-0 overflow-y-auto overscroll-contain p-4 sm:p-5",
@@ -429,12 +418,6 @@ export function AccountWorkspace({
                 className={cn(tabPanelClassName, "space-y-4")}
               >
                 <div id="team-sharing" className="scroll-mt-4 space-y-2">
-                  {teamEyebrow ? (
-                    <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground sm:text-sm">
-                      <Users className="h-3.5 w-3.5 text-primary" />
-                      <span>{teamEyebrow}</span>
-                    </div>
-                  ) : null}
                   <MembershipSharingCard sessionToken={sessionToken} />
                 </div>
               </TabsContent>

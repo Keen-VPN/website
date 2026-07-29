@@ -108,10 +108,7 @@ export function MembershipTeamPanel({
   const isCompact = variant === "compact";
   const shellClass = isCompact
     ? "space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-4"
-    : "space-y-4";
-  const inviteeShellClass = isCompact
-    ? shellClass
-    : cn(workspacePanelSurface, "px-4 py-4 sm:px-5");
+    : cn(workspacePanelSurface, "space-y-4 px-4 py-4 sm:px-5");
 
   if (loading) {
     return (
@@ -143,7 +140,7 @@ export function MembershipTeamPanel({
 
   if (dashboard.role === "member" && dashboard.membership) {
     return (
-      <div className={cn(inviteeShellClass, className)}>
+      <div className={cn(shellClass, className)}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="min-w-0 text-sm text-muted-foreground">
             Premium access through {dashboard.membership.ownerEmail}.
@@ -185,7 +182,7 @@ export function MembershipTeamPanel({
           : `Your current plan stays active until its paid time ends. After that, ${transfer.ownerEmail} covers your KeenVPN access.`;
 
     return (
-      <div className={cn(inviteeShellClass, className)}>
+      <div className={cn(shellClass, className)}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <p className="min-w-0 text-sm text-muted-foreground">{statusCopy}</p>
           <Button
