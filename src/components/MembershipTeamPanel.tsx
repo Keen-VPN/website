@@ -144,13 +144,9 @@ export function MembershipTeamPanel({
           <Users className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div className="space-y-2">
             <div>
-              <p className="text-sm font-medium">Shared membership</p>
+              <p className="text-sm font-medium">Team membership</p>
               <p className="text-xs text-muted-foreground">
-                Premium access through {dashboard.membership.ownerEmail}
-                {dashboard.membership.planName
-                  ? ` (${dashboard.membership.planName})`
-                  : ""}
-                .
+                Premium access through {dashboard.membership.ownerEmail}.
               </p>
             </div>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -162,7 +158,7 @@ export function MembershipTeamPanel({
               onClick={() => {
                 if (
                   !window.confirm(
-                    "Leave this Business team? You will lose shared access immediately.",
+                    "Leave this team? You will lose shared access immediately.",
                   )
                 ) {
                   return;
@@ -186,15 +182,15 @@ export function MembershipTeamPanel({
           <Users className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div className="space-y-2">
             <div className="space-y-1">
-              <p className="text-sm font-medium">Business transfer confirmed</p>
+              <p className="text-sm font-medium">You're joining this team</p>
               <p className="text-xs text-muted-foreground">
                 {transfer.status === "billing_pending"
-                  ? `Finishing membership with ${transfer.ownerEmail}. Shared access turns on once billing completes.`
+                  ? `Finishing setup with ${transfer.ownerEmail}. Shared access turns on once billing completes.`
                   : transfer.billingDeferredUntil
-                    ? `Your current KeenVPN plan stays active through ${formatDate(
+                    ? `Your current plan stays active through ${formatDate(
                         transfer.billingDeferredUntil,
-                      )}. After that, ${transfer.ownerEmail}'s Business account pays for your access.`
-                    : `Your current KeenVPN plan stays active until its paid time ends. After that, ${transfer.ownerEmail}'s Business account pays for your access.`}
+                      )}. After that, ${transfer.ownerEmail} covers your KeenVPN access.`
+                    : `Your current plan stays active until its paid time ends. After that, ${transfer.ownerEmail} covers your KeenVPN access.`}
               </p>
             </div>
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -206,7 +202,7 @@ export function MembershipTeamPanel({
               onClick={() => {
                 if (
                   !window.confirm(
-                    "Leave this Business transfer? Your own plan will stay as it is, and you will not join this team.",
+                    "Cancel joining this team? Your own plan will stay as it is.",
                   )
                 ) {
                   return;
@@ -214,7 +210,7 @@ export function MembershipTeamPanel({
                 void handleLeaveMembership();
               }}
             >
-              {submitting ? "Leaving…" : "Leave Business transfer"}
+              {submitting ? "Leaving…" : "Cancel"}
             </Button>
           </div>
         </div>

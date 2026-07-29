@@ -41,28 +41,28 @@ const TAB_QUERY: Record<string, AccountWorkspaceTab> = {
 
 function teamTabDescription(role: string | undefined): string {
   if (role === "member") {
-    return "Your shared Business membership";
+    return "Your team membership";
   }
   if (role === "transfer_pending") {
-    return "Your confirmed Business transfer";
+    return "You're joining a team";
   }
   if (role === "owner") {
-    return "Invite teammates and manage Business membership";
+    return "Invite teammates and manage seats";
   }
-  return "Business team membership";
+  return "Team membership";
 }
 
 function teamSectionEyebrow(role: string | undefined): string {
   if (role === "member") {
-    return "Shared Business access";
+    return "Team access";
   }
   if (role === "transfer_pending") {
-    return "Business transfer in progress";
+    return "Invite accepted";
   }
   if (role === "owner") {
-    return "Membership sharing for business plans";
+    return "Invite and manage teammates";
   }
-  return "Business team membership";
+  return "Team membership";
 }
 
 const TAB_META: Record<

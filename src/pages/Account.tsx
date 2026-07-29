@@ -960,7 +960,7 @@ const AccountInner = () => {
                     {pendingBusinessTransfer ? (
                       <div className="space-y-1 rounded-lg border border-primary/25 bg-primary/5 p-3">
                         <p className="text-sm font-medium text-foreground">
-                          Business transfer confirmed
+                          You're joining a team
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {pendingBusinessTransfer.billingDeferredUntil
@@ -977,12 +977,12 @@ const AccountInner = () => {
                                 ),
                               )}. After that, ${
                                 pendingBusinessTransfer.ownerEmail
-                              }'s Business account pays for your access.`
-                            : `Your current plan stays active until its paid time ends. After that, ${pendingBusinessTransfer.ownerEmail}'s Business account pays for your access.`}
+                              } covers your KeenVPN access.`
+                            : `Your current plan stays active until its paid time ends. After that, ${pendingBusinessTransfer.ownerEmail} covers your KeenVPN access.`}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Auto-renewal may show as off because that personal
-                          plan will not renew once Business takes over.
+                          Auto-renewal may show as off because your personal
+                          plan will not renew once the team takes over.
                         </p>
                       </div>
                     ) : null}
@@ -991,10 +991,10 @@ const AccountInner = () => {
                     membershipDashboard?.membership ? (
                       <div className="space-y-1 rounded-lg border border-primary/25 bg-primary/5 p-3">
                         <p className="text-sm font-medium text-foreground">
-                          Shared Business access
+                          Team access
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          You have Premium access through{" "}
+                          Premium access through{" "}
                           {membershipDashboard.membership.ownerEmail}. Manage
                           this from the Team tab.
                         </p>
