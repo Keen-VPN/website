@@ -4,25 +4,30 @@ import { Loader2, Users } from "lucide-react";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import type { SubscriptionData } from "@/auth/types";
 import type { ApiPlan } from "@/lib/pricing";
+import { useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
 import {
   canUpgradeToBusinessPlan,
   isAppleIapSubscription,
+  resolveSubscriptionBillingPeriod,
 } from "@/lib/subscription-cta";
 
 interface MembershipPlanUpgradeCardProps {
   subscription: SubscriptionData;
+  sessionToken?: string | null;
   upgrading?: boolean;
   onUpgradePlan: (planId: string, seatCount: number) => void | Promise<void>;
 }
 
 export function MembershipPlanUpgradeCard({
   subscription,
+  sessionToken = null,
   upgrading = false,
   onUpgradePlan,
 }: MembershipPlanUpgradeCardProps) {
   const [plans, setPlans] = useState<ApiPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
-  const [billingPeriod, setBillingPeriod] = useState<"month" | "year">("year");
+  const { dashboard: membershipDashboard, loading: membershipLoading } =
+    useMembershipSharingContext();
 
   useEffect(() => {
     let ignore = false;
@@ -69,19 +74,25 @@ export function MembershipPlanUpgradeCard({
       ) ?? null,
     [plans],
   );
+  const currentBillingPeriod = resolveSubscriptionBillingPeriod(subscription);
   const selectedPlan =
-    billingPeriod === "year"
+    currentBillingPeriod === "year"
       ? (annualPlan ?? monthlyPlan)
       : (monthlyPlan ?? annualPlan);
-  const hasBothPeriods = Boolean(monthlyPlan && annualPlan);
   const isAppleBilling = isAppleIapSubscription(subscription);
+  const isTrialing = subscription.status.toLowerCase() === "trialing";
 
-  useEffect(() => {
-    if (billingPeriod === "year" && !annualPlan && monthlyPlan) {
-      setBillingPeriod("month");
-    }
-  }, [annualPlan, billingPeriod, monthlyPlan]);
-
+  // Wait for membership role before offering Business upgrade so transfer-pending
+  // invitees never briefly see a competing CTA.
+  if (sessionToken && membershipLoading) {
+    return null;
+  }
+  if (
+    membershipDashboard?.role === "transfer_pending" ||
+    membershipDashboard?.pendingTransfer
+  ) {
+    return null;
+  }
   if (!canUpgradeToBusinessPlan(subscription)) {
     return null;
   }
@@ -108,8 +119,8 @@ export function MembershipPlanUpgradeCard({
           </p>
           <p className="text-xs text-muted-foreground">
             {isAppleBilling
-              ? "Switch billing to Stripe to enable Business and invite teammates. You are only charged for teammates when they accept."
-              : "Upgrade to Business, then invite teammates below. You are only charged per person when they accept and join."}
+              ? "Enable Business now and move future billing to Stripe. Your existing Apple paid time is used first."
+              : "Enable Business without an upgrade charge. Your current billing period and renewal date stay the same."}
           </p>
         </div>
       </div>
@@ -129,39 +140,22 @@ export function MembershipPlanUpgradeCard({
                   Pay per active member · 5 connected devices per seat
                 </p>
               </div>
-              {hasBothPeriods ? (
-                <div className="inline-flex rounded-md border border-border bg-muted/40 p-0.5">
-                  <Button
-                    type="button"
-                    variant={billingPeriod === "month" ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setBillingPeriod("month")}
-                  >
-                    Monthly
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={billingPeriod === "year" ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setBillingPeriod("year")}
-                  >
-                    Annual
-                  </Button>
-                </div>
-              ) : null}
+              <span className="text-xs capitalize text-muted-foreground">
+                {pricePeriod}ly billing
+              </span>
             </div>
 
             {unitPrice !== null ? (
               <p className="text-xs text-muted-foreground">
-                Checkout covers you only (1 seat). When teammates accept, your card
-                is charged about one seat (
+                Your upgrade costs $0 today. Business is billed per active
+                member at the per-seat rate (
                 {pricePeriod === "year"
-                  ? `$${unitPrice.toFixed(2)}/seat/year`
-                  : `$${unitPrice.toFixed(2)}/seat/month`}
-                , prorated for the rest of the billing period). Invites are free
-                until someone accepts.
+                  ? `$${unitPrice.toFixed(2)}/year`
+                  : `$${unitPrice.toFixed(2)}/month`}
+                ).{" "}
+                {isTrialing
+                  ? "Invites are free, and accepted teammates add no seat charge during the trial. Active seats are billed when the trial ends."
+                  : "Invites are free. Already-paid seats and any paid KeenVPN time a teammate already has are used before an additional seat charge applies."}
               </p>
             ) : null}
           </>
@@ -170,8 +164,9 @@ export function MembershipPlanUpgradeCard({
 
       {isAppleBilling ? (
         <p className="text-xs text-muted-foreground">
-          After checkout, cancel your App Store subscription to avoid being billed
-          twice.
+          Stripe will collect your payment method but will not bill it until
+          your current Apple paid period ends. Turn off App Store auto-renewal
+          to avoid future duplicate billing.
         </p>
       ) : null}
 
@@ -186,12 +181,12 @@ export function MembershipPlanUpgradeCard({
         {upgrading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            {isAppleBilling ? "Opening Stripe checkout…" : "Updating subscription…"}
+            {isAppleBilling ? "Opening secure setup…" : "Enabling Business…"}
           </>
         ) : isAppleBilling ? (
-          "Continue with Stripe"
+          "Set up future Business billing"
         ) : (
-          "Upgrade to Business"
+          "Enable Business for free"
         )}
       </Button>
     </div>

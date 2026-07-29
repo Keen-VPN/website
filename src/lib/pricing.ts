@@ -55,6 +55,29 @@ export interface PricingPlan {
   annualPriceId?: string;
 }
 
+export function resolvePricingPlanSelection(
+  plan: PricingPlan | null | undefined,
+  requestedPeriod: "monthly" | "annual",
+): { planId: string; billingPeriod: "month" | "year" } | null {
+  if (!plan) return null;
+
+  if (requestedPeriod === "annual") {
+    if (plan.annualId) {
+      return { planId: plan.annualId, billingPeriod: "year" };
+    }
+    return plan.monthlyId
+      ? { planId: plan.monthlyId, billingPeriod: "month" }
+      : null;
+  }
+
+  if (plan.monthlyId) {
+    return { planId: plan.monthlyId, billingPeriod: "month" };
+  }
+  return plan.annualId
+    ? { planId: plan.annualId, billingPeriod: "year" }
+    : null;
+}
+
 export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
   const plansByType = apiPlans.reduce(
     (acc, plan) => {
@@ -136,7 +159,9 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
 
     const mergedFeatures = [
       deviceConnectionFeature,
-      ...features.filter((f) => !/simultaneous device|connected device/i.test(f.name)),
+      ...features.filter(
+        (f) => !/simultaneous device|connected device/i.test(f.name),
+      ),
     ];
 
     transformedPlans.push({

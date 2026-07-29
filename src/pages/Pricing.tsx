@@ -24,12 +24,14 @@ import {
   featureComparisonValueForPlan,
   faqs,
 } from "@/constants/pricing";
-import { fetchSubscriptionPlans } from "@/auth/backend";
+import { fetchSubscriptionPlans, getSessionToken } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
+import { useMembershipSharing } from "@/hooks/use-membership-sharing";
 import {
   annualHeroPriceDisplay,
   formatAnnualBillingDetail,
   formatAnnualComparisonPrice,
+  resolvePricingPlanSelection,
   transformApiPlans,
 } from "@/lib/pricing";
 import { DEFAULT_ANNUAL_SAVINGS_LABEL } from "@/lib/subscription-pricing";
@@ -40,11 +42,15 @@ import {
   canStartFreeTrial,
   canUpgradeToBusinessPlan,
   canUpgradeStripeToAnnual,
+  hasScheduledAnnualBilling,
+  isAppleIapSubscription,
   resolveMembershipPlanTier,
+  resolveSubscriptionBillingPeriod,
 } from "@/lib/subscription-cta";
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import type { TrialData } from "@/auth/types";
 import { MembershipTransferDialog } from "@/components/MembershipTransferDialog";
+import { ScheduledAnnualBillingNotice } from "@/components/ScheduledAnnualBillingNotice";
 import {
   hasMembershipTransferQuery,
   isSwitchPageMembershipTransfer,
@@ -83,6 +89,11 @@ const Pricing = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, subscription, trial, loading: authLoading } = useAuth();
+  const sessionToken = getSessionToken();
+  const {
+    dashboard: membershipDashboard,
+    loading: membershipLoading,
+  } = useMembershipSharing(sessionToken);
 
   const ctaKind = useMemo(
     () => getPricingCtaKind(authLoading, user, subscription?.status, trial),
@@ -90,9 +101,33 @@ const Pricing = () => {
   );
 
   const isMonthlyStripeUpgradeEligible = canUpgradeStripeToAnnual(subscription);
+  const annualBillingAlreadyScheduled = hasScheduledAnnualBilling(subscription);
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
+    "annual",
+  );
 
-  const showMembershipPlanUpgrade = canUpgradeToBusinessPlan(subscription);
+  // Hide only while role is unresolved or a transfer is confirmed. Dashboard
+  // errors/404s fail open so a membership API outage does not remove upgrade.
+  const membershipBlocksBusinessUpgrade =
+    Boolean(sessionToken && membershipLoading) ||
+    membershipDashboard?.role === "transfer_pending" ||
+    Boolean(membershipDashboard?.pendingTransfer);
+  const showMembershipPlanUpgrade =
+    canUpgradeToBusinessPlan(subscription) && !membershipBlocksBusinessUpgrade;
   const membershipTier = resolveMembershipPlanTier(subscription);
+  const isAppleBusinessMigration =
+    showMembershipPlanUpgrade && isAppleIapSubscription(subscription);
+  const paidThroughLabel = useMemo(() => {
+    const value = subscription?.currentPeriodEnd ?? subscription?.endDate;
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(date);
+  }, [subscription?.currentPeriodEnd, subscription?.endDate]);
 
   const { businessUpgradeLoading, upgradeToBusinessPlan } =
     useSubscriptionBillingActions({
@@ -138,9 +173,6 @@ const Pricing = () => {
     setSearchParams(next, { replace: true });
   }, [authLoading, user, searchParams, navigate, setSearchParams]);
 
-  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
-    "annual",
-  );
   const [plans, setPlans] = useState<PricingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,6 +182,18 @@ const Pricing = () => {
     [plans],
   );
   const businessPlan = useMemo(() => plans.find((p) => p.isPerSeat), [plans]);
+  const businessPlanSelection = useMemo(
+    () => resolvePricingPlanSelection(businessPlan, billingPeriod),
+    [billingPeriod, businessPlan],
+  );
+  const currentSubscriptionPeriod =
+    resolveSubscriptionBillingPeriod(subscription);
+  const selectedBusinessPeriod =
+    businessPlanSelection?.billingPeriod ??
+    (billingPeriod === "annual" ? "year" : "month");
+  const schedulesBusinessIntervalChange =
+    showMembershipPlanUpgrade &&
+    currentSubscriptionPeriod !== selectedBusinessPeriod;
   const annualSavingsLabel =
     premiumPlan?.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL;
 
@@ -193,14 +237,11 @@ const Pricing = () => {
 
   const handleBusinessUpgrade = useCallback(
     async (plan?: PricingPlan | null) => {
-      const selectedPlanId =
-        billingPeriod === "annual"
-          ? (plan?.annualId ?? plan?.monthlyId)
-          : (plan?.monthlyId ?? plan?.annualId);
-      if (!selectedPlanId) {
+      const selection = resolvePricingPlanSelection(plan, billingPeriod);
+      if (!selection) {
         return;
       }
-      await upgradeToBusinessPlan(selectedPlanId, 1);
+      await upgradeToBusinessPlan(selection.planId, 1);
     },
     [billingPeriod, upgradeToBusinessPlan],
   );
@@ -308,7 +349,13 @@ const Pricing = () => {
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto items-stretch">
             {plans.map((plan, index) => {
-              const isAnnual = billingPeriod === "annual";
+              const planSelection = resolvePricingPlanSelection(
+                plan,
+                billingPeriod,
+              );
+              const isAnnual =
+                planSelection?.billingPeriod === "year" ||
+                (!planSelection && billingPeriod === "annual");
               const period =
                 plan.monthlyPrice === null
                   ? ""
@@ -325,10 +372,7 @@ const Pricing = () => {
                 plan.name === "Business" &&
                 membershipTier !== "business" &&
                 showMembershipPlanUpgrade;
-              const businessUpgradePlanId =
-                billingPeriod === "annual"
-                  ? (plan.annualId ?? plan.monthlyId)
-                  : (plan.monthlyId ?? plan.annualId);
+              const businessUpgradePlanId = planSelection?.planId;
 
               return (
                 <div
@@ -393,7 +437,8 @@ const Pricing = () => {
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Starts with you — add teammates later; each member is
-                          billed when they accept your invite.
+                          billed only after they accept and use any KeenVPN time
+                          they already paid for.
                         </p>
                         <p className="text-xs text-muted-foreground">
                           From $
@@ -408,28 +453,61 @@ const Pricing = () => {
                   </div>
 
                   {showBusinessPlanUpgrade ? (
-                    <Button
-                      onClick={() => void handleBusinessUpgrade(plan)}
-                      disabled={
-                        businessUpgradeLoading || !businessUpgradePlanId
-                      }
-                      className={`w-full mb-6 ${
-                        plan.popular
-                          ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                          : "border-primary/50 hover:bg-primary/10"
-                      }`}
-                      variant={plan.popular ? "default" : "outline"}
-                      size="lg"
-                    >
-                      {businessUpgradeLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Updating subscription…
-                        </>
-                      ) : (
-                        "Upgrade to Business"
-                      )}
-                    </Button>
+                    <>
+                      {isAppleBusinessMigration ? (
+                        <p className="mb-3 text-xs text-muted-foreground">
+                          Complete Stripe setup to enable Business. Your
+                          existing Apple paid time is used first, and Stripe
+                          billing begins after it ends.
+                        </p>
+                      ) : schedulesBusinessIntervalChange ? (
+                        <p className="mb-3 text-xs text-muted-foreground">
+                          Business activates now for $0.{" "}
+                          {selectedBusinessPeriod === "year"
+                            ? "Annual"
+                            : "Monthly"}{" "}
+                          billing starts
+                          {paidThroughLabel
+                            ? ` on ${paidThroughLabel}`
+                            : " when your current paid period ends"}
+                          .
+                        </p>
+                      ) : null}
+                      <Button
+                        onClick={() => void handleBusinessUpgrade(plan)}
+                        disabled={
+                          businessUpgradeLoading || !businessUpgradePlanId
+                        }
+                        className={`w-full mb-6 ${
+                          plan.popular
+                            ? "bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                            : "border-primary/50 hover:bg-primary/10"
+                        }`}
+                        variant={plan.popular ? "default" : "outline"}
+                        size="lg"
+                      >
+                        {businessUpgradeLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Updating subscription…
+                          </>
+                        ) : isAppleBusinessMigration ? (
+                          "Set up future Business billing"
+                        ) : schedulesBusinessIntervalChange ? (
+                          `Enable Business — ${selectedBusinessPeriod}ly at renewal`
+                        ) : (
+                          "Enable Business for free"
+                        )}
+                      </Button>
+                    </>
+                  ) : ctaKind === "manage_account" &&
+                    annualBillingAlreadyScheduled &&
+                    isAnnual ? (
+                    <div className="mb-6">
+                      <ScheduledAnnualBillingNotice
+                        subscription={subscription}
+                      />
+                    </div>
                   ) : ctaKind === "manage_account" &&
                     isMonthlyStripeUpgradeEligible &&
                     isAnnual ? (
@@ -721,7 +799,9 @@ const Pricing = () => {
             <p className="text-xl text-muted-foreground mb-8">
               {ctaKind === "manage_account"
                 ? showMembershipPlanUpgrade
-                  ? "Upgrade to Business to buy seats and invite your team."
+                  ? isAppleBusinessMigration
+                    ? "Set up Business with Stripe. Your existing Apple paid time is used first."
+                    : "Enable Business at no upgrade cost, then invite your team."
                   : "Manage billing, plan details, and settings in one place."
                 : ctaKind === "subscribe"
                   ? "Choose a plan and subscribe to get full protection."
@@ -740,8 +820,12 @@ const Pricing = () => {
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Updating subscription…
                     </>
+                  ) : isAppleBusinessMigration ? (
+                    "Set up future Business billing"
+                  ) : schedulesBusinessIntervalChange ? (
+                    `Enable Business — ${selectedBusinessPeriod}ly at renewal`
                   ) : (
-                    "Upgrade plan"
+                    "Enable Business for free"
                   )}
                 </Button>
                 <Button

@@ -231,7 +231,22 @@ export function useSubscriptionBillingActions(
             return;
           }
 
-          window.location.href = "/account?tab=connections&business=upgraded";
+          const accountUrl = new URL("/account", window.location.origin);
+          accountUrl.searchParams.set("tab", "team");
+          accountUrl.searchParams.set("business", "upgraded");
+          if (result.billingIntervalChange) {
+            const { to, effectiveAt } = result.billingIntervalChange;
+            if (to === "month" || to === "year") {
+              accountUrl.searchParams.set("billing", to);
+            }
+            if (
+              typeof effectiveAt === "string" &&
+              effectiveAt.trim().length > 0
+            ) {
+              accountUrl.searchParams.set("billingEffectiveAt", effectiveAt);
+            }
+          }
+          window.location.href = `${accountUrl.pathname}${accountUrl.search}`;
         } else {
           throw new Error(result.error || "Failed to upgrade to Business");
         }

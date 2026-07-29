@@ -1,5 +1,3 @@
-import { Users } from "lucide-react";
-import { WorkspacePanel } from "@/components/workspace/WorkspacePanel";
 import { MembershipTeamPanel } from "@/components/MembershipTeamPanel";
 
 interface MembershipSharingCardProps {
@@ -9,9 +7,6 @@ interface MembershipSharingCardProps {
 export function MembershipSharingCard({
   sessionToken,
 }: MembershipSharingCardProps) {
-  return (
-    <WorkspacePanel title="Team sharing" icon={Users}>
-      <MembershipTeamPanel sessionToken={sessionToken} variant="full" />
-    </WorkspacePanel>
-  );
+  // Tab header already names the section — render the panel without a nested title.
+  return <MembershipTeamPanel sessionToken={sessionToken} variant="full" />;
 }

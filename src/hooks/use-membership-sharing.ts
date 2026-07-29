@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   fetchMembershipSharingDashboard,
   inviteMembershipMember,
+  leaveMembershipSharing,
   resendMembershipInvite,
   revokeMembershipInvite,
   revokeMembershipMember,
@@ -22,6 +23,17 @@ export interface MembershipSharingPendingInvite {
   invitedAt: string;
   expiresAt: string;
   billingPending?: boolean;
+  creditPending?: boolean;
+  billingDeferredUntil?: string | null;
+}
+
+export interface MembershipSharingPendingTransfer {
+  inviteId: string;
+  ownerEmail: string;
+  ownerName?: string | null;
+  planName?: string | null;
+  billingDeferredUntil?: string | null;
+  status: "credit_pending" | "billing_pending";
 }
 
 export interface MembershipSharingDashboard {
@@ -53,6 +65,7 @@ export interface MembershipSharingDashboard {
     ownerName?: string | null;
     planName?: string | null;
   } | null;
+  pendingTransfer?: MembershipSharingPendingTransfer | null;
   members: MembershipSharingMember[];
   pendingInvites: MembershipSharingPendingInvite[];
   revokedInvites?: { id: string; email: string; revokedAt?: string | null }[];
@@ -208,6 +221,27 @@ export function useMembershipSharing(sessionToken: string | null) {
     [sessionToken],
   );
 
+  const leaveMembership = useCallback(async () => {
+    if (!sessionToken) return false;
+    const requestToken = sessionToken;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await leaveMembershipSharing(requestToken);
+      if (activeSessionTokenRef.current !== requestToken) return false;
+      if (!res.ok) {
+        setError(res.error ?? "Could not leave Business membership.");
+        return false;
+      }
+      setDashboard(res.data as MembershipSharingDashboard);
+      return true;
+    } finally {
+      if (activeSessionTokenRef.current === requestToken) {
+        setSubmitting(false);
+      }
+    }
+  }, [sessionToken]);
+
   const updateSeats = useCallback(async () => {
     if (!sessionToken || draftSeatCount == null) return false;
     const requestToken = sessionToken;
@@ -258,6 +292,7 @@ export function useMembershipSharing(sessionToken: string | null) {
     revokeMember,
     resendInvite,
     cancelInvite,
+    leaveMembership,
     updateSeats,
     canInvite,
     seatFloor,

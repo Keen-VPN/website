@@ -17,11 +17,13 @@ import { SecureVaultCard } from "@/components/SecureVaultCard";
 import { AiAssistantCard } from "@/components/AiAssistantCard";
 import { UserInformationCard } from "@/components/UserInformationCard";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
+import { useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
 import { cn } from "@/lib/utils";
 import { trackWorkspaceEvent } from "@/lib/product-analytics";
 import { useToast } from "@/hooks/use-toast";
 
-export type AccountWorkspaceTab = "perks" | "vault" | "profile" | "connections";
+export type AccountWorkspaceTab =
+  "perks" | "vault" | "profile" | "team" | "connections";
 
 const TAB_HASH: Record<string, AccountWorkspaceTab> = {
   vault: "vault",
@@ -33,13 +35,30 @@ const TAB_QUERY: Record<string, AccountWorkspaceTab> = {
   applications: "perks",
   vault: "vault",
   profile: "profile",
+  team: "team",
   connections: "connections",
 };
 
+function teamTabDescription(role: string | undefined): string | null {
+  // Invitees already see their status in the panel — skip the repeated subtitle.
+  if (role === "member" || role === "transfer_pending") {
+    return null;
+  }
+  if (role === "owner") {
+    return "Invite teammates and manage seats";
+  }
+  return "Upgrade to invite teammates";
+}
+
 const TAB_META: Record<
   AccountWorkspaceTab,
-  { label: string; description: string; icon: typeof Gift }
+  { label: string; description: string | null; icon: typeof Gift }
 > = {
+  profile: {
+    label: "Profile",
+    description: "Your information and email preferences",
+    icon: UserRound,
+  },
   perks: {
     label: "Perks",
     description: "Applications and your AI assistant",
@@ -50,44 +69,63 @@ const TAB_META: Record<
     description: "Encrypted personal details for perks",
     icon: Lock,
   },
-  profile: {
-    label: "Profile",
-    description: "Your information and email preferences",
-    icon: UserRound,
+  team: {
+    label: "Team",
+    description: "Business team membership",
+    icon: Users,
   },
   connections: {
     label: "Connections",
-    description: "Linked accounts, devices, and sharing",
+    description: "Linked accounts and connected devices",
     icon: Link2,
   },
 };
 
+/** Visible workspace tabs. Vault stays in the type map for deep links but is hidden. */
+const VISIBLE_TABS: AccountWorkspaceTab[] = [
+  "profile",
+  "perks",
+  "team",
+  "connections",
+];
+
 const WORKSPACE_BODY_HEIGHT =
   "h-[min(28rem,calc(100dvh-20rem))] sm:h-[min(32rem,calc(100dvh-18rem))]";
+
+function formatScheduledBillingDate(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+}
 
 function resolveTabFromLocation(
   search: string,
   hash: string,
 ): AccountWorkspaceTab {
   const params = new URLSearchParams(search);
-  if (
-    params.get("tab") === "connections" ||
-    params.get("business") === "upgraded"
-  ) {
-    return "connections";
+  if (params.get("business") === "upgraded") {
+    return "team";
   }
 
   const hashKey = hash.replace(/^#/, "");
   if (hashKey && TAB_HASH[hashKey]) {
-    return TAB_HASH[hashKey];
+    const fromHash = TAB_HASH[hashKey];
+    // Vault is hidden; land on Profile instead.
+    return fromHash === "vault" ? "profile" : fromHash;
   }
 
   const queryTab = new URLSearchParams(search).get("tab");
   if (queryTab && TAB_QUERY[queryTab]) {
-    return TAB_QUERY[queryTab];
+    const fromQuery = TAB_QUERY[queryTab];
+    return fromQuery === "vault" ? "profile" : fromQuery;
   }
 
-  return "perks";
+  return "profile";
 }
 
 function tabFromHash(hash: string): AccountWorkspaceTab | null {
@@ -123,6 +161,7 @@ export function AccountWorkspace({
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { dashboard: membershipDashboard } = useMembershipSharingContext();
   const bodyScrollRef = useRef<HTMLDivElement>(null);
   const impressionTrackedRef = useRef(false);
   const businessUpgradeHandledRef = useRef(false);
@@ -167,15 +206,28 @@ export function AccountWorkspace({
 
     if (!businessUpgradeHandledRef.current) {
       businessUpgradeHandledRef.current = true;
+      const scheduledBillingPeriod = params.get("billing");
+      const scheduledBillingDate = formatScheduledBillingDate(
+        params.get("billingEffectiveAt"),
+      );
       toast({
         title: "Business plan updated",
         description:
-          "Invite your teammates in the Team section — you are charged when they accept.",
+          (scheduledBillingPeriod === "year" ||
+            scheduledBillingPeriod === "month") &&
+          scheduledBillingDate
+            ? `Business is active with no upgrade charge. ${
+                scheduledBillingPeriod === "year" ? "Annual" : "Monthly"
+              } billing starts on ${scheduledBillingDate}, after your current paid period ends.`
+            : "Business is enabled. Invite teammates in the Team section; their existing paid time is always used first.",
       });
     }
 
-    params.set("tab", "connections");
+    params.set("tab", "team");
     params.delete("business");
+    params.delete("billing");
+    params.delete("billingEffectiveAt");
+    // Keep Stripe return session_id until Account finishes checkout hydration.
     const nextSearch = params.toString();
     navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ""}`, {
       replace: true,
@@ -226,8 +278,7 @@ export function AccountWorkspace({
     const anchorId =
       hashKey && TAB_HASH[hashKey]
         ? hashKey
-        : params.get("tab") === "connections" ||
-            params.get("business") === "upgraded"
+        : params.get("tab") === "team" || params.get("business") === "upgraded"
           ? "team-sharing"
           : null;
     if (!anchorId) return;
@@ -252,11 +303,24 @@ export function AccountWorkspace({
 
   const handleTabChange = (value: string) => {
     const tab = value as AccountWorkspaceTab;
-    setActiveTab(tab);
-    syncLocationToTab(tab);
+    const nextTab = tab === "vault" ? "profile" : tab;
+    setActiveTab(nextTab);
+    syncLocationToTab(nextTab);
   };
 
-  const activeMeta = TAB_META[activeTab];
+  useEffect(() => {
+    if (activeTab !== "vault") return;
+    setActiveTab("profile");
+    syncLocationToTab("profile");
+  }, [activeTab, syncLocationToTab]);
+
+  const activeMeta =
+    activeTab === "team"
+      ? {
+          ...TAB_META.team,
+          description: teamTabDescription(membershipDashboard?.role),
+        }
+      : TAB_META[activeTab];
 
   const tabPanelClassName = cn(
     "absolute inset-0 mt-0 overflow-y-auto overscroll-contain p-4 sm:p-5",
@@ -272,13 +336,13 @@ export function AccountWorkspace({
       <CardHeader className="border-b border-border/60 pb-4">
         <CardTitle className="text-2xl">Workspace</CardTitle>
         <CardDescription>
-          Manage perks, your secure vault, profile, and connected accounts.
+          Manage your profile, perks, team, and connected accounts.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-4 sm:p-6">
         <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid h-10 w-full grid-cols-4 gap-1 rounded-lg bg-muted/50 p-1">
-            {(Object.keys(TAB_META) as AccountWorkspaceTab[]).map((tab) => {
+            {VISIBLE_TABS.map((tab) => {
               const meta = TAB_META[tab];
               const Icon = meta.icon;
               return (
@@ -308,9 +372,11 @@ export function AccountWorkspace({
               <h3 className="text-sm font-semibold text-foreground sm:text-base">
                 {activeMeta.label}
               </h3>
-              <p className="text-xs text-muted-foreground sm:text-sm">
-                {activeMeta.description}
-              </p>
+              {activeMeta.description ? (
+                <p className="text-xs text-muted-foreground sm:text-sm">
+                  {activeMeta.description}
+                </p>
+              ) : null}
             </div>
 
             <div ref={bodyScrollRef} className="relative min-h-0 flex-1">
@@ -347,6 +413,16 @@ export function AccountWorkspace({
               </TabsContent>
 
               <TabsContent
+                value="team"
+                forceMount={mountedTabs.has("team") ? true : undefined}
+                className={cn(tabPanelClassName, "space-y-4")}
+              >
+                <div id="team-sharing" className="scroll-mt-4 space-y-2">
+                  <MembershipSharingCard sessionToken={sessionToken} />
+                </div>
+              </TabsContent>
+
+              <TabsContent
                 value="connections"
                 forceMount={mountedTabs.has("connections") ? true : undefined}
                 className={cn(tabPanelClassName, "space-y-4")}
@@ -359,13 +435,6 @@ export function AccountWorkspace({
                     onUpdate={onLinkedAccountsUpdate}
                   />
                   <ConnectedDevicesCard sessionToken={sessionToken} />
-                </div>
-                <div id="team-sharing" className="scroll-mt-4 space-y-2">
-                  <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground sm:text-sm">
-                    <Users className="h-3.5 w-3.5 text-primary" />
-                    <span>Membership sharing for business plans</span>
-                  </div>
-                  <MembershipSharingCard sessionToken={sessionToken} />
                 </div>
               </TabsContent>
             </div>
