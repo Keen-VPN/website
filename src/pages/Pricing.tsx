@@ -24,8 +24,9 @@ import {
   featureComparisonValueForPlan,
   faqs,
 } from "@/constants/pricing";
-import { fetchSubscriptionPlans } from "@/auth/backend";
+import { fetchSubscriptionPlans, getSessionToken } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
+import { useMembershipSharing } from "@/hooks/use-membership-sharing";
 import {
   annualHeroPriceDisplay,
   formatAnnualBillingDetail,
@@ -41,6 +42,7 @@ import {
   canStartFreeTrial,
   canUpgradeToBusinessPlan,
   canUpgradeStripeToAnnual,
+  hasScheduledAnnualBilling,
   isAppleIapSubscription,
   resolveMembershipPlanTier,
   resolveSubscriptionBillingPeriod,
@@ -86,6 +88,9 @@ const Pricing = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, subscription, trial, loading: authLoading } = useAuth();
+  const { dashboard: membershipDashboard } = useMembershipSharing(
+    getSessionToken(),
+  );
 
   const ctaKind = useMemo(
     () => getPricingCtaKind(authLoading, user, subscription?.status, trial),
@@ -93,11 +98,15 @@ const Pricing = () => {
   );
 
   const isMonthlyStripeUpgradeEligible = canUpgradeStripeToAnnual(subscription);
+  const annualBillingAlreadyScheduled = hasScheduledAnnualBilling(subscription);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
     "annual",
   );
 
-  const showMembershipPlanUpgrade = canUpgradeToBusinessPlan(subscription);
+  const showMembershipPlanUpgrade =
+    canUpgradeToBusinessPlan(subscription) &&
+    membershipDashboard?.role !== "transfer_pending" &&
+    !membershipDashboard?.pendingTransfer;
   const membershipTier = resolveMembershipPlanTier(subscription);
   const isAppleBusinessMigration =
     showMembershipPlanUpgrade && isAppleIapSubscription(subscription);
@@ -484,6 +493,25 @@ const Pricing = () => {
                         )}
                       </Button>
                     </>
+                  ) : ctaKind === "manage_account" &&
+                    annualBillingAlreadyScheduled &&
+                    isAnnual ? (
+                    <div className="mb-6 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-foreground">
+                      {(() => {
+                        const effectiveAt =
+                          subscription?.scheduledBillingInterval?.effectiveAt;
+                        const dateLabel = effectiveAt
+                          ? new Intl.DateTimeFormat(undefined, {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            }).format(new Date(effectiveAt))
+                          : null;
+                        return dateLabel
+                          ? `You're on monthly until ${dateLabel}. Annual billing starts then — you won't be charged today.`
+                          : "You're on monthly until your current period ends. Annual billing starts then — you won't be charged today.";
+                      })()}
+                    </div>
                   ) : ctaKind === "manage_account" &&
                     isMonthlyStripeUpgradeEligible &&
                     isAnnual ? (

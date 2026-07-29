@@ -57,6 +57,11 @@ export interface RawSubscription {
   subscriptionStartedAt?: string;
   daysSinceSubscriptionStart?: number;
   showAnnualUpgradePrompt?: boolean;
+  scheduledBillingInterval?: {
+    from?: string;
+    to?: string;
+    effectiveAt?: string;
+  } | null;
   customerId?: string;
   plan?: string;
   planName?: string;
@@ -174,6 +179,26 @@ function normalizeBackendAuthResponse(
   if (rawSubscription.showAnnualUpgradePrompt !== undefined) {
     normalizedSubscription.showAnnualUpgradePrompt =
       rawSubscription.showAnnualUpgradePrompt;
+  }
+  const scheduled = rawSubscription.scheduledBillingInterval;
+  if (scheduled && typeof scheduled === "object") {
+    const from = scheduled.from;
+    const to = scheduled.to;
+    const effectiveAt = scheduled.effectiveAt;
+    if (
+      (from === "month" || from === "year") &&
+      (to === "month" || to === "year") &&
+      typeof effectiveAt === "string" &&
+      effectiveAt.trim().length > 0
+    ) {
+      normalizedSubscription.scheduledBillingInterval = {
+        from,
+        to,
+        effectiveAt,
+      };
+    }
+  } else if (scheduled === null) {
+    normalizedSubscription.scheduledBillingInterval = null;
   }
   if (rawSubscription.planId !== undefined) {
     normalizedSubscription.planId = rawSubscription.planId;
@@ -4963,6 +4988,38 @@ export async function revokeMembershipInvite(
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Failed to cancel invite",
+    };
+  }
+}
+
+/** Invitee/member: cancel a pending Business transfer or leave an active shared membership. */
+export async function leaveMembershipSharing(
+  sessionToken: string,
+): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/membership-sharing/me`, {
+      method: "DELETE",
+      credentials: "include",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to leave Business membership",
+        ),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to leave Business membership",
     };
   }
 }

@@ -4,6 +4,7 @@ import { Loader2, Users } from "lucide-react";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import type { SubscriptionData } from "@/auth/types";
 import type { ApiPlan } from "@/lib/pricing";
+import { useMembershipSharing } from "@/hooks/use-membership-sharing";
 import {
   canUpgradeToBusinessPlan,
   isAppleIapSubscription,
@@ -12,17 +13,20 @@ import {
 
 interface MembershipPlanUpgradeCardProps {
   subscription: SubscriptionData;
+  sessionToken?: string | null;
   upgrading?: boolean;
   onUpgradePlan: (planId: string, seatCount: number) => void | Promise<void>;
 }
 
 export function MembershipPlanUpgradeCard({
   subscription,
+  sessionToken = null,
   upgrading = false,
   onUpgradePlan,
 }: MembershipPlanUpgradeCardProps) {
   const [plans, setPlans] = useState<ApiPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
+  const { dashboard: membershipDashboard } = useMembershipSharing(sessionToken);
 
   useEffect(() => {
     let ignore = false;
@@ -77,6 +81,12 @@ export function MembershipPlanUpgradeCard({
   const isAppleBilling = isAppleIapSubscription(subscription);
   const isTrialing = subscription.status.toLowerCase() === "trialing";
 
+  if (
+    membershipDashboard?.role === "transfer_pending" ||
+    membershipDashboard?.pendingTransfer
+  ) {
+    return null;
+  }
   if (!canUpgradeToBusinessPlan(subscription)) {
     return null;
   }
