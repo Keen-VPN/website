@@ -7,18 +7,20 @@ interface MembershipSharingCardProps {
   sessionToken: string;
 }
 
-function panelTitle(role: string | undefined): string {
-  if (role === "member") return "Your team";
-  if (role === "transfer_pending") return "Joining a team";
-  return "Team sharing";
-}
-
 export function MembershipSharingCard({
   sessionToken,
 }: MembershipSharingCardProps) {
   const { dashboard } = useMembershipSharingContext();
+  const isInviteeView =
+    dashboard?.role === "member" || dashboard?.role === "transfer_pending";
+
+  // Invitees only need the status line + leave action — skip nested team titles.
+  if (isInviteeView) {
+    return <MembershipTeamPanel sessionToken={sessionToken} variant="full" />;
+  }
+
   return (
-    <WorkspacePanel title={panelTitle(dashboard?.role)} icon={Users}>
+    <WorkspacePanel title="Team sharing" icon={Users}>
       <MembershipTeamPanel sessionToken={sessionToken} variant="full" />
     </WorkspacePanel>
   );

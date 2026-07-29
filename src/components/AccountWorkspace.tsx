@@ -39,25 +39,20 @@ const TAB_QUERY: Record<string, AccountWorkspaceTab> = {
   connections: "connections",
 };
 
-function teamTabDescription(role: string | undefined): string {
-  if (role === "member") {
-    return "Your team membership";
-  }
-  if (role === "transfer_pending") {
-    return "You're joining a team";
+function teamTabDescription(role: string | undefined): string | null {
+  // Invitees already see their status in the panel — skip the repeated subtitle.
+  if (role === "member" || role === "transfer_pending") {
+    return null;
   }
   if (role === "owner") {
     return "Invite teammates and manage seats";
   }
-  return "Team membership";
+  return "Upgrade to invite teammates";
 }
 
-function teamSectionEyebrow(role: string | undefined): string {
-  if (role === "member") {
-    return "Team access";
-  }
-  if (role === "transfer_pending") {
-    return "Invite accepted";
+function teamSectionEyebrow(role: string | undefined): string | null {
+  if (role === "member" || role === "transfer_pending") {
+    return null;
   }
   if (role === "owner") {
     return "Invite and manage teammates";
@@ -67,7 +62,7 @@ function teamSectionEyebrow(role: string | undefined): string {
 
 const TAB_META: Record<
   AccountWorkspaceTab,
-  { label: string; description: string; icon: typeof Gift }
+  { label: string; description: string | null; icon: typeof Gift }
 > = {
   profile: {
     label: "Profile",
@@ -336,6 +331,7 @@ export function AccountWorkspace({
           description: teamTabDescription(membershipDashboard?.role),
         }
       : TAB_META[activeTab];
+  const teamEyebrow = teamSectionEyebrow(membershipDashboard?.role);
 
   const tabPanelClassName = cn(
     "absolute inset-0 mt-0 overflow-y-auto overscroll-contain p-4 sm:p-5",
@@ -387,9 +383,11 @@ export function AccountWorkspace({
               <h3 className="text-sm font-semibold text-foreground sm:text-base">
                 {activeMeta.label}
               </h3>
-              <p className="text-xs text-muted-foreground sm:text-sm">
-                {activeMeta.description}
-              </p>
+              {activeMeta.description ? (
+                <p className="text-xs text-muted-foreground sm:text-sm">
+                  {activeMeta.description}
+                </p>
+              ) : null}
             </div>
 
             <div ref={bodyScrollRef} className="relative min-h-0 flex-1">
@@ -431,12 +429,12 @@ export function AccountWorkspace({
                 className={cn(tabPanelClassName, "space-y-4")}
               >
                 <div id="team-sharing" className="scroll-mt-4 space-y-2">
-                  <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground sm:text-sm">
-                    <Users className="h-3.5 w-3.5 text-primary" />
-                    <span>
-                      {teamSectionEyebrow(membershipDashboard?.role)}
-                    </span>
-                  </div>
+                  {teamEyebrow ? (
+                    <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground sm:text-sm">
+                      <Users className="h-3.5 w-3.5 text-primary" />
+                      <span>{teamEyebrow}</span>
+                    </div>
+                  ) : null}
                   <MembershipSharingCard sessionToken={sessionToken} />
                 </div>
               </TabsContent>

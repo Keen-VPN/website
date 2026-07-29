@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { workspacePanelSurface } from "@/components/workspace/workspace-ui";
 import {
   formatChargeAfterPrepaidSeatsCopy,
   formatChargeOnAcceptInviteCopy,
@@ -108,6 +109,9 @@ export function MembershipTeamPanel({
   const shellClass = isCompact
     ? "space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-4"
     : "space-y-4";
+  const inviteeShellClass = isCompact
+    ? shellClass
+    : cn(workspacePanelSurface, "px-4 py-4 sm:px-5");
 
   if (loading) {
     return (
@@ -139,81 +143,72 @@ export function MembershipTeamPanel({
 
   if (dashboard.role === "member" && dashboard.membership) {
     return (
-      <div className={cn(shellClass, className)}>
-        <div className="flex items-start gap-3">
-          <Users className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-          <div className="space-y-2">
-            <div>
-              <p className="text-sm font-medium">Team membership</p>
-              <p className="text-xs text-muted-foreground">
-                Premium access through {dashboard.membership.ownerEmail}.
-              </p>
-            </div>
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={submitting}
-              onClick={() => {
-                if (
-                  !window.confirm(
-                    "Leave this team? You will lose shared access immediately.",
-                  )
-                ) {
-                  return;
-                }
-                void handleLeaveMembership();
-              }}
-            >
-              {submitting ? "Leaving…" : "Leave team"}
-            </Button>
-          </div>
+      <div className={cn(inviteeShellClass, className)}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="min-w-0 text-sm text-muted-foreground">
+            Premium access through {dashboard.membership.ownerEmail}.
+          </p>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="shrink-0 self-start sm:self-auto"
+            disabled={submitting}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  "Leave this team? You will lose shared access immediately.",
+                )
+              ) {
+                return;
+              }
+              void handleLeaveMembership();
+            }}
+          >
+            {submitting ? "Leaving…" : "Leave team"}
+          </Button>
         </div>
+        {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
       </div>
     );
   }
 
   if (dashboard.role === "transfer_pending" && dashboard.pendingTransfer) {
     const transfer = dashboard.pendingTransfer;
+    const statusCopy =
+      transfer.status === "billing_pending"
+        ? `Finishing setup with ${transfer.ownerEmail}. Shared access turns on once billing completes.`
+        : transfer.billingDeferredUntil
+          ? `Your current plan stays active through ${formatDate(
+              transfer.billingDeferredUntil,
+            )}. After that, ${transfer.ownerEmail} covers your KeenVPN access.`
+          : `Your current plan stays active until its paid time ends. After that, ${transfer.ownerEmail} covers your KeenVPN access.`;
+
     return (
-      <div className={cn(shellClass, className)}>
-        <div className="flex items-start gap-3">
-          <Users className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-          <div className="space-y-2">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">You're joining this team</p>
-              <p className="text-xs text-muted-foreground">
-                {transfer.status === "billing_pending"
-                  ? `Finishing setup with ${transfer.ownerEmail}. Shared access turns on once billing completes.`
-                  : transfer.billingDeferredUntil
-                    ? `Your current plan stays active through ${formatDate(
-                        transfer.billingDeferredUntil,
-                      )}. After that, ${transfer.ownerEmail} covers your KeenVPN access.`
-                    : `Your current plan stays active until its paid time ends. After that, ${transfer.ownerEmail} covers your KeenVPN access.`}
-              </p>
-            </div>
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={submitting}
-              onClick={() => {
-                if (
-                  !window.confirm(
-                    "Cancel joining this team? Your own plan will stay as it is.",
-                  )
-                ) {
-                  return;
-                }
-                void handleLeaveMembership();
-              }}
-            >
-              {submitting ? "Leaving…" : "Cancel"}
-            </Button>
-          </div>
+      <div className={cn(inviteeShellClass, className)}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <p className="min-w-0 text-sm text-muted-foreground">{statusCopy}</p>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="shrink-0 self-start sm:self-auto"
+            disabled={submitting}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  "Cancel joining this team? Your own plan will stay as it is.",
+                )
+              ) {
+                return;
+              }
+              void handleLeaveMembership();
+            }}
+          >
+            {submitting ? "Leaving…" : "Cancel"}
+          </Button>
         </div>
+        {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
       </div>
     );
   }
