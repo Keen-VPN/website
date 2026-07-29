@@ -70,6 +70,13 @@ function isMonthlyPlanName(planName?: string | null): boolean {
   return (planName ?? "").toLowerCase().includes("monthly");
 }
 
+/** True when annual billing is already scheduled at the next renewal. */
+export function hasScheduledAnnualBilling(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return subscription?.scheduledBillingInterval?.to === "year";
+}
+
 /** Stripe monthly (or trialing monthly) with auto-renewal on — eligible for one-click annual upgrade. */
 export function canUpgradeStripeToAnnual(
   subscription: SubscriptionData | null | undefined,
@@ -81,6 +88,7 @@ export function canUpgradeStripeToAnnual(
   )
     return false;
   if (subscription.cancelAtPeriodEnd) return false;
+  if (hasScheduledAnnualBilling(subscription)) return false;
 
   const status = getSubscriptionStatus(subscription);
   if (status !== "active" && status !== "trialing") return false;

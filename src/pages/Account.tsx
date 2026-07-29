@@ -58,7 +58,12 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { AccountWorkspace } from "@/components/AccountWorkspace";
 import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
+import { ScheduledAnnualBillingNotice } from "@/components/ScheduledAnnualBillingNotice";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
+import {
+  MembershipSharingProvider,
+  useMembershipSharingContext,
+} from "@/contexts/MembershipSharingContext";
 import {
   isAppDeepLinkSupported,
   getUnsupportedDeviceName,
@@ -81,6 +86,7 @@ import {
   canUpgradeStripeToAnnual,
   getSubscriptionCtaLabel,
   hasManageableSubscription,
+  hasScheduledAnnualBilling,
   shouldShowAnnualUpgradeOffer,
 } from "@/lib/subscription-cta";
 import {
@@ -97,7 +103,7 @@ import {
   shouldShowStripePostCheckoutUi,
 } from "@/lib/keenvpn-deep-links";
 
-const Account = () => {
+const AccountInner = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   // true on normal /account (no session_id) — render subscription card immediately;
   // AuthContext usually has subscription already. Stripe return starts false (skeleton until sync).
@@ -165,6 +171,14 @@ const Account = () => {
     mayHaveWorkspaceAccess &&
     entitlementsStatus === "error";
   const canManageBilling = subscription?.canManageBilling === true;
+  const { dashboard: membershipDashboard } = useMembershipSharingContext();
+  const pendingBusinessTransfer =
+    membershipDashboard?.role === "transfer_pending"
+      ? membershipDashboard.pendingTransfer
+      : null;
+  const isSharedBusinessMember = membershipDashboard?.role === "member";
+  const showOwnerRefundHelp =
+    canManageBilling && !pendingBusinessTransfer && !isSharedBusinessMember;
 
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
   const unsupportedDeviceName = useMemo(() => getUnsupportedDeviceName(), []);
@@ -943,8 +957,53 @@ const Account = () => {
                       </p>
                     </div>
 
+                    {pendingBusinessTransfer ? (
+                      <div className="space-y-1 rounded-lg border border-primary/25 bg-primary/5 p-3">
+                        <p className="text-sm font-medium text-foreground">
+                          Business transfer confirmed
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {pendingBusinessTransfer.billingDeferredUntil
+                            ? `Your current plan stays active through ${new Intl.DateTimeFormat(
+                                undefined,
+                                {
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                },
+                              ).format(
+                                new Date(
+                                  pendingBusinessTransfer.billingDeferredUntil,
+                                ),
+                              )}. After that, ${
+                                pendingBusinessTransfer.ownerEmail
+                              }'s Business account pays for your access.`
+                            : `Your current plan stays active until its paid time ends. After that, ${pendingBusinessTransfer.ownerEmail}'s Business account pays for your access.`}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Auto-renewal may show as off because that personal
+                          plan will not renew once Business takes over.
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {isSharedBusinessMember &&
+                    membershipDashboard?.membership ? (
+                      <div className="space-y-1 rounded-lg border border-primary/25 bg-primary/5 p-3">
+                        <p className="text-sm font-medium text-foreground">
+                          Shared Business access
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          You have Premium access through{" "}
+                          {membershipDashboard.membership.ownerEmail}. Manage
+                          this from the Team tab.
+                        </p>
+                      </div>
+                    ) : null}
+
                     <MembershipPlanUpgradeCard
                       subscription={subscription}
+                      sessionToken={getSessionToken()}
                       upgrading={businessUpgradeLoading}
                       onUpgradePlan={upgradeToBusinessPlan}
                     />
@@ -977,6 +1036,12 @@ const Account = () => {
                           )}
                         </Button>
                       </div>
+                    )}
+                    {hasScheduledAnnualBilling(subscription) && (
+                      <ScheduledAnnualBillingNotice
+                        subscription={subscription}
+                        className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3"
+                      />
                     )}
                     {showAppleIapUpgradeInCard && (
                       <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
@@ -1062,22 +1127,24 @@ const Account = () => {
                         </Button>
                       ) : null}
 
-                      <Button
-                        onClick={handleRefreshSubscription}
-                        variant="ghost"
-                        size="sm"
-                        className="w-full"
-                        disabled={subscriptionLoading}
-                      >
-                        {subscriptionLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Refreshing...
-                          </>
-                        ) : (
-                          "Refresh Status"
-                        )}
-                      </Button>
+                      {!pendingBusinessTransfer && !isSharedBusinessMember ? (
+                        <Button
+                          onClick={handleRefreshSubscription}
+                          variant="ghost"
+                          size="sm"
+                          className="w-full"
+                          disabled={subscriptionLoading}
+                        >
+                          {subscriptionLoading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Refreshing...
+                            </>
+                          ) : (
+                            "Refresh Status"
+                          )}
+                        </Button>
+                      ) : null}
 
                       {canManageBilling ? (
                         <SubscriptionCancellationControls
@@ -1100,18 +1167,20 @@ const Account = () => {
                         </Button>
                       ) : null}
                     </div>
-                    <div className="pt-4 mt-4 border-t border-border">
-                      <p className="text-sm text-muted-foreground">
-                        For refund request, please send an email to our support
-                        team via{" "}
-                        <a
-                          href="mailto:support@vpnkeen.com"
-                          className="text-primary hover:underline"
-                        >
-                          support@vpnkeen.com
-                        </a>
-                      </p>
-                    </div>
+                    {showOwnerRefundHelp ? (
+                      <div className="pt-4 mt-4 border-t border-border">
+                        <p className="text-sm text-muted-foreground">
+                          For refund request, please send an email to our
+                          support team via{" "}
+                          <a
+                            href="mailto:support@vpnkeen.com"
+                            className="text-primary hover:underline"
+                          >
+                            support@vpnkeen.com
+                          </a>
+                        </p>
+                      </div>
+                    ) : null}
                   </>
                 ) : (
                   <>
@@ -1303,6 +1372,16 @@ const Account = () => {
       </main>
       <Footer />
     </div>
+  );
+};
+
+const Account = () => {
+  const { hasSessionToken } = useAuth();
+  const sessionToken = hasSessionToken ? getSessionToken() : null;
+  return (
+    <MembershipSharingProvider sessionToken={sessionToken}>
+      <AccountInner />
+    </MembershipSharingProvider>
   );
 };
 

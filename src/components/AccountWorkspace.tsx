@@ -17,6 +17,7 @@ import { SecureVaultCard } from "@/components/SecureVaultCard";
 import { AiAssistantCard } from "@/components/AiAssistantCard";
 import { UserInformationCard } from "@/components/UserInformationCard";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
+import { useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
 import { cn } from "@/lib/utils";
 import { trackWorkspaceEvent } from "@/lib/product-analytics";
 import { useToast } from "@/hooks/use-toast";
@@ -38,10 +39,41 @@ const TAB_QUERY: Record<string, AccountWorkspaceTab> = {
   connections: "connections",
 };
 
+function teamTabDescription(role: string | undefined): string {
+  if (role === "member") {
+    return "Your shared Business membership";
+  }
+  if (role === "transfer_pending") {
+    return "Your confirmed Business transfer";
+  }
+  if (role === "owner") {
+    return "Invite teammates and manage Business membership";
+  }
+  return "Business team membership";
+}
+
+function teamSectionEyebrow(role: string | undefined): string {
+  if (role === "member") {
+    return "Shared Business access";
+  }
+  if (role === "transfer_pending") {
+    return "Business transfer in progress";
+  }
+  if (role === "owner") {
+    return "Membership sharing for business plans";
+  }
+  return "Business team membership";
+}
+
 const TAB_META: Record<
   AccountWorkspaceTab,
   { label: string; description: string; icon: typeof Gift }
 > = {
+  profile: {
+    label: "Profile",
+    description: "Your information and email preferences",
+    icon: UserRound,
+  },
   perks: {
     label: "Perks",
     description: "Applications and your AI assistant",
@@ -52,14 +84,9 @@ const TAB_META: Record<
     description: "Encrypted personal details for perks",
     icon: Lock,
   },
-  profile: {
-    label: "Profile",
-    description: "Your information and email preferences",
-    icon: UserRound,
-  },
   team: {
     label: "Team",
-    description: "Invite teammates and manage Business membership",
+    description: "Business team membership",
     icon: Users,
   },
   connections: {
@@ -68,6 +95,14 @@ const TAB_META: Record<
     icon: Link2,
   },
 };
+
+/** Visible workspace tabs. Vault stays in the type map for deep links but is hidden. */
+const VISIBLE_TABS: AccountWorkspaceTab[] = [
+  "profile",
+  "perks",
+  "team",
+  "connections",
+];
 
 const WORKSPACE_BODY_HEIGHT =
   "h-[min(28rem,calc(100dvh-20rem))] sm:h-[min(32rem,calc(100dvh-18rem))]";
@@ -94,15 +129,18 @@ function resolveTabFromLocation(
 
   const hashKey = hash.replace(/^#/, "");
   if (hashKey && TAB_HASH[hashKey]) {
-    return TAB_HASH[hashKey];
+    const fromHash = TAB_HASH[hashKey];
+    // Vault is hidden; land on Profile instead.
+    return fromHash === "vault" ? "profile" : fromHash;
   }
 
   const queryTab = new URLSearchParams(search).get("tab");
   if (queryTab && TAB_QUERY[queryTab]) {
-    return TAB_QUERY[queryTab];
+    const fromQuery = TAB_QUERY[queryTab];
+    return fromQuery === "vault" ? "profile" : fromQuery;
   }
 
-  return "perks";
+  return "profile";
 }
 
 function tabFromHash(hash: string): AccountWorkspaceTab | null {
@@ -138,6 +176,7 @@ export function AccountWorkspace({
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { dashboard: membershipDashboard } = useMembershipSharingContext();
   const bodyScrollRef = useRef<HTMLDivElement>(null);
   const impressionTrackedRef = useRef(false);
   const businessUpgradeHandledRef = useRef(false);
@@ -279,11 +318,24 @@ export function AccountWorkspace({
 
   const handleTabChange = (value: string) => {
     const tab = value as AccountWorkspaceTab;
-    setActiveTab(tab);
-    syncLocationToTab(tab);
+    const nextTab = tab === "vault" ? "profile" : tab;
+    setActiveTab(nextTab);
+    syncLocationToTab(nextTab);
   };
 
-  const activeMeta = TAB_META[activeTab];
+  useEffect(() => {
+    if (activeTab !== "vault") return;
+    setActiveTab("profile");
+    syncLocationToTab("profile");
+  }, [activeTab, syncLocationToTab]);
+
+  const activeMeta =
+    activeTab === "team"
+      ? {
+          ...TAB_META.team,
+          description: teamTabDescription(membershipDashboard?.role),
+        }
+      : TAB_META[activeTab];
 
   const tabPanelClassName = cn(
     "absolute inset-0 mt-0 overflow-y-auto overscroll-contain p-4 sm:p-5",
@@ -299,14 +351,13 @@ export function AccountWorkspace({
       <CardHeader className="border-b border-border/60 pb-4">
         <CardTitle className="text-2xl">Workspace</CardTitle>
         <CardDescription>
-          Manage perks, your secure vault, profile, team, and connected
-          accounts.
+          Manage your profile, perks, team, and connected accounts.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-4 sm:p-6">
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid h-10 w-full grid-cols-5 gap-1 rounded-lg bg-muted/50 p-1">
-            {(Object.keys(TAB_META) as AccountWorkspaceTab[]).map((tab) => {
+          <TabsList className="grid h-10 w-full grid-cols-4 gap-1 rounded-lg bg-muted/50 p-1">
+            {VISIBLE_TABS.map((tab) => {
               const meta = TAB_META[tab];
               const Icon = meta.icon;
               return (
@@ -382,7 +433,9 @@ export function AccountWorkspace({
                 <div id="team-sharing" className="scroll-mt-4 space-y-2">
                   <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground sm:text-sm">
                     <Users className="h-3.5 w-3.5 text-primary" />
-                    <span>Membership sharing for business plans</span>
+                    <span>
+                      {teamSectionEyebrow(membershipDashboard?.role)}
+                    </span>
                   </div>
                   <MembershipSharingCard sessionToken={sessionToken} />
                 </div>

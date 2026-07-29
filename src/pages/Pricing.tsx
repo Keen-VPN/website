@@ -24,8 +24,9 @@ import {
   featureComparisonValueForPlan,
   faqs,
 } from "@/constants/pricing";
-import { fetchSubscriptionPlans } from "@/auth/backend";
+import { fetchSubscriptionPlans, getSessionToken } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
+import { useMembershipSharing } from "@/hooks/use-membership-sharing";
 import {
   annualHeroPriceDisplay,
   formatAnnualBillingDetail,
@@ -41,6 +42,7 @@ import {
   canStartFreeTrial,
   canUpgradeToBusinessPlan,
   canUpgradeStripeToAnnual,
+  hasScheduledAnnualBilling,
   isAppleIapSubscription,
   resolveMembershipPlanTier,
   resolveSubscriptionBillingPeriod,
@@ -48,6 +50,7 @@ import {
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import type { TrialData } from "@/auth/types";
 import { MembershipTransferDialog } from "@/components/MembershipTransferDialog";
+import { ScheduledAnnualBillingNotice } from "@/components/ScheduledAnnualBillingNotice";
 import {
   hasMembershipTransferQuery,
   isSwitchPageMembershipTransfer,
@@ -86,6 +89,11 @@ const Pricing = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, subscription, trial, loading: authLoading } = useAuth();
+  const sessionToken = getSessionToken();
+  const {
+    dashboard: membershipDashboard,
+    loading: membershipLoading,
+  } = useMembershipSharing(sessionToken);
 
   const ctaKind = useMemo(
     () => getPricingCtaKind(authLoading, user, subscription?.status, trial),
@@ -93,11 +101,19 @@ const Pricing = () => {
   );
 
   const isMonthlyStripeUpgradeEligible = canUpgradeStripeToAnnual(subscription);
+  const annualBillingAlreadyScheduled = hasScheduledAnnualBilling(subscription);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
     "annual",
   );
 
-  const showMembershipPlanUpgrade = canUpgradeToBusinessPlan(subscription);
+  // Hide only while role is unresolved or a transfer is confirmed. Dashboard
+  // errors/404s fail open so a membership API outage does not remove upgrade.
+  const membershipBlocksBusinessUpgrade =
+    Boolean(sessionToken && membershipLoading) ||
+    membershipDashboard?.role === "transfer_pending" ||
+    Boolean(membershipDashboard?.pendingTransfer);
+  const showMembershipPlanUpgrade =
+    canUpgradeToBusinessPlan(subscription) && !membershipBlocksBusinessUpgrade;
   const membershipTier = resolveMembershipPlanTier(subscription);
   const isAppleBusinessMigration =
     showMembershipPlanUpgrade && isAppleIapSubscription(subscription);
@@ -484,6 +500,14 @@ const Pricing = () => {
                         )}
                       </Button>
                     </>
+                  ) : ctaKind === "manage_account" &&
+                    annualBillingAlreadyScheduled &&
+                    isAnnual ? (
+                    <div className="mb-6">
+                      <ScheduledAnnualBillingNotice
+                        subscription={subscription}
+                      />
+                    </div>
                   ) : ctaKind === "manage_account" &&
                     isMonthlyStripeUpgradeEligible &&
                     isAnnual ? (

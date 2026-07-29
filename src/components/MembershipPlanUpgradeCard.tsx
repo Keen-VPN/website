@@ -4,6 +4,7 @@ import { Loader2, Users } from "lucide-react";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import type { SubscriptionData } from "@/auth/types";
 import type { ApiPlan } from "@/lib/pricing";
+import { useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
 import {
   canUpgradeToBusinessPlan,
   isAppleIapSubscription,
@@ -12,17 +13,21 @@ import {
 
 interface MembershipPlanUpgradeCardProps {
   subscription: SubscriptionData;
+  sessionToken?: string | null;
   upgrading?: boolean;
   onUpgradePlan: (planId: string, seatCount: number) => void | Promise<void>;
 }
 
 export function MembershipPlanUpgradeCard({
   subscription,
+  sessionToken = null,
   upgrading = false,
   onUpgradePlan,
 }: MembershipPlanUpgradeCardProps) {
   const [plans, setPlans] = useState<ApiPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
+  const { dashboard: membershipDashboard, loading: membershipLoading } =
+    useMembershipSharingContext();
 
   useEffect(() => {
     let ignore = false;
@@ -77,6 +82,17 @@ export function MembershipPlanUpgradeCard({
   const isAppleBilling = isAppleIapSubscription(subscription);
   const isTrialing = subscription.status.toLowerCase() === "trialing";
 
+  // Wait for membership role before offering Business upgrade so transfer-pending
+  // invitees never briefly see a competing CTA.
+  if (sessionToken && membershipLoading) {
+    return null;
+  }
+  if (
+    membershipDashboard?.role === "transfer_pending" ||
+    membershipDashboard?.pendingTransfer
+  ) {
+    return null;
+  }
   if (!canUpgradeToBusinessPlan(subscription)) {
     return null;
   }

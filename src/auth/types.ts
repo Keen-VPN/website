@@ -6,6 +6,13 @@ export interface AnnualSavingsData {
   annualMonthlyEquivalent: number;
 }
 
+export interface ScheduledBillingInterval {
+  from: "month" | "year";
+  to: "month" | "year";
+  /** ISO timestamp when known; empty string when the backend omitted it. */
+  effectiveAt: string;
+}
+
 export interface SubscriptionData {
   status: string;
   endDate: string;
@@ -21,6 +28,7 @@ export interface SubscriptionData {
   subscriptionStartedAt?: string | null;
   daysSinceSubscriptionStart?: number | null;
   showAnnualUpgradePrompt?: boolean;
+  scheduledBillingInterval?: ScheduledBillingInterval | null;
   accessRole?: "owner" | "linked" | "member";
   canManageBilling: boolean;
 }

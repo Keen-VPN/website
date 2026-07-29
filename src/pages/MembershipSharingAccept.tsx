@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,18 @@ import {
   getSessionToken,
 } from "@/auth/backend";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAppStoreUrl } from "@/hooks/use-app-store-url";
+import {
+  OPEN_APP_DEEP_LINK,
+  openKeenVpnNativeApp,
+  resolveNativeAppHandoffDeepLink,
+} from "@/lib/keenvpn-deep-links";
+import { resolveAppStoreUrl } from "@/lib/open-app-or-store";
 
 const PENDING_ACCEPT_STORAGE_KEY = "keenvpn_membership_invite_pending_accept";
+
+const CONFIRMATION_COPY =
+  "I understand that my company will pay for my KeenVPN subscription after any remaining access time. I understand that my company can see my membership status but will never get access to my browsing history or data";
 
 interface PendingAcceptIntent {
   token: string;
@@ -50,6 +60,7 @@ export default function MembershipSharingAccept() {
   const token = searchParams.get("token")?.trim() ?? "";
   const navigate = useNavigate();
   const { user } = useAuth();
+  const appStoreUrl = useAppStoreUrl();
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState<string | null>(null);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
@@ -62,8 +73,7 @@ export default function MembershipSharingAccept() {
     useState(false);
   const [billingPending, setBillingPending] = useState(false);
   const [creditPending, setCreditPending] = useState(false);
-  const [acceptsBusinessBilling, setAcceptsBusinessBilling] = useState(false);
-  const [acknowledgesPrivacy, setAcknowledgesPrivacy] = useState(false);
+  const [confirmationAccepted, setConfirmationAccepted] = useState(false);
   const [billingDeferredUntil, setBillingDeferredUntil] = useState<
     string | null
   >(null);
@@ -96,11 +106,9 @@ export default function MembershipSharingAccept() {
 
     const pendingIntent = readPendingAcceptIntent();
     if (pendingIntent?.token === token) {
-      setAcceptsBusinessBilling(true);
-      setAcknowledgesPrivacy(true);
+      setConfirmationAccepted(true);
     } else {
-      setAcceptsBusinessBilling(false);
-      setAcknowledgesPrivacy(false);
+      setConfirmationAccepted(false);
     }
 
     let cancelled = false;
@@ -174,12 +182,13 @@ export default function MembershipSharingAccept() {
         acknowledgesPrivacy: boolean;
       },
     ) => {
-      const billingOk =
-        confirmations?.acceptsBusinessBilling ?? acceptsBusinessBilling;
-      const privacyOk =
-        confirmations?.acknowledgesPrivacy ?? acknowledgesPrivacy;
-      if (!billingOk || !privacyOk) {
-        setError("Confirm both checkboxes before accepting.");
+      const confirmed =
+        confirmations?.acceptsBusinessBilling === true &&
+        confirmations?.acknowledgesPrivacy === true
+          ? true
+          : confirmationAccepted;
+      if (!confirmed) {
+        setError("Confirm the checkbox before accepting.");
         return;
       }
 
@@ -187,8 +196,8 @@ export default function MembershipSharingAccept() {
       setError(null);
       try {
         const res = await acceptMembershipInvite(sessionToken, token, {
-          acceptsBusinessBilling: billingOk,
-          acknowledgesPrivacy: privacyOk,
+          acceptsBusinessBilling: true,
+          acknowledgesPrivacy: true,
         });
         if (!res.ok) {
           setError(res.error ?? "Could not accept invitation.");
@@ -203,7 +212,7 @@ export default function MembershipSharingAccept() {
         setLoading(false);
       }
     },
-    [acceptsBusinessBilling, acknowledgesPrivacy, token],
+    [confirmationAccepted, token],
   );
 
   async function handleAccept() {
@@ -268,22 +277,29 @@ export default function MembershipSharingAccept() {
     Boolean(inviteEmailNormalized) &&
     signedInEmail === inviteEmailNormalized;
 
+  const openKeenVpnApp = () => {
+    openKeenVpnNativeApp(
+      resolveNativeAppHandoffDeepLink(getSessionToken(), OPEN_APP_DEEP_LINK),
+      resolveAppStoreUrl(appStoreUrl),
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <Header />
-      <main className="mx-auto max-w-xl px-4 pt-28 pb-16 sm:pt-32">
-        <h1 className="text-3xl font-semibold">Membership invitation</h1>
+      <main className="mx-auto flex max-w-xl flex-col items-center px-4 pt-28 pb-16 text-center sm:pt-32">
+        <h1 className="text-3xl font-semibold">Membership Invitation</h1>
         {loading ? <p className="mt-4 text-slate-400">Loading…</p> : null}
         {!loading && accepted ? (
-          <div className="mt-6 space-y-4">
+          <div className="mt-6 w-full max-w-md space-y-4">
             <p className="text-slate-300">
               {creditPending && billingDeferredUntil
                 ? `Your transfer is confirmed. Your existing subscription stays active through ${new Date(
                     billingDeferredUntil,
-                  ).toLocaleDateString()}. After that, the Business account pays for your KeenVPN access.`
+                  ).toLocaleDateString()}. After that, your company pays for your KeenVPN access.`
                 : creditPending
-                  ? "Your transfer is confirmed. Your current paid KeenVPN access stays in place until the Business account takes over billing."
-                  : "You now have premium access through this shared membership."}
+                  ? "Your transfer is confirmed. Your current paid KeenVPN access stays in place until your company takes over billing."
+                  : "You now have KeenVPN access through your company account."}
             </p>
             {requiresAppleCancellation ? (
               <p className="rounded-md border border-amber-700/60 bg-amber-950/40 p-3 text-sm text-amber-100">
@@ -292,12 +308,8 @@ export default function MembershipSharingAccept() {
                   : "Turn off App Store auto renewal to avoid being billed twice. Apple does not allow KeenVPN to cancel it for you."}
               </p>
             ) : null}
-            <p className="text-sm text-slate-400">
-              The Business payer can see your membership status, but KeenVPN
-              never shares your browsing history with them.
-            </p>
-            <Button asChild>
-              <Link to="/account?tab=team">Go to account</Link>
+            <Button type="button" onClick={openKeenVpnApp}>
+              Open KeenVPN App
             </Button>
           </div>
         ) : null}
@@ -305,11 +317,11 @@ export default function MembershipSharingAccept() {
           <p className="mt-4 text-red-300">{error}</p>
         ) : null}
         {!loading && !accepted && !error ? (
-          <div className="mt-6 space-y-4 text-slate-300">
+          <div className="mt-6 w-full max-w-md space-y-4 text-slate-300">
             <p>
               {ownerEmail
-                ? `${ownerEmail} invited you to share their KeenVPN Premium membership.`
-                : "You have been invited to share a KeenVPN Premium membership."}
+                ? `${ownerEmail} invited you to use KeenVPN on their company account.`
+                : "You have been invited to use KeenVPN on a company account."}
             </p>
             {inviteEmail ? (
               <p className="text-sm text-slate-400">
@@ -329,7 +341,7 @@ export default function MembershipSharingAccept() {
                 )}
               </p>
             ) : null}
-            <p className="rounded-md border border-slate-700 bg-slate-900 p-3 text-sm text-slate-400">
+            <p className="rounded-md border border-slate-700 bg-slate-900 p-3 text-left text-sm text-slate-400">
               {billingPending
                 ? "Your KeenVPN account is already linked to this invitation. Finish accepting to confirm billing and turn on shared access. Trying again will not create a duplicate charge."
                 : !chargeOnAccept
@@ -342,47 +354,25 @@ export default function MembershipSharingAccept() {
                           prepaidAvailableSeats === 1 ? "seat" : "seats"
                         } ready, so accepting should not add a new charge. Seat availability is checked again when you accept.`}
             </p>
-            <div className="space-y-3 rounded-md border border-slate-700 bg-slate-900 p-4 text-sm">
+            <div className="rounded-md border border-slate-700 bg-slate-900 p-4 text-left text-sm">
               <label
-                htmlFor="accept-business-billing"
+                htmlFor="accept-company-membership"
                 className="flex items-start gap-3"
               >
                 <Checkbox
-                  id="accept-business-billing"
-                  checked={acceptsBusinessBilling}
+                  id="accept-company-membership"
+                  checked={confirmationAccepted}
                   onCheckedChange={(checked) =>
-                    setAcceptsBusinessBilling(checked === true)
+                    setConfirmationAccepted(checked === true)
                   }
                   className="mt-0.5"
                 />
-                <span>
-                  I understand that the Business account will pay for my KeenVPN
-                  access after any time I already paid for has been used.
-                </span>
-              </label>
-              <label
-                htmlFor="acknowledge-business-privacy"
-                className="flex items-start gap-3"
-              >
-                <Checkbox
-                  id="acknowledge-business-privacy"
-                  checked={acknowledgesPrivacy}
-                  onCheckedChange={(checked) =>
-                    setAcknowledgesPrivacy(checked === true)
-                  }
-                  className="mt-0.5"
-                />
-                <span>
-                  I understand the payer can see my membership status. KeenVPN
-                  will never share my browsing history with them.
-                </span>
+                <span>{CONFIRMATION_COPY}</span>
               </label>
             </div>
             <Button
               onClick={() => void handleAccept()}
-              disabled={
-                loading || !acceptsBusinessBilling || !acknowledgesPrivacy
-              }
+              disabled={loading || !confirmationAccepted}
             >
               {billingPending ? "Complete invitation" : "Accept invitation"}
             </Button>

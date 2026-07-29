@@ -5,7 +5,8 @@ import { Loader2, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { fetchSubscriptionPlans } from "@/auth/backend";
-import { useMembershipSharing } from "@/hooks/use-membership-sharing";
+import { useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   formatChargeAfterPrepaidSeatsCopy,
   formatChargeOnAcceptInviteCopy,
@@ -23,17 +24,18 @@ function formatDate(iso: string): string {
 }
 
 interface MembershipTeamPanelProps {
-  sessionToken: string;
+  /** Kept for call-site compatibility; dashboard state comes from context. */
+  sessionToken?: string;
   /** compact = subscription card; full = workspace panel styling */
   variant?: "compact" | "full";
   className?: string;
 }
 
 export function MembershipTeamPanel({
-  sessionToken,
   variant = "compact",
   className,
 }: MembershipTeamPanelProps) {
+  const { refreshSubscription } = useAuth();
   const [inviteEmail, setInviteEmail] = useState("");
   const {
     dashboard,
@@ -46,6 +48,7 @@ export function MembershipTeamPanel({
     revokeMember,
     resendInvite,
     cancelInvite,
+    leaveMembership,
     updateSeats,
     canInvite,
     seatFloor,
@@ -53,11 +56,18 @@ export function MembershipTeamPanel({
     effectiveDraftSeats,
     seatsChanged,
     MAX_BUSINESS_SEATS,
-  } = useMembershipSharing(sessionToken);
+  } = useMembershipSharingContext();
   const [catalogSeatPrice, setCatalogSeatPrice] = useState<{
     amount: number;
     period: "month" | "year";
   } | null>(null);
+
+  const handleLeaveMembership = async () => {
+    const left = await leaveMembership();
+    if (left) {
+      await refreshSubscription();
+    }
+  };
 
   useEffect(() => {
     let ignore = false;
@@ -132,15 +142,80 @@ export function MembershipTeamPanel({
       <div className={cn(shellClass, className)}>
         <div className="flex items-start gap-3">
           <Users className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-          <div>
-            <p className="text-sm font-medium">Shared membership</p>
-            <p className="text-xs text-muted-foreground">
-              Premium access through {dashboard.membership.ownerEmail}
-              {dashboard.membership.planName
-                ? ` (${dashboard.membership.planName})`
-                : ""}
-              .
-            </p>
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-medium">Shared membership</p>
+              <p className="text-xs text-muted-foreground">
+                Premium access through {dashboard.membership.ownerEmail}
+                {dashboard.membership.planName
+                  ? ` (${dashboard.membership.planName})`
+                  : ""}
+                .
+              </p>
+            </div>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={submitting}
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    "Leave this Business team? You will lose shared access immediately.",
+                  )
+                ) {
+                  return;
+                }
+                void handleLeaveMembership();
+              }}
+            >
+              {submitting ? "Leaving…" : "Leave team"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (dashboard.role === "transfer_pending" && dashboard.pendingTransfer) {
+    const transfer = dashboard.pendingTransfer;
+    return (
+      <div className={cn(shellClass, className)}>
+        <div className="flex items-start gap-3">
+          <Users className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Business transfer confirmed</p>
+              <p className="text-xs text-muted-foreground">
+                {transfer.status === "billing_pending"
+                  ? `Finishing membership with ${transfer.ownerEmail}. Shared access turns on once billing completes.`
+                  : transfer.billingDeferredUntil
+                    ? `Your current KeenVPN plan stays active through ${formatDate(
+                        transfer.billingDeferredUntil,
+                      )}. After that, ${transfer.ownerEmail}'s Business account pays for your access.`
+                    : `Your current KeenVPN plan stays active until its paid time ends. After that, ${transfer.ownerEmail}'s Business account pays for your access.`}
+              </p>
+            </div>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={submitting}
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    "Leave this Business transfer? Your own plan will stay as it is, and you will not join this team.",
+                  )
+                ) {
+                  return;
+                }
+                void handleLeaveMembership();
+              }}
+            >
+              {submitting ? "Leaving…" : "Leave Business transfer"}
+            </Button>
           </div>
         </div>
       </div>
@@ -338,61 +413,99 @@ export function MembershipTeamPanel({
         </div>
       ) : null}
 
-      {dashboard.pendingInvites.length > 0 ? (
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium">
-            Pending invites
-            {chargeOnAccept ? (
-              <span className="ml-1 font-normal text-muted-foreground">
-                (sending is free)
-              </span>
-            ) : null}
-          </h3>
-          <ul className="space-y-2">
-            {dashboard.pendingInvites.map((pending) => (
-              <li
-                key={pending.id}
-                className="flex flex-col gap-2 rounded-lg border border-border/80 p-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div>
-                  <p className="font-medium text-sm">{pending.email}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {pending.billingPending
-                      ? "Account created · completing membership"
-                      : pending.creditPending
-                        ? pending.billingDeferredUntil
-                          ? `Transfer confirmed · existing subscription paid through ${formatDate(
-                              pending.billingDeferredUntil,
-                            )}`
-                          : "Transfer confirmed · existing paid time is being applied"
-                      : `Expires ${formatDate(pending.expiresAt)}`}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {!pending.billingPending && !pending.creditPending ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void resendInvite(pending.id)}
-                      disabled={submitting}
-                    >
-                      Resend
-                    </Button>
+      {(() => {
+        const openInvites = dashboard.pendingInvites.filter(
+          (pending) => !pending.creditPending && !pending.billingPending,
+        );
+        const confirmedTransfers = dashboard.pendingInvites.filter(
+          (pending) => pending.creditPending || pending.billingPending,
+        );
+
+        return (
+          <>
+            {openInvites.length > 0 ? (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">
+                  Pending invites
+                  {chargeOnAccept ? (
+                    <span className="ml-1 font-normal text-muted-foreground">
+                      (sending is free)
+                    </span>
                   ) : null}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void cancelInvite(pending.id)}
-                    disabled={submitting}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+                </h3>
+                <ul className="space-y-2">
+                  {openInvites.map((pending) => (
+                    <li
+                      key={pending.id}
+                      className="flex flex-col gap-2 rounded-lg border border-border/80 p-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div>
+                        <p className="font-medium text-sm">{pending.email}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Expires {formatDate(pending.expiresAt)}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void resendInvite(pending.id)}
+                          disabled={submitting}
+                        >
+                          Resend
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void cancelInvite(pending.id)}
+                          disabled={submitting}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {confirmedTransfers.length > 0 ? (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Confirmed transfers</h3>
+                <ul className="space-y-2">
+                  {confirmedTransfers.map((pending) => (
+                    <li
+                      key={pending.id}
+                      className="flex flex-col gap-2 rounded-lg border border-border/80 p-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div>
+                        <p className="font-medium text-sm">{pending.email}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {pending.billingPending
+                            ? "Accepted · completing membership billing"
+                            : pending.billingDeferredUntil
+                              ? `Accepted · their current plan stays active through ${formatDate(
+                                  pending.billingDeferredUntil,
+                                )}`
+                              : "Accepted · their current paid time is being applied first"}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void cancelInvite(pending.id)}
+                        disabled={submitting}
+                      >
+                        Cancel
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </>
+        );
+      })()}
 
       {dashboard.revokedInvites && dashboard.revokedInvites.length > 0 ? (
         <div className="space-y-2">
