@@ -17,7 +17,7 @@ import { SecureVaultCard } from "@/components/SecureVaultCard";
 import { AiAssistantCard } from "@/components/AiAssistantCard";
 import { UserInformationCard } from "@/components/UserInformationCard";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
-import { useMembershipSharing } from "@/hooks/use-membership-sharing";
+import { useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
 import { cn } from "@/lib/utils";
 import { trackWorkspaceEvent } from "@/lib/product-analytics";
 import { useToast } from "@/hooks/use-toast";
@@ -176,7 +176,7 @@ export function AccountWorkspace({
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { dashboard: membershipDashboard } = useMembershipSharing(sessionToken);
+  const { dashboard: membershipDashboard } = useMembershipSharingContext();
   const bodyScrollRef = useRef<HTMLDivElement>(null);
   const impressionTrackedRef = useRef(false);
   const businessUpgradeHandledRef = useRef(false);

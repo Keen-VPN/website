@@ -50,6 +50,7 @@ import {
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import type { TrialData } from "@/auth/types";
 import { MembershipTransferDialog } from "@/components/MembershipTransferDialog";
+import { ScheduledAnnualBillingNotice } from "@/components/ScheduledAnnualBillingNotice";
 import {
   hasMembershipTransferQuery,
   isSwitchPageMembershipTransfer,
@@ -88,9 +89,12 @@ const Pricing = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, subscription, trial, loading: authLoading } = useAuth();
-  const { dashboard: membershipDashboard } = useMembershipSharing(
-    getSessionToken(),
-  );
+  const sessionToken = getSessionToken();
+  const {
+    dashboard: membershipDashboard,
+    loading: membershipLoading,
+    error: membershipError,
+  } = useMembershipSharing(sessionToken);
 
   const ctaKind = useMemo(
     () => getPricingCtaKind(authLoading, user, subscription?.status, trial),
@@ -103,10 +107,14 @@ const Pricing = () => {
     "annual",
   );
 
+  const membershipBlocksBusinessUpgrade =
+    membershipDashboard?.role === "transfer_pending" ||
+    Boolean(membershipDashboard?.pendingTransfer) ||
+    // Conservative: hide while loading, or if the dashboard failed to load for
+    // a signed-in user (role would otherwise be treated as allowed).
+    Boolean(sessionToken && (membershipLoading || membershipError));
   const showMembershipPlanUpgrade =
-    canUpgradeToBusinessPlan(subscription) &&
-    membershipDashboard?.role !== "transfer_pending" &&
-    !membershipDashboard?.pendingTransfer;
+    canUpgradeToBusinessPlan(subscription) && !membershipBlocksBusinessUpgrade;
   const membershipTier = resolveMembershipPlanTier(subscription);
   const isAppleBusinessMigration =
     showMembershipPlanUpgrade && isAppleIapSubscription(subscription);
@@ -496,21 +504,10 @@ const Pricing = () => {
                   ) : ctaKind === "manage_account" &&
                     annualBillingAlreadyScheduled &&
                     isAnnual ? (
-                    <div className="mb-6 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-foreground">
-                      {(() => {
-                        const effectiveAt =
-                          subscription?.scheduledBillingInterval?.effectiveAt;
-                        const dateLabel = effectiveAt
-                          ? new Intl.DateTimeFormat(undefined, {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                            }).format(new Date(effectiveAt))
-                          : null;
-                        return dateLabel
-                          ? `You're on monthly until ${dateLabel}. Annual billing starts then — you won't be charged today.`
-                          : "You're on monthly until your current period ends. Annual billing starts then — you won't be charged today.";
-                      })()}
+                    <div className="mb-6">
+                      <ScheduledAnnualBillingNotice
+                        subscription={subscription}
+                      />
                     </div>
                   ) : ctaKind === "manage_account" &&
                     isMonthlyStripeUpgradeEligible &&

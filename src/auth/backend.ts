@@ -187,14 +187,14 @@ function normalizeBackendAuthResponse(
     const effectiveAt = scheduled.effectiveAt;
     if (
       (from === "month" || from === "year") &&
-      (to === "month" || to === "year") &&
-      typeof effectiveAt === "string" &&
-      effectiveAt.trim().length > 0
+      (to === "month" || to === "year")
     ) {
+      // Keep from/to even when effectiveAt is missing so annual-upgrade CTAs
+      // stay hidden; notice copy falls back when the date is empty/invalid.
       normalizedSubscription.scheduledBillingInterval = {
         from,
         to,
-        effectiveAt,
+        effectiveAt: typeof effectiveAt === "string" ? effectiveAt : "",
       };
     }
   } else if (scheduled === null) {

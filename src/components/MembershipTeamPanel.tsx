@@ -5,7 +5,8 @@ import { Loader2, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { fetchSubscriptionPlans } from "@/auth/backend";
-import { useMembershipSharing } from "@/hooks/use-membership-sharing";
+import { useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   formatChargeAfterPrepaidSeatsCopy,
   formatChargeOnAcceptInviteCopy,
@@ -23,17 +24,18 @@ function formatDate(iso: string): string {
 }
 
 interface MembershipTeamPanelProps {
-  sessionToken: string;
+  /** Kept for call-site compatibility; dashboard state comes from context. */
+  sessionToken?: string;
   /** compact = subscription card; full = workspace panel styling */
   variant?: "compact" | "full";
   className?: string;
 }
 
 export function MembershipTeamPanel({
-  sessionToken,
   variant = "compact",
   className,
 }: MembershipTeamPanelProps) {
+  const { refreshSubscription } = useAuth();
   const [inviteEmail, setInviteEmail] = useState("");
   const {
     dashboard,
@@ -54,11 +56,18 @@ export function MembershipTeamPanel({
     effectiveDraftSeats,
     seatsChanged,
     MAX_BUSINESS_SEATS,
-  } = useMembershipSharing(sessionToken);
+  } = useMembershipSharingContext();
   const [catalogSeatPrice, setCatalogSeatPrice] = useState<{
     amount: number;
     period: "month" | "year";
   } | null>(null);
+
+  const handleLeaveMembership = async () => {
+    const left = await leaveMembership();
+    if (left) {
+      await refreshSubscription();
+    }
+  };
 
   useEffect(() => {
     let ignore = false;
@@ -158,7 +167,7 @@ export function MembershipTeamPanel({
                 ) {
                   return;
                 }
-                void leaveMembership();
+                void handleLeaveMembership();
               }}
             >
               {submitting ? "Leaving…" : "Leave team"}
@@ -202,7 +211,7 @@ export function MembershipTeamPanel({
                 ) {
                   return;
                 }
-                void leaveMembership();
+                void handleLeaveMembership();
               }}
             >
               {submitting ? "Leaving…" : "Leave Business transfer"}

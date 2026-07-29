@@ -1,7 +1,7 @@
 import { Users } from "lucide-react";
 import { WorkspacePanel } from "@/components/workspace/WorkspacePanel";
 import { MembershipTeamPanel } from "@/components/MembershipTeamPanel";
-import { useMembershipSharing } from "@/hooks/use-membership-sharing";
+import { useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
 
 interface MembershipSharingCardProps {
   sessionToken: string;
@@ -16,7 +16,7 @@ function panelTitle(role: string | undefined): string {
 export function MembershipSharingCard({
   sessionToken,
 }: MembershipSharingCardProps) {
-  const { dashboard } = useMembershipSharing(sessionToken);
+  const { dashboard } = useMembershipSharingContext();
   return (
     <WorkspacePanel title={panelTitle(dashboard?.role)} icon={Users}>
       <MembershipTeamPanel sessionToken={sessionToken} variant="full" />

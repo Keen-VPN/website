@@ -58,8 +58,12 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { AccountWorkspace } from "@/components/AccountWorkspace";
 import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
+import { ScheduledAnnualBillingNotice } from "@/components/ScheduledAnnualBillingNotice";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
-import { useMembershipSharing } from "@/hooks/use-membership-sharing";
+import {
+  MembershipSharingProvider,
+  useMembershipSharingContext,
+} from "@/contexts/MembershipSharingContext";
 import {
   isAppDeepLinkSupported,
   getUnsupportedDeviceName,
@@ -99,7 +103,7 @@ import {
   shouldShowStripePostCheckoutUi,
 } from "@/lib/keenvpn-deep-links";
 
-const Account = () => {
+const AccountInner = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   // true on normal /account (no session_id) — render subscription card immediately;
   // AuthContext usually has subscription already. Stripe return starts false (skeleton until sync).
@@ -167,9 +171,8 @@ const Account = () => {
     mayHaveWorkspaceAccess &&
     entitlementsStatus === "error";
   const canManageBilling = subscription?.canManageBilling === true;
-  const { dashboard: membershipDashboard } = useMembershipSharing(
-    hasSessionToken ? getSessionToken() : null,
-  );
+  const sessionToken = hasSessionToken ? getSessionToken() : null;
+  const { dashboard: membershipDashboard } = useMembershipSharingContext();
   const pendingBusinessTransfer =
     membershipDashboard?.role === "transfer_pending"
       ? membershipDashboard.pendingTransfer
@@ -1036,25 +1039,10 @@ const Account = () => {
                       </div>
                     )}
                     {hasScheduledAnnualBilling(subscription) && (
-                      <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
-                        <p className="text-sm text-foreground">
-                          {(() => {
-                            const effectiveAt =
-                              subscription.scheduledBillingInterval
-                                ?.effectiveAt;
-                            const dateLabel = effectiveAt
-                              ? new Intl.DateTimeFormat(undefined, {
-                                  year: "numeric",
-                                  month: "long",
-                                  day: "numeric",
-                                }).format(new Date(effectiveAt))
-                              : null;
-                            return dateLabel
-                              ? `You're on monthly until ${dateLabel}. Annual billing starts then — you won't be charged today.`
-                              : "You're on monthly until your current period ends. Annual billing starts then — you won't be charged today.";
-                          })()}
-                        </p>
-                      </div>
+                      <ScheduledAnnualBillingNotice
+                        subscription={subscription}
+                        className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3"
+                      />
                     )}
                     {showAppleIapUpgradeInCard && (
                       <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
@@ -1385,6 +1373,16 @@ const Account = () => {
       </main>
       <Footer />
     </div>
+  );
+};
+
+const Account = () => {
+  const { hasSessionToken } = useAuth();
+  const sessionToken = hasSessionToken ? getSessionToken() : null;
+  return (
+    <MembershipSharingProvider sessionToken={sessionToken}>
+      <AccountInner />
+    </MembershipSharingProvider>
   );
 };
 

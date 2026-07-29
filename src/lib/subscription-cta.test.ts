@@ -116,4 +116,21 @@ describe("membership plan tier helpers", () => {
     expect(hasScheduledAnnualBilling(scheduled)).toBe(true);
     expect(canUpgradeStripeToAnnual(scheduled)).toBe(false);
   });
+
+  it("still hides annual upgrade CTA when scheduled effectiveAt is empty", () => {
+    const scheduled = stripeSub({
+      plan: "KeenVPN Business - Monthly",
+      planId: "team_monthly",
+      billingPeriod: "month",
+      status: "active",
+      scheduledBillingInterval: {
+        from: "month",
+        to: "year",
+        effectiveAt: "",
+      },
+    });
+
+    expect(hasScheduledAnnualBilling(scheduled)).toBe(true);
+    expect(canUpgradeStripeToAnnual(scheduled)).toBe(false);
+  });
 });
