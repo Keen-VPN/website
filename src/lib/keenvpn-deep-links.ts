@@ -153,6 +153,11 @@ export function openKeenVpnAppStore(downloadPageUrl?: string): void {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+function openKeenVpnAppStoreInSameTab(downloadPageUrl?: string): void {
+  const webUrl = resolveAppStoreDownloadUrl(downloadPageUrl);
+  window.location.assign(toNativeAppStoreSchemeUrl(webUrl));
+}
+
 /** @deprecated Use {@link openKeenVpnAppStore} */
 export const openKeenVpnDownloadPage = openKeenVpnAppStore;
 
@@ -186,6 +191,64 @@ export function openKeenVpnNativeApp(
   document.body.appendChild(anchor);
   anchor.click();
   window.setTimeout(() => anchor.remove(), 100);
+}
+
+const EXTERNAL_APP_OPEN_FALLBACK_MS = 2500;
+
+/**
+ * Opens KeenVPN from a regular HTTPS landing page, such as an email CTA.
+ *
+ * Unlike {@link openKeenVpnNativeApp}, this does not require an in-app browser
+ * marker. If the browser remains visible, it falls back to the appropriate app
+ * store/download page. The returned function cancels the pending fallback and
+ * removes event listeners.
+ */
+export function openKeenVpnFromExternalPage(
+  deepLink: string = OPEN_APP_DEEP_LINK,
+  downloadPageUrl?: string,
+): () => void {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return () => undefined;
+  }
+
+  const resolvedDeepLink = appendStoredUtmsToDeepLink(deepLink);
+  let didLeavePage = false;
+
+  const markPageHidden = () => {
+    didLeavePage = true;
+  };
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "hidden") {
+      markPageHidden();
+    }
+  };
+  const cleanupListeners = () => {
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+    window.removeEventListener("pagehide", markPageHidden);
+  };
+
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("pagehide", markPageHidden);
+
+  const fallbackTimer = window.setTimeout(() => {
+    cleanupListeners();
+    if (!didLeavePage) {
+      openKeenVpnAppStoreInSameTab(downloadPageUrl);
+    }
+  }, EXTERNAL_APP_OPEN_FALLBACK_MS);
+
+  try {
+    window.location.assign(resolvedDeepLink);
+  } catch {
+    window.clearTimeout(fallbackTimer);
+    cleanupListeners();
+    openKeenVpnAppStoreInSameTab(downloadPageUrl);
+  }
+
+  return () => {
+    window.clearTimeout(fallbackTimer);
+    cleanupListeners();
+  };
 }
 
 /** Build auth callback URL with a URL-encoded session token. */
