@@ -106,7 +106,12 @@ export function getRedditUuidCookie(): string | undefined {
     .map((part) => part.trim())
     .find((part) => part.startsWith("_rdt_uuid="));
   if (!match) return undefined;
-  const value = decodeURIComponent(match.slice("_rdt_uuid=".length)).trim();
+  let value: string;
+  try {
+    value = decodeURIComponent(match.slice("_rdt_uuid=".length)).trim();
+  } catch {
+    return undefined;
+  }
   return value ? value.slice(0, 500) : undefined;
 }
 

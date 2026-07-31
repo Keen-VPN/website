@@ -172,7 +172,8 @@ export function getUtmAttributionAuthPayload(): UtmAttributionAuthPayload {
   return {
     utmAttribution: {
       landing_path: window.location.pathname.slice(0, 500),
-      landing_url: window.location.href.slice(0, 2000),
+      landing_url:
+        `${window.location.origin}${window.location.pathname}`.slice(0, 2000),
       captured_at: new Date().toISOString(),
       reddit_uuid: redditUuid,
     },
