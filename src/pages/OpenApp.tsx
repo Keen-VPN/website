@@ -32,7 +32,6 @@ export default function OpenApp() {
   const canOpenApp = useMemo(() => isAppDeepLinkSupported(), []);
   const [attemptedOpen, setAttemptedOpen] = useState(false);
   const cleanupAttemptRef = useRef<(() => void) | null>(null);
-  const autoOpenStartedRef = useRef(false);
 
   const openApp = useCallback(() => {
     cleanupAttemptRef.current?.();
@@ -44,17 +43,11 @@ export default function OpenApp() {
   }, [appStoreUrl]);
 
   useEffect(() => {
-    if (!canOpenApp || autoOpenStartedRef.current) {
-      return;
-    }
-    autoOpenStartedRef.current = true;
-    openApp();
-
     return () => {
       cleanupAttemptRef.current?.();
       cleanupAttemptRef.current = null;
     };
-  }, [canOpenApp, openApp]);
+  }, []);
 
   const openDownload = () => {
     cleanupAttemptRef.current?.();
