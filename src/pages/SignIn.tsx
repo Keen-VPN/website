@@ -262,7 +262,7 @@ const SignIn = () => {
                   }}
                   disabled={isLoading}
                   placeholder="Enter your email"
-                  className="h-[3.7rem] rounded-[0.7rem] border-[#d1d4d8] bg-white px-5 text-lg text-[#0f2040] shadow-[0_2px_8px_rgba(15,32,64,0.06)] placeholder:text-[#8b8f96] focus-visible:border-[#3a7ca5] focus-visible:ring-[#3a7ca5]/20"
+                  className="h-[3.7rem] rounded-[0.7rem] border-[#d1d4d8] bg-white px-5 text-lg md:text-lg text-[#0f2040] shadow-[0_2px_8px_rgba(15,32,64,0.06)] placeholder:text-[#8b8f96] focus-visible:border-[#3a7ca5] focus-visible:ring-[#3a7ca5]/20"
                 />
               </div>
 
@@ -406,7 +406,7 @@ const SignIn = () => {
           </section>
         </div>
 
-        <footer className="mx-auto mt-14 w-full max-w-[480px] text-sm text-[#555a62] lg:mt-auto">
+        <footer className="mx-auto mt-14 w-full max-w-[480px] pt-2 text-sm text-[#555a62] lg:mt-auto lg:pt-16">
           © {new Date().getFullYear()} KeenVPN. All rights reserved.
         </footer>
       </main>
