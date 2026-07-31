@@ -9,7 +9,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
-import { Apple, Loader2, LockKeyhole, Mail } from "lucide-react";
+import { Apple, Loader2, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   consumePendingMembershipTransfer,
@@ -205,7 +205,7 @@ const SignIn = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#f8f3e9] text-[#0f2040] lg:grid lg:grid-cols-[minmax(430px,42%)_minmax(0,58%)]">
+    <div className="min-h-[100dvh] bg-[#faf6ec] text-[#0f2040] lg:grid lg:grid-cols-[44.4%_55.6%]">
       <SEOHead
         title="Sign In — KeenVPN"
         description="Sign in to your KeenVPN account to manage your subscription and settings."
@@ -213,44 +213,39 @@ const SignIn = () => {
         noIndex
       />
 
-      <main className="relative flex min-h-[100dvh] flex-col px-5 py-6 sm:px-10 sm:py-8 lg:px-12 xl:px-16 2xl:px-20">
-        <header>
+      <main className="flex min-h-[100dvh] flex-col px-5 py-6 sm:px-10 sm:py-8 lg:px-14 lg:pb-10 xl:px-20 2xl:px-24">
+        <div className="mx-auto w-full max-w-[480px] lg:pt-[13vh]">
           <Link
             to="/"
             aria-label="KeenVPN home"
-            className="inline-flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e85c04] focus-visible:ring-offset-4 focus-visible:ring-offset-[#f8f3e9]"
+            className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e85c04] focus-visible:ring-offset-4 focus-visible:ring-offset-[#faf6ec]"
           >
-            <img src="/logo.png" alt="" className="h-10 w-10 sm:h-11 sm:w-11" />
-            <span className="text-xl font-bold tracking-[-0.03em] sm:text-2xl">
+            <img src="/logo.png" alt="" className="h-10 w-10" />
+            <span className="text-xl font-bold tracking-[-0.035em]">
               KeenVPN
             </span>
           </Link>
-        </header>
 
-        <section className="mx-auto flex w-full max-w-[510px] flex-1 items-center py-10 sm:py-14 lg:py-12">
-          <div className="w-full">
-            <div className="mb-8 sm:mb-10">
-              <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-[#e85c04]">
-                Secure access starts here
-              </p>
-              <h1 className="text-4xl font-bold tracking-[-0.045em] text-[#0b1729] sm:text-5xl lg:text-[2.8rem] xl:text-5xl">
+          <section className="mt-12 w-full sm:mt-16 lg:mt-[6.5rem]">
+            <div className="mb-9 lg:mb-11">
+              <h1 className="text-[2.45rem] font-semibold leading-[1.12] tracking-[-0.04em] text-[#111827] sm:text-[2.7rem]">
                 Welcome to KeenVPN
               </h1>
-              <p className="mt-4 max-w-md text-base leading-7 text-[#626a76] sm:text-lg">
+              <p className="mt-4 text-lg leading-7 text-[#6c7077] sm:text-xl">
                 {isASWebSession
-                  ? "Sign in securely to continue in the KeenVPN app."
-                  : "Get started with fast, private VPN access on all your supported devices."}
+                  ? "Sign in to continue in the KeenVPN app"
+                  : "Get started with secure VPN access"}
               </p>
             </div>
 
             <form
               onSubmit={otpSent ? handleVerifyOtp : handleRequestOtp}
-              className="space-y-4"
+              className="space-y-5"
             >
               <div className="space-y-2">
                 <Label
                   htmlFor="email-otp"
-                  className="text-sm font-semibold text-[#26354b]"
+                  className="text-base font-semibold text-[#4a4f57]"
                 >
                   Email
                 </Label>
@@ -267,7 +262,7 @@ const SignIn = () => {
                   }}
                   disabled={isLoading}
                   placeholder="Enter your email"
-                  className="h-14 rounded-xl border-[#cfd3da] bg-white px-4 text-base text-[#0f2040] shadow-[0_3px_12px_rgba(15,32,64,0.06)] placeholder:text-[#8a9099] focus-visible:border-[#3a7ca5] focus-visible:ring-[#3a7ca5]/25"
+                  className="h-[3.7rem] rounded-[0.7rem] border-[#d1d4d8] bg-white px-5 text-lg text-[#0f2040] shadow-[0_2px_8px_rgba(15,32,64,0.06)] placeholder:text-[#8b8f96] focus-visible:border-[#3a7ca5] focus-visible:ring-[#3a7ca5]/20"
                 />
               </div>
 
@@ -276,7 +271,7 @@ const SignIn = () => {
                   <div className="flex items-center justify-between gap-3">
                     <Label
                       htmlFor="email-otp-code"
-                      className="text-sm font-semibold text-[#26354b]"
+                      className="text-sm font-semibold text-[#4a4f57]"
                     >
                       Sign-in code
                     </Label>
@@ -322,7 +317,7 @@ const SignIn = () => {
                 disabled={
                   isLoading || !emailForOtp || (otpSent && otpCode.length !== 6)
                 }
-                className="h-14 w-full rounded-xl bg-[#0f2040] text-base font-semibold text-white shadow-[0_12px_30px_rgba(15,32,64,0.18)] hover:bg-[#172f5c]"
+                className="h-16 w-full rounded-[0.7rem] bg-[#10244a] text-lg font-medium text-white shadow-none hover:bg-[#172f5c] disabled:bg-[#10244a] disabled:text-white disabled:opacity-100"
                 size="lg"
               >
                 {otpLoading ? (
@@ -351,22 +346,11 @@ const SignIn = () => {
               ) : null}
             </form>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-[#d7d5cf]" />
-              </div>
-              <div className="relative flex justify-center text-xs font-semibold uppercase tracking-[0.14em]">
-                <span className="bg-[#f8f3e9] px-3 text-[#858a91]">
-                  Or continue with
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-3">
+            <div className="mt-5 space-y-4">
               <Button
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
-                className="h-14 w-full rounded-xl border border-[#cfd3da] bg-white text-base font-semibold text-[#1f2937] shadow-[0_3px_12px_rgba(15,32,64,0.06)] hover:bg-[#f7f8fa]"
+                className="h-[3.7rem] w-full rounded-[0.7rem] border border-[#d1d4d8] bg-white text-lg font-medium text-[#252a32] shadow-[0_2px_8px_rgba(15,32,64,0.05)] hover:bg-[#f8f8f7]"
                 size="lg"
               >
                 {isGoogleDebouncing ||
@@ -389,7 +373,7 @@ const SignIn = () => {
                 <Button
                   onClick={handleAppleSignIn}
                   disabled={isLoading}
-                  className="h-14 w-full rounded-xl border border-[#cfd3da] bg-white text-base font-semibold text-[#111827] shadow-[0_3px_12px_rgba(15,32,64,0.06)] hover:bg-[#f7f8fa]"
+                  className="h-[3.7rem] w-full rounded-[0.7rem] border border-[#d1d4d8] bg-white text-lg font-medium text-[#252a32] shadow-[0_2px_8px_rgba(15,32,64,0.05)] hover:bg-[#f8f8f7]"
                   size="lg"
                 >
                   {isAppleDebouncing ||
@@ -410,42 +394,20 @@ const SignIn = () => {
               ) : null}
             </div>
 
-            <div className="mt-7 text-center">
+            <div className="mt-11 text-center text-base text-[#484d55]">
+              <span>Forgot password? </span>
               <Link
                 to="/signin/magic"
-                className="text-sm font-semibold text-[#e85c04] underline-offset-4 hover:text-[#c84d00] hover:underline"
+                className="font-medium text-[#e85c04] underline-offset-4 hover:text-[#c84d00] hover:underline"
               >
-                Prefer a magic link? Send one by email
+                Use a magic link
               </Link>
-              <p className="mx-auto mt-5 max-w-md text-xs leading-5 text-[#747b85]">
-                By signing in, you agree to our{" "}
-                <a
-                  href="/terms"
-                  className="font-semibold text-[#0f2040] underline-offset-4 hover:underline"
-                >
-                  Terms of Service
-                </a>{" "}
-                and{" "}
-                <a
-                  href="/privacy"
-                  className="font-semibold text-[#0f2040] underline-offset-4 hover:underline"
-                >
-                  Privacy Policy
-                </a>
-                . New users receive an account automatically.
-              </p>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
-        <footer className="flex flex-col gap-2 border-t border-[#dedbd4] pt-5 text-xs text-[#747b85] sm:flex-row sm:items-center sm:justify-between">
-          <span>
-            © {new Date().getFullYear()} KeenVPN. All rights reserved.
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <LockKeyhole className="h-3.5 w-3.5 text-[#3a7ca5]" />
-            Secure sign-in
-          </span>
+        <footer className="mx-auto mt-14 w-full max-w-[480px] text-sm text-[#555a62] lg:mt-auto">
+          © {new Date().getFullYear()} KeenVPN. All rights reserved.
         </footer>
       </main>
 
