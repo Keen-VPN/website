@@ -1,4 +1,4 @@
-export type DeviceType = "ios" | "macos" | "android" | "other";
+export type DeviceType = "ios" | "macos" | "android" | "windows" | "other";
 
 export function detectDevice(): DeviceType {
   if (typeof window === "undefined") {
@@ -24,6 +24,11 @@ export function detectDevice(): DeviceType {
     return "android";
   }
 
+  // Windows detection (desktop app registers vpnkeen:// handlers)
+  if (/win/.test(platform) || /windows/.test(userAgent)) {
+    return "windows";
+  }
+
   return "other";
 }
 
@@ -33,7 +38,8 @@ export function isApplePlatform(): boolean {
 }
 
 export function isAppDeepLinkSupported(): boolean {
-  return isApplePlatform();
+  const device = detectDevice();
+  return device === "macos" || device === "ios" || device === "windows";
 }
 
 export function getUnsupportedDeviceName(): string {

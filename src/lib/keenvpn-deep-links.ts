@@ -7,8 +7,8 @@ import {
 import { detectDevice } from "@/lib/device-detection";
 
 /**
- * KeenVPN native app deep links (iOS + macOS only).
- * Registered schemes: vpnkeen, keenvpn (iOS). Prefer vpnkeen for web → app handoff.
+ * KeenVPN native app deep links (iOS, macOS, Windows).
+ * Registered schemes: vpnkeen, keenvpn. Prefer vpnkeen for web → app handoff.
  */
 export const KEENVPN_URL_SCHEME = "vpnkeen";
 
@@ -133,6 +133,7 @@ function resolveAppStoreDownloadUrl(downloadPageUrl?: string): string {
   }
   if (device === "ios") return APP_STORE_URLS.ios;
   if (device === "macos") return APP_STORE_URLS.macos;
+  if (device === "windows") return APP_STORE_URLS.windows;
   if (downloadPageUrl && /^https?:\/\//i.test(downloadPageUrl)) {
     return downloadPageUrl;
   }
