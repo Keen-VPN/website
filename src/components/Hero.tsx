@@ -11,6 +11,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { trackRedditFreeTrialButtonClick } from "@/lib/reddit-analytics";
 
 const Hero = () => {
   return (
@@ -48,7 +49,12 @@ const Hero = () => {
               size="lg"
               className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-lg px-8 py-6 font-semibold transition-all hover:scale-105"
             >
-              <Link to="/pricing">Start free VPN trial</Link>
+              <Link
+                to="/pricing"
+                onClick={() => trackRedditFreeTrialButtonClick("homepage_hero")}
+              >
+                Start free VPN trial
+              </Link>
             </Button>
           </div>
 

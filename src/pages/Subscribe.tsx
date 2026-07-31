@@ -23,6 +23,7 @@ import {
   recordSignupStarted,
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
+import { trackRedditFreeTrialButtonClick } from "@/lib/reddit-analytics";
 import {
   canStartFreeTrial,
   getSubscriptionCtaLabel,
@@ -487,6 +488,9 @@ const Subscribe = () => {
 
     try {
       setCheckoutLoading(true);
+      if (startsWithFreeTrial) {
+        trackRedditFreeTrialButtonClick("subscribe_checkout");
+      }
 
       // Determine plan ID based on plan type
       const planId =
