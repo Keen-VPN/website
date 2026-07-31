@@ -39,7 +39,11 @@ export function resolveOpenAppLandingContent(
         toLocationSlug(candidate.country) === normalized ||
         toLocationSlug(candidate.city) === normalized ||
         toLocationSlug(`${candidate.country}-${candidate.city}`) ===
-          normalized),
+          normalized ||
+        (candidate.aliases?.some(
+          (alias) => toLocationSlug(alias) === normalized,
+        ) ??
+          false)),
   );
   if (!server) {
     return DEFAULT_CONTENT;
