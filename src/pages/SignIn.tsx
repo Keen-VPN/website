@@ -214,7 +214,7 @@ const SignIn = () => {
       />
 
       <main className="flex min-h-[100dvh] flex-col px-5 py-6 sm:px-10 sm:py-8 lg:px-14 lg:pb-10 xl:px-20 2xl:px-24">
-        <div className="mx-auto w-full max-w-[480px] lg:pt-[13vh]">
+        <div className="mx-auto w-full max-w-[480px] lg:pt-8 xl:pt-10">
           <Link
             to="/"
             aria-label="KeenVPN home"
@@ -226,9 +226,9 @@ const SignIn = () => {
             </span>
           </Link>
 
-          <section className="mt-12 w-full sm:mt-16 lg:mt-[6.5rem]">
-            <div className="mb-9 lg:mb-11">
-              <h1 className="text-[2.45rem] font-semibold leading-[1.12] tracking-[-0.04em] text-[#111827] sm:text-[2.7rem]">
+          <section className="mt-10 w-full sm:mt-12 lg:mt-14">
+            <div className="mb-8 lg:mb-9">
+              <h1 className="text-[2rem] font-semibold leading-[1.12] tracking-[-0.04em] text-[#111827] sm:text-[2.7rem]">
                 Welcome to KeenVPN
               </h1>
               <p className="mt-4 text-lg leading-7 text-[#6c7077] sm:text-xl">

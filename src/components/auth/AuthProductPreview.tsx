@@ -2,7 +2,7 @@ export default function AuthProductPreview() {
   return (
     <aside
       aria-label="KeenVPN application preview"
-      className="relative hidden min-h-[100dvh] items-center justify-center overflow-hidden bg-[#e9e1d2] px-8 py-14 lg:flex xl:px-12"
+      className="relative hidden min-h-[100dvh] items-start justify-center overflow-hidden bg-[#e9e1d2] px-8 pb-14 pt-28 lg:flex xl:px-12 xl:pt-32"
     >
       {/*
         Clip the bitmap to a true rounded rect so square dark corners in the
