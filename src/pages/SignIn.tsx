@@ -317,7 +317,7 @@ const SignIn = () => {
                 disabled={
                   isLoading || !emailForOtp || (otpSent && otpCode.length !== 6)
                 }
-                className="h-16 w-full rounded-[0.7rem] bg-[#10244a] text-lg font-medium text-white shadow-none hover:bg-[#172f5c] disabled:bg-[#10244a] disabled:text-white disabled:opacity-100"
+                className="h-16 w-full cursor-pointer rounded-[0.7rem] bg-[#10244a] text-lg font-medium text-white shadow-none hover:bg-[#172f5c] disabled:cursor-not-allowed disabled:bg-[#10244a] disabled:text-white disabled:opacity-100 disabled:pointer-events-auto"
                 size="lg"
               >
                 {otpLoading ? (
