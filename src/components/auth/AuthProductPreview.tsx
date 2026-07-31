@@ -7,8 +7,8 @@ export default function AuthProductPreview() {
       <img
         src="/keenvpn-app-preview.png"
         alt="KeenVPN desktop app showing secure server locations"
-        width={1012}
-        height={1060}
+        width={1024}
+        height={1002}
         decoding="async"
         fetchPriority="high"
         draggable={false}
