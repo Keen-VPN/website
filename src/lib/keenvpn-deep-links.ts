@@ -188,6 +188,64 @@ export function openKeenVpnNativeApp(
   window.setTimeout(() => anchor.remove(), 100);
 }
 
+const EXTERNAL_APP_OPEN_FALLBACK_MS = 2500;
+
+/**
+ * Opens KeenVPN from a regular HTTPS landing page, such as an email CTA.
+ *
+ * Unlike {@link openKeenVpnNativeApp}, this does not require an in-app browser
+ * marker. If the browser remains visible, it falls back to the appropriate app
+ * store/download page. The returned function cancels the pending fallback and
+ * removes event listeners.
+ */
+export function openKeenVpnFromExternalPage(
+  deepLink: string = OPEN_APP_DEEP_LINK,
+  downloadPageUrl?: string,
+): () => void {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return () => undefined;
+  }
+
+  const resolvedDeepLink = appendStoredUtmsToDeepLink(deepLink);
+  let didLeavePage = false;
+
+  const markPageHidden = () => {
+    didLeavePage = true;
+  };
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "hidden") {
+      markPageHidden();
+    }
+  };
+  const cleanupListeners = () => {
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+    window.removeEventListener("pagehide", markPageHidden);
+  };
+
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("pagehide", markPageHidden);
+
+  const fallbackTimer = window.setTimeout(() => {
+    cleanupListeners();
+    if (!didLeavePage) {
+      openKeenVpnAppStore(downloadPageUrl);
+    }
+  }, EXTERNAL_APP_OPEN_FALLBACK_MS);
+
+  try {
+    window.location.assign(resolvedDeepLink);
+  } catch {
+    window.clearTimeout(fallbackTimer);
+    cleanupListeners();
+    openKeenVpnAppStore(downloadPageUrl);
+  }
+
+  return () => {
+    window.clearTimeout(fallbackTimer);
+    cleanupListeners();
+  };
+}
+
 /** Build auth callback URL with a URL-encoded session token. */
 export function buildAuthDeepLink(sessionToken: string): string {
   return `${AUTH_DEEP_LINK_PREFIX}?token=${encodeURIComponent(sessionToken)}`;

@@ -41,6 +41,7 @@ const UpgradeAnnual = lazy(() => import("./pages/UpgradeAnnual"));
 const SubscriptionHistory = lazy(() => import("./pages/SubscriptionHistory"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const PaymentCancel = lazy(() => import("./pages/PaymentCancel"));
+const OpenApp = lazy(() => import("./pages/OpenApp"));
 const AuthDebug = lazy(() => import("./pages/AuthDebug"));
 const AppleDebug = lazy(() => import("./pages/AppleDebug"));
 const MyIPAddress = lazy(() => import("./pages/MyIPAddress"));
@@ -192,6 +193,7 @@ const App = () => (
               />
               <Route path="/success" element={<PaymentSuccess />} />
               <Route path="/cancel" element={<PaymentCancel />} />
+              <Route path="/open-app" element={<OpenApp />} />
               <Route path="/auth/debug" element={<AuthDebug />} />
               <Route path="/apple/debug" element={<AppleDebug />} />
               <Route path="/admin/login" element={<AdminLogin />} />

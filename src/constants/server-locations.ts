@@ -176,6 +176,15 @@ export const serverLocations: ServerLocation[] = [
     available: true,
   },
   {
+    id: "nz-auckland",
+    country: "New Zealand",
+    countryCode: "NZ",
+    city: "Auckland",
+    region: "Asia-Pacific",
+    coordinates: { lat: -36.8509, lng: 174.7645 },
+    available: true,
+  },
+  {
     id: "hk-hong-kong",
     country: "Hong Kong",
     countryCode: "HK",

@@ -13,10 +13,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 import {
   OPEN_APP_DEEP_LINK,
-  openKeenVpnNativeApp,
+  openKeenVpnFromExternalPage,
   resolveNativeAppHandoffDeepLink,
 } from "@/lib/keenvpn-deep-links";
-import { resolveAppStoreUrl } from "@/lib/open-app-or-store";
 
 const PENDING_ACCEPT_STORAGE_KEY = "keenvpn_membership_invite_pending_accept";
 
@@ -82,6 +81,14 @@ export default function MembershipSharingAccept() {
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
   const resumeAcceptAttemptedRef = useRef(false);
+  const appOpenCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(
+    () => () => {
+      appOpenCleanupRef.current?.();
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!token) {
@@ -278,9 +285,10 @@ export default function MembershipSharingAccept() {
     signedInEmail === inviteEmailNormalized;
 
   const openKeenVpnApp = () => {
-    openKeenVpnNativeApp(
+    appOpenCleanupRef.current?.();
+    appOpenCleanupRef.current = openKeenVpnFromExternalPage(
       resolveNativeAppHandoffDeepLink(getSessionToken(), OPEN_APP_DEEP_LINK),
-      resolveAppStoreUrl(appStoreUrl),
+      appStoreUrl,
     );
   };
 
