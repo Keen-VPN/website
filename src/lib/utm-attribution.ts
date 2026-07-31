@@ -1,3 +1,5 @@
+import { getRedditUuidCookie } from "@/lib/reddit-analytics";
+
 export const UTM_ATTRIBUTION_STORAGE_KEY = "keen_utm_attribution";
 
 export interface StoredUtmAttribution {
@@ -7,6 +9,9 @@ export interface StoredUtmAttribution {
   utm_content?: string;
   utm_term?: string;
   landing_path: string;
+  landing_url?: string;
+  reddit_click_id?: string;
+  reddit_uuid?: string;
   captured_at: string;
 }
 
@@ -34,6 +39,10 @@ function buildAttributionFromSearch(
   const params = new URLSearchParams(search);
   const captured: StoredUtmAttribution = {
     landing_path: landingPath.slice(0, 500),
+    landing_url:
+      typeof window === "undefined"
+        ? undefined
+        : `${window.location.origin}${landingPath}`.slice(0, 2000),
     captured_at: new Date().toISOString(),
   };
 
@@ -46,7 +55,10 @@ function buildAttributionFromSearch(
     }
   }
 
-  return hasUtm ? captured : null;
+  const redditClickId = trimParam(params.get("rdt_cid"));
+  if (redditClickId) captured.reddit_click_id = redditClickId;
+
+  return hasUtm || redditClickId ? captured : null;
 }
 
 function storedUtmParam(
@@ -60,7 +72,13 @@ function storedUtmParam(
 }
 
 function hasStoredUtmValue(record: Record<string, unknown>): boolean {
-  return UTM_PARAM_KEYS.some((key) => Boolean(storedUtmParam(record, key)));
+  return (
+    UTM_PARAM_KEYS.some((key) => Boolean(storedUtmParam(record, key))) ||
+    (typeof record.reddit_click_id === "string" &&
+      Boolean(record.reddit_click_id.trim())) ||
+    (typeof record.reddit_uuid === "string" &&
+      Boolean(record.reddit_uuid.trim()))
+  );
 }
 
 function isValidStoredUtmAttribution(
@@ -141,8 +159,24 @@ export function captureUtmFromSearch(
 
 export function getUtmAttributionAuthPayload(): UtmAttributionAuthPayload {
   const stored = getStoredUtmAttribution();
-  if (!stored) return {};
-  return { utmAttribution: stored };
+  const redditUuid = getRedditUuidCookie();
+  if (stored) {
+    return {
+      utmAttribution: {
+        ...stored,
+        ...(redditUuid ? { reddit_uuid: redditUuid } : {}),
+      },
+    };
+  }
+  if (!redditUuid || typeof window === "undefined") return {};
+  return {
+    utmAttribution: {
+      landing_path: window.location.pathname.slice(0, 500),
+      landing_url: window.location.href.slice(0, 2000),
+      captured_at: new Date().toISOString(),
+      reddit_uuid: redditUuid,
+    },
+  };
 }
 
 export function appendStoredUtmsToDeepLink(deepLink: string): string {
@@ -158,6 +192,9 @@ export function appendStoredUtmsToDeepLink(deepLink: string): string {
       "utm_content",
       "utm_term",
       "landing_path",
+      "landing_url",
+      "reddit_click_id",
+      "reddit_uuid",
       "captured_at",
     ] as const;
     for (const key of keys) {

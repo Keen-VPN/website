@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import UtmCapture from "@/components/UtmCapture";
+import RedditPixelTracker from "@/components/RedditPixelTracker";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
 import AdminSidebarLayout from "@/components/admin/AdminSidebarLayout";
@@ -109,6 +110,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <UtmCapture />
+          <RedditPixelTracker />
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />

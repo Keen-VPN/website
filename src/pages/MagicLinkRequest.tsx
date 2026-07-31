@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { requestMagicLink } from "@/auth";
+import { recordSignupStarted } from "@/auth/backend";
+import { trackRedditSignupButtonClick } from "@/lib/reddit-analytics";
 import { Loader2, MailCheck } from "lucide-react";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -28,6 +30,8 @@ const MagicLinkRequest = () => {
     }
 
     setLoading(true);
+    trackRedditSignupButtonClick("signin_magic_link");
+    await recordSignupStarted();
     const result = await requestMagicLink(trimmedEmail);
     setLoading(false);
 
