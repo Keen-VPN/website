@@ -21,6 +21,9 @@ export function useAppStoreUrl(): string {
       case "android":
         appStoreUrl = APP_STORE_URLS.android;
         break;
+      case "windows":
+        appStoreUrl = APP_STORE_URLS.windows;
+        break;
       default:
         appStoreUrl = APP_STORE_URLS.fallback;
     }

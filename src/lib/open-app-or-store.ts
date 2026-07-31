@@ -19,6 +19,7 @@ export function getAppStoreInstallButtonLabel(): string {
   const device = detectDevice();
   if (device === "ios") return "Download KeenVPN for iPhone";
   if (device === "macos") return "Download KeenVPN for Mac";
+  if (device === "windows") return "Download KeenVPN for Windows";
   return "Download KeenVPN App";
 }
 
@@ -106,6 +107,7 @@ export function getAppDownloadButtonLabel(
     const device = detectDevice();
     if (device === "ios") return "Open KeenVPN on iPhone";
     if (device === "macos") return "Open KeenVPN on Mac";
+    if (device === "windows") return "Open KeenVPN on Windows";
     return "Open KeenVPN App";
   }
 
