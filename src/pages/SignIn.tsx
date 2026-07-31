@@ -2,13 +2,6 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   InputOTP,
@@ -16,7 +9,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
-import { Loader2, Apple, Mail } from "lucide-react";
+import { Apple, Loader2, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   consumePendingMembershipTransfer,
@@ -35,15 +28,21 @@ import {
 } from "@/auth";
 import { recordSignupStarted } from "@/auth/backend";
 import GoogleIcon from "@/components/ui/google-icon";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import AuthProductPreview from "@/components/auth/AuthProductPreview";
 import SEOHead from "@/components/SEOHead";
 import { useToast } from "@/hooks/use-toast";
 
 const sanitizeOtpCode = (value: string) => value.replace(/\D/g, "").slice(0, 6);
 
 const SignIn = () => {
-  const { signIn, loading: authLoading, isAuthenticating, user, subscription, hasSessionToken } = useAuth();
+  const {
+    signIn,
+    loading: authLoading,
+    isAuthenticating,
+    user,
+    subscription,
+    hasSessionToken,
+  } = useAuth();
   const { toast } = useToast();
   const [otpEmail, setOtpEmail] = React.useState("");
   const [otpCode, setOtpCode] = React.useState("");
@@ -113,7 +112,7 @@ const SignIn = () => {
           // If user is already logged in and visited signin via macOS app, redirect to account
           // The account page will show the deeplink modal
           console.warn(
-            "🔐 ASWebSession detected - redirecting logged-in user to account page"
+            "🔐 ASWebSession detected - redirecting logged-in user to account page",
           );
           window.location.href = "/account?asweb=1";
           return;
@@ -145,10 +144,7 @@ const SignIn = () => {
   }, 2000);
 
   const providerLoading =
-    authLoading ||
-    isGoogleDebouncing ||
-    isAppleDebouncing ||
-    isAuthenticating;
+    authLoading || isGoogleDebouncing || isAppleDebouncing || isAuthenticating;
   const isLoading = providerLoading || otpLoading;
 
   const sendOtp = async () => {
@@ -174,7 +170,7 @@ const SignIn = () => {
     setOtpMessage(
       result.expiresInMinutes
         ? `Code sent. It expires in ${result.expiresInMinutes} minutes.`
-        : result.message ?? "Code sent.",
+        : (result.message ?? "Code sent."),
     );
   };
 
@@ -209,48 +205,152 @@ const SignIn = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-[100dvh] bg-[#faf6ec] text-[#0f2040] lg:grid lg:grid-cols-[44.4%_55.6%]">
       <SEOHead
         title="Sign In — KeenVPN"
         description="Sign in to your KeenVPN account to manage your subscription and settings."
         canonical="https://vpnkeen.com/signin"
         noIndex
       />
-      <Header />
-      <main className="flex-1 py-20 bg-gradient-hero">
-        <div className="container mx-auto px-4 max-w-md">
-          <div className="text-center mb-8">
-            <div className="mx-auto flex items-center justify-center my-4 ">
-              <img
-                src="/logo-white.png"
-                alt="KeenVPN"
-                className="h-14 w-14 transition-transform group-hover:scale-105"
-              />
-            </div>
-            <h1 className="text-4xl font-bold text-foreground mb-4">
-              Welcome to <span className="text-primary">KeenVPN</span>
-            </h1>
-            <p className="text-xl text-muted-foreground">
-              Get started with secure VPN access
-            </p>
-          </div>
 
-          <Card className="border-accent/50 shadow-glow">
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl">
-                {isASWebSession ? "Sign in with Google" : "Continue with"}
-              </CardTitle>
-              <CardDescription>
+      <main className="flex min-h-[100dvh] flex-col px-5 py-6 sm:px-10 sm:py-8 lg:px-14 lg:pb-10 xl:px-20 2xl:px-24">
+        <div className="mx-auto w-full max-w-[480px] lg:pt-8 xl:pt-10">
+          <Link
+            to="/"
+            aria-label="KeenVPN home"
+            className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e85c04] focus-visible:ring-offset-4 focus-visible:ring-offset-[#faf6ec]"
+          >
+            <img src="/logo.png" alt="" className="h-10 w-10" />
+            <span className="text-xl font-bold tracking-[-0.035em]">
+              KeenVPN
+            </span>
+          </Link>
+
+          <section className="mt-10 w-full sm:mt-12 lg:mt-14">
+            <div className="mb-8 lg:mb-9">
+              <h1 className="text-[2rem] font-semibold leading-[1.12] tracking-[-0.04em] text-[#111827] lg:text-[2.7rem]">
+                Welcome to KeenVPN
+              </h1>
+              <p className="mt-4 text-lg leading-7 text-[#6c7077] sm:text-xl">
                 {isASWebSession
-                  ? "Use your Google account to continue in the KeenVPN app"
-                  : "Choose your preferred sign-in method"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+                  ? "Sign in to continue in the KeenVPN app"
+                  : "Get started with secure VPN access"}
+              </p>
+            </div>
+
+            <form
+              onSubmit={otpSent ? handleVerifyOtp : handleRequestOtp}
+              className="space-y-5"
+            >
+              <div className="space-y-2">
+                <Label
+                  htmlFor="email-otp"
+                  className="text-base font-semibold text-[#4a4f57]"
+                >
+                  Email
+                </Label>
+                <Input
+                  id="email-otp"
+                  type="email"
+                  autoComplete="email"
+                  value={otpEmail}
+                  onChange={(event) => {
+                    setOtpEmail(event.target.value);
+                    setOtpSent(false);
+                    setOtpCode("");
+                    setOtpMessage("");
+                  }}
+                  disabled={isLoading}
+                  placeholder="Enter your email"
+                  className="h-[3.7rem] rounded-[0.7rem] border-[#d1d4d8] bg-white px-5 text-lg md:text-lg text-[#0f2040] shadow-[0_2px_8px_rgba(15,32,64,0.06)] placeholder:text-[#8b8f96] focus-visible:border-[#3a7ca5] focus-visible:ring-[#3a7ca5]/20"
+                />
+              </div>
+
+              {otpSent ? (
+                <div className="space-y-2 rounded-xl border border-[#d8d9d6] bg-white/65 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label
+                      htmlFor="email-otp-code"
+                      className="text-sm font-semibold text-[#4a4f57]"
+                    >
+                      Sign-in code
+                    </Label>
+                    <span className="text-xs text-[#737985]">
+                      Check {emailForOtp}
+                    </span>
+                  </div>
+                  <InputOTP
+                    id="email-otp-code"
+                    maxLength={6}
+                    pattern={REGEXP_ONLY_DIGITS}
+                    pasteTransformer={sanitizeOtpCode}
+                    autoComplete="one-time-code"
+                    value={otpCode}
+                    onChange={(value) => setOtpCode(sanitizeOtpCode(value))}
+                    disabled={isLoading}
+                    containerClassName="justify-center sm:justify-start"
+                  >
+                    <InputOTPGroup>
+                      {Array.from({ length: 6 }).map((_, index) => (
+                        <InputOTPSlot
+                          key={index}
+                          index={index}
+                          className="h-11 w-11 border-[#cfd3da] bg-white text-base text-[#0f2040] first:border-l"
+                        />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+              ) : null}
+
+              {otpMessage ? (
+                <p
+                  role="status"
+                  className="rounded-lg bg-[#3a7ca5]/10 px-3 py-2 text-sm text-[#245d80]"
+                >
+                  {otpMessage}
+                </p>
+              ) : null}
+
+              <Button
+                type="submit"
+                disabled={
+                  isLoading || !emailForOtp || (otpSent && otpCode.length !== 6)
+                }
+                className="h-16 w-full cursor-pointer rounded-[0.7rem] bg-[#10244a] text-lg font-medium text-white shadow-none hover:bg-[#172f5c] disabled:cursor-not-allowed disabled:bg-[#10244a] disabled:text-white disabled:opacity-100 disabled:pointer-events-auto"
+                size="lg"
+              >
+                {otpLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    {otpSent ? "Checking code..." : "Sending code..."}
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-2 h-5 w-5" />
+                    {otpSent ? "Sign in with code" : "Send sign-in code"}
+                  </>
+                )}
+              </Button>
+
+              {otpSent ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={isLoading}
+                  className="h-11 w-full text-[#e85c04] hover:bg-[#e85c04]/10 hover:text-[#c84d00]"
+                  onClick={() => void sendOtp()}
+                >
+                  Resend code
+                </Button>
+              ) : null}
+            </form>
+
+            <div className="mt-5 space-y-4">
               <Button
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
-                className="w-full bg-white text-gray-900 hover:bg-gray-50 border border-gray-300"
+                className="h-[3.7rem] w-full rounded-[0.7rem] border border-[#d1d4d8] bg-white text-lg font-medium text-[#252a32] shadow-[0_2px_8px_rgba(15,32,64,0.05)] hover:bg-[#f8f8f7]"
                 size="lg"
               >
                 {isGoogleDebouncing ||
@@ -273,150 +373,45 @@ const SignIn = () => {
                 <Button
                   onClick={handleAppleSignIn}
                   disabled={isLoading}
-                  className="w-full bg-black text-white hover:bg-gray-800"
+                  className="h-[3.7rem] w-full rounded-[0.7rem] border border-[#d1d4d8] bg-white text-lg font-medium text-[#252a32] shadow-[0_2px_8px_rgba(15,32,64,0.05)] hover:bg-[#f8f8f7]"
                   size="lg"
                 >
                   {isAppleDebouncing ||
                   (providerLoading && !isGoogleDebouncing) ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      {isAppleDebouncing ? "Please wait..." : "Authenticating..."}
+                      {isAppleDebouncing
+                        ? "Please wait..."
+                        : "Authenticating..."}
                     </>
                   ) : (
                     <>
-                      <Apple className="mr-2 h-5 w-5" />
+                      <Apple className="mr-2 h-5 w-5 fill-current" />
                       Continue with Apple
                     </>
                   )}
                 </Button>
               ) : null}
+            </div>
 
-              <div className="relative py-2">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">
-                    Or use email
-                  </span>
-                </div>
-              </div>
-
-              <form
-                onSubmit={otpSent ? handleVerifyOtp : handleRequestOtp}
-                className="space-y-3"
+            <div className="mt-11 text-center text-base text-[#484d55]">
+              <span>Forgot password? </span>
+              <Link
+                to="/signin/magic"
+                className="font-medium text-[#e85c04] underline-offset-4 hover:text-[#c84d00] hover:underline"
               >
-                <div className="space-y-2">
-                  <Label htmlFor="email-otp">Email</Label>
-                  <Input
-                    id="email-otp"
-                    type="email"
-                    autoComplete="email"
-                    value={otpEmail}
-                    onChange={(event) => {
-                      setOtpEmail(event.target.value);
-                      setOtpSent(false);
-                      setOtpCode("");
-                      setOtpMessage("");
-                    }}
-                    disabled={isLoading}
-                    placeholder="you@example.com"
-                  />
-                </div>
-
-                {otpSent ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="email-otp-code">Code</Label>
-                    <InputOTP
-                      id="email-otp-code"
-                      maxLength={6}
-                      pattern={REGEXP_ONLY_DIGITS}
-                      pasteTransformer={sanitizeOtpCode}
-                      autoComplete="one-time-code"
-                      value={otpCode}
-                      onChange={(value) => setOtpCode(sanitizeOtpCode(value))}
-                      disabled={isLoading}
-                      containerClassName="justify-center"
-                    >
-                      <InputOTPGroup>
-                        {Array.from({ length: 6 }).map((_, index) => (
-                          <InputOTPSlot key={index} index={index} />
-                        ))}
-                      </InputOTPGroup>
-                    </InputOTP>
-                  </div>
-                ) : null}
-
-                {otpMessage ? (
-                  <p className="text-sm text-muted-foreground">{otpMessage}</p>
-                ) : null}
-
-                <Button
-                  type="submit"
-                  disabled={
-                    isLoading ||
-                    !emailForOtp ||
-                    (otpSent && otpCode.length !== 6)
-                  }
-                  className="w-full"
-                  size="lg"
-                >
-                  {otpLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      {otpSent ? "Checking code..." : "Sending code..."}
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="mr-2 h-5 w-5" />
-                      {otpSent ? "Sign in with code" : "Send sign-in code"}
-                    </>
-                  )}
-                </Button>
-
-                {otpSent ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    disabled={isLoading}
-                    className="w-full"
-                    onClick={() => void sendOtp()}
-                  >
-                    Resend code
-                  </Button>
-                ) : null}
-              </form>
-
-              <div className="text-center pt-4">
-                <div className="mb-3">
-                  <Link to="/signin/magic" className="text-sm text-primary hover:underline">
-                    Forgot your password? Use a magic link
-                  </Link>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  By signing in, you agree to our{" "}
-                  <a href="/terms" className="text-primary hover:underline">
-                    Terms of Service
-                  </a>{" "}
-                  and{" "}
-                  <a href="/privacy" className="text-primary hover:underline">
-                    Privacy Policy
-                  </a>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="text-center mt-8">
-            <p className="text-sm text-muted-foreground">
-              Existing users will be signed in automatically.
-              <br />
-              New users will have an account created instantly.
-            </p>
-          </div>
+                Use a magic link
+              </Link>
+            </div>
+          </section>
         </div>
+
+        <footer className="mx-auto mt-14 w-full max-w-[480px] pt-2 text-sm text-[#555a62] lg:mt-auto lg:pt-16">
+          © {new Date().getFullYear()} KeenVPN. All rights reserved.
+        </footer>
       </main>
-      <Footer />
+
+      <AuthProductPreview />
     </div>
   );
 };
