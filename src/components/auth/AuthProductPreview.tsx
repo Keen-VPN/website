@@ -20,7 +20,7 @@ export default function AuthProductPreview() {
           decoding="async"
           fetchPriority="high"
           draggable={false}
-          className="block h-auto max-h-[calc(100dvh-7rem)] w-full scale-[1.015]"
+          className="block h-auto max-h-[calc(100dvh-11rem)] w-full scale-[1.015] xl:max-h-[calc(100dvh-12rem)]"
         />
       </div>
     </aside>
