@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { detectDevice } from "@/lib/device-detection";
+import { isAppDeepLinkSupported } from "@/lib/device-detection";
 import {
   OPEN_APP_DEEP_LINK,
   openKeenVpnAppStore,
@@ -29,8 +29,7 @@ export default function OpenApp() {
     [searchParams],
   );
   const appStoreUrl = useAppStoreUrl();
-  const device = useMemo(() => detectDevice(), []);
-  const canOpenApp = device !== "other";
+  const canOpenApp = useMemo(() => isAppDeepLinkSupported(), []);
   const [attemptedOpen, setAttemptedOpen] = useState(false);
   const cleanupAttemptRef = useRef<(() => void) | null>(null);
   const autoOpenStartedRef = useRef(false);

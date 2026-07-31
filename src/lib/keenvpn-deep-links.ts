@@ -153,6 +153,11 @@ export function openKeenVpnAppStore(downloadPageUrl?: string): void {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+function openKeenVpnAppStoreInSameTab(downloadPageUrl?: string): void {
+  const webUrl = resolveAppStoreDownloadUrl(downloadPageUrl);
+  window.location.assign(toNativeAppStoreSchemeUrl(webUrl));
+}
+
 /** @deprecated Use {@link openKeenVpnAppStore} */
 export const openKeenVpnDownloadPage = openKeenVpnAppStore;
 
@@ -228,7 +233,7 @@ export function openKeenVpnFromExternalPage(
   const fallbackTimer = window.setTimeout(() => {
     cleanupListeners();
     if (!didLeavePage) {
-      openKeenVpnAppStore(downloadPageUrl);
+      openKeenVpnAppStoreInSameTab(downloadPageUrl);
     }
   }, EXTERNAL_APP_OPEN_FALLBACK_MS);
 
@@ -237,7 +242,7 @@ export function openKeenVpnFromExternalPage(
   } catch {
     window.clearTimeout(fallbackTimer);
     cleanupListeners();
-    openKeenVpnAppStore(downloadPageUrl);
+    openKeenVpnAppStoreInSameTab(downloadPageUrl);
   }
 
   return () => {
