@@ -58,6 +58,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { AccountWorkspace } from "@/components/AccountWorkspace";
 import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
+import { ReceivedMembershipInviteBanner } from "@/components/ReceivedMembershipInviteBanner";
 import { ScheduledAnnualBillingNotice } from "@/components/ScheduledAnnualBillingNotice";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
 import {
@@ -767,6 +768,10 @@ const AccountInner = () => {
               Subscription, perks, and account settings — organized in one place.
             </p>
           </div>
+
+          {sessionToken ? (
+            <ReceivedMembershipInviteBanner sessionToken={sessionToken} />
+          ) : null}
 
           {/* Post-Stripe checkout — auto-opens app on iOS/macOS; primary CTA below */}
           {showPaymentCompleteBanner ? (

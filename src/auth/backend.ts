@@ -4804,6 +4804,90 @@ export async function adminUpdateMembershipSeatLimit(
   }
 }
 
+export interface ReceivedMembershipInvite {
+  id: string;
+  ownerEmail: string;
+  ownerName?: string | null;
+  planName?: string | null;
+  invitedAt: string;
+  expiresAt: string;
+}
+
+export interface MembershipInviteDetails {
+  valid: boolean;
+  inviteeEmail?: string;
+  ownerEmail?: string;
+  subscriptionStatus?: string;
+  chargeOnAccept?: boolean;
+  billingPending?: boolean;
+  creditPending?: boolean;
+  billingDeferredUntil?: string | null;
+  requiresAppleCancellation?: boolean;
+  prepaidAvailableSeats?: number | null;
+  nextAcceptanceWillCharge?: boolean;
+}
+
+export async function fetchReceivedMembershipInvites(
+  sessionToken: string,
+): Promise<{
+  ok: boolean;
+  data?: ReceivedMembershipInvite[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/membership-sharing/received-invites`,
+      {
+        credentials: "include",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const raw: unknown = await response.json().catch(() => []);
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load invitations"),
+      };
+    }
+    return { ok: true, data: raw as ReceivedMembershipInvite[] };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to load invitations",
+    };
+  }
+}
+
+export async function fetchReceivedMembershipInvite(
+  sessionToken: string,
+  inviteId: string,
+): Promise<{ ok: boolean; data?: MembershipInviteDetails; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/membership-sharing/received-invites/${encodeURIComponent(inviteId)}`,
+      {
+        credentials: "include",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to load invitation"),
+      };
+    }
+    return { ok: true, data: raw as MembershipInviteDetails };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to load invitation",
+    };
+  }
+}
+
 export async function acceptMembershipInvite(
   sessionToken: string,
   token: string,
@@ -4828,6 +4912,59 @@ export async function acceptMembershipInvite(
       },
       body: JSON.stringify({ token, ...confirmations }),
     });
+    const raw = (await response.json().catch(() => ({}))) as {
+      pending?: boolean;
+      billingDeferredUntil?: string | null;
+      requiresAppleCancellation?: boolean;
+    };
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to accept invitation"),
+      };
+    }
+    return {
+      ok: true,
+      pending: raw.pending === true,
+      billingDeferredUntil: raw.billingDeferredUntil ?? null,
+      requiresAppleCancellation: raw.requiresAppleCancellation === true,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to accept invitation",
+    };
+  }
+}
+
+export async function acceptReceivedMembershipInvite(
+  sessionToken: string,
+  inviteId: string,
+  confirmations: {
+    acceptsBusinessBilling: boolean;
+    acknowledgesPrivacy: boolean;
+  },
+): Promise<{
+  ok: boolean;
+  pending?: boolean;
+  billingDeferredUntil?: string | null;
+  requiresAppleCancellation?: boolean;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/membership-sharing/received-invites/${encodeURIComponent(inviteId)}/accept`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(confirmations),
+      },
+    );
     const raw = (await response.json().catch(() => ({}))) as {
       pending?: boolean;
       billingDeferredUntil?: string | null;
