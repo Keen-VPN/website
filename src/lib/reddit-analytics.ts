@@ -65,38 +65,12 @@ export function trackRedditPageVisit(path: string): void {
 }
 
 export function trackRedditLandingEngagement(path: string): void {
-  trackRedditEvent(
-    "Custom",
-    { customEventName: "LandingPageEngagement" },
-    `engagement:${path}`,
-  );
+  trackRedditEvent("ViewContent", undefined, `engagement:${path}`);
 }
 
-export function trackRedditRegistrationStarted(): void {
-  trackRedditEvent(
-    "Custom",
-    { customEventName: "RegistrationStarted" },
-    "registration-started",
-  );
-}
-
-export function trackRedditSignupButtonClick(source: string): void {
-  trackRedditEvent("Custom", {
-    customEventName: "SignUpButtonClick",
-    source,
-  });
-}
-
-export function trackRedditSignupCompleted(userId: string): void {
-  const conversionId = `signup:${userId}`;
-  trackRedditEvent("SignUp", { conversionId }, `signup-completed:${userId}`);
-}
-
-export function trackRedditFreeTrialButtonClick(source: string): void {
-  trackRedditEvent("Custom", {
-    customEventName: "FreeTrialButtonClick",
-    source,
-  });
+export function trackRedditLeadCompleted(userId: string): void {
+  const conversionId = `lead:${userId}`;
+  trackRedditEvent("Lead", { conversionId }, `lead-completed:${userId}`);
 }
 
 export function getRedditUuidCookie(): string | undefined {
