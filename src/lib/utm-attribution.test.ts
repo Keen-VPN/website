@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  appendStoredUtmsToDeepLink,
   captureUtmFromSearch,
   clearUtmAttributionStorage,
   getUtmAttributionAuthPayload,
@@ -72,5 +73,27 @@ describe("Reddit first-touch attribution", () => {
     expect(
       getUtmAttributionAuthPayload().utmAttribution?.landing_url,
     ).not.toContain("secret-token");
+  });
+
+  it("adds the current Reddit UUID cookie to a deep link with stored attribution", () => {
+    captureUtmFromSearch(
+      "?utm_source=reddit&rdt_cid=click-456",
+      "/pricing",
+    );
+    document.cookie = "_rdt_uuid=uuid-deep-link; Path=/";
+
+    const result = new URL(appendStoredUtmsToDeepLink("vpnkeen://open"));
+
+    expect(result.searchParams.get("utm_source")).toBe("reddit");
+    expect(result.searchParams.get("reddit_click_id")).toBe("click-456");
+    expect(result.searchParams.get("reddit_uuid")).toBe("uuid-deep-link");
+  });
+
+  it("adds the current Reddit UUID cookie to a deep link without stored attribution", () => {
+    document.cookie = "_rdt_uuid=uuid-only; Path=/";
+
+    const result = new URL(appendStoredUtmsToDeepLink("vpnkeen://open"));
+
+    expect(result.searchParams.get("reddit_uuid")).toBe("uuid-only");
   });
 });

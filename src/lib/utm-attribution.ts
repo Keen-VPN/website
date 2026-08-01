@@ -182,7 +182,13 @@ export function getUtmAttributionAuthPayload(): UtmAttributionAuthPayload {
 
 export function appendStoredUtmsToDeepLink(deepLink: string): string {
   const stored = getStoredUtmAttribution();
-  if (!stored) return deepLink;
+  const redditUuid = getRedditUuidCookie();
+  if (!stored && !redditUuid) return deepLink;
+
+  const attribution: Partial<StoredUtmAttribution> = {
+    ...(stored ?? {}),
+    ...(redditUuid ? { reddit_uuid: redditUuid } : {}),
+  };
 
   try {
     const url = new URL(deepLink);
@@ -199,7 +205,7 @@ export function appendStoredUtmsToDeepLink(deepLink: string): string {
       "captured_at",
     ] as const;
     for (const key of keys) {
-      const value = stored[key];
+      const value = attribution[key];
       if (
         typeof value === "string" &&
         value.trim() &&

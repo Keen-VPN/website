@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,6 +34,7 @@ const PaymentSuccess = () => {
   const fromNativeApp = useMemo(() => isNativeAppWebSession(), []);
   const unsupportedDevice = useMemo(() => getUnsupportedDeviceName(), []);
   const appStoreUrl = useAppStoreUrl();
+  const appOpenCleanupRef = useRef<(() => void) | null>(null);
   const preferReturnToApp =
     deepLinkSupported && (fromNativeApp || device === "windows");
 
@@ -42,6 +43,13 @@ const PaymentSuccess = () => {
     if (urlParams.get("asweb") === "1") {
       sessionStorage.setItem("asweb_session", "1");
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      appOpenCleanupRef.current?.();
+      appOpenCleanupRef.current = null;
+    };
   }, []);
 
   // Always "Download" + App Store — not getAppDownloadButtonLabel (that shows "Open" for subscribers).
@@ -53,16 +61,24 @@ const PaymentSuccess = () => {
   );
 
   const openAppStore = () => {
+    appOpenCleanupRef.current?.();
+    appOpenCleanupRef.current = null;
     window.open(resolvedAppStoreUrl, "_blank", "noopener,noreferrer");
   };
 
   const openNativeApp = () => {
+    appOpenCleanupRef.current?.();
+    appOpenCleanupRef.current = null;
+
     if (fromNativeApp) {
       openKeenVpnNativeApp(PAYMENT_SUCCESS_DEEP_LINK, resolvedAppStoreUrl);
       return;
     }
 
-    openKeenVpnFromExternalPage(PAYMENT_SUCCESS_DEEP_LINK, resolvedAppStoreUrl);
+    appOpenCleanupRef.current = openKeenVpnFromExternalPage(
+      PAYMENT_SUCCESS_DEEP_LINK,
+      resolvedAppStoreUrl,
+    );
   };
 
   return (
