@@ -4804,29 +4804,209 @@ export async function adminUpdateMembershipSeatLimit(
   }
 }
 
-export async function acceptMembershipInvite(
+export interface ReceivedMembershipInvite {
+  id: string;
+  ownerEmail: string;
+  ownerName?: string | null;
+  planName?: string | null;
+  invitedAt: string;
+  expiresAt: string;
+}
+
+export interface MembershipInviteDetails {
+  valid: boolean;
+  inviteeEmail?: string;
+  ownerEmail?: string;
+  subscriptionStatus?: string;
+  chargeOnAccept?: boolean;
+  billingPending?: boolean;
+  creditPending?: boolean;
+  billingDeferredUntil?: string | null;
+  requiresAppleCancellation?: boolean;
+  prepaidAvailableSeats?: number | null;
+  nextAcceptanceWillCharge?: boolean;
+}
+
+function isReceivedMembershipInvite(
+  value: unknown,
+): value is ReceivedMembershipInvite {
+  if (!value || typeof value !== "object") return false;
+  const invite = value as Record<string, unknown>;
+  return (
+    typeof invite.id === "string" &&
+    typeof invite.ownerEmail === "string" &&
+    (invite.ownerName === undefined ||
+      invite.ownerName === null ||
+      typeof invite.ownerName === "string") &&
+    (invite.planName === undefined ||
+      invite.planName === null ||
+      typeof invite.planName === "string") &&
+    typeof invite.invitedAt === "string" &&
+    typeof invite.expiresAt === "string"
+  );
+}
+
+export function isMembershipInviteDetails(
+  value: unknown,
+): value is MembershipInviteDetails {
+  if (!value || typeof value !== "object") return false;
+  const details = value as Record<string, unknown>;
+  const optionalString = (field: unknown) =>
+    field === undefined || typeof field === "string";
+  const optionalBoolean = (field: unknown) =>
+    field === undefined || typeof field === "boolean";
+  return (
+    typeof details.valid === "boolean" &&
+    optionalString(details.inviteeEmail) &&
+    optionalString(details.ownerEmail) &&
+    optionalString(details.subscriptionStatus) &&
+    optionalBoolean(details.chargeOnAccept) &&
+    optionalBoolean(details.billingPending) &&
+    optionalBoolean(details.creditPending) &&
+    (details.billingDeferredUntil === undefined ||
+      details.billingDeferredUntil === null ||
+      typeof details.billingDeferredUntil === "string") &&
+    optionalBoolean(details.requiresAppleCancellation) &&
+    (details.prepaidAvailableSeats === undefined ||
+      details.prepaidAvailableSeats === null ||
+      typeof details.prepaidAvailableSeats === "number") &&
+    optionalBoolean(details.nextAcceptanceWillCharge)
+  );
+}
+
+export async function fetchReceivedMembershipInvites(
   sessionToken: string,
-  token: string,
-  confirmations: {
-    acceptsBusinessBilling: boolean;
-    acknowledgesPrivacy: boolean;
-  },
 ): Promise<{
   ok: boolean;
+  status?: number;
+  data?: ReceivedMembershipInvite[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/membership-sharing/received-invites`,
+      {
+        credentials: "include",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    let raw: unknown;
+    try {
+      raw = await response.json();
+    } catch {
+      return {
+        ok: false,
+        status: response.status,
+        error: "The invitation service returned an unreadable response.",
+      };
+    }
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        error: extractBackendErrorMessage(raw, "Failed to load invitations"),
+      };
+    }
+    if (!Array.isArray(raw) || !raw.every(isReceivedMembershipInvite)) {
+      return {
+        ok: false,
+        status: response.status,
+        error: "The invitation service returned an unexpected response.",
+      };
+    }
+    return { ok: true, status: response.status, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to load invitations",
+    };
+  }
+}
+
+export async function fetchReceivedMembershipInvite(
+  sessionToken: string,
+  inviteId: string,
+): Promise<{
+  ok: boolean;
+  status?: number;
+  data?: MembershipInviteDetails;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/membership-sharing/received-invites/${encodeURIComponent(inviteId)}`,
+      {
+        credentials: "include",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    let raw: unknown;
+    try {
+      raw = await response.json();
+    } catch {
+      return {
+        ok: false,
+        status: response.status,
+        error: "The invitation service returned an unreadable response.",
+      };
+    }
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        error: extractBackendErrorMessage(raw, "Failed to load invitation"),
+      };
+    }
+    if (!isMembershipInviteDetails(raw)) {
+      return {
+        ok: false,
+        status: response.status,
+        error: "The invitation service returned an unexpected response.",
+      };
+    }
+    return {
+      ok: true,
+      status: response.status,
+      data: raw,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Failed to load invitation",
+    };
+  }
+}
+
+interface MembershipInviteAcceptanceConfirmations {
+  acceptsBusinessBilling: boolean;
+  acknowledgesPrivacy: boolean;
+}
+
+interface MembershipInviteAcceptanceResult {
+  ok: boolean;
+  status?: number;
   pending?: boolean;
   billingDeferredUntil?: string | null;
   requiresAppleCancellation?: boolean;
   error?: string;
-}> {
+}
+
+async function postMembershipInviteAcceptance(
+  sessionToken: string,
+  endpoint: string,
+  body: object,
+): Promise<MembershipInviteAcceptanceResult> {
   try {
-    const response = await fetch(`${BACKEND_URL}/membership-sharing/accept`, {
+    const response = await fetch(`${BACKEND_URL}${endpoint}`, {
       method: "POST",
       credentials: "include",
       headers: {
         Authorization: `Bearer ${sessionToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ token, ...confirmations }),
+      body: JSON.stringify(body),
     });
     const raw = (await response.json().catch(() => ({}))) as {
       pending?: boolean;
@@ -4836,11 +5016,13 @@ export async function acceptMembershipInvite(
     if (!response.ok) {
       return {
         ok: false,
+        status: response.status,
         error: extractBackendErrorMessage(raw, "Failed to accept invitation"),
       };
     }
     return {
       ok: true,
+      status: response.status,
       pending: raw.pending === true,
       billingDeferredUntil: raw.billingDeferredUntil ?? null,
       requiresAppleCancellation: raw.requiresAppleCancellation === true,
@@ -4852,6 +5034,30 @@ export async function acceptMembershipInvite(
         error instanceof Error ? error.message : "Failed to accept invitation",
     };
   }
+}
+
+export async function acceptMembershipInvite(
+  sessionToken: string,
+  token: string,
+  confirmations: MembershipInviteAcceptanceConfirmations,
+): Promise<MembershipInviteAcceptanceResult> {
+  return postMembershipInviteAcceptance(
+    sessionToken,
+    "/membership-sharing/accept",
+    { token, ...confirmations },
+  );
+}
+
+export async function acceptReceivedMembershipInvite(
+  sessionToken: string,
+  inviteId: string,
+  confirmations: MembershipInviteAcceptanceConfirmations,
+): Promise<MembershipInviteAcceptanceResult> {
+  return postMembershipInviteAcceptance(
+    sessionToken,
+    `/membership-sharing/received-invites/${encodeURIComponent(inviteId)}/accept`,
+    confirmations,
+  );
 }
 
 export async function fetchMembershipSharingDashboard(

@@ -58,6 +58,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { AccountWorkspace } from "@/components/AccountWorkspace";
 import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
+import { ReceivedMembershipInviteBanner } from "@/components/ReceivedMembershipInviteBanner";
 import { ScheduledAnnualBillingNotice } from "@/components/ScheduledAnnualBillingNotice";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
 import {
@@ -297,10 +298,15 @@ const AccountInner = () => {
   // The session token may not be in localStorage yet when Account first mounts
   // (AuthContext is still verifying with the backend). Poll until it arrives.
   const [sessionToken, setSessionToken] = useState<string | null>(() =>
-    isASWeb ? getSessionToken() : null,
+    getSessionToken(),
   );
   useEffect(() => {
-    if (!isASWeb || sessionToken) return;
+    if (!hasSessionToken) {
+      setSessionToken(null);
+      return;
+    }
+    if (sessionToken) return;
+
     const id = setInterval(() => {
       const token = getSessionToken();
       if (token) {
@@ -309,7 +315,7 @@ const AccountInner = () => {
       }
     }, 200);
     return () => clearInterval(id);
-  }, [isASWeb, sessionToken]);
+  }, [hasSessionToken, sessionToken]);
 
   // Auto-return to the macOS app after ASWeb Google login (fallback if AuthContext handoff missed).
   useEffect(() => {
@@ -767,6 +773,10 @@ const AccountInner = () => {
               Subscription, perks, and account settings — organized in one place.
             </p>
           </div>
+
+          {sessionToken ? (
+            <ReceivedMembershipInviteBanner sessionToken={sessionToken} />
+          ) : null}
 
           {/* Post-Stripe checkout — auto-opens app on iOS/macOS; primary CTA below */}
           {showPaymentCompleteBanner ? (

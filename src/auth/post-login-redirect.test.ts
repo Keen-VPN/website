@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSignInUrl,
+  buildSignInUrlForCurrentLocation,
   consumePostLoginRedirect,
   capturePostLoginRedirectFromSearch,
   sanitizePostLoginRedirect,
@@ -69,7 +70,10 @@ describe("post-login redirect storage", () => {
     const storage = createStorage();
     storage.setItem("keenvpn_post_login_redirect", "/perks");
 
-    capturePostLoginRedirectFromSearch("?redirect=https%3A%2F%2Fevil.com", storage);
+    capturePostLoginRedirectFromSearch(
+      "?redirect=https%3A%2F%2Fevil.com",
+      storage,
+    );
 
     expect(storage.getItem("keenvpn_post_login_redirect")).toBeNull();
   });
@@ -79,6 +83,18 @@ describe("buildSignInUrl", () => {
   it("includes redirect and asweb params when valid", () => {
     expect(buildSignInUrl({ redirect: "/perks", asweb: true })).toBe(
       "/signin?asweb=1&redirect=%2Fperks",
+    );
+  });
+
+  it("builds a sign-in URL that returns to the current page", () => {
+    expect(
+      buildSignInUrlForCurrentLocation({
+        pathname: "/account/membership-sharing/accept",
+        search: "?inviteId=invite-1",
+        hash: "#team",
+      }),
+    ).toBe(
+      "/signin?redirect=%2Faccount%2Fmembership-sharing%2Faccept%3FinviteId%3Dinvite-1%23team",
     );
   });
 });

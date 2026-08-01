@@ -92,3 +92,11 @@ export function buildSignInUrl(options?: {
   const query = params.toString();
   return query ? `/signin?${query}` : "/signin";
 }
+
+export function buildSignInUrlForCurrentLocation(
+  location: Pick<Location, "pathname" | "search" | "hash"> = window.location,
+): string {
+  return buildSignInUrl({
+    redirect: `${location.pathname}${location.search}${location.hash}`,
+  });
+}
