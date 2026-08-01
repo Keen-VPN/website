@@ -94,9 +94,9 @@ export function buildSignInUrl(options?: {
 }
 
 export function buildSignInUrlForCurrentLocation(
-  location: Pick<Location, "pathname" | "search"> = window.location,
+  location: Pick<Location, "pathname" | "search" | "hash"> = window.location,
 ): string {
   return buildSignInUrl({
-    redirect: `${location.pathname}${location.search}`,
+    redirect: `${location.pathname}${location.search}${location.hash}`,
   });
 }

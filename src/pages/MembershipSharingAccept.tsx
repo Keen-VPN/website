@@ -90,7 +90,12 @@ export default function MembershipSharingAccept() {
   const token = searchParams.get("token")?.trim() ?? "";
   const inviteId = searchParams.get("inviteId")?.trim() ?? "";
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const {
+    user,
+    loading: authLoading,
+    isAuthenticating,
+    hasSessionToken,
+  } = useAuth();
   const appStoreUrl = useAppStoreUrl();
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState<string | null>(null);
@@ -107,8 +112,12 @@ export default function MembershipSharingAccept() {
   const [reauthReason, setReauthReason] = useState<ReauthReason | null>(null);
   const [reauthenticating, setReauthenticating] = useState(false);
   const [loadRetryAvailable, setLoadRetryAvailable] = useState(false);
+  const [acceptRetryAvailable, setAcceptRetryAvailable] = useState(false);
   const [loadRetryCount, setLoadRetryCount] = useState(0);
   const [accepted, setAccepted] = useState(false);
+  const [receivedInviteSessionToken, setReceivedInviteSessionToken] = useState<
+    string | null
+  >(() => getSessionToken());
   const resumeAcceptAttemptedRef = useRef(false);
   const appOpenCleanupRef = useRef<(() => void) | null>(null);
 
@@ -118,6 +127,27 @@ export default function MembershipSharingAccept() {
     },
     [],
   );
+
+  useEffect(() => {
+    const currentToken = getSessionToken();
+    setReceivedInviteSessionToken(currentToken);
+    if (
+      currentToken ||
+      (!authLoading && !isAuthenticating && !hasSessionToken)
+    ) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      const nextToken = getSessionToken();
+      if (nextToken) {
+        setReceivedInviteSessionToken(nextToken);
+        window.clearInterval(intervalId);
+      }
+    }, 200);
+
+    return () => window.clearInterval(intervalId);
+  }, [authLoading, hasSessionToken, isAuthenticating]);
 
   useEffect(() => {
     setLoading(true);
@@ -131,6 +161,7 @@ export default function MembershipSharingAccept() {
     setReauthReason(null);
     setReauthenticating(false);
     setLoadRetryAvailable(false);
+    setAcceptRetryAvailable(false);
     setAccepted(false);
     setConfirmationAccepted(false);
     resumeAcceptAttemptedRef.current = false;
@@ -148,8 +179,11 @@ export default function MembershipSharingAccept() {
       return;
     }
 
-    const sessionToken = inviteId ? getSessionToken() : null;
+    const sessionToken = inviteId ? receivedInviteSessionToken : null;
     if (inviteId && !sessionToken) {
+      if (authLoading || isAuthenticating || hasSessionToken) {
+        return;
+      }
       navigate(buildSignInUrlForCurrentLocation());
       return;
     }
@@ -236,7 +270,16 @@ export default function MembershipSharingAccept() {
     return () => {
       cancelled = true;
     };
-  }, [inviteId, loadRetryCount, navigate, token]);
+  }, [
+    authLoading,
+    hasSessionToken,
+    inviteId,
+    isAuthenticating,
+    loadRetryCount,
+    navigate,
+    receivedInviteSessionToken,
+    token,
+  ]);
 
   const acceptWithSessionToken = useCallback(
     async (
@@ -258,6 +301,7 @@ export default function MembershipSharingAccept() {
 
       setLoading(true);
       setError(null);
+      setAcceptRetryAvailable(false);
       try {
         const confirmations = {
           acceptsBusinessBilling: true,
@@ -290,6 +334,7 @@ export default function MembershipSharingAccept() {
             );
             return;
           }
+          setAcceptRetryAvailable(true);
           setError(res.error ?? "Could not accept invitation.");
           return;
         }
@@ -447,6 +492,10 @@ export default function MembershipSharingAccept() {
                   : reauthReason === "wrong_account"
                     ? "Switch account"
                     : "Sign in again"}
+              </Button>
+            ) : acceptRetryAvailable ? (
+              <Button type="button" onClick={() => void handleAccept()}>
+                Try accepting again
               </Button>
             ) : loadRetryAvailable ? (
               <Button type="button" onClick={handleRetryLoad}>

@@ -91,9 +91,10 @@ describe("buildSignInUrl", () => {
       buildSignInUrlForCurrentLocation({
         pathname: "/account/membership-sharing/accept",
         search: "?inviteId=invite-1",
+        hash: "#team",
       }),
     ).toBe(
-      "/signin?redirect=%2Faccount%2Fmembership-sharing%2Faccept%3FinviteId%3Dinvite-1",
+      "/signin?redirect=%2Faccount%2Fmembership-sharing%2Faccept%3FinviteId%3Dinvite-1%23team",
     );
   });
 });
