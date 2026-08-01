@@ -47,6 +47,8 @@ describe("reddit analytics", () => {
 
     expect(analytics.isRedditEngagedContentPath("/")).toBe(true);
     expect(analytics.isRedditEngagedContentPath("/pricing")).toBe(true);
+    expect(analytics.isRedditEngagedContentPath("/pricing/")).toBe(true);
+    expect(analytics.isRedditEngagedContentPath("/servers///")).toBe(true);
     expect(analytics.isRedditEngagedContentPath("/account")).toBe(false);
     expect(analytics.isRedditEngagedContentPath("/admin")).toBe(false);
     expect(analytics.isRedditEngagedContentPath("/payment-success")).toBe(

@@ -84,7 +84,8 @@ export function trackRedditConfirmedTrial(conversionId: string): void {
 const ENGAGED_CONTENT_PATHS = new Set(["/", "/pricing", "/servers", "/switch"]);
 
 export function isRedditEngagedContentPath(pathname: string): boolean {
-  return ENGAGED_CONTENT_PATHS.has(pathname);
+  const normalizedPath = pathname.replace(/\/+$/, "") || "/";
+  return ENGAGED_CONTENT_PATHS.has(normalizedPath);
 }
 
 export function getRedditUuidCookie(): string | undefined {
