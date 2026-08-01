@@ -4888,29 +4888,33 @@ export async function fetchReceivedMembershipInvite(
   }
 }
 
-export async function acceptMembershipInvite(
-  sessionToken: string,
-  token: string,
-  confirmations: {
-    acceptsBusinessBilling: boolean;
-    acknowledgesPrivacy: boolean;
-  },
-): Promise<{
+interface MembershipInviteAcceptanceConfirmations {
+  acceptsBusinessBilling: boolean;
+  acknowledgesPrivacy: boolean;
+}
+
+interface MembershipInviteAcceptanceResult {
   ok: boolean;
   pending?: boolean;
   billingDeferredUntil?: string | null;
   requiresAppleCancellation?: boolean;
   error?: string;
-}> {
+}
+
+async function postMembershipInviteAcceptance(
+  sessionToken: string,
+  endpoint: string,
+  body: object,
+): Promise<MembershipInviteAcceptanceResult> {
   try {
-    const response = await fetch(`${BACKEND_URL}/membership-sharing/accept`, {
+    const response = await fetch(`${BACKEND_URL}${endpoint}`, {
       method: "POST",
       credentials: "include",
       headers: {
         Authorization: `Bearer ${sessionToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ token, ...confirmations }),
+      body: JSON.stringify(body),
     });
     const raw = (await response.json().catch(() => ({}))) as {
       pending?: boolean;
@@ -4938,57 +4942,28 @@ export async function acceptMembershipInvite(
   }
 }
 
+export async function acceptMembershipInvite(
+  sessionToken: string,
+  token: string,
+  confirmations: MembershipInviteAcceptanceConfirmations,
+): Promise<MembershipInviteAcceptanceResult> {
+  return postMembershipInviteAcceptance(
+    sessionToken,
+    "/membership-sharing/accept",
+    { token, ...confirmations },
+  );
+}
+
 export async function acceptReceivedMembershipInvite(
   sessionToken: string,
   inviteId: string,
-  confirmations: {
-    acceptsBusinessBilling: boolean;
-    acknowledgesPrivacy: boolean;
-  },
-): Promise<{
-  ok: boolean;
-  pending?: boolean;
-  billingDeferredUntil?: string | null;
-  requiresAppleCancellation?: boolean;
-  error?: string;
-}> {
-  try {
-    const response = await fetch(
-      `${BACKEND_URL}/membership-sharing/received-invites/${encodeURIComponent(inviteId)}/accept`,
-      {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          Authorization: `Bearer ${sessionToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(confirmations),
-      },
-    );
-    const raw = (await response.json().catch(() => ({}))) as {
-      pending?: boolean;
-      billingDeferredUntil?: string | null;
-      requiresAppleCancellation?: boolean;
-    };
-    if (!response.ok) {
-      return {
-        ok: false,
-        error: extractBackendErrorMessage(raw, "Failed to accept invitation"),
-      };
-    }
-    return {
-      ok: true,
-      pending: raw.pending === true,
-      billingDeferredUntil: raw.billingDeferredUntil ?? null,
-      requiresAppleCancellation: raw.requiresAppleCancellation === true,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      error:
-        error instanceof Error ? error.message : "Failed to accept invitation",
-    };
-  }
+  confirmations: MembershipInviteAcceptanceConfirmations,
+): Promise<MembershipInviteAcceptanceResult> {
+  return postMembershipInviteAcceptance(
+    sessionToken,
+    `/membership-sharing/received-invites/${encodeURIComponent(inviteId)}/accept`,
+    confirmations,
+  );
 }
 
 export async function fetchMembershipSharingDashboard(

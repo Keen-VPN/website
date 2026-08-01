@@ -298,10 +298,15 @@ const AccountInner = () => {
   // The session token may not be in localStorage yet when Account first mounts
   // (AuthContext is still verifying with the backend). Poll until it arrives.
   const [sessionToken, setSessionToken] = useState<string | null>(() =>
-    isASWeb ? getSessionToken() : null,
+    getSessionToken(),
   );
   useEffect(() => {
-    if (!isASWeb || sessionToken) return;
+    if (!hasSessionToken) {
+      setSessionToken(null);
+      return;
+    }
+    if (sessionToken) return;
+
     const id = setInterval(() => {
       const token = getSessionToken();
       if (token) {
@@ -310,7 +315,7 @@ const AccountInner = () => {
       }
     }, 200);
     return () => clearInterval(id);
-  }, [isASWeb, sessionToken]);
+  }, [hasSessionToken, sessionToken]);
 
   // Auto-return to the macOS app after ASWeb Google login (fallback if AuthContext handoff missed).
   useEffect(() => {

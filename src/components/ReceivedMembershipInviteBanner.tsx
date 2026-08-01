@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Mail } from "lucide-react";
 import {
@@ -20,20 +20,48 @@ export function ReceivedMembershipInviteBanner({
   sessionToken,
 }: ReceivedMembershipInviteBannerProps) {
   const [invites, setInvites] = useState<ReceivedMembershipInvite[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  const retry = useCallback(() => {
+    setRetryCount((count) => count + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
+    setError(null);
 
     void fetchReceivedMembershipInvites(sessionToken).then((result) => {
-      if (!cancelled && result.ok) {
+      if (cancelled) return;
+      if (result.ok) {
         setInvites(result.data ?? []);
+        return;
       }
+      setError(result.error ?? "Could not load team invitations.");
     });
 
     return () => {
       cancelled = true;
     };
-  }, [sessionToken]);
+  }, [retryCount, sessionToken]);
+
+  if (error && invites.length === 0) {
+    return (
+      <Card className="mb-8 border-amber-500/40 bg-amber-500/5">
+        <CardContent className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-semibold text-foreground">
+              Team invitations could not be loaded
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">{error}</p>
+          </div>
+          <Button type="button" variant="outline" onClick={retry}>
+            Try again
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (invites.length === 0) return null;
 

@@ -25,8 +25,7 @@ const CONFIRMATION_COPY =
   "I understand that my company will pay for my KeenVPN subscription. I understand that my company can see my membership status but will never get access to my browsing history or data.";
 
 interface PendingAcceptIntent {
-  token?: string;
-  inviteId?: string;
+  token: string;
   acceptsBusinessBilling: boolean;
   acknowledgesPrivacy: boolean;
 }
@@ -34,10 +33,8 @@ interface PendingAcceptIntent {
 function inviteIntentMatches(
   intent: PendingAcceptIntent | null,
   token: string,
-  inviteId: string,
 ): boolean {
-  if (!intent) return false;
-  return inviteId ? intent.inviteId === inviteId : intent.token === token;
+  return intent?.token === token;
 }
 
 function readPendingAcceptIntent(): PendingAcceptIntent | null {
@@ -46,8 +43,7 @@ function readPendingAcceptIntent(): PendingAcceptIntent | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PendingAcceptIntent;
     if (
-      (typeof parsed?.token !== "string" &&
-        typeof parsed?.inviteId !== "string") ||
+      typeof parsed?.token !== "string" ||
       parsed.acceptsBusinessBilling !== true ||
       parsed.acknowledgesPrivacy !== true
     ) {
@@ -123,7 +119,7 @@ export default function MembershipSharingAccept() {
     resumeAcceptAttemptedRef.current = false;
 
     const pendingIntent = readPendingAcceptIntent();
-    if (inviteIntentMatches(pendingIntent, token, inviteId)) {
+    if (!inviteId && inviteIntentMatches(pendingIntent, token)) {
       setConfirmationAccepted(true);
     } else {
       setConfirmationAccepted(false);
@@ -224,11 +220,13 @@ export default function MembershipSharingAccept() {
   async function handleAccept() {
     const sessionToken = getSessionToken();
     if (!sessionToken) {
-      storePendingAcceptIntent({
-        ...(inviteId ? { inviteId } : { token }),
-        acceptsBusinessBilling: true,
-        acknowledgesPrivacy: true,
-      });
+      if (!inviteId) {
+        storePendingAcceptIntent({
+          token,
+          acceptsBusinessBilling: true,
+          acknowledgesPrivacy: true,
+        });
+      }
       navigate(
         `/signin?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`,
       );
@@ -248,16 +246,13 @@ export default function MembershipSharingAccept() {
       accepted ||
       error ||
       resumeAcceptAttemptedRef.current ||
-      (!token && !inviteId)
+      !token
     ) {
       return;
     }
 
     const pendingIntent = readPendingAcceptIntent();
-    if (
-      !pendingIntent ||
-      !inviteIntentMatches(pendingIntent, token, inviteId)
-    ) {
+    if (!pendingIntent || !inviteIntentMatches(pendingIntent, token)) {
       return;
     }
 
@@ -281,7 +276,6 @@ export default function MembershipSharingAccept() {
     accepted,
     error,
     inviteEmail,
-    inviteId,
     loading,
     token,
     user?.email,
