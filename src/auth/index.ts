@@ -127,6 +127,7 @@ export type {
   AdminUserProfileAudience,
   AdminUserProfileQuestionSummary,
   AdminUserProfileSummary,
+  SubscriptionStatusResult,
 } from './backend';
 
 export {

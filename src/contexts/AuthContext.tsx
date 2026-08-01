@@ -23,6 +23,7 @@ import {
   type TrialData,
   type UserEntitlements,
   type SignInResult,
+  type SubscriptionStatusResult,
   getSignupSourceStatus,
 } from '@/auth';
 import { SignupSourceDialog } from '@/components/SignupSourceDialog';
@@ -64,7 +65,7 @@ interface AuthContextType {
   authProvider: string | null;
   signIn: (provider?: 'google' | 'apple') => Promise<{ success: boolean; shouldRedirect?: string }>;
   logout: () => Promise<void>;
-  refreshSubscription: () => Promise<void>;
+  refreshSubscription: () => Promise<SubscriptionStatusResult | null>;
   refreshLinkedProviders: () => Promise<void>;
 }
 
@@ -175,7 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTrial(response.trial ?? null);
         setEntitlements(response.entitlements);
         setEntitlementsStatus(response.entitlements ? "ready" : "error");
-        return response.subscription;
+        return response;
       }
       if (response.unauthorized) {
         // Only clear auth state if the token we got a 401 for is still
@@ -929,8 +930,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const sessionToken = getSessionToken();
     setHasSessionToken(Boolean(sessionToken));
     if (sessionToken) {
-      await fetchSubscriptionFromBackend(sessionToken);
+      return fetchSubscriptionFromBackend(sessionToken);
     }
+    return null;
   }, [fetchSubscriptionFromBackend]);
 
   // ============================================================================

@@ -53,6 +53,7 @@ import {
   saveContactEmail,
   sendContactEmailVerification,
   skipContactEmailPrompt,
+  type SubscriptionStatusResult,
 } from "@/auth";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -102,6 +103,7 @@ import {
   shouldAutoOpenAppAfterStripeCheckout,
   shouldShowStripePostCheckoutUi,
 } from "@/lib/keenvpn-deep-links";
+import { trackRedditConfirmedTrial } from "@/lib/reddit-analytics";
 
 const AccountInner = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
@@ -393,22 +395,32 @@ const AccountInner = () => {
       const timeoutMs = 4000;
 
       const runRefreshWithTimeout = async () => {
-        await Promise.race([
+        return Promise.race([
           refreshSubscription(),
-          new Promise<void>((resolve) => {
-            window.setTimeout(resolve, timeoutMs);
+          new Promise<null>((resolve) => {
+            window.setTimeout(() => resolve(null), timeoutMs);
           }),
         ]);
       };
 
+      let latestStatus: SubscriptionStatusResult | null = null;
       for (let attempt = 0; attempt < attempts && !cancelled; attempt += 1) {
-        await runRefreshWithTimeout();
+        const status = await runRefreshWithTimeout();
+        if (status) {
+          latestStatus = status;
+        }
         if (attempt < attempts - 1) {
           await new Promise((resolve) => window.setTimeout(resolve, 600));
         }
       }
 
       if (!cancelled) {
+        if (
+          latestStatus?.trial?.active &&
+          latestStatus.redditTrialConversionId
+        ) {
+          trackRedditConfirmedTrial(latestStatus.redditTrialConversionId);
+        }
         setSubscriptionLoading(false);
         setInitialSubscriptionChecked(true);
         navigate(accountPathAfterStripeReturn, { replace: true });

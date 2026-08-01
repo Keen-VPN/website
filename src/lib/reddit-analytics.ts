@@ -73,6 +73,20 @@ export function trackRedditLeadCompleted(userId: string): void {
   trackRedditEvent("Lead", { conversionId }, `lead-completed:${userId}`);
 }
 
+export function trackRedditConfirmedTrial(conversionId: string): void {
+  trackRedditEvent(
+    "SignUp",
+    { conversionId },
+    `trial-confirmed:${conversionId}`,
+  );
+}
+
+const ENGAGED_CONTENT_PATHS = new Set(["/", "/pricing", "/servers", "/switch"]);
+
+export function isRedditEngagedContentPath(pathname: string): boolean {
+  return ENGAGED_CONTENT_PATHS.has(pathname);
+}
+
 export function getRedditUuidCookie(): string | undefined {
   if (typeof document === "undefined") return undefined;
   const match = document.cookie

@@ -30,4 +30,27 @@ describe("reddit analytics", () => {
       ["track", "ViewContent", undefined],
     ]);
   });
+
+  it("emits a deduplicated SignUp only for a backend-confirmed trial", async () => {
+    const analytics = await import("./reddit-analytics");
+    analytics.trackRedditConfirmedTrial("trial:user-1");
+    analytics.trackRedditConfirmedTrial("trial:user-1");
+
+    expect(window.rdt?.callQueue).toEqual([
+      ["init", "pixel-123"],
+      ["track", "SignUp", { conversionId: "trial:user-1" }],
+    ]);
+  });
+
+  it("limits engaged content tracking to public campaign landing routes", async () => {
+    const analytics = await import("./reddit-analytics");
+
+    expect(analytics.isRedditEngagedContentPath("/")).toBe(true);
+    expect(analytics.isRedditEngagedContentPath("/pricing")).toBe(true);
+    expect(analytics.isRedditEngagedContentPath("/account")).toBe(false);
+    expect(analytics.isRedditEngagedContentPath("/admin")).toBe(false);
+    expect(analytics.isRedditEngagedContentPath("/payment-success")).toBe(
+      false,
+    );
+  });
 });

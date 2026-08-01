@@ -240,6 +240,7 @@ export interface SubscriptionStatusResult {
   entitlements: UserEntitlements | null;
   subscription: SubscriptionData | null;
   trial: TrialData | null;
+  redditTrialConversionId?: string | null;
   annualSavings?: {
     savingsPercent: number;
     yearlySavingsAmount: number;
@@ -1658,6 +1659,7 @@ export async function fetchSubscriptionStatusWithSession(
       entitlements,
       subscription: normalized.subscription ?? null,
       trial: normalized.trial ?? null,
+      redditTrialConversionId: normalized.redditTrialConversionId ?? null,
       annualSavings,
       error: normalized.error,
       unauthorized: normalized.unauthorized,
