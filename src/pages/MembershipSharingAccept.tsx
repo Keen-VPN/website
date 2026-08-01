@@ -8,8 +8,10 @@ import {
   acceptMembershipInvite,
   acceptReceivedMembershipInvite,
   BACKEND_URL,
+  clearSessionToken,
   fetchReceivedMembershipInvite,
   getSessionToken,
+  type MembershipInviteDetails,
 } from "@/auth/backend";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
@@ -159,20 +161,45 @@ export default function MembershipSharingAccept() {
             ? await fetchReceivedMembershipInvite(sessionToken, inviteId)
             : await fetch(
                 `${BACKEND_URL}/membership-sharing/invite/${encodeURIComponent(token)}`,
-              ).then(async (res) => ({
-                ok: res.ok,
-                data: await res.json().catch(() => ({})),
-              }));
+              ).then(async (res) => {
+                const raw: unknown = await res.json().catch(() => undefined);
+                return {
+                  ok: res.ok,
+                  status: res.status,
+                  data:
+                    raw && typeof raw === "object"
+                      ? (raw as MembershipInviteDetails)
+                      : undefined,
+                  error:
+                    raw === undefined
+                      ? "The invitation service returned an unreadable response."
+                      : undefined,
+                };
+              });
         const data = result.data;
         if (cancelled) return;
-        if (data?.valid === false) {
+        if (inviteId && result.status === 401) {
+          clearSessionToken();
+          window.location.href = `/signin?redirect=${encodeURIComponent(
+            window.location.pathname + window.location.search,
+          )}`;
+          return;
+        }
+        if (
+          data?.valid === false ||
+          result.status === 404 ||
+          result.status === 410
+        ) {
           clearMatchingPendingAcceptIntent(token, inviteId);
           setError("This invitation is invalid or has expired.");
           setLoading(false);
           return;
         }
         if (!result.ok || data?.valid !== true) {
-          setError("Could not load invitation details. Please try again.");
+          setError(
+            result.error ??
+              "Could not load invitation details. Please try again.",
+          );
           setLoading(false);
           return;
         }

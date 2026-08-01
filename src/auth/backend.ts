@@ -4861,7 +4861,15 @@ export async function fetchReceivedMembershipInvites(
         headers: { Authorization: `Bearer ${sessionToken}` },
       },
     );
-    const raw: unknown = await response.json().catch(() => []);
+    let raw: unknown;
+    try {
+      raw = await response.json();
+    } catch {
+      return {
+        ok: false,
+        error: "The invitation service returned an unreadable response.",
+      };
+    }
     if (!response.ok) {
       return {
         ok: false,
@@ -4887,7 +4895,12 @@ export async function fetchReceivedMembershipInvites(
 export async function fetchReceivedMembershipInvite(
   sessionToken: string,
   inviteId: string,
-): Promise<{ ok: boolean; data?: MembershipInviteDetails; error?: string }> {
+): Promise<{
+  ok: boolean;
+  status?: number;
+  data?: MembershipInviteDetails;
+  error?: string;
+}> {
   try {
     const response = await fetch(
       `${BACKEND_URL}/membership-sharing/received-invites/${encodeURIComponent(inviteId)}`,
@@ -4896,14 +4909,28 @@ export async function fetchReceivedMembershipInvite(
         headers: { Authorization: `Bearer ${sessionToken}` },
       },
     );
-    const raw: unknown = await response.json().catch(() => ({}));
+    let raw: unknown;
+    try {
+      raw = await response.json();
+    } catch {
+      return {
+        ok: false,
+        status: response.status,
+        error: "The invitation service returned an unreadable response.",
+      };
+    }
     if (!response.ok) {
       return {
         ok: false,
+        status: response.status,
         error: extractBackendErrorMessage(raw, "Failed to load invitation"),
       };
     }
-    return { ok: true, data: raw as MembershipInviteDetails };
+    return {
+      ok: true,
+      status: response.status,
+      data: raw as MembershipInviteDetails,
+    };
   } catch (error) {
     return {
       ok: false,
