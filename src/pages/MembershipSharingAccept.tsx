@@ -165,9 +165,14 @@ export default function MembershipSharingAccept() {
               }));
         const data = result.data;
         if (cancelled) return;
-        if (!result.ok || !data?.valid) {
+        if (data?.valid === false) {
           clearMatchingPendingAcceptIntent(token, inviteId);
           setError("This invitation is invalid or has expired.");
+          setLoading(false);
+          return;
+        }
+        if (!result.ok || data?.valid !== true) {
+          setError("Could not load invitation details. Please try again.");
           setLoading(false);
           return;
         }

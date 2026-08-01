@@ -75,7 +75,7 @@ export function ReceivedMembershipInviteBanner({
   if (invites.length === 0) return null;
 
   return (
-    <div className="mb-8 space-y-3" aria-label="Pending team invitations">
+    <section className="mb-8 space-y-3" aria-label="Pending team invitations">
       {invites.map((invite) => (
         <Card
           key={invite.id}
@@ -105,6 +105,6 @@ export function ReceivedMembershipInviteBanner({
           </CardContent>
         </Card>
       ))}
-    </div>
+    </section>
   );
 }
