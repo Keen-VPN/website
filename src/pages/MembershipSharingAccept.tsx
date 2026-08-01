@@ -25,7 +25,8 @@ const CONFIRMATION_COPY =
   "I understand that my company will pay for my KeenVPN subscription. I understand that my company can see my membership status but will never get access to my browsing history or data.";
 
 interface PendingAcceptIntent {
-  token: string;
+  token?: string;
+  inviteId?: string;
   acceptsBusinessBilling: boolean;
   acknowledgesPrivacy: boolean;
 }
@@ -33,8 +34,10 @@ interface PendingAcceptIntent {
 function inviteIntentMatches(
   intent: PendingAcceptIntent | null,
   token: string,
+  inviteId: string,
 ): boolean {
-  return intent?.token === token;
+  if (!intent) return false;
+  return inviteId ? intent.inviteId === inviteId : intent.token === token;
 }
 
 function readPendingAcceptIntent(): PendingAcceptIntent | null {
@@ -42,8 +45,10 @@ function readPendingAcceptIntent(): PendingAcceptIntent | null {
     const raw = sessionStorage.getItem(PENDING_ACCEPT_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PendingAcceptIntent;
+    const hasToken = typeof parsed?.token === "string";
+    const hasInviteId = typeof parsed?.inviteId === "string";
     if (
-      typeof parsed?.token !== "string" ||
+      hasToken === hasInviteId ||
       parsed.acceptsBusinessBilling !== true ||
       parsed.acknowledgesPrivacy !== true
     ) {
@@ -61,6 +66,15 @@ function storePendingAcceptIntent(intent: PendingAcceptIntent): void {
 
 function clearPendingAcceptIntent(): void {
   sessionStorage.removeItem(PENDING_ACCEPT_STORAGE_KEY);
+}
+
+function clearMatchingPendingAcceptIntent(
+  token: string,
+  inviteId: string,
+): void {
+  if (inviteIntentMatches(readPendingAcceptIntent(), token, inviteId)) {
+    clearPendingAcceptIntent();
+  }
 }
 
 export default function MembershipSharingAccept() {
@@ -119,7 +133,7 @@ export default function MembershipSharingAccept() {
     resumeAcceptAttemptedRef.current = false;
 
     const pendingIntent = readPendingAcceptIntent();
-    if (!inviteId && inviteIntentMatches(pendingIntent, token)) {
+    if (inviteIntentMatches(pendingIntent, token, inviteId)) {
       setConfirmationAccepted(true);
     } else {
       setConfirmationAccepted(false);
@@ -140,7 +154,7 @@ export default function MembershipSharingAccept() {
         const data = result.data;
         if (cancelled) return;
         if (!result.ok || !data?.valid) {
-          clearPendingAcceptIntent();
+          clearMatchingPendingAcceptIntent(token, inviteId);
           setError("This invitation is invalid or has expired.");
           setLoading(false);
           return;
@@ -150,7 +164,7 @@ export default function MembershipSharingAccept() {
         setBillingPending(data.billingPending === true);
         setRequiresAppleCancellation(data.requiresAppleCancellation === true);
         if (data.creditPending === true) {
-          clearPendingAcceptIntent();
+          clearMatchingPendingAcceptIntent(token, inviteId);
           setCreditPending(true);
           setBillingDeferredUntil(data.billingDeferredUntil ?? null);
           setAccepted(true);
@@ -205,7 +219,7 @@ export default function MembershipSharingAccept() {
           setError(res.error ?? "Could not accept invitation.");
           return;
         }
-        clearPendingAcceptIntent();
+        clearMatchingPendingAcceptIntent(token, inviteId);
         setBillingDeferredUntil(res.billingDeferredUntil ?? null);
         setRequiresAppleCancellation(res.requiresAppleCancellation === true);
         setCreditPending(res.pending === true);
@@ -220,13 +234,13 @@ export default function MembershipSharingAccept() {
   async function handleAccept() {
     const sessionToken = getSessionToken();
     if (!sessionToken) {
-      if (!inviteId) {
-        storePendingAcceptIntent({
-          token,
-          acceptsBusinessBilling: true,
-          acknowledgesPrivacy: true,
-        });
-      }
+      // Account banners start authenticated, but the session can expire after
+      // this page loads. Preserve only an explicit, consented Accept click.
+      storePendingAcceptIntent({
+        ...(inviteId ? { inviteId } : { token }),
+        acceptsBusinessBilling: true,
+        acknowledgesPrivacy: true,
+      });
       navigate(
         `/signin?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`,
       );
@@ -236,7 +250,7 @@ export default function MembershipSharingAccept() {
   }
 
   function handleDecline() {
-    clearPendingAcceptIntent();
+    clearMatchingPendingAcceptIntent(token, inviteId);
     navigate("/account", { replace: true });
   }
 
@@ -246,13 +260,16 @@ export default function MembershipSharingAccept() {
       accepted ||
       error ||
       resumeAcceptAttemptedRef.current ||
-      !token
+      (!token && !inviteId)
     ) {
       return;
     }
 
     const pendingIntent = readPendingAcceptIntent();
-    if (!pendingIntent || !inviteIntentMatches(pendingIntent, token)) {
+    if (
+      !pendingIntent ||
+      !inviteIntentMatches(pendingIntent, token, inviteId)
+    ) {
       return;
     }
 
@@ -276,6 +293,7 @@ export default function MembershipSharingAccept() {
     accepted,
     error,
     inviteEmail,
+    inviteId,
     loading,
     token,
     user?.email,
