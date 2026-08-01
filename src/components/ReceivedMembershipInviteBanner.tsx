@@ -16,6 +16,13 @@ function inviteSender(invite: ReceivedMembershipInvite): string {
   return invite.ownerName?.trim() || invite.ownerEmail;
 }
 
+function inviteDescription(invite: ReceivedMembershipInvite): string {
+  const description = `${inviteSender(invite)} invited you to join their KeenVPN Business account.`;
+  const expiresAt = new Date(invite.expiresAt);
+  if (Number.isNaN(expiresAt.getTime())) return description;
+  return `${description} This invitation expires on ${expiresAt.toLocaleDateString()}.`;
+}
+
 export function ReceivedMembershipInviteBanner({
   sessionToken,
 }: ReceivedMembershipInviteBannerProps) {
@@ -30,6 +37,7 @@ export function ReceivedMembershipInviteBanner({
   useEffect(() => {
     let cancelled = false;
     setError(null);
+    setInvites([]);
 
     void fetchReceivedMembershipInvites(sessionToken).then((result) => {
       if (cancelled) return;
@@ -37,6 +45,7 @@ export function ReceivedMembershipInviteBanner({
         setInvites(result.data ?? []);
         return;
       }
+      setInvites([]);
       setError(result.error ?? "Could not load team invitations.");
     });
 
@@ -45,7 +54,7 @@ export function ReceivedMembershipInviteBanner({
     };
   }, [retryCount, sessionToken]);
 
-  if (error && invites.length === 0) {
+  if (error) {
     return (
       <Card className="mb-8 border-amber-500/40 bg-amber-500/5">
         <CardContent className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
@@ -82,9 +91,7 @@ export function ReceivedMembershipInviteBanner({
                   You have a team invitation
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {inviteSender(invite)} invited you to join their KeenVPN
-                  Business account. This invitation expires on{" "}
-                  {new Date(invite.expiresAt).toLocaleDateString()}.
+                  {inviteDescription(invite)}
                 </p>
               </div>
             </div>

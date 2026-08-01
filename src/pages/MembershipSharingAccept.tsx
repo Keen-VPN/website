@@ -37,7 +37,10 @@ function inviteIntentMatches(
   inviteId: string,
 ): boolean {
   if (!intent) return false;
-  return inviteId ? intent.inviteId === inviteId : intent.token === token;
+  if (token && inviteId) return false;
+  if (inviteId) return intent.inviteId === inviteId;
+  if (token) return intent.token === token;
+  return false;
 }
 
 function readPendingAcceptIntent(): PendingAcceptIntent | null {
@@ -108,6 +111,26 @@ export default function MembershipSharingAccept() {
   );
 
   useEffect(() => {
+    setLoading(true);
+    setInviteEmail(null);
+    setOwnerEmail(null);
+    setBillingPending(false);
+    setCreditPending(false);
+    setBillingDeferredUntil(null);
+    setRequiresAppleCancellation(false);
+    setError(null);
+    setAccepted(false);
+    setConfirmationAccepted(false);
+    resumeAcceptAttemptedRef.current = false;
+
+    if (token && inviteId) {
+      setError(
+        "This invitation link is invalid. Open one invitation at a time.",
+      );
+      setLoading(false);
+      return;
+    }
+
     if (!token && !inviteId) {
       navigate("/account");
       return;
@@ -120,17 +143,6 @@ export default function MembershipSharingAccept() {
       );
       return;
     }
-
-    setLoading(true);
-    setInviteEmail(null);
-    setOwnerEmail(null);
-    setBillingPending(false);
-    setCreditPending(false);
-    setBillingDeferredUntil(null);
-    setRequiresAppleCancellation(false);
-    setError(null);
-    setAccepted(false);
-    resumeAcceptAttemptedRef.current = false;
 
     const pendingIntent = readPendingAcceptIntent();
     if (inviteIntentMatches(pendingIntent, token, inviteId)) {

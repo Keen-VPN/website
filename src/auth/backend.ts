@@ -4827,6 +4827,25 @@ export interface MembershipInviteDetails {
   nextAcceptanceWillCharge?: boolean;
 }
 
+function isReceivedMembershipInvite(
+  value: unknown,
+): value is ReceivedMembershipInvite {
+  if (!value || typeof value !== "object") return false;
+  const invite = value as Record<string, unknown>;
+  return (
+    typeof invite.id === "string" &&
+    typeof invite.ownerEmail === "string" &&
+    (invite.ownerName === undefined ||
+      invite.ownerName === null ||
+      typeof invite.ownerName === "string") &&
+    (invite.planName === undefined ||
+      invite.planName === null ||
+      typeof invite.planName === "string") &&
+    typeof invite.invitedAt === "string" &&
+    typeof invite.expiresAt === "string"
+  );
+}
+
 export async function fetchReceivedMembershipInvites(
   sessionToken: string,
 ): Promise<{
@@ -4849,13 +4868,13 @@ export async function fetchReceivedMembershipInvites(
         error: extractBackendErrorMessage(raw, "Failed to load invitations"),
       };
     }
-    if (!Array.isArray(raw)) {
+    if (!Array.isArray(raw) || !raw.every(isReceivedMembershipInvite)) {
       return {
         ok: false,
         error: "The invitation service returned an unexpected response.",
       };
     }
-    return { ok: true, data: raw as ReceivedMembershipInvite[] };
+    return { ok: true, data: raw };
   } catch (error) {
     return {
       ok: false,
