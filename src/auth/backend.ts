@@ -4846,6 +4846,34 @@ function isReceivedMembershipInvite(
   );
 }
 
+export function isMembershipInviteDetails(
+  value: unknown,
+): value is MembershipInviteDetails {
+  if (!value || typeof value !== "object") return false;
+  const details = value as Record<string, unknown>;
+  const optionalString = (field: unknown) =>
+    field === undefined || typeof field === "string";
+  const optionalBoolean = (field: unknown) =>
+    field === undefined || typeof field === "boolean";
+  return (
+    typeof details.valid === "boolean" &&
+    optionalString(details.inviteeEmail) &&
+    optionalString(details.ownerEmail) &&
+    optionalString(details.subscriptionStatus) &&
+    optionalBoolean(details.chargeOnAccept) &&
+    optionalBoolean(details.billingPending) &&
+    optionalBoolean(details.creditPending) &&
+    (details.billingDeferredUntil === undefined ||
+      details.billingDeferredUntil === null ||
+      typeof details.billingDeferredUntil === "string") &&
+    optionalBoolean(details.requiresAppleCancellation) &&
+    (details.prepaidAvailableSeats === undefined ||
+      details.prepaidAvailableSeats === null ||
+      typeof details.prepaidAvailableSeats === "number") &&
+    optionalBoolean(details.nextAcceptanceWillCharge)
+  );
+}
+
 export async function fetchReceivedMembershipInvites(
   sessionToken: string,
 ): Promise<{
@@ -4926,10 +4954,17 @@ export async function fetchReceivedMembershipInvite(
         error: extractBackendErrorMessage(raw, "Failed to load invitation"),
       };
     }
+    if (!isMembershipInviteDetails(raw)) {
+      return {
+        ok: false,
+        status: response.status,
+        error: "The invitation service returned an unexpected response.",
+      };
+    }
     return {
       ok: true,
       status: response.status,
-      data: raw as MembershipInviteDetails,
+      data: raw,
     };
   } catch (error) {
     return {
@@ -4947,6 +4982,7 @@ interface MembershipInviteAcceptanceConfirmations {
 
 interface MembershipInviteAcceptanceResult {
   ok: boolean;
+  status?: number;
   pending?: boolean;
   billingDeferredUntil?: string | null;
   requiresAppleCancellation?: boolean;
@@ -4976,11 +5012,13 @@ async function postMembershipInviteAcceptance(
     if (!response.ok) {
       return {
         ok: false,
+        status: response.status,
         error: extractBackendErrorMessage(raw, "Failed to accept invitation"),
       };
     }
     return {
       ok: true,
+      status: response.status,
       pending: raw.pending === true,
       billingDeferredUntil: raw.billingDeferredUntil ?? null,
       requiresAppleCancellation: raw.requiresAppleCancellation === true,
