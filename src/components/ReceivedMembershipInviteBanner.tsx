@@ -7,6 +7,7 @@ import {
 } from "@/auth/backend";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { resetAuthenticationForReauth } from "@/auth/reauth";
 
 interface ReceivedMembershipInviteBannerProps {
   sessionToken: string;
@@ -39,10 +40,18 @@ export function ReceivedMembershipInviteBanner({
     setError(null);
     setInvites([]);
 
-    void fetchReceivedMembershipInvites(sessionToken).then((result) => {
+    void fetchReceivedMembershipInvites(sessionToken).then(async (result) => {
       if (cancelled) return;
       if (result.ok) {
         setInvites(result.data ?? []);
+        return;
+      }
+      if (result.status === 401) {
+        await resetAuthenticationForReauth();
+        if (cancelled) return;
+        window.location.href = `/signin?redirect=${encodeURIComponent(
+          window.location.pathname + window.location.search,
+        )}`;
         return;
       }
       setInvites([]);

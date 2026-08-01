@@ -8,11 +8,11 @@ import {
   acceptMembershipInvite,
   acceptReceivedMembershipInvite,
   BACKEND_URL,
-  clearSessionToken,
   fetchReceivedMembershipInvite,
   getSessionToken,
   isMembershipInviteDetails,
 } from "@/auth/backend";
+import { resetAuthenticationForReauth } from "@/auth/reauth";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 import {
@@ -176,7 +176,8 @@ export default function MembershipSharingAccept() {
         const data = result.data;
         if (cancelled) return;
         if (inviteId && result.status === 401) {
-          clearSessionToken();
+          await resetAuthenticationForReauth();
+          if (cancelled) return;
           window.location.href = `/signin?redirect=${encodeURIComponent(
             window.location.pathname + window.location.search,
           )}`;
@@ -267,7 +268,7 @@ export default function MembershipSharingAccept() {
               acceptsBusinessBilling: true,
               acknowledgesPrivacy: true,
             });
-            clearSessionToken();
+            await resetAuthenticationForReauth();
             window.location.href = `/signin?redirect=${encodeURIComponent(
               window.location.pathname + window.location.search,
             )}`;

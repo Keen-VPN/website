@@ -4878,6 +4878,7 @@ export async function fetchReceivedMembershipInvites(
   sessionToken: string,
 ): Promise<{
   ok: boolean;
+  status?: number;
   data?: ReceivedMembershipInvite[];
   error?: string;
 }> {
@@ -4895,22 +4896,25 @@ export async function fetchReceivedMembershipInvites(
     } catch {
       return {
         ok: false,
+        status: response.status,
         error: "The invitation service returned an unreadable response.",
       };
     }
     if (!response.ok) {
       return {
         ok: false,
+        status: response.status,
         error: extractBackendErrorMessage(raw, "Failed to load invitations"),
       };
     }
     if (!Array.isArray(raw) || !raw.every(isReceivedMembershipInvite)) {
       return {
         ok: false,
+        status: response.status,
         error: "The invitation service returned an unexpected response.",
       };
     }
-    return { ok: true, data: raw };
+    return { ok: true, status: response.status, data: raw };
   } catch (error) {
     return {
       ok: false,
