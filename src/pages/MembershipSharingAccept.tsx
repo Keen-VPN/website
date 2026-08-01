@@ -175,9 +175,16 @@ export default function MembershipSharingAccept() {
               });
         const data = result.data;
         if (cancelled) return;
-        if (inviteId && result.status === 401) {
-          await resetAuthenticationForReauth();
+        if (inviteId && (result.status === 401 || result.status === 403)) {
+          const reset = await resetAuthenticationForReauth();
           if (cancelled) return;
+          if (!reset) {
+            setError(
+              "Could not switch accounts automatically. Please sign out, then sign in with the invited account.",
+            );
+            setLoading(false);
+            return;
+          }
           window.location.href = `/signin?redirect=${encodeURIComponent(
             window.location.pathname + window.location.search,
           )}`;
@@ -268,7 +275,13 @@ export default function MembershipSharingAccept() {
               acceptsBusinessBilling: true,
               acknowledgesPrivacy: true,
             });
-            await resetAuthenticationForReauth();
+            const reset = await resetAuthenticationForReauth();
+            if (!reset) {
+              setError(
+                "Could not switch accounts automatically. Please sign out, then sign in with the invited account.",
+              );
+              return;
+            }
             window.location.href = `/signin?redirect=${encodeURIComponent(
               window.location.pathname + window.location.search,
             )}`;

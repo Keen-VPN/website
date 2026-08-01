@@ -21,7 +21,7 @@ function inviteDescription(invite: ReceivedMembershipInvite): string {
   const description = `${inviteSender(invite)} invited you to join their KeenVPN Business account.`;
   const expiresAt = new Date(invite.expiresAt);
   if (Number.isNaN(expiresAt.getTime())) return description;
-  return `${description} This invitation expires on ${expiresAt.toLocaleDateString()}.`;
+  return `${description} This invitation expires on ${expiresAt.toLocaleDateString(undefined, { timeZone: "UTC" })}.`;
 }
 
 export function ReceivedMembershipInviteBanner({
@@ -47,8 +47,15 @@ export function ReceivedMembershipInviteBanner({
         return;
       }
       if (result.status === 401) {
-        await resetAuthenticationForReauth();
+        const reset = await resetAuthenticationForReauth();
         if (cancelled) return;
+        if (!reset) {
+          setInvites([]);
+          setError(
+            "Could not sign you out automatically. Please sign out, then sign in again.",
+          );
+          return;
+        }
         window.location.href = `/signin?redirect=${encodeURIComponent(
           window.location.pathname + window.location.search,
         )}`;

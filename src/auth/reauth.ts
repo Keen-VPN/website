@@ -6,13 +6,14 @@ import { signOut } from "./firebase";
  * Clearing only the backend token allows Firebase to silently recreate a
  * session for the same account, which prevents intentional account switching.
  */
-export async function resetAuthenticationForReauth(): Promise<void> {
+export async function resetAuthenticationForReauth(): Promise<boolean> {
   try {
     await signOut();
-  } catch {
-    // A stale or partially initialized Firebase session may not sign out
-    // cleanly. The backend token must still be removed before redirecting.
-  } finally {
     clearSessionToken();
+    return true;
+  } catch {
+    // Keep the existing backend session when Firebase sign-out fails. Callers
+    // must surface the failure instead of redirecting into an account loop.
+    return false;
   }
 }
