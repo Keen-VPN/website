@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { resetAuthenticationForReauth } from "@/auth/reauth";
+import { buildSignInUrlForCurrentLocation } from "@/auth/post-login-redirect";
 
 interface ReceivedMembershipInviteBannerProps {
   sessionToken: string;
@@ -76,9 +77,7 @@ export function ReceivedMembershipInviteBanner({
       setReauthenticating(false);
       return;
     }
-    window.location.href = `/signin?redirect=${encodeURIComponent(
-      window.location.pathname + window.location.search,
-    )}`;
+    window.location.href = buildSignInUrlForCurrentLocation();
   }, []);
 
   if (error) {

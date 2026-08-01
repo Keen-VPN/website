@@ -13,6 +13,7 @@ import {
   isMembershipInviteDetails,
 } from "@/auth/backend";
 import { resetAuthenticationForReauth } from "@/auth/reauth";
+import { buildSignInUrlForCurrentLocation } from "@/auth/post-login-redirect";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 import {
@@ -105,6 +106,8 @@ export default function MembershipSharingAccept() {
   const [error, setError] = useState<string | null>(null);
   const [reauthReason, setReauthReason] = useState<ReauthReason | null>(null);
   const [reauthenticating, setReauthenticating] = useState(false);
+  const [loadRetryAvailable, setLoadRetryAvailable] = useState(false);
+  const [loadRetryCount, setLoadRetryCount] = useState(0);
   const [accepted, setAccepted] = useState(false);
   const resumeAcceptAttemptedRef = useRef(false);
   const appOpenCleanupRef = useRef<(() => void) | null>(null);
@@ -127,6 +130,7 @@ export default function MembershipSharingAccept() {
     setError(null);
     setReauthReason(null);
     setReauthenticating(false);
+    setLoadRetryAvailable(false);
     setAccepted(false);
     setConfirmationAccepted(false);
     resumeAcceptAttemptedRef.current = false;
@@ -146,9 +150,7 @@ export default function MembershipSharingAccept() {
 
     const sessionToken = inviteId ? getSessionToken() : null;
     if (inviteId && !sessionToken) {
-      navigate(
-        `/signin?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`,
-      );
+      navigate(buildSignInUrlForCurrentLocation());
       return;
     }
 
@@ -203,6 +205,7 @@ export default function MembershipSharingAccept() {
           return;
         }
         if (!result.ok || data?.valid !== true) {
+          setLoadRetryAvailable(true);
           setError(
             result.error ??
               "Could not load invitation details. Please try again.",
@@ -223,6 +226,7 @@ export default function MembershipSharingAccept() {
         setLoading(false);
       } catch {
         if (!cancelled) {
+          setLoadRetryAvailable(true);
           setError("Could not load invitation details.");
           setLoading(false);
         }
@@ -232,7 +236,7 @@ export default function MembershipSharingAccept() {
     return () => {
       cancelled = true;
     };
-  }, [inviteId, navigate, token]);
+  }, [inviteId, loadRetryCount, navigate, token]);
 
   const acceptWithSessionToken = useCallback(
     async (
@@ -311,9 +315,7 @@ export default function MembershipSharingAccept() {
         acceptsBusinessBilling: true,
         acknowledgesPrivacy: true,
       });
-      navigate(
-        `/signin?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`,
-      );
+      navigate(buildSignInUrlForCurrentLocation());
       return;
     }
     await acceptWithSessionToken(sessionToken);
@@ -322,6 +324,10 @@ export default function MembershipSharingAccept() {
   function handleDecline() {
     clearMatchingPendingAcceptIntent(token, inviteId);
     navigate("/account", { replace: true });
+  }
+
+  function handleRetryLoad() {
+    setLoadRetryCount((count) => count + 1);
   }
 
   async function handleReauthenticate() {
@@ -335,9 +341,7 @@ export default function MembershipSharingAccept() {
       setReauthenticating(false);
       return;
     }
-    window.location.href = `/signin?redirect=${encodeURIComponent(
-      window.location.pathname + window.location.search,
-    )}`;
+    window.location.href = buildSignInUrlForCurrentLocation();
   }
 
   useEffect(() => {
@@ -443,6 +447,10 @@ export default function MembershipSharingAccept() {
                   : reauthReason === "wrong_account"
                     ? "Switch account"
                     : "Sign in again"}
+              </Button>
+            ) : loadRetryAvailable ? (
+              <Button type="button" onClick={handleRetryLoad}>
+                Try again
               </Button>
             ) : null}
           </div>
