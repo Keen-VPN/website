@@ -33,6 +33,8 @@ interface PendingAcceptIntent {
   acknowledgesPrivacy: boolean;
 }
 
+type ReauthReason = "expired_session" | "wrong_account";
+
 function inviteIntentMatches(
   intent: PendingAcceptIntent | null,
   token: string,
@@ -101,6 +103,8 @@ export default function MembershipSharingAccept() {
   const [requiresAppleCancellation, setRequiresAppleCancellation] =
     useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reauthReason, setReauthReason] = useState<ReauthReason | null>(null);
+  const [reauthenticating, setReauthenticating] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const resumeAcceptAttemptedRef = useRef(false);
   const appOpenCleanupRef = useRef<(() => void) | null>(null);
@@ -121,6 +125,8 @@ export default function MembershipSharingAccept() {
     setBillingDeferredUntil(null);
     setRequiresAppleCancellation(false);
     setError(null);
+    setReauthReason(null);
+    setReauthenticating(false);
     setAccepted(false);
     setConfirmationAccepted(false);
     resumeAcceptAttemptedRef.current = false;
@@ -176,18 +182,14 @@ export default function MembershipSharingAccept() {
         const data = result.data;
         if (cancelled) return;
         if (inviteId && (result.status === 401 || result.status === 403)) {
-          const reset = await resetAuthenticationForReauth();
-          if (cancelled) return;
-          if (!reset) {
-            setError(
-              "Could not switch accounts automatically. Please sign out, then sign in with the invited account.",
-            );
-            setLoading(false);
-            return;
-          }
-          window.location.href = `/signin?redirect=${encodeURIComponent(
-            window.location.pathname + window.location.search,
-          )}`;
+          const wrongAccount = result.status === 403;
+          setReauthReason(wrongAccount ? "wrong_account" : "expired_session");
+          setError(
+            wrongAccount
+              ? "Sign in with the invited account to review this invitation."
+              : "Your session expired. Sign in again to review this invitation.",
+          );
+          setLoading(false);
           return;
         }
         if (
@@ -275,16 +277,13 @@ export default function MembershipSharingAccept() {
               acceptsBusinessBilling: true,
               acknowledgesPrivacy: true,
             });
-            const reset = await resetAuthenticationForReauth();
-            if (!reset) {
-              setError(
-                "Could not switch accounts automatically. Please sign out, then sign in with the invited account.",
-              );
-              return;
-            }
-            window.location.href = `/signin?redirect=${encodeURIComponent(
-              window.location.pathname + window.location.search,
-            )}`;
+            const wrongAccount = res.status === 403;
+            setReauthReason(wrongAccount ? "wrong_account" : "expired_session");
+            setError(
+              wrongAccount
+                ? "Sign in with the invited account to continue."
+                : "Your session expired. Sign in again to continue.",
+            );
             return;
           }
           setError(res.error ?? "Could not accept invitation.");
@@ -323,6 +322,22 @@ export default function MembershipSharingAccept() {
   function handleDecline() {
     clearMatchingPendingAcceptIntent(token, inviteId);
     navigate("/account", { replace: true });
+  }
+
+  async function handleReauthenticate() {
+    setReauthenticating(true);
+    setError(null);
+    const reset = await resetAuthenticationForReauth();
+    if (!reset) {
+      setError(
+        "Could not sign you out automatically. Please sign out, then sign in with the invited account.",
+      );
+      setReauthenticating(false);
+      return;
+    }
+    window.location.href = `/signin?redirect=${encodeURIComponent(
+      window.location.pathname + window.location.search,
+    )}`;
   }
 
   useEffect(() => {
@@ -415,7 +430,22 @@ export default function MembershipSharingAccept() {
           </div>
         ) : null}
         {!loading && !accepted && error ? (
-          <p className="mt-4 text-red-300">{error}</p>
+          <div className="mt-4 space-y-4">
+            <p className="text-red-300">{error}</p>
+            {reauthReason ? (
+              <Button
+                type="button"
+                onClick={handleReauthenticate}
+                disabled={reauthenticating}
+              >
+                {reauthenticating
+                  ? "Signing out…"
+                  : reauthReason === "wrong_account"
+                    ? "Switch account"
+                    : "Sign in again"}
+              </Button>
+            ) : null}
+          </div>
         ) : null}
         {!loading && !accepted && !error ? (
           <div className="mt-6 w-full max-w-md space-y-4 text-slate-300">

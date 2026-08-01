@@ -29,6 +29,8 @@ export function ReceivedMembershipInviteBanner({
 }: ReceivedMembershipInviteBannerProps) {
   const [invites, setInvites] = useState<ReceivedMembershipInvite[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [reauthRequired, setReauthRequired] = useState(false);
+  const [reauthenticating, setReauthenticating] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
   const retry = useCallback(() => {
@@ -38,27 +40,21 @@ export function ReceivedMembershipInviteBanner({
   useEffect(() => {
     let cancelled = false;
     setError(null);
+    setReauthRequired(false);
     setInvites([]);
 
-    void fetchReceivedMembershipInvites(sessionToken).then(async (result) => {
+    void fetchReceivedMembershipInvites(sessionToken).then((result) => {
       if (cancelled) return;
       if (result.ok) {
         setInvites(result.data ?? []);
         return;
       }
       if (result.status === 401) {
-        const reset = await resetAuthenticationForReauth();
-        if (cancelled) return;
-        if (!reset) {
-          setInvites([]);
-          setError(
-            "Could not sign you out automatically. Please sign out, then sign in again.",
-          );
-          return;
-        }
-        window.location.href = `/signin?redirect=${encodeURIComponent(
-          window.location.pathname + window.location.search,
-        )}`;
+        setInvites([]);
+        setReauthRequired(true);
+        setError(
+          "Your session expired. Sign in again to load team invitations.",
+        );
         return;
       }
       setInvites([]);
@@ -70,6 +66,21 @@ export function ReceivedMembershipInviteBanner({
     };
   }, [retryCount, sessionToken]);
 
+  const reauthenticate = useCallback(async () => {
+    setReauthenticating(true);
+    const reset = await resetAuthenticationForReauth();
+    if (!reset) {
+      setError(
+        "Could not sign you out automatically. Please sign out, then sign in again.",
+      );
+      setReauthenticating(false);
+      return;
+    }
+    window.location.href = `/signin?redirect=${encodeURIComponent(
+      window.location.pathname + window.location.search,
+    )}`;
+  }, []);
+
   if (error) {
     return (
       <Card className="mb-8 border-amber-500/40 bg-amber-500/5">
@@ -80,8 +91,17 @@ export function ReceivedMembershipInviteBanner({
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">{error}</p>
           </div>
-          <Button type="button" variant="outline" onClick={retry}>
-            Try again
+          <Button
+            type="button"
+            variant="outline"
+            disabled={reauthenticating}
+            onClick={reauthRequired ? reauthenticate : retry}
+          >
+            {reauthenticating
+              ? "Signing out…"
+              : reauthRequired
+                ? "Sign in again"
+                : "Try again"}
           </Button>
         </CardContent>
       </Card>
