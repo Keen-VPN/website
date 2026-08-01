@@ -27,7 +27,6 @@ import {
   verifyEmailOtp,
 } from "@/auth";
 import { recordSignupStarted } from "@/auth/backend";
-import { trackRedditSignupButtonClick } from "@/lib/reddit-analytics";
 import GoogleIcon from "@/components/ui/google-icon";
 import AuthProductPreview from "@/components/auth/AuthProductPreview";
 import SEOHead from "@/components/SEOHead";
@@ -135,13 +134,11 @@ const SignIn = () => {
 
   // Debounce sign-in to prevent double-clicks
   const [handleGoogleSignIn, isGoogleDebouncing] = useDebounce(async () => {
-    trackRedditSignupButtonClick("signin_google");
     await recordSignupStarted();
     await signIn("google");
   }, 2000);
 
   const [handleAppleSignIn, isAppleDebouncing] = useDebounce(async () => {
-    trackRedditSignupButtonClick("signin_apple");
     await recordSignupStarted();
     await signIn("apple");
   }, 2000);
@@ -155,7 +152,6 @@ const SignIn = () => {
 
     setOtpLoading(true);
     setOtpMessage("");
-    trackRedditSignupButtonClick("signin_email_code");
     await recordSignupStarted();
     const result = await requestEmailOtp(emailForOtp);
     setOtpLoading(false);

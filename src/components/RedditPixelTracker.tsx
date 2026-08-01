@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import {
   initializeRedditPixel,
+  isRedditEngagedContentPath,
   trackRedditLandingEngagement,
   trackRedditPageVisit,
 } from "@/lib/reddit-analytics";
@@ -16,6 +17,9 @@ export default function RedditPixelTracker() {
   useEffect(() => {
     const path = `${location.pathname}${location.search}`;
     trackRedditPageVisit(path);
+    if (!isRedditEngagedContentPath(location.pathname)) {
+      return;
+    }
     const timer = window.setTimeout(
       () => trackRedditLandingEngagement(path),
       10_000,

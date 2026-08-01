@@ -18,10 +18,7 @@ import {
   getUtmAttributionAuthPayload,
 } from "@/lib/utm-attribution";
 import { buildAuthDeepLink } from "@/lib/keenvpn-deep-links";
-import {
-  trackRedditRegistrationStarted,
-  trackRedditSignupCompleted,
-} from "@/lib/reddit-analytics";
+import { trackRedditLeadCompleted } from "@/lib/reddit-analytics";
 
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "/api";
 
@@ -29,7 +26,7 @@ function trackNewAccount(response: BackendAuthResponse): void {
   const createdUser =
     response.createdUser === true || response.user?.createdUser === true;
   if (createdUser && response.user?.id) {
-    trackRedditSignupCompleted(response.user.id);
+    trackRedditLeadCompleted(response.user.id);
   }
 }
 
@@ -243,6 +240,7 @@ export interface SubscriptionStatusResult {
   entitlements: UserEntitlements | null;
   subscription: SubscriptionData | null;
   trial: TrialData | null;
+  redditTrialConversionId?: string | null;
   annualSavings?: {
     savingsPercent: number;
     yearlySavingsAmount: number;
@@ -1661,6 +1659,7 @@ export async function fetchSubscriptionStatusWithSession(
       entitlements,
       subscription: normalized.subscription ?? null,
       trial: normalized.trial ?? null,
+      redditTrialConversionId: normalized.redditTrialConversionId ?? null,
       annualSavings,
       error: normalized.error,
       unauthorized: normalized.unauthorized,
@@ -3262,7 +3261,6 @@ const stickerLandingInFlightByKey = new Map<string, Promise<void>>();
 
 /** Records signup_started with stored first-touch UTMs (pre-account). */
 export async function recordSignupStarted(): Promise<void> {
-  trackRedditRegistrationStarted();
   const payload = getUtmAttributionAuthPayload();
   if (!payload.utmAttribution) return;
 

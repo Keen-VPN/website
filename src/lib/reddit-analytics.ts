@@ -65,38 +65,27 @@ export function trackRedditPageVisit(path: string): void {
 }
 
 export function trackRedditLandingEngagement(path: string): void {
+  trackRedditEvent("ViewContent", undefined, `engagement:${path}`);
+}
+
+export function trackRedditLeadCompleted(userId: string): void {
+  const conversionId = `lead:${userId}`;
+  trackRedditEvent("Lead", { conversionId }, `lead-completed:${userId}`);
+}
+
+export function trackRedditConfirmedTrial(conversionId: string): void {
   trackRedditEvent(
-    "Custom",
-    { customEventName: "LandingPageEngagement" },
-    `engagement:${path}`,
+    "SignUp",
+    { conversionId },
+    `trial-confirmed:${conversionId}`,
   );
 }
 
-export function trackRedditRegistrationStarted(): void {
-  trackRedditEvent(
-    "Custom",
-    { customEventName: "RegistrationStarted" },
-    "registration-started",
-  );
-}
+const ENGAGED_CONTENT_PATHS = new Set(["/", "/pricing", "/servers", "/switch"]);
 
-export function trackRedditSignupButtonClick(source: string): void {
-  trackRedditEvent("Custom", {
-    customEventName: "SignUpButtonClick",
-    source,
-  });
-}
-
-export function trackRedditSignupCompleted(userId: string): void {
-  const conversionId = `signup:${userId}`;
-  trackRedditEvent("SignUp", { conversionId }, `signup-completed:${userId}`);
-}
-
-export function trackRedditFreeTrialButtonClick(source: string): void {
-  trackRedditEvent("Custom", {
-    customEventName: "FreeTrialButtonClick",
-    source,
-  });
+export function isRedditEngagedContentPath(pathname: string): boolean {
+  const normalizedPath = pathname.replace(/\/+$/, "") || "/";
+  return ENGAGED_CONTENT_PATHS.has(normalizedPath);
 }
 
 export function getRedditUuidCookie(): string | undefined {

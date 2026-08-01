@@ -47,7 +47,6 @@ import {
   resolveMembershipPlanTier,
   resolveSubscriptionBillingPeriod,
 } from "@/lib/subscription-cta";
-import { trackRedditFreeTrialButtonClick } from "@/lib/reddit-analytics";
 import { useSubscriptionBillingActions } from "@/hooks/use-subscription-billing-actions";
 import type { TrialData } from "@/auth/types";
 import { MembershipTransferDialog } from "@/components/MembershipTransferDialog";
@@ -550,9 +549,6 @@ const Pricing = () => {
                     <Button
                       onClick={() => {
                         if (ctaKind === "loading") return;
-                        if (ctaKind === "start_free_trial") {
-                          trackRedditFreeTrialButtonClick("pricing_plan");
-                        }
                         const queryParams = new URLSearchParams({
                           planId: isAnnual
                             ? plan.annualId || ""
@@ -847,9 +843,6 @@ const Pricing = () => {
                   if (ctaKind === "manage_account") {
                     navigate("/account");
                     return;
-                  }
-                  if (ctaKind === "start_free_trial") {
-                    trackRedditFreeTrialButtonClick("pricing_footer");
                   }
                   navigate("/subscribe");
                 }}

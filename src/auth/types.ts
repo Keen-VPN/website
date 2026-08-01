@@ -78,6 +78,7 @@ export interface BackendAuthResponse {
   createdUser?: boolean;
   subscription?: SubscriptionData | null;
   trial?: TrialData | null;
+  redditTrialConversionId?: string | null;
   error?: string;
   /** When true, backend rejected the token (401 or invalid); safe to clear session. When false/undefined on failure, do not clear (e.g. network error). */
   unauthorized?: boolean;
