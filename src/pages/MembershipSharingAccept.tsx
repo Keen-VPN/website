@@ -6,9 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   acceptMembershipInvite,
+  acceptReceivedMembershipInvite,
   BACKEND_URL,
+  fetchReceivedMembershipInvite,
   getSessionToken,
+  isMembershipInviteDetails,
 } from "@/auth/backend";
+import { resetAuthenticationForReauth } from "@/auth/reauth";
+import { buildSignInUrlForCurrentLocation } from "@/auth/post-login-redirect";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
 import {
@@ -20,12 +25,27 @@ import {
 const PENDING_ACCEPT_STORAGE_KEY = "keenvpn_membership_invite_pending_accept";
 
 const CONFIRMATION_COPY =
-  "I understand that my company will pay for my KeenVPN subscription after any remaining access time. I understand that my company can see my membership status but will never get access to my browsing history or data";
+  "I understand that my company will pay for my KeenVPN subscription. I understand that my company can see my membership status but will never get access to my browsing history or data.";
 
 interface PendingAcceptIntent {
-  token: string;
+  token?: string;
+  inviteId?: string;
   acceptsBusinessBilling: boolean;
   acknowledgesPrivacy: boolean;
+}
+
+type ReauthReason = "expired_session" | "wrong_account";
+
+function inviteIntentMatches(
+  intent: PendingAcceptIntent | null,
+  token: string,
+  inviteId: string,
+): boolean {
+  if (!intent) return false;
+  if (token && inviteId) return false;
+  if (inviteId) return intent.inviteId === inviteId;
+  if (token) return intent.token === token;
+  return false;
 }
 
 function readPendingAcceptIntent(): PendingAcceptIntent | null {
@@ -33,8 +53,10 @@ function readPendingAcceptIntent(): PendingAcceptIntent | null {
     const raw = sessionStorage.getItem(PENDING_ACCEPT_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PendingAcceptIntent;
+    const hasToken = typeof parsed?.token === "string";
+    const hasInviteId = typeof parsed?.inviteId === "string";
     if (
-      typeof parsed?.token !== "string" ||
+      hasToken === hasInviteId ||
       parsed.acceptsBusinessBilling !== true ||
       parsed.acknowledgesPrivacy !== true
     ) {
@@ -54,22 +76,25 @@ function clearPendingAcceptIntent(): void {
   sessionStorage.removeItem(PENDING_ACCEPT_STORAGE_KEY);
 }
 
+function clearMatchingPendingAcceptIntent(
+  token: string,
+  inviteId: string,
+): void {
+  if (inviteIntentMatches(readPendingAcceptIntent(), token, inviteId)) {
+    clearPendingAcceptIntent();
+  }
+}
+
 export default function MembershipSharingAccept() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token")?.trim() ?? "";
+  const inviteId = searchParams.get("inviteId")?.trim() ?? "";
   const navigate = useNavigate();
   const { user } = useAuth();
   const appStoreUrl = useAppStoreUrl();
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState<string | null>(null);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
-  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(
-    null,
-  );
-  const [chargeOnAccept, setChargeOnAccept] = useState(false);
-  const [prepaidAvailableSeats, setPrepaidAvailableSeats] = useState(0);
-  const [nextAcceptanceWillCharge, setNextAcceptanceWillCharge] =
-    useState(false);
   const [billingPending, setBillingPending] = useState(false);
   const [creditPending, setCreditPending] = useState(false);
   const [confirmationAccepted, setConfirmationAccepted] = useState(false);
@@ -79,6 +104,10 @@ export default function MembershipSharingAccept() {
   const [requiresAppleCancellation, setRequiresAppleCancellation] =
     useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reauthReason, setReauthReason] = useState<ReauthReason | null>(null);
+  const [reauthenticating, setReauthenticating] = useState(false);
+  const [loadRetryAvailable, setLoadRetryAvailable] = useState(false);
+  const [loadRetryCount, setLoadRetryCount] = useState(0);
   const [accepted, setAccepted] = useState(false);
   const resumeAcceptAttemptedRef = useRef(false);
   const appOpenCleanupRef = useRef<(() => void) | null>(null);
@@ -91,95 +120,123 @@ export default function MembershipSharingAccept() {
   );
 
   useEffect(() => {
-    if (!token) {
-      navigate("/account");
-      return;
-    }
-
     setLoading(true);
     setInviteEmail(null);
     setOwnerEmail(null);
-    setSubscriptionStatus(null);
-    setChargeOnAccept(false);
-    setPrepaidAvailableSeats(0);
-    setNextAcceptanceWillCharge(false);
     setBillingPending(false);
     setCreditPending(false);
     setBillingDeferredUntil(null);
     setRequiresAppleCancellation(false);
     setError(null);
+    setReauthReason(null);
+    setReauthenticating(false);
+    setLoadRetryAvailable(false);
     setAccepted(false);
+    setConfirmationAccepted(false);
     resumeAcceptAttemptedRef.current = false;
 
+    if (token && inviteId) {
+      setError(
+        "This invitation link is invalid. Open one invitation at a time.",
+      );
+      setLoading(false);
+      return;
+    }
+
+    if (!token && !inviteId) {
+      navigate("/account");
+      return;
+    }
+
+    const sessionToken = inviteId ? getSessionToken() : null;
+    if (inviteId && !sessionToken) {
+      navigate(buildSignInUrlForCurrentLocation());
+      return;
+    }
+
     const pendingIntent = readPendingAcceptIntent();
-    if (pendingIntent?.token === token) {
+    if (inviteIntentMatches(pendingIntent, token, inviteId)) {
       setConfirmationAccepted(true);
     } else {
       setConfirmationAccepted(false);
     }
 
     let cancelled = false;
-    void fetch(
-      `${BACKEND_URL}/membership-sharing/invite/${encodeURIComponent(token)}`,
-    )
-      .then(async (res) => {
-        const data = (await res.json().catch(() => ({}))) as {
-          valid?: boolean;
-          inviteeEmail?: string;
-          ownerEmail?: string;
-          subscriptionStatus?: string;
-          chargeOnAccept?: boolean;
-          billingPending?: boolean;
-          creditPending?: boolean;
-          billingDeferredUntil?: string | null;
-          requiresAppleCancellation?: boolean;
-          prepaidAvailableSeats?: number | null;
-          nextAcceptanceWillCharge?: boolean;
-        };
+    void (async () => {
+      try {
+        const result =
+          inviteId && sessionToken
+            ? await fetchReceivedMembershipInvite(sessionToken, inviteId)
+            : await fetch(
+                `${BACKEND_URL}/membership-sharing/invite/${encodeURIComponent(token)}`,
+              ).then(async (res) => {
+                const raw: unknown = await res.json().catch(() => undefined);
+                return {
+                  ok: res.ok,
+                  status: res.status,
+                  data: isMembershipInviteDetails(raw) ? raw : undefined,
+                  error:
+                    raw === undefined
+                      ? "The invitation service returned an unreadable response."
+                      : undefined,
+                };
+              });
+        const data = result.data;
         if (cancelled) return;
-        if (!res.ok || !data.valid) {
-          clearPendingAcceptIntent();
+        if (inviteId && (result.status === 401 || result.status === 403)) {
+          const wrongAccount = result.status === 403;
+          setReauthReason(wrongAccount ? "wrong_account" : "expired_session");
+          setError(
+            wrongAccount
+              ? "Sign in with the invited account to review this invitation."
+              : "Your session expired. Sign in again to review this invitation.",
+          );
+          setLoading(false);
+          return;
+        }
+        if (
+          data?.valid === false ||
+          result.status === 404 ||
+          result.status === 410
+        ) {
+          clearMatchingPendingAcceptIntent(token, inviteId);
           setError("This invitation is invalid or has expired.");
+          setLoading(false);
+          return;
+        }
+        if (!result.ok || data?.valid !== true) {
+          setLoadRetryAvailable(true);
+          setError(
+            result.error ??
+              "Could not load invitation details. Please try again.",
+          );
           setLoading(false);
           return;
         }
         setInviteEmail(data.inviteeEmail ?? null);
         setOwnerEmail(data.ownerEmail ?? null);
-        setSubscriptionStatus(data.subscriptionStatus ?? null);
-        setChargeOnAccept(data.chargeOnAccept === true);
         setBillingPending(data.billingPending === true);
         setRequiresAppleCancellation(data.requiresAppleCancellation === true);
         if (data.creditPending === true) {
-          clearPendingAcceptIntent();
+          clearMatchingPendingAcceptIntent(token, inviteId);
           setCreditPending(true);
           setBillingDeferredUntil(data.billingDeferredUntil ?? null);
           setAccepted(true);
         }
-        setPrepaidAvailableSeats(
-          typeof data.prepaidAvailableSeats === "number"
-            ? Math.max(0, data.prepaidAvailableSeats)
-            : 0,
-        );
-        setNextAcceptanceWillCharge(
-          data.nextAcceptanceWillCharge ??
-            !(
-              typeof data.prepaidAvailableSeats === "number" &&
-              Math.max(0, data.prepaidAvailableSeats) > 0
-            ),
-        );
         setLoading(false);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
+          setLoadRetryAvailable(true);
           setError("Could not load invitation details.");
           setLoading(false);
         }
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [navigate, token]);
+  }, [inviteId, loadRetryCount, navigate, token]);
 
   const acceptWithSessionToken = useCallback(
     async (
@@ -202,15 +259,41 @@ export default function MembershipSharingAccept() {
       setLoading(true);
       setError(null);
       try {
-        const res = await acceptMembershipInvite(sessionToken, token, {
+        const confirmations = {
           acceptsBusinessBilling: true,
           acknowledgesPrivacy: true,
-        });
+        };
+        const res = inviteId
+          ? await acceptReceivedMembershipInvite(
+              sessionToken,
+              inviteId,
+              confirmations,
+            )
+          : await acceptMembershipInvite(sessionToken, token, confirmations);
         if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            // Stale session (401) or wrong account (403: the backend asks the
+            // user to sign in with the invited email). Keep the consented
+            // intent so the accept resumes after re-auth, mirroring the load
+            // path's 401 handling.
+            storePendingAcceptIntent({
+              ...(inviteId ? { inviteId } : { token }),
+              acceptsBusinessBilling: true,
+              acknowledgesPrivacy: true,
+            });
+            const wrongAccount = res.status === 403;
+            setReauthReason(wrongAccount ? "wrong_account" : "expired_session");
+            setError(
+              wrongAccount
+                ? "Sign in with the invited account to continue."
+                : "Your session expired. Sign in again to continue.",
+            );
+            return;
+          }
           setError(res.error ?? "Could not accept invitation.");
           return;
         }
-        clearPendingAcceptIntent();
+        clearMatchingPendingAcceptIntent(token, inviteId);
         setBillingDeferredUntil(res.billingDeferredUntil ?? null);
         setRequiresAppleCancellation(res.requiresAppleCancellation === true);
         setCreditPending(res.pending === true);
@@ -219,23 +302,46 @@ export default function MembershipSharingAccept() {
         setLoading(false);
       }
     },
-    [confirmationAccepted, token],
+    [confirmationAccepted, inviteId, token],
   );
 
   async function handleAccept() {
     const sessionToken = getSessionToken();
     if (!sessionToken) {
+      // Account banners start authenticated, but the session can expire after
+      // this page loads. Preserve only an explicit, consented Accept click.
       storePendingAcceptIntent({
-        token,
+        ...(inviteId ? { inviteId } : { token }),
         acceptsBusinessBilling: true,
         acknowledgesPrivacy: true,
       });
-      navigate(
-        `/signin?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`,
-      );
+      navigate(buildSignInUrlForCurrentLocation());
       return;
     }
     await acceptWithSessionToken(sessionToken);
+  }
+
+  function handleDecline() {
+    clearMatchingPendingAcceptIntent(token, inviteId);
+    navigate("/account", { replace: true });
+  }
+
+  function handleRetryLoad() {
+    setLoadRetryCount((count) => count + 1);
+  }
+
+  async function handleReauthenticate() {
+    setReauthenticating(true);
+    setError(null);
+    const reset = await resetAuthenticationForReauth();
+    if (!reset) {
+      setError(
+        "Could not sign you out automatically. Please sign out, then sign in with the invited account.",
+      );
+      setReauthenticating(false);
+      return;
+    }
+    window.location.href = buildSignInUrlForCurrentLocation();
   }
 
   useEffect(() => {
@@ -244,13 +350,18 @@ export default function MembershipSharingAccept() {
       accepted ||
       error ||
       resumeAcceptAttemptedRef.current ||
-      !token
+      (!token && !inviteId)
     ) {
       return;
     }
 
     const pendingIntent = readPendingAcceptIntent();
-    if (!pendingIntent || pendingIntent.token !== token) return;
+    if (
+      !pendingIntent ||
+      !inviteIntentMatches(pendingIntent, token, inviteId)
+    ) {
+      return;
+    }
 
     const sessionToken = getSessionToken();
     if (!sessionToken) return;
@@ -272,6 +383,7 @@ export default function MembershipSharingAccept() {
     accepted,
     error,
     inviteEmail,
+    inviteId,
     loading,
     token,
     user?.email,
@@ -322,7 +434,26 @@ export default function MembershipSharingAccept() {
           </div>
         ) : null}
         {!loading && !accepted && error ? (
-          <p className="mt-4 text-red-300">{error}</p>
+          <div className="mt-4 space-y-4">
+            <p className="text-red-300">{error}</p>
+            {reauthReason ? (
+              <Button
+                type="button"
+                onClick={handleReauthenticate}
+                disabled={reauthenticating}
+              >
+                {reauthenticating
+                  ? "Signing out…"
+                  : reauthReason === "wrong_account"
+                    ? "Switch account"
+                    : "Sign in again"}
+              </Button>
+            ) : loadRetryAvailable ? (
+              <Button type="button" onClick={handleRetryLoad}>
+                Try again
+              </Button>
+            ) : null}
+          </div>
         ) : null}
         {!loading && !accepted && !error ? (
           <div className="mt-6 w-full max-w-md space-y-4 text-slate-300">
@@ -349,19 +480,6 @@ export default function MembershipSharingAccept() {
                 )}
               </p>
             ) : null}
-            <p className="rounded-md border border-slate-700 bg-slate-900 p-3 text-left text-sm text-slate-400">
-              {billingPending
-                ? "Your KeenVPN account is already linked to this invitation. Finish accepting to confirm billing and turn on shared access. Trying again will not create a duplicate charge."
-                : !chargeOnAccept
-                  ? "Accepting uses one of the membership owner's existing seats."
-                  : subscriptionStatus?.toLowerCase() === "trialing"
-                    ? "Accepting adds you to the Business plan now with no extra seat charge during the trial. The owner is billed for active seats when the trial ends."
-                    : nextAcceptanceWillCharge
-                      ? "No paid Business seat is free right now. If you already pay for KeenVPN, that time is used first. Otherwise, after you accept, the owner is charged a prorated seat for the rest of this billing period. If that charge cannot be completed, the invite stays pending and you do not get access yet."
-                      : `This membership has ${prepaidAvailableSeats} paid ${
-                          prepaidAvailableSeats === 1 ? "seat" : "seats"
-                        } ready, so accepting should not add a new charge. Seat availability is checked again when you accept.`}
-            </p>
             <div className="rounded-md border border-slate-700 bg-slate-900 p-4 text-left text-sm">
               <label
                 htmlFor="accept-company-membership"
@@ -378,12 +496,21 @@ export default function MembershipSharingAccept() {
                 <span>{CONFIRMATION_COPY}</span>
               </label>
             </div>
-            <Button
-              onClick={() => void handleAccept()}
-              disabled={loading || !confirmationAccepted}
-            >
-              {billingPending ? "Complete invitation" : "Accept invitation"}
-            </Button>
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
+              <Button type="button" variant="outline" onClick={handleDecline}>
+                Decline for now
+              </Button>
+              <Button
+                onClick={() => void handleAccept()}
+                disabled={loading || !confirmationAccepted}
+              >
+                {billingPending ? "Complete invitation" : "Accept invitation"}
+              </Button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Declining for now does not cancel the invitation. You can use the
+              link in your email to review and accept it before it expires.
+            </p>
           </div>
         ) : null}
       </main>
