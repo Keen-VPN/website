@@ -4849,6 +4849,12 @@ export async function fetchReceivedMembershipInvites(
         error: extractBackendErrorMessage(raw, "Failed to load invitations"),
       };
     }
+    if (!Array.isArray(raw)) {
+      return {
+        ok: false,
+        error: "The invitation service returned an unexpected response.",
+      };
+    }
     return { ok: true, data: raw as ReceivedMembershipInvite[] };
   } catch (error) {
     return {
