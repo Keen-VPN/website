@@ -48,7 +48,9 @@ const Hero = () => {
               size="lg"
               className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow text-lg px-8 py-6 font-semibold transition-all hover:scale-105"
             >
-              <Link to="/pricing">Start free VPN trial</Link>
+              <Link to="/pricing">
+                Start free VPN trial
+              </Link>
             </Button>
           </div>
 

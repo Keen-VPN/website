@@ -18,8 +18,17 @@ import {
   getUtmAttributionAuthPayload,
 } from "@/lib/utm-attribution";
 import { buildAuthDeepLink } from "@/lib/keenvpn-deep-links";
+import { trackRedditLeadCompleted } from "@/lib/reddit-analytics";
 
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "/api";
+
+function trackNewAccount(response: BackendAuthResponse): void {
+  const createdUser =
+    response.createdUser === true || response.user?.createdUser === true;
+  if (createdUser && response.user?.id) {
+    trackRedditLeadCompleted(response.user.id);
+  }
+}
 
 function extractBackendErrorMessage(data: unknown, fallback: string): string {
   if (!data || typeof data !== "object") return fallback;
@@ -231,6 +240,7 @@ export interface SubscriptionStatusResult {
   entitlements: UserEntitlements | null;
   subscription: SubscriptionData | null;
   trial: TrialData | null;
+  redditTrialConversionId?: string | null;
   annualSavings?: {
     savingsPercent: number;
     yearlySavingsAmount: number;
@@ -289,6 +299,7 @@ export async function loginWithFirebaseToken(
       data as RawBackendAuthResponse,
     );
     if (normalized.success ?? true) {
+      trackNewAccount(normalized);
       clearReferralTokenStorage();
       clearUtmAttributionStorage();
     }
@@ -357,6 +368,7 @@ export async function authenticateWithBackend(
       data as RawBackendAuthResponse,
     );
     if (normalized.success ?? true) {
+      trackNewAccount(normalized);
       clearReferralTokenStorage();
       clearUtmAttributionStorage();
     }
@@ -966,6 +978,7 @@ export async function verifyMagicLink(
       success: true,
     });
     if (normalized.success ?? true) {
+      trackNewAccount(normalized);
       clearReferralTokenStorage();
       clearUtmAttributionStorage();
     }
@@ -1584,6 +1597,7 @@ export async function verifyEmailOtp(
       success: true,
     });
     if (normalized.success ?? true) {
+      trackNewAccount(normalized);
       clearReferralTokenStorage();
       clearUtmAttributionStorage();
     }
@@ -1645,6 +1659,7 @@ export async function fetchSubscriptionStatusWithSession(
       entitlements,
       subscription: normalized.subscription ?? null,
       trial: normalized.trial ?? null,
+      redditTrialConversionId: normalized.redditTrialConversionId ?? null,
       annualSavings,
       error: normalized.error,
       unauthorized: normalized.unauthorized,

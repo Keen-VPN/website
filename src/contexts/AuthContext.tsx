@@ -38,6 +38,7 @@ import {
   clearStripeCheckoutReturn,
   maybeAutoReturnToKeenVpnAppAfterAuth,
 } from "@/lib/keenvpn-deep-links";
+import { trackRedditConfirmedTrial } from "@/lib/reddit-analytics";
 
 // ============================================================================
 // Context Types
@@ -175,6 +176,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTrial(response.trial ?? null);
         setEntitlements(response.entitlements);
         setEntitlementsStatus(response.entitlements ? "ready" : "error");
+        if (
+          response.trial?.active &&
+          response.redditTrialConversionId
+        ) {
+          trackRedditConfirmedTrial(response.redditTrialConversionId);
+        }
         return response.subscription;
       }
       if (response.unauthorized) {
