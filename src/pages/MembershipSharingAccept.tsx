@@ -11,7 +11,7 @@ import {
   clearSessionToken,
   fetchReceivedMembershipInvite,
   getSessionToken,
-  type MembershipInviteDetails,
+  isMembershipInviteDetails,
 } from "@/auth/backend";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
@@ -166,10 +166,7 @@ export default function MembershipSharingAccept() {
                 return {
                   ok: res.ok,
                   status: res.status,
-                  data:
-                    raw && typeof raw === "object"
-                      ? (raw as MembershipInviteDetails)
-                      : undefined,
+                  data: isMembershipInviteDetails(raw) ? raw : undefined,
                   error:
                     raw === undefined
                       ? "The invitation service returned an unreadable response."
@@ -260,6 +257,22 @@ export default function MembershipSharingAccept() {
             )
           : await acceptMembershipInvite(sessionToken, token, confirmations);
         if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            // Stale session (401) or wrong account (403: the backend asks the
+            // user to sign in with the invited email). Keep the consented
+            // intent so the accept resumes after re-auth, mirroring the load
+            // path's 401 handling.
+            storePendingAcceptIntent({
+              ...(inviteId ? { inviteId } : { token }),
+              acceptsBusinessBilling: true,
+              acknowledgesPrivacy: true,
+            });
+            clearSessionToken();
+            window.location.href = `/signin?redirect=${encodeURIComponent(
+              window.location.pathname + window.location.search,
+            )}`;
+            return;
+          }
           setError(res.error ?? "Could not accept invitation.");
           return;
         }
