@@ -11,6 +11,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFriendsBadge } from "@/hooks/use-friends-badge";
+import { marketingSiteUrl } from "@/lib/site-urls";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -20,8 +21,6 @@ const Header = () => {
   const friendsBadge = useFriendsBadge({
     poll: !location.pathname.startsWith("/friends"),
   });
-
-  const isActive = (path: string) => location.pathname === path;
 
   const friendsMenuLabel = (
     <span className="flex items-center gap-2">
@@ -38,59 +37,56 @@ const Header = () => {
     <header className="fixed top-0 w-full z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <Link to="/" className="flex items-center space-x-3 group">
+          <a
+            href={marketingSiteUrl()}
+            className="flex items-center space-x-3 group"
+          >
             <img
               src="/logo-white.png"
               alt="KeenVPN"
               className="h-10 w-10 transition-transform group-hover:scale-105"
             />
             <span className="text-xl font-bold text-foreground">KeenVPN</span>
-          </Link>
+          </a>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link
-              to="/"
-              className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/") ? "text-primary" : "text-muted-foreground"
-                }`}
+            <a
+              href={marketingSiteUrl()}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               Home
-            </Link>
-            <Link
-              to="/pricing"
-              className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/pricing") ? "text-primary" : "text-muted-foreground"
-                }`}
+            </a>
+            <a
+              href={marketingSiteUrl("/pricing")}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               Pricing
-            </Link>
-            <Link
-              to="/servers"
-              className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/servers") ? "text-primary" : "text-muted-foreground"
-                }`}
+            </a>
+            <a
+              href={marketingSiteUrl("/servers")}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               Servers
-            </Link>
-            <Link
-              to="/support"
-              className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/support") ? "text-primary" : "text-muted-foreground"
-                }`}
+            </a>
+            <a
+              href={marketingSiteUrl("/support")}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               Support
-            </Link>
-            <Link
-              to="/privacy"
-              className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/privacy") ? "text-primary" : "text-muted-foreground"
-                }`}
+            </a>
+            <a
+              href={marketingSiteUrl("/privacy")}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               Privacy
-            </Link>
-            <Link
-              to="/terms"
-              className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/terms") ? "text-primary" : "text-muted-foreground"
-                }`}
+            </a>
+            <a
+              href={marketingSiteUrl("/terms")}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               Terms
-            </Link>
+            </a>
           </nav>
 
           <div className="hidden md:flex items-center space-x-4">
@@ -162,62 +158,48 @@ const Header = () => {
         {isMenuOpen && (
           <nav className="md:hidden mt-4 pb-4 border-t border-border pt-4">
             <div className="flex flex-col space-y-4">
-              <Link
-                to="/"
-                className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/") ? "text-primary" : "text-muted-foreground"
-                  }`}
+              <a
+                href={marketingSiteUrl()}
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Home
-              </Link>
-              <Link
-                to="/pricing"
-                className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/pricing")
-                  ? "text-primary"
-                  : "text-muted-foreground"
-                  }`}
+              </a>
+              <a
+                href={marketingSiteUrl("/pricing")}
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Pricing
-              </Link>
-              <Link
-                to="/servers"
-                className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/servers")
-                  ? "text-primary"
-                  : "text-muted-foreground"
-                  }`}
+              </a>
+              <a
+                href={marketingSiteUrl("/servers")}
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Servers
-              </Link>
-              <Link
-                to="/support"
-                className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/support")
-                  ? "text-primary"
-                  : "text-muted-foreground"
-                  }`}
+              </a>
+              <a
+                href={marketingSiteUrl("/support")}
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Support
-              </Link>
-              <Link
-                to="/privacy"
-                className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/privacy")
-                  ? "text-primary"
-                  : "text-muted-foreground"
-                  }`}
+              </a>
+              <a
+                href={marketingSiteUrl("/privacy")}
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Privacy
-              </Link>
-              <Link
-                to="/terms"
-                className={`text-sm font-medium transition-colors hover:text-primary ${isActive("/terms") ? "text-primary" : "text-muted-foreground"
-                  }`}
+              </a>
+              <a
+                href={marketingSiteUrl("/terms")}
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Terms
-              </Link>
+              </a>
               <div className="flex flex-col space-y-2 pt-4">
                 {user ? (
                   <>

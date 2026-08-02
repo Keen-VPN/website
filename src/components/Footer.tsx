@@ -1,5 +1,5 @@
 import { Mail } from "lucide-react";
-import { Link } from "react-router-dom";
+import { marketingSiteUrl } from "@/lib/site-urls";
 
 const Footer = () => {
   return (
@@ -8,10 +8,13 @@ const Footer = () => {
         <div className="flex justify-between">
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center space-x-3 mb-4">
+            <a
+              href={marketingSiteUrl()}
+              className="mb-4 flex items-center space-x-3"
+            >
               <img src="/logo-white.png" alt="KeenVPN" className="h-12 w-12" />
               <span className="text-xl font-bold text-foreground">KeenVPN</span>
-            </div>
+            </a>
             <div className="flex items-center space-x-2 text-muted-foreground">
               <Mail className="h-4 w-4 text-accent" />
               <a
@@ -36,44 +39,44 @@ const Footer = () => {
           <div>
             <ul className="flex flex-wrap justify-end gap-4">
               <li>
-                <Link
-                  to="/servers"
+                <a
+                  href={marketingSiteUrl("/servers")}
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   Server Locations
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
-                  to="/switch"
+                <a
+                  href={marketingSiteUrl("/switch")}
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   Switch to KeenVPN
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
-                  to="/support"
+                <a
+                  href={marketingSiteUrl("/support")}
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   Support
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
-                  to="/privacy"
+                <a
+                  href={marketingSiteUrl("/privacy")}
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   Privacy Policy
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
-                  to="/terms"
+                <a
+                  href={marketingSiteUrl("/terms")}
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   Terms of Service
-                </Link>
+                </a>
               </li>
             </ul>
           </div>
