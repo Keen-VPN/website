@@ -125,6 +125,7 @@ export default function AdminEmailUnsubscribes() {
   const [loading, setLoading] = useState(true);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [eventsError, setEventsError] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
   const eventsRequest = useRef<AbortController | null>(null);
 
@@ -213,6 +214,7 @@ export default function AdminEmailUnsubscribes() {
     ) => {
       if (!from.trim() || !to.trim()) {
         setEvents(null);
+        setEventsError(null);
         setEventsLoading(false);
         return;
       }
@@ -221,6 +223,7 @@ export default function AdminEmailUnsubscribes() {
       const controller = new AbortController();
       eventsRequest.current = controller;
       setEventsLoading(true);
+      setEventsError(null);
 
       const response = await adminFetchEmailUnsubscribeEvents({
         from: `${from}T00:00:00.000Z`,
@@ -241,12 +244,13 @@ export default function AdminEmailUnsubscribes() {
         setEventsLoading(false);
         eventsRequest.current = null;
         if (response.error && response.error !== "Request aborted") {
-          setError(response.error);
+          setEventsError(response.error);
         }
         return;
       }
 
       setEvents(response.data);
+      setEventsError(null);
       setEventsLoading(false);
       eventsRequest.current = null;
     },
@@ -577,6 +581,11 @@ export default function AdminEmailUnsubscribes() {
             ) : null}
           </div>
         </div>
+        {eventsError ? (
+          <div className="mb-3 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            {eventsError}
+          </div>
+        ) : null}
         <div className="rounded-lg border border-border overflow-x-auto">
           <table className="w-full min-w-[1100px] text-sm">
             <thead className="bg-muted/50">

@@ -3600,7 +3600,7 @@ export interface AdminEmailUnsubscribeTrendReport {
   from: string;
   to: string;
   interval: AdminUnsubscribeTrendInterval;
-  rows: Array<{ bucket: string; unsubscribes: number }>;
+  rows: { bucket: string; unsubscribes: number }[];
 }
 
 export interface AdminEmailUnsubscribeCampaignRow {
