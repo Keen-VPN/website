@@ -1,4 +1,5 @@
 import { Mail } from "lucide-react";
+import { Link } from "react-router-dom";
 import { marketingSiteUrl } from "@/lib/site-urls";
 
 const Footer = () => {
