@@ -32,6 +32,7 @@ import {
   type AdminEmailUnsubscribeTrendReport,
   type AdminUnsubscribeTrendInterval,
 } from "@/auth/backend";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
   defaultAdminReportFromValue,
   defaultAdminReportToValue,
@@ -104,6 +105,8 @@ function lastEmailCell(
 }
 
 export default function AdminEmailUnsubscribes() {
+  const { can } = useAdminAuth();
+  const canBroadcast = can("emails.broadcast");
   const [fromInput, setFromInput] = useState(defaultAdminReportFromValue);
   const [toInput, setToInput] = useState(defaultAdminReportToValue);
   const [interval, setTrendInterval] =
@@ -273,17 +276,29 @@ export default function AdminEmailUnsubscribes() {
         bucket: new Date(row.bucket).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
-          ...(interval === "month" ? { year: "2-digit" } : {}),
+          year: "2-digit",
           timeZone: "UTC",
         }),
         unsubscribes: row.unsubscribes,
       })),
-    [trends, interval],
+    [trends],
   );
 
   const totalPages = events
     ? Math.max(1, Math.ceil(events.total / PAGE_SIZE))
     : 1;
+
+  if (!canBroadcast) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-xl font-semibold">Email unsubscribes</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Your admin account does not have permission to view email unsubscribe
+          reports.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

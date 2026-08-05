@@ -98,13 +98,15 @@ export default function AdminSidebarLayout() {
                 Broadcast Email
               </NavLink>
             ) : null}
-            <NavLink
-              to="/admin/email-unsubscribes"
-              className={({ isActive }) => linkClass(isActive)}
-            >
-              <Mail className="h-4 w-4" />
-              Email Unsubscribes
-            </NavLink>
+            {can("emails.broadcast") ? (
+              <NavLink
+                to="/admin/email-unsubscribes"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                <Mail className="h-4 w-4" />
+                Email Unsubscribes
+              </NavLink>
+            ) : null}
             <NavLink
               to="/admin/perks"
               className={({ isActive }) => linkClass(isActive)}
