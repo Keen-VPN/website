@@ -99,6 +99,13 @@ export default function AdminSidebarLayout() {
               </NavLink>
             ) : null}
             <NavLink
+              to="/admin/email-unsubscribes"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Mail className="h-4 w-4" />
+              Email Unsubscribes
+            </NavLink>
+            <NavLink
               to="/admin/perks"
               className={({ isActive }) => linkClass(isActive)}
             >

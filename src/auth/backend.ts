@@ -3583,6 +3583,180 @@ export async function adminFetchUtmSignupReport(params?: {
   }
 }
 
+export type AdminUnsubscribeTrendInterval = "day" | "week" | "month";
+
+export interface AdminEmailUnsubscribeSummary {
+  from: string;
+  to: string;
+  total_unsubscribes: number;
+  broadcast_unsubscribes: number;
+  delivered_recipients: number;
+  unsubscribe_rate: number | null;
+  avg_subscribed_days: number | null;
+  avg_emails_received: number | null;
+}
+
+export interface AdminEmailUnsubscribeTrendReport {
+  from: string;
+  to: string;
+  interval: AdminUnsubscribeTrendInterval;
+  rows: Array<{ bucket: string; unsubscribes: number }>;
+}
+
+export interface AdminEmailUnsubscribeCampaignRow {
+  campaign_key: string;
+  campaign: string;
+  broadcast_id: string | null;
+  template_id: string | null;
+  unsubscribes: number;
+  broadcast_unsubscribes: number;
+  share_of_total: number | null;
+  unsubscribe_rate: number | null;
+  delivered_recipients: number | null;
+  last_unsubscribe_at: string | null;
+  avg_subscribed_days: number | null;
+  avg_emails_received: number | null;
+}
+
+export interface AdminEmailUnsubscribeCampaignsReport {
+  from: string;
+  to: string;
+  total_unsubscribes: number;
+  rows: AdminEmailUnsubscribeCampaignRow[];
+}
+
+export interface AdminEmailUnsubscribeEventRow {
+  id: string;
+  email: string;
+  source: string;
+  unsubscribed_at: string;
+  subscribed_at: string | null;
+  subscribed_days: number | null;
+  emails_received_count: number;
+  last_email_subject: string | null;
+  last_email_broadcast_id: string | null;
+  last_email_template_id: string | null;
+  last_email_at: string | null;
+  campaign_key: string;
+}
+
+export interface AdminEmailUnsubscribeEventsReport {
+  from: string;
+  to: string;
+  total: number;
+  limit: number;
+  offset: number;
+  rows: AdminEmailUnsubscribeEventRow[];
+}
+
+async function adminFetchEmailUnsubscribeJson<T>(
+  path: string,
+  params: {
+    from?: string;
+    to?: string;
+    interval?: AdminUnsubscribeTrendInterval;
+    campaign?: string;
+    template?: string;
+    limit?: number;
+    offset?: number;
+    signal?: AbortSignal;
+  },
+  fallbackError: string,
+): Promise<{ ok: boolean; data?: T; error?: string }> {
+  try {
+    const query = new URLSearchParams();
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+    if (params.interval) query.set("interval", params.interval);
+    if (params.campaign) query.set("campaign", params.campaign);
+    if (params.template) query.set("template", params.template);
+    if (params.limit != null) query.set("limit", String(params.limit));
+    if (params.offset != null) query.set("offset", String(params.offset));
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/email-unsubscribes/${path}${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+        signal: params.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(data, fallbackError),
+      };
+    }
+    const record = data as { data?: T };
+    if (!record.data) {
+      return { ok: false, error: `Invalid ${path} response` };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export function adminFetchEmailUnsubscribeSummary(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}) {
+  return adminFetchEmailUnsubscribeJson<AdminEmailUnsubscribeSummary>(
+    "summary",
+    params ?? {},
+    "Failed to load unsubscribe summary",
+  );
+}
+
+export function adminFetchEmailUnsubscribeTrends(params?: {
+  from?: string;
+  to?: string;
+  interval?: AdminUnsubscribeTrendInterval;
+  signal?: AbortSignal;
+}) {
+  return adminFetchEmailUnsubscribeJson<AdminEmailUnsubscribeTrendReport>(
+    "trends",
+    params ?? {},
+    "Failed to load unsubscribe trends",
+  );
+}
+
+export function adminFetchEmailUnsubscribeCampaigns(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}) {
+  return adminFetchEmailUnsubscribeJson<AdminEmailUnsubscribeCampaignsReport>(
+    "campaigns",
+    params ?? {},
+    "Failed to load unsubscribe campaigns",
+  );
+}
+
+export function adminFetchEmailUnsubscribeEvents(params?: {
+  from?: string;
+  to?: string;
+  campaign?: string;
+  template?: string;
+  limit?: number;
+  offset?: number;
+  signal?: AbortSignal;
+}) {
+  return adminFetchEmailUnsubscribeJson<AdminEmailUnsubscribeEventsReport>(
+    "events",
+    params ?? {},
+    "Failed to load unsubscribe events",
+  );
+}
+
 export async function adminFetchWeeklySessionKpis(params?: {
   year?: number;
   week?: number;

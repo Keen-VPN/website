@@ -86,6 +86,9 @@ const AdminStickerCampaigns = lazy(
 const AdminBroadcastEmail = lazy(
   () => import("./pages/admin/AdminBroadcastEmail"),
 );
+const AdminEmailUnsubscribes = lazy(
+  () => import("./pages/admin/AdminEmailUnsubscribes"),
+);
 const AdminUserProfiles = lazy(
   () => import("./pages/admin/AdminUserProfiles"),
 );
@@ -250,6 +253,10 @@ const App = () => (
                   element={<AdminStickerCampaigns />}
                 />
                 <Route path="broadcast-email" element={<AdminBroadcastEmail />} />
+                <Route
+                  path="email-unsubscribes"
+                  element={<AdminEmailUnsubscribes />}
+                />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
