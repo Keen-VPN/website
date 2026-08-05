@@ -106,7 +106,22 @@ function lastEmailCell(
 
 export default function AdminEmailUnsubscribes() {
   const { can } = useAdminAuth();
-  const canBroadcast = can("emails.broadcast");
+  if (!can("emails.broadcast")) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-xl font-semibold">Email unsubscribes</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Your admin account does not have permission to view email unsubscribe
+          reports.
+        </p>
+      </div>
+    );
+  }
+
+  return <AdminEmailUnsubscribesDashboard />;
+}
+
+function AdminEmailUnsubscribesDashboard() {
   const [fromInput, setFromInput] = useState(defaultAdminReportFromValue);
   const [toInput, setToInput] = useState(defaultAdminReportToValue);
   const [interval, setTrendInterval] =
@@ -287,18 +302,6 @@ export default function AdminEmailUnsubscribes() {
   const totalPages = events
     ? Math.max(1, Math.ceil(events.total / PAGE_SIZE))
     : 1;
-
-  if (!canBroadcast) {
-    return (
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-xl font-semibold">Email unsubscribes</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Your admin account does not have permission to view email unsubscribe
-          reports.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
