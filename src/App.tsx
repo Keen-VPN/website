@@ -19,6 +19,7 @@ const Pricing = lazy(() => import("./pages/Pricing"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const Support = lazy(() => import("./pages/Support"));
+const DeleteAccount = lazy(() => import("./pages/DeleteAccount"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const MagicLinkRequest = lazy(() => import("./pages/MagicLinkRequest"));
 const MagicLinkVerify = lazy(() => import("./pages/MagicLinkVerify"));
@@ -123,6 +124,9 @@ const App = () => (
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/support" element={<Support />} />
+              {/* Public, no auth guard: Play requires this URL to work for users
+                  who can no longer sign in or no longer have the app installed. */}
+              <Route path="/delete-account" element={<DeleteAccount />} />
               <Route path="/my-ip-address" element={<MyIPAddress />} />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/signin/magic" element={<MagicLinkRequest />} />

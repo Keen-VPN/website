@@ -78,6 +78,14 @@ const Footer = () => {
                   Terms of Service
                 </a>
               </li>
+              <li>
+                <Link
+                  to="/delete-account"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Delete Account
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
