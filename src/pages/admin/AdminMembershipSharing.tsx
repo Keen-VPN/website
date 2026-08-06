@@ -42,6 +42,12 @@ interface PendingInviteRow {
   expiresAt: string;
 }
 
+interface RevokedInviteRow {
+  id: string;
+  email: string;
+  revokedAt: string | null;
+}
+
 interface SharingRow {
   subscriptionId: string;
   owner: { id: string; email: string; displayName?: string | null };
@@ -53,6 +59,7 @@ interface SharingRow {
   seats: MembershipSharingSeats;
   members: MemberRow[];
   pendingInvites: PendingInviteRow[];
+  revokedInvites?: RevokedInviteRow[];
 }
 
 interface BusinessOnboardingOwner {
@@ -71,6 +78,7 @@ interface BusinessOnboardingOwner {
     expiresAt: string;
     billingDeferredUntil: string | null;
   }[];
+  revokedInvites?: RevokedInviteRow[];
 }
 
 interface BusinessOnboardingReport {
@@ -98,6 +106,24 @@ interface BusinessOnboardingReport {
     avgHoursToAccept: number | null;
   };
   owners: BusinessOnboardingOwner[];
+}
+
+function isBusinessOnboardingReport(
+  value: unknown,
+): value is BusinessOnboardingReport {
+  if (!value || typeof value !== "object") return false;
+  const report = value as Partial<BusinessOnboardingReport>;
+  return (
+    typeof report.windowDays === "number" &&
+    typeof report.windowStart === "string" &&
+    !!report.snapshot &&
+    typeof report.snapshot === "object" &&
+    typeof report.snapshot.activeBusinessPlans === "number" &&
+    !!report.funnel &&
+    typeof report.funnel === "object" &&
+    typeof report.funnel.invitesSent === "number" &&
+    Array.isArray(report.owners)
+  );
 }
 
 type Tab = "seats" | "onboarding";
@@ -199,12 +225,14 @@ export default function AdminMembershipSharing() {
     try {
       const res = await adminBusinessOnboarding({ days: onboardingDays });
       if (!isCurrentRequest()) return;
-      if (!res.ok || !res.data) {
+      if (!res.ok || !isBusinessOnboardingReport(res.data)) {
         setOnboarding(null);
-        setOnboardingError(res.error ?? "Failed to load Business onboarding");
+        setOnboardingError(
+          res.error ?? "Failed to load Business onboarding",
+        );
         return;
       }
-      setOnboarding(res.data as BusinessOnboardingReport);
+      setOnboarding(res.data);
     } catch (err) {
       if (!isCurrentRequest()) return;
       setOnboarding(null);
@@ -393,6 +421,7 @@ export default function AdminMembershipSharing() {
                       <th className="px-4 py-3">Seats</th>
                       <th className="px-4 py-3">Members</th>
                       <th className="px-4 py-3">Pending invites</th>
+                      <th className="px-4 py-3">Revoked invites</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -437,12 +466,23 @@ export default function AdminMembershipSharing() {
                             "—"
                           )}
                         </td>
+                        <td className="px-4 py-3 text-slate-400">
+                          {row.revokedInvites?.length ? (
+                            <ul className="space-y-1">
+                              {row.revokedInvites.map((invite) => (
+                                <li key={invite.id}>{invite.email}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
                       </tr>
                     ))}
                     {!onboardingLoading && onboarding.owners.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={5}
+                          colSpan={6}
                           className="px-4 py-8 text-center text-slate-500"
                         >
                           No active Business plans found
@@ -526,6 +566,7 @@ export default function AdminMembershipSharing() {
                   <th className="px-4 py-3">Seats</th>
                   <th className="px-4 py-3">Members</th>
                   <th className="px-4 py-3">Pending</th>
+                  <th className="px-4 py-3">Revoked</th>
                   {canWrite ? <th className="px-4 py-3">Seat limit</th> : null}
                 </tr>
               </thead>
@@ -582,6 +623,11 @@ export default function AdminMembershipSharing() {
                         ? row.pendingInvites.map((i) => i.email).join(", ")
                         : "—"}
                     </td>
+                    <td className="px-4 py-3 text-slate-400">
+                      {row.revokedInvites?.length
+                        ? row.revokedInvites.map((i) => i.email).join(", ")
+                        : "—"}
+                    </td>
                     {canWrite ? (
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -612,7 +658,7 @@ export default function AdminMembershipSharing() {
                 {!seatsLoading && rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={canWrite ? 6 : 5}
+                      colSpan={canWrite ? 7 : 6}
                       className="px-4 py-8 text-center text-slate-500"
                     >
                       No active subscriptions found
