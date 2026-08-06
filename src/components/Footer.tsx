@@ -41,7 +41,7 @@ const Footer = () => {
             <ul className="flex flex-wrap justify-end gap-4">
               <li>
                 <a
-                  href={marketingSiteUrl("/servers")}
+                  href={marketingSiteUrl("/server-locations.html")}
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   Server Locations
@@ -49,7 +49,7 @@ const Footer = () => {
               </li>
               <li>
                 <a
-                  href={marketingSiteUrl("/switch")}
+                  href={marketingSiteUrl("/transfer.html")}
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   Switch to KeenVPN
@@ -57,7 +57,7 @@ const Footer = () => {
               </li>
               <li>
                 <a
-                  href={marketingSiteUrl("/support")}
+                  href={marketingSiteUrl("/#faq")}
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   Support
@@ -65,7 +65,7 @@ const Footer = () => {
               </li>
               <li>
                 <a
-                  href={marketingSiteUrl("/privacy")}
+                  href={marketingSiteUrl("/privacy.html")}
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   Privacy Policy
@@ -73,7 +73,7 @@ const Footer = () => {
               </li>
               <li>
                 <a
-                  href={marketingSiteUrl("/terms")}
+                  href={marketingSiteUrl("/terms.html")}
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   Terms of Service
