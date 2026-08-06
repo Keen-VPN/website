@@ -108,21 +108,108 @@ interface BusinessOnboardingReport {
   owners: BusinessOnboardingOwner[];
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object";
+}
+
+function isNullableNumber(value: unknown): value is number | null {
+  return value === null || typeof value === "number";
+}
+
+function isMemberRow(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.email === "string";
+}
+
+function isPendingInviteRow(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === "string" &&
+    typeof value.email === "string" &&
+    typeof value.status === "string"
+  );
+}
+
+function isRevokedInviteRow(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.id === "string" && typeof value.email === "string";
+}
+
+function isMembershipSharingSeats(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.seatLimit === "number" &&
+    typeof value.activeSeats === "number" &&
+    typeof value.availableSeats === "number"
+  );
+}
+
+function isBusinessOnboardingOwner(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (typeof value.subscriptionId !== "string") return false;
+  if (typeof value.status !== "string") return false;
+  if (!isRecord(value.owner) || typeof value.owner.email !== "string") {
+    return false;
+  }
+  if (!isMembershipSharingSeats(value.seats)) return false;
+  if (!Array.isArray(value.members) || !value.members.every(isMemberRow)) {
+    return false;
+  }
+  if (
+    !Array.isArray(value.pendingInvites) ||
+    !value.pendingInvites.every(isPendingInviteRow)
+  ) {
+    return false;
+  }
+  if (
+    value.revokedInvites != null &&
+    (!Array.isArray(value.revokedInvites) ||
+      !value.revokedInvites.every(isRevokedInviteRow))
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function isBusinessOnboardingReport(
   value: unknown,
 ): value is BusinessOnboardingReport {
-  if (!value || typeof value !== "object") return false;
-  const report = value as Partial<BusinessOnboardingReport>;
+  if (!isRecord(value)) return false;
+  if (typeof value.windowDays !== "number") return false;
+  if (typeof value.windowStart !== "string") return false;
+
+  if (!isRecord(value.snapshot)) return false;
+  const snapshot = value.snapshot;
+  if (
+    typeof snapshot.activeBusinessPlans !== "number" ||
+    typeof snapshot.seatsPurchased !== "number" ||
+    typeof snapshot.seatsUsed !== "number" ||
+    typeof snapshot.seatsUnused !== "number" ||
+    typeof snapshot.activeMembers !== "number" ||
+    !isRecord(snapshot.pendingInvites) ||
+    typeof snapshot.pendingInvites.total !== "number" ||
+    typeof snapshot.pendingInvites.pending !== "number" ||
+    typeof snapshot.pendingInvites.billingPending !== "number" ||
+    typeof snapshot.pendingInvites.creditPending !== "number"
+  ) {
+    return false;
+  }
+
+  if (!isRecord(value.funnel)) return false;
+  const funnel = value.funnel;
+  if (
+    typeof funnel.invitesSent !== "number" ||
+    typeof funnel.invitesAccepted !== "number" ||
+    typeof funnel.invitesExpired !== "number" ||
+    typeof funnel.invitesRevoked !== "number" ||
+    !isNullableNumber(funnel.sentToAcceptedPercent) ||
+    !isNullableNumber(funnel.avgHoursToAccept)
+  ) {
+    return false;
+  }
+
   return (
-    typeof report.windowDays === "number" &&
-    typeof report.windowStart === "string" &&
-    !!report.snapshot &&
-    typeof report.snapshot === "object" &&
-    typeof report.snapshot.activeBusinessPlans === "number" &&
-    !!report.funnel &&
-    typeof report.funnel === "object" &&
-    typeof report.funnel.invitesSent === "number" &&
-    Array.isArray(report.owners)
+    Array.isArray(value.owners) && value.owners.every(isBusinessOnboardingOwner)
   );
 }
 
