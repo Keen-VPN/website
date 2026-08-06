@@ -15,7 +15,7 @@ import UtmCapture from "@/components/UtmCapture";
 import RedditPixelTracker from "@/components/RedditPixelTracker";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import MarketingSiteRedirect from "@/components/MarketingSiteRedirect";
-import { hasMembershipTransferQuery } from "@/auth/membership-transfer-flow";
+import { resolvePricingRouteDestination } from "@/auth/pricing-route";
 import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
 import AdminSidebarLayout from "@/components/admin/AdminSidebarLayout";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
@@ -109,13 +109,19 @@ const PageLoader = () => (
 
 const PricingRoute = () => {
   const { search } = useLocation();
-  const { user, loading } = useAuth();
+  const { user, loading, hasSessionToken } = useAuth();
+  const destination = resolvePricingRouteDestination({
+    hasUser: Boolean(user),
+    hasSessionToken,
+    authLoading: loading,
+    search,
+  });
 
-  if (loading) {
+  if (destination === "loading") {
     return <PageLoader />;
   }
 
-  return user || hasMembershipTransferQuery(new URLSearchParams(search)) ? (
+  return destination === "portal" ? (
     <Pricing />
   ) : (
     <MarketingSiteRedirect path="/pricing.html" />
