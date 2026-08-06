@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { marketingSiteUrl } from "@/lib/site-urls";
+import { useEffect, useMemo } from "react";
+import { resolveMarketingRedirectUrl } from "@/lib/marketing-site-redirect";
 
 interface MarketingSiteRedirectProps {
   path?: string;
@@ -8,21 +8,31 @@ interface MarketingSiteRedirectProps {
 export default function MarketingSiteRedirect({
   path = "/",
 }: MarketingSiteRedirectProps) {
+  const destination = useMemo(
+    () =>
+      resolveMarketingRedirectUrl(
+        path,
+        window.location.search,
+        window.location.hash,
+      ),
+    [path],
+  );
+
   useEffect(() => {
-    const destination = new URL(marketingSiteUrl(path));
-    destination.search = window.location.search;
-    if (window.location.hash) {
-      destination.hash = window.location.hash;
-    }
-    window.location.replace(destination.toString());
-  }, [path]);
+    window.location.replace(destination);
+  }, [destination]);
 
   return (
     <main
       className="flex min-h-screen items-center justify-center bg-background text-muted-foreground"
       aria-live="polite"
     >
-      Opening KeenVPN…
+      <p>
+        Opening KeenVPN…{" "}
+        <a className="font-medium text-primary underline" href={destination}>
+          Continue to KeenVPN
+        </a>
+      </p>
     </main>
   );
 }

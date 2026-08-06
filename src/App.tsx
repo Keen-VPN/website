@@ -3,17 +3,25 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import UtmCapture from "@/components/UtmCapture";
 import RedditPixelTracker from "@/components/RedditPixelTracker";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import MarketingSiteRedirect from "@/components/MarketingSiteRedirect";
+import { hasMembershipTransferQuery } from "@/auth/membership-transfer-flow";
 import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
 import AdminSidebarLayout from "@/components/admin/AdminSidebarLayout";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 // Lazy load pages for code splitting
 const DeleteAccount = lazy(() => import("./pages/DeleteAccount"));
+const Pricing = lazy(() => import("./pages/Pricing"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const MagicLinkRequest = lazy(() => import("./pages/MagicLinkRequest"));
 const MagicLinkVerify = lazy(() => import("./pages/MagicLinkVerify"));
@@ -99,6 +107,15 @@ const PageLoader = () => (
   </div>
 );
 
+const PricingRoute = () => {
+  const { search } = useLocation();
+  return hasMembershipTransferQuery(new URLSearchParams(search)) ? (
+    <Pricing />
+  ) : (
+    <MarketingSiteRedirect path="/pricing.html" />
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -121,7 +138,7 @@ const App = () => (
               />
               <Route
                 path="/pricing"
-                element={<MarketingSiteRedirect path="/pricing.html" />}
+                element={<PricingRoute />}
               />
               <Route
                 path="/privacy"
