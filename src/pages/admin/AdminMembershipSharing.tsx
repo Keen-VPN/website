@@ -128,8 +128,9 @@ export default function AdminMembershipSharing() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [seatsLoading, setSeatsLoading] = useState(false);
-  const [onboardingLoading, setOnboardingLoading] = useState(false);
+  // Start true so an unqueried Seat accounts tab is not treated as empty.
+  const [seatsLoading, setSeatsLoading] = useState(true);
+  const [onboardingLoading, setOnboardingLoading] = useState(true);
   const [seatsError, setSeatsError] = useState<string | null>(null);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
   const [seatDraft, setSeatDraft] = useState<Record<string, string>>({});
