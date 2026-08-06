@@ -15,12 +15,16 @@ export function resolvePricingRouteDestination({
   authLoading,
   search,
 }: ResolvePricingRouteDestinationOptions): PricingRouteDestination {
-  if (hasUser || hasMembershipTransferQuery(new URLSearchParams(search))) {
+  if (hasUser) {
     return "portal";
   }
 
   if (authLoading) {
     return "loading";
+  }
+
+  if (hasMembershipTransferQuery(new URLSearchParams(search))) {
+    return "portal";
   }
 
   // A retained backend session should keep the customer in the portal if

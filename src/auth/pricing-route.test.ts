@@ -46,12 +46,23 @@ describe("resolvePricingRouteDestination", () => {
     ).toBe("portal");
   });
 
-  it("always preserves the membership-transfer pricing flow", () => {
+  it("waits for auth before rendering the membership-transfer pricing flow", () => {
     expect(
       resolvePricingRouteDestination({
         hasUser: false,
         hasSessionToken: false,
         authLoading: true,
+        search: "?membershipTransfer=1&source=switch",
+      }),
+    ).toBe("loading");
+  });
+
+  it("preserves the membership-transfer pricing flow after auth resolves", () => {
+    expect(
+      resolvePricingRouteDestination({
+        hasUser: false,
+        hasSessionToken: false,
+        authLoading: false,
         search: "?membershipTransfer=1&source=switch",
       }),
     ).toBe("portal");
