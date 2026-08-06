@@ -8,17 +8,11 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import UtmCapture from "@/components/UtmCapture";
 import RedditPixelTracker from "@/components/RedditPixelTracker";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import MarketingSiteRedirect from "@/components/MarketingSiteRedirect";
 import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
 import AdminSidebarLayout from "@/components/admin/AdminSidebarLayout";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 // Lazy load pages for code splitting
-const Switch = lazy(() => import("./pages/Switch"));
-const Servers = lazy(() => import("./pages/Servers"));
-const Index = lazy(() => import("./pages/Index"));
-const Pricing = lazy(() => import("./pages/Pricing"));
-const Privacy = lazy(() => import("./pages/Privacy"));
-const Terms = lazy(() => import("./pages/Terms"));
-const Support = lazy(() => import("./pages/Support"));
 const DeleteAccount = lazy(() => import("./pages/DeleteAccount"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const MagicLinkRequest = lazy(() => import("./pages/MagicLinkRequest"));
@@ -46,7 +40,6 @@ const PaymentCancel = lazy(() => import("./pages/PaymentCancel"));
 const OpenApp = lazy(() => import("./pages/OpenApp"));
 const AuthDebug = lazy(() => import("./pages/AuthDebug"));
 const AppleDebug = lazy(() => import("./pages/AppleDebug"));
-const MyIPAddress = lazy(() => import("./pages/MyIPAddress"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const MembershipTransferAdmin = lazy(
   () => import("./pages/admin/MembershipTransferAdmin"),
@@ -117,17 +110,38 @@ const App = () => (
           <RedditPixelTracker />
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/switch" element={<Switch />} />
-              <Route path="/servers" element={<Servers />} />
-              <Route path="/pricing" element={<Pricing />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/support" element={<Support />} />
+              <Route path="/" element={<MarketingSiteRedirect />} />
+              <Route
+                path="/switch"
+                element={<MarketingSiteRedirect path="/transfer.html" />}
+              />
+              <Route
+                path="/servers"
+                element={<MarketingSiteRedirect path="/server-locations.html" />}
+              />
+              <Route
+                path="/pricing"
+                element={<MarketingSiteRedirect path="/pricing.html" />}
+              />
+              <Route
+                path="/privacy"
+                element={<MarketingSiteRedirect path="/privacy.html" />}
+              />
+              <Route
+                path="/terms"
+                element={<MarketingSiteRedirect path="/terms.html" />}
+              />
+              <Route
+                path="/support"
+                element={<MarketingSiteRedirect path="/#faq" />}
+              />
               {/* Public, no auth guard: Play requires this URL to work for users
                   who can no longer sign in or no longer have the app installed. */}
               <Route path="/delete-account" element={<DeleteAccount />} />
-              <Route path="/my-ip-address" element={<MyIPAddress />} />
+              <Route
+                path="/my-ip-address"
+                element={<MarketingSiteRedirect path="/#network-status-banner" />}
+              />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/signin/magic" element={<MagicLinkRequest />} />
               <Route path="/auth/magic" element={<MagicLinkVerify />} />
