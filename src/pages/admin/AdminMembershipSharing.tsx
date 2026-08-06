@@ -128,32 +128,35 @@ export default function AdminMembershipSharing() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [seatsLoading, setSeatsLoading] = useState(false);
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const [seatsError, setSeatsError] = useState<string | null>(null);
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
   const [seatDraft, setSeatDraft] = useState<Record<string, string>>({});
   const [metrics, setMetrics] = useState<MembershipSharingMetrics | null>(null);
   const [onboardingDays, setOnboardingDays] = useState(30);
   const [onboarding, setOnboarding] = useState<BusinessOnboardingReport | null>(
     null,
   );
-  // Separate guards so a seat mutation refresh cannot cancel an onboarding fetch.
+  // Separate guards + loading/error so tab switches cannot clobber each other.
   const seatsRequestRef = useRef(0);
   const onboardingRequestRef = useRef(0);
 
   const canWrite = can("membership_sharing.write");
+  const activeError = tab === "onboarding" ? onboardingError : seatsError;
 
   const refreshSeats = useCallback(async () => {
     const requestId = seatsRequestRef.current + 1;
     seatsRequestRef.current = requestId;
     const isCurrentRequest = () => seatsRequestRef.current === requestId;
 
-    setLoading(true);
-    setError(null);
+    setSeatsLoading(true);
+    setSeatsError(null);
     try {
       const res = await adminListMembershipSharing({ page, limit: 50, search });
       if (!isCurrentRequest()) return;
       if (!res.ok) {
-        setError(res.error ?? "Failed to load membership sharing");
+        setSeatsError(res.error ?? "Failed to load membership sharing");
         return;
       }
       const data = res.data as { items?: SharingRow[]; total?: number };
@@ -166,19 +169,19 @@ export default function AdminMembershipSharing() {
           setMetrics(metricsRes.data as MembershipSharingMetrics);
         } else {
           setMetrics(null);
-          setError(metricsRes.error ?? "Failed to load seat metrics");
+          setSeatsError(metricsRes.error ?? "Failed to load seat metrics");
         }
       }
     } catch (err) {
       if (!isCurrentRequest()) return;
-      setError(
+      setSeatsError(
         err instanceof Error
           ? err.message
           : "Failed to load membership sharing",
       );
     } finally {
       if (isCurrentRequest()) {
-        setLoading(false);
+        setSeatsLoading(false);
       }
     }
   }, [page, search]);
@@ -188,8 +191,8 @@ export default function AdminMembershipSharing() {
     onboardingRequestRef.current = requestId;
     const isCurrentRequest = () => onboardingRequestRef.current === requestId;
 
-    setLoading(true);
-    setError(null);
+    setOnboardingLoading(true);
+    setOnboardingError(null);
     // Drop prior window data so the UI does not keep showing stale metrics.
     setOnboarding(null);
     try {
@@ -197,21 +200,21 @@ export default function AdminMembershipSharing() {
       if (!isCurrentRequest()) return;
       if (!res.ok || !res.data) {
         setOnboarding(null);
-        setError(res.error ?? "Failed to load Business onboarding");
+        setOnboardingError(res.error ?? "Failed to load Business onboarding");
         return;
       }
       setOnboarding(res.data as BusinessOnboardingReport);
     } catch (err) {
       if (!isCurrentRequest()) return;
       setOnboarding(null);
-      setError(
+      setOnboardingError(
         err instanceof Error
           ? err.message
           : "Failed to load Business onboarding",
       );
     } finally {
       if (isCurrentRequest()) {
-        setLoading(false);
+        setOnboardingLoading(false);
       }
     }
   }, [onboardingDays]);
@@ -225,7 +228,7 @@ export default function AdminMembershipSharing() {
   }, [tab, refreshSeats, refreshOnboarding]);
 
   function handleSearch() {
-    if (loading) return;
+    if (seatsLoading) return;
     setPage(1);
     setSearch(searchDraft.trim());
   }
@@ -240,7 +243,7 @@ export default function AdminMembershipSharing() {
     if (!canWrite) return;
     const res = await adminRevokeMembershipMember(subscriptionId, memberUserId);
     if (!res.ok) {
-      setError(res.error ?? "Failed to revoke member");
+      setSeatsError(res.error ?? "Failed to revoke member");
       return;
     }
     await refreshSeats();
@@ -251,12 +254,12 @@ export default function AdminMembershipSharing() {
     const raw = seatDraft[subscriptionId];
     const seatLimit = Number(raw);
     if (!Number.isInteger(seatLimit) || seatLimit < 1 || seatLimit > 25) {
-      setError("Seat limit must be an integer between 1 and 25");
+      setSeatsError("Seat limit must be an integer between 1 and 25");
       return;
     }
     const res = await adminUpdateMembershipSeatLimit(subscriptionId, seatLimit);
     if (!res.ok) {
-      setError(res.error ?? "Failed to update seat limit");
+      setSeatsError(res.error ?? "Failed to update seat limit");
       return;
     }
     await refreshSeats();
@@ -288,9 +291,9 @@ export default function AdminMembershipSharing() {
         </Button>
       </div>
 
-      {error ? (
+      {activeError ? (
         <div className="rounded-md border border-red-500/40 bg-red-950/30 px-4 py-3 text-sm text-red-200">
-          {error}
+          {activeError}
         </div>
       ) : null}
 
@@ -303,7 +306,7 @@ export default function AdminMembershipSharing() {
                 className="ml-2 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-white"
                 value={onboardingDays}
                 onChange={(e) => setOnboardingDays(Number(e.target.value))}
-                disabled={loading}
+                disabled={onboardingLoading}
               >
                 <option value={7}>Last 7 days</option>
                 <option value={30}>Last 30 days</option>
@@ -313,7 +316,7 @@ export default function AdminMembershipSharing() {
             <Button
               variant="secondary"
               onClick={() => void refreshOnboarding()}
-              disabled={loading}
+              disabled={onboardingLoading}
             >
               Refresh
             </Button>
@@ -435,7 +438,7 @@ export default function AdminMembershipSharing() {
                         </td>
                       </tr>
                     ))}
-                    {!loading && onboarding.owners.length === 0 ? (
+                    {!onboardingLoading && onboarding.owners.length === 0 ? (
                       <tr>
                         <td
                           colSpan={5}
@@ -449,7 +452,7 @@ export default function AdminMembershipSharing() {
                 </table>
               </div>
             </>
-          ) : loading ? (
+          ) : onboardingLoading ? (
             <p className="text-sm text-slate-400">Loading onboarding…</p>
           ) : null}
         </div>
@@ -493,21 +496,21 @@ export default function AdminMembershipSharing() {
             <Button
               variant="secondary"
               onClick={handleSearch}
-              disabled={loading}
+              disabled={seatsLoading}
             >
               Search
             </Button>
             <Button
               variant="ghost"
               onClick={handleClearSearch}
-              disabled={loading || (!search && !searchDraft)}
+              disabled={seatsLoading || (!search && !searchDraft)}
             >
               Clear
             </Button>
             <Button
               variant="secondary"
               onClick={() => void refreshSeats()}
-              disabled={loading}
+              disabled={seatsLoading}
             >
               Refresh
             </Button>
@@ -605,7 +608,7 @@ export default function AdminMembershipSharing() {
                     ) : null}
                   </tr>
                 ))}
-                {!loading && rows.length === 0 ? (
+                {!seatsLoading && rows.length === 0 ? (
                   <tr>
                     <td
                       colSpan={canWrite ? 6 : 5}
@@ -622,7 +625,7 @@ export default function AdminMembershipSharing() {
           <div className="flex items-center gap-3">
             <Button
               variant="secondary"
-              disabled={page <= 1 || loading}
+              disabled={page <= 1 || seatsLoading}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
               Previous
@@ -632,7 +635,7 @@ export default function AdminMembershipSharing() {
             </span>
             <Button
               variant="secondary"
-              disabled={loading || page * 50 >= total}
+              disabled={seatsLoading || page * 50 >= total}
               onClick={() => setPage((p) => p + 1)}
             >
               Next
