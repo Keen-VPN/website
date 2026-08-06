@@ -31,6 +31,7 @@ import GoogleIcon from "@/components/ui/google-icon";
 import AuthProductPreview from "@/components/auth/AuthProductPreview";
 import SEOHead from "@/components/SEOHead";
 import { useToast } from "@/hooks/use-toast";
+import { marketingSiteUrl } from "@/lib/site-urls";
 
 const sanitizeOtpCode = (value: string) => value.replace(/\D/g, "").slice(0, 6);
 
@@ -215,8 +216,8 @@ const SignIn = () => {
 
       <main className="flex min-h-[100dvh] flex-col px-5 py-6 sm:px-10 sm:py-8 lg:px-14 lg:pb-10 xl:px-20 2xl:px-24">
         <div className="mx-auto w-full max-w-[480px] lg:pt-8 xl:pt-10">
-          <Link
-            to="/"
+          <a
+            href={marketingSiteUrl()}
             aria-label="KeenVPN home"
             className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e85c04] focus-visible:ring-offset-4 focus-visible:ring-offset-[#faf6ec]"
           >
@@ -224,7 +225,7 @@ const SignIn = () => {
             <span className="text-xl font-bold tracking-[-0.035em]">
               KeenVPN
             </span>
-          </Link>
+          </a>
 
           <section className="mt-10 w-full sm:mt-12 lg:mt-14">
             <div className="mb-8 lg:mb-9">

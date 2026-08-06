@@ -58,31 +58,31 @@ const Header = () => {
               Home
             </a>
             <a
-              href={marketingSiteUrl("/pricing")}
+              href={marketingSiteUrl("/pricing.html")}
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               Pricing
             </a>
             <a
-              href={marketingSiteUrl("/servers")}
+              href={marketingSiteUrl("/server-locations.html")}
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               Servers
             </a>
             <a
-              href={marketingSiteUrl("/support")}
+              href={marketingSiteUrl("/#faq")}
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               Support
             </a>
             <a
-              href={marketingSiteUrl("/privacy")}
+              href={marketingSiteUrl("/privacy.html")}
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               Privacy
             </a>
             <a
-              href={marketingSiteUrl("/terms")}
+              href={marketingSiteUrl("/terms.html")}
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               Terms
@@ -166,35 +166,35 @@ const Header = () => {
                 Home
               </a>
               <a
-                href={marketingSiteUrl("/pricing")}
+                href={marketingSiteUrl("/pricing.html")}
                 className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Pricing
               </a>
               <a
-                href={marketingSiteUrl("/servers")}
+                href={marketingSiteUrl("/server-locations.html")}
                 className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Servers
               </a>
               <a
-                href={marketingSiteUrl("/support")}
+                href={marketingSiteUrl("/#faq")}
                 className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Support
               </a>
               <a
-                href={marketingSiteUrl("/privacy")}
+                href={marketingSiteUrl("/privacy.html")}
                 className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Privacy
               </a>
               <a
-                href={marketingSiteUrl("/terms")}
+                href={marketingSiteUrl("/terms.html")}
                 className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >
