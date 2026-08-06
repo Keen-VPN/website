@@ -4927,7 +4927,10 @@ export async function adminBusinessOnboarding(params?: {
 }): Promise<{ ok: boolean; data?: unknown; error?: string }> {
   try {
     const query = new URLSearchParams();
-    if (params?.days) query.set("days", String(params.days));
+    // Nullish check: days: 0 must still be forwarded (backend clamps invalid windows).
+    if (params?.days != null && Number.isFinite(params.days)) {
+      query.set("days", String(params.days));
+    }
     const suffix = query.toString() ? `?${query.toString()}` : "";
     const response = await fetch(
       `${BACKEND_URL}/admin/subscription/membership-sharing/business-onboarding${suffix}`,

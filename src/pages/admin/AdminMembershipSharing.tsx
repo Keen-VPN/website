@@ -136,14 +136,16 @@ export default function AdminMembershipSharing() {
   const [onboarding, setOnboarding] = useState<BusinessOnboardingReport | null>(
     null,
   );
-  const refreshRequestRef = useRef(0);
+  // Separate guards so a seat mutation refresh cannot cancel an onboarding fetch.
+  const seatsRequestRef = useRef(0);
+  const onboardingRequestRef = useRef(0);
 
   const canWrite = can("membership_sharing.write");
 
   const refreshSeats = useCallback(async () => {
-    const requestId = refreshRequestRef.current + 1;
-    refreshRequestRef.current = requestId;
-    const isCurrentRequest = () => refreshRequestRef.current === requestId;
+    const requestId = seatsRequestRef.current + 1;
+    seatsRequestRef.current = requestId;
+    const isCurrentRequest = () => seatsRequestRef.current === requestId;
 
     setLoading(true);
     setError(null);
@@ -182,12 +184,14 @@ export default function AdminMembershipSharing() {
   }, [page, search]);
 
   const refreshOnboarding = useCallback(async () => {
-    const requestId = refreshRequestRef.current + 1;
-    refreshRequestRef.current = requestId;
-    const isCurrentRequest = () => refreshRequestRef.current === requestId;
+    const requestId = onboardingRequestRef.current + 1;
+    onboardingRequestRef.current = requestId;
+    const isCurrentRequest = () => onboardingRequestRef.current === requestId;
 
     setLoading(true);
     setError(null);
+    // Drop prior window data so the UI does not keep showing stale metrics.
+    setOnboarding(null);
     try {
       const res = await adminBusinessOnboarding({ days: onboardingDays });
       if (!isCurrentRequest()) return;
@@ -345,7 +349,7 @@ export default function AdminMembershipSharing() {
 
               <div>
                 <h2 className="mb-2 text-sm font-medium text-slate-300">
-                  Funnel (last {onboarding.windowDays} days)
+                  Funnel (last {onboardingDays} days)
                 </h2>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <MetricCard
