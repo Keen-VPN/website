@@ -10,7 +10,7 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import UtmCapture from "@/components/UtmCapture";
 import RedditPixelTracker from "@/components/RedditPixelTracker";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -109,7 +109,13 @@ const PageLoader = () => (
 
 const PricingRoute = () => {
   const { search } = useLocation();
-  return hasMembershipTransferQuery(new URLSearchParams(search)) ? (
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <PageLoader />;
+  }
+
+  return user || hasMembershipTransferQuery(new URLSearchParams(search)) ? (
     <Pricing />
   ) : (
     <MarketingSiteRedirect path="/pricing.html" />

@@ -1,5 +1,8 @@
 import { useEffect, useMemo } from "react";
-import { resolveMarketingRedirectUrl } from "@/lib/marketing-site-redirect";
+import {
+  resolveMarketingRedirectUrl,
+  shouldReplaceWithMarketingUrl,
+} from "@/lib/marketing-site-redirect";
 
 interface MarketingSiteRedirectProps {
   path?: string;
@@ -17,22 +20,32 @@ export default function MarketingSiteRedirect({
       ),
     [path],
   );
+  const shouldRedirect = shouldReplaceWithMarketingUrl(
+    destination,
+    window.location.href,
+  );
 
   useEffect(() => {
-    window.location.replace(destination);
-  }, [destination]);
+    if (shouldRedirect) {
+      window.location.replace(destination);
+    }
+  }, [destination, shouldRedirect]);
 
   return (
     <main
       className="flex min-h-screen items-center justify-center bg-background text-muted-foreground"
       aria-live="polite"
     >
-      <p>
-        Opening KeenVPN…{" "}
-        <a className="font-medium text-primary underline" href={destination}>
-          Continue to KeenVPN
-        </a>
-      </p>
+      {shouldRedirect ? (
+        <p>
+          Opening KeenVPN…{" "}
+          <a className="font-medium text-primary underline" href={destination}>
+            Continue to KeenVPN
+          </a>
+        </p>
+      ) : (
+        <p>KeenVPN is already open at this address.</p>
+      )}
     </main>
   );
 }

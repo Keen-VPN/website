@@ -12,3 +12,14 @@ export function resolveMarketingRedirectUrl(
   }
   return destination.toString();
 }
+
+export function shouldReplaceWithMarketingUrl(
+  destination: string,
+  currentUrl: string,
+): boolean {
+  try {
+    return new URL(destination).href !== new URL(currentUrl).href;
+  } catch {
+    return false;
+  }
+}
