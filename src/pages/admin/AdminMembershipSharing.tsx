@@ -271,7 +271,6 @@ export default function AdminMembershipSharing() {
   const [seatsError, setSeatsError] = useState<string | null>(null);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
   const [onboardingNotice, setOnboardingNotice] = useState<string | null>(null);
-  const [onboardingDroppedOwners, setOnboardingDroppedOwners] = useState(0);
   const [seatDraft, setSeatDraft] = useState<Record<string, string>>({});
   const [metrics, setMetrics] = useState<MembershipSharingMetrics | null>(null);
   const [onboardingDays, setOnboardingDays] = useState(30);
@@ -622,9 +621,7 @@ export default function AdminMembershipSharing() {
                           colSpan={6}
                           className="px-4 py-8 text-center text-slate-500"
                         >
-                          {onboardingDroppedOwners > 0
-                            ? "Owner rows could not be displayed"
-                            : "No active Business plans found"}
+                          No owner rows to display
                         </td>
                       </tr>
                     ) : null}
