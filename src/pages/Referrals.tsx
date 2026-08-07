@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getSessionToken, fetchReferralDashboard } from "@/auth";
+import { formatReferralRewardLabel } from "@/lib/referral-campaign-copy";
 
 interface ReferralRow {
   id: string;
@@ -27,7 +28,6 @@ interface ReferralRow {
   trialStartedAt: string | null;
   subscribedAt: string | null;
   rewardedAt: string | null;
-  rewardMonths?: number;
 }
 
 interface ReferralCampaign {
@@ -86,7 +86,6 @@ function coerceReferralRow(raw: unknown): ReferralRow | null {
   if (!isPlainObject(raw)) return null;
   const id = coerceString(raw["id"]);
   if (!id) return null;
-  const rewardMonthsRaw = raw["rewardMonths"];
   return {
     id,
     status: coerceString(raw["status"]),
@@ -96,10 +95,6 @@ function coerceReferralRow(raw: unknown): ReferralRow | null {
     trialStartedAt: coerceIsoOrNull(raw["trialStartedAt"]),
     subscribedAt: coerceIsoOrNull(raw["subscribedAt"]),
     rewardedAt: coerceIsoOrNull(raw["rewardedAt"]),
-    rewardMonths:
-      typeof rewardMonthsRaw === "number" && rewardMonthsRaw >= 1
-        ? rewardMonthsRaw
-        : undefined,
   };
 }
 
@@ -126,10 +121,6 @@ function coerceCampaign(raw: unknown): ReferralCampaign | null {
     endAt,
     active: true,
   };
-}
-
-function formatRewardLabel(months: number): string {
-  return months === 1 ? "1 free month" : `${months} free months`;
 }
 
 function formatCampaignDeadline(iso: string): string {
@@ -331,7 +322,7 @@ const Referrals = () => {
   const dashboardReady = data !== null;
   const liveCampaign = data?.campaign?.active ? data.campaign : null;
   const promoMonths = liveCampaign?.rewardMonths ?? data?.standardRewardMonths ?? 1;
-  const promoLabel = formatRewardLabel(promoMonths);
+  const promoLabel = formatReferralRewardLabel(promoMonths);
 
   return (
     <div className="flex min-h-screen flex-col">

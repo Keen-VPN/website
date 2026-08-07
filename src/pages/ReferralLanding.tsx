@@ -15,6 +15,7 @@ import {
   clearReferralTokenStorage,
   setReferralTokenStorage,
 } from "@/auth/referral-token";
+import { formatReferralRewardLabel } from "@/lib/referral-campaign-copy";
 
 const ReferralLanding = () => {
   const { token } = useParams<{ token: string }>();
@@ -103,8 +104,7 @@ const ReferralLanding = () => {
     );
   }
 
-  const rewardLabel =
-    rewardMonths === 1 ? "1 free month" : `${rewardMonths} free months`;
+  const rewardLabel = formatReferralRewardLabel(rewardMonths);
 
   return (
     <div className="flex min-h-screen flex-col">
