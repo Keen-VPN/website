@@ -4922,6 +4922,42 @@ export async function adminMembershipSharingMetrics(): Promise<{
   }
 }
 
+export async function adminBusinessOnboarding(params?: {
+  days?: number;
+}): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+  try {
+    const query = new URLSearchParams();
+    // Nullish check: days: 0 must still be forwarded (backend clamps invalid windows).
+    if (params?.days != null && Number.isFinite(params.days)) {
+      query.set("days", String(params.days));
+    }
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/subscription/membership-sharing/business-onboarding${suffix}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load Business onboarding",
+        ),
+      };
+    }
+    return { ok: true, data: raw };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to load Business onboarding",
+    };
+  }
+}
+
 export async function adminRevokeMembershipMember(
   subscriptionId: string,
   memberUserId: string,
