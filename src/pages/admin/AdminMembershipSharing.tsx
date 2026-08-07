@@ -333,7 +333,6 @@ export default function AdminMembershipSharing() {
     setOnboardingLoading(true);
     setOnboardingError(null);
     setOnboardingNotice(null);
-    setOnboardingDroppedOwners(0);
     // Drop prior window data so the UI does not keep showing stale metrics.
     setOnboarding(null);
     try {
@@ -353,7 +352,6 @@ export default function AdminMembershipSharing() {
         return;
       }
       setOnboarding(parsed.report);
-      setOnboardingDroppedOwners(parsed.droppedOwners);
       setOnboardingNotice(
         parsed.droppedOwners > 0
           ? `${parsed.droppedOwners} owner row${
@@ -364,7 +362,6 @@ export default function AdminMembershipSharing() {
     } catch (err) {
       if (!isCurrentRequest()) return;
       setOnboarding(null);
-      setOnboardingDroppedOwners(0);
       setOnboardingNotice(null);
       setOnboardingError(
         err instanceof Error
