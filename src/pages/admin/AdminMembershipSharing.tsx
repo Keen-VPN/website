@@ -270,6 +270,8 @@ export default function AdminMembershipSharing() {
   const [onboardingLoading, setOnboardingLoading] = useState(true);
   const [seatsError, setSeatsError] = useState<string | null>(null);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [onboardingNotice, setOnboardingNotice] = useState<string | null>(null);
+  const [onboardingDroppedOwners, setOnboardingDroppedOwners] = useState(0);
   const [seatDraft, setSeatDraft] = useState<Record<string, string>>({});
   const [metrics, setMetrics] = useState<MembershipSharingMetrics | null>(null);
   const [onboardingDays, setOnboardingDays] = useState(30);
@@ -331,6 +333,8 @@ export default function AdminMembershipSharing() {
 
     setOnboardingLoading(true);
     setOnboardingError(null);
+    setOnboardingNotice(null);
+    setOnboardingDroppedOwners(0);
     // Drop prior window data so the UI does not keep showing stale metrics.
     setOnboarding(null);
     try {
@@ -345,19 +349,24 @@ export default function AdminMembershipSharing() {
       if (!parsed) {
         setOnboarding(null);
         setOnboardingError(
-          "Invalid Business onboarding response: missing or malformed snapshot/funnel data",
+          "Invalid Business onboarding response: missing or malformed report data",
         );
         return;
       }
       setOnboarding(parsed.report);
-      setOnboardingError(
+      setOnboardingDroppedOwners(parsed.droppedOwners);
+      setOnboardingNotice(
         parsed.droppedOwners > 0
-          ? `Skipped ${parsed.droppedOwners} malformed owner row${parsed.droppedOwners === 1 ? "" : "s"}`
+          ? `${parsed.droppedOwners} owner row${
+              parsed.droppedOwners === 1 ? "" : "s"
+            } could not be displayed.`
           : null,
       );
     } catch (err) {
       if (!isCurrentRequest()) return;
       setOnboarding(null);
+      setOnboardingDroppedOwners(0);
+      setOnboardingNotice(null);
       setOnboardingError(
         err instanceof Error
           ? err.message
@@ -445,6 +454,12 @@ export default function AdminMembershipSharing() {
       {activeError ? (
         <div className="rounded-md border border-red-500/40 bg-red-950/30 px-4 py-3 text-sm text-red-200">
           {activeError}
+        </div>
+      ) : null}
+
+      {tab === "onboarding" && onboardingNotice ? (
+        <div className="rounded-md border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+          {onboardingNotice}
         </div>
       ) : null}
 
@@ -607,7 +622,9 @@ export default function AdminMembershipSharing() {
                           colSpan={6}
                           className="px-4 py-8 text-center text-slate-500"
                         >
-                          No active Business plans found
+                          {onboardingDroppedOwners > 0
+                            ? "Owner rows could not be displayed"
+                            : "No active Business plans found"}
                         </td>
                       </tr>
                     ) : null}
