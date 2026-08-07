@@ -116,6 +116,10 @@ function isNullableNumber(value: unknown): value is number | null {
   return value === null || typeof value === "number";
 }
 
+function isNullableString(value: unknown): value is string | null | undefined {
+  return value == null || typeof value === "string";
+}
+
 function isMemberRow(value: unknown): boolean {
   if (!isRecord(value)) return false;
   return typeof value.email === "string";
@@ -144,10 +148,18 @@ function isMembershipSharingSeats(value: unknown): boolean {
   );
 }
 
-function isBusinessOnboardingOwner(value: unknown): boolean {
+function isBusinessOnboardingOwner(
+  value: unknown,
+): value is BusinessOnboardingOwner {
   if (!isRecord(value)) return false;
   if (typeof value.subscriptionId !== "string") return false;
   if (typeof value.status !== "string") return false;
+  if (
+    !isNullableString(value.planId) ||
+    !isNullableString(value.planName)
+  ) {
+    return false;
+  }
   if (!isRecord(value.owner) || typeof value.owner.email !== "string") {
     return false;
   }
@@ -171,14 +183,16 @@ function isBusinessOnboardingOwner(value: unknown): boolean {
   return true;
 }
 
-function isBusinessOnboardingReport(
-  value: unknown,
-): value is BusinessOnboardingReport {
-  if (!isRecord(value)) return false;
-  if (typeof value.windowDays !== "number") return false;
-  if (typeof value.windowStart !== "string") return false;
+/** Core report shape (snapshot/funnel). Owners are filtered separately. */
+function parseBusinessOnboardingReport(value: unknown): {
+  report: BusinessOnboardingReport;
+  droppedOwners: number;
+} | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.windowDays !== "number") return null;
+  if (typeof value.windowStart !== "string") return null;
 
-  if (!isRecord(value.snapshot)) return false;
+  if (!isRecord(value.snapshot)) return null;
   const snapshot = value.snapshot;
   if (
     typeof snapshot.activeBusinessPlans !== "number" ||
@@ -192,10 +206,10 @@ function isBusinessOnboardingReport(
     typeof snapshot.pendingInvites.billingPending !== "number" ||
     typeof snapshot.pendingInvites.creditPending !== "number"
   ) {
-    return false;
+    return null;
   }
 
-  if (!isRecord(value.funnel)) return false;
+  if (!isRecord(value.funnel)) return null;
   const funnel = value.funnel;
   if (
     typeof funnel.invitesSent !== "number" ||
@@ -205,12 +219,22 @@ function isBusinessOnboardingReport(
     !isNullableNumber(funnel.sentToAcceptedPercent) ||
     !isNullableNumber(funnel.avgHoursToAccept)
   ) {
-    return false;
+    return null;
   }
 
-  return (
-    Array.isArray(value.owners) && value.owners.every(isBusinessOnboardingOwner)
-  );
+  if (!Array.isArray(value.owners)) return null;
+
+  const owners = value.owners.filter(isBusinessOnboardingOwner);
+  return {
+    report: {
+      windowDays: value.windowDays,
+      windowStart: value.windowStart,
+      snapshot: snapshot as BusinessOnboardingReport["snapshot"],
+      funnel: funnel as BusinessOnboardingReport["funnel"],
+      owners,
+    },
+    droppedOwners: value.owners.length - owners.length,
+  };
 }
 
 type Tab = "seats" | "onboarding";
@@ -312,14 +336,25 @@ export default function AdminMembershipSharing() {
     try {
       const res = await adminBusinessOnboarding({ days: onboardingDays });
       if (!isCurrentRequest()) return;
-      if (!res.ok || !isBusinessOnboardingReport(res.data)) {
+      if (!res.ok) {
+        setOnboarding(null);
+        setOnboardingError(res.error ?? "Failed to load Business onboarding");
+        return;
+      }
+      const parsed = parseBusinessOnboardingReport(res.data);
+      if (!parsed) {
         setOnboarding(null);
         setOnboardingError(
-          res.error ?? "Failed to load Business onboarding",
+          "Invalid Business onboarding response: missing or malformed snapshot/funnel data",
         );
         return;
       }
-      setOnboarding(res.data);
+      setOnboarding(parsed.report);
+      setOnboardingError(
+        parsed.droppedOwners > 0
+          ? `Skipped ${parsed.droppedOwners} malformed owner row${parsed.droppedOwners === 1 ? "" : "s"}`
+          : null,
+      );
     } catch (err) {
       if (!isCurrentRequest()) return;
       setOnboarding(null);
