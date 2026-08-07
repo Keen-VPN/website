@@ -42,6 +42,12 @@ interface PendingInviteRow {
   expiresAt: string;
 }
 
+interface RevokedInviteRow {
+  id: string;
+  email: string;
+  revokedAt: string | null;
+}
+
 interface SharingRow {
   subscriptionId: string;
   owner: { id: string; email: string; displayName?: string | null };
@@ -53,6 +59,7 @@ interface SharingRow {
   seats: MembershipSharingSeats;
   members: MemberRow[];
   pendingInvites: PendingInviteRow[];
+  revokedInvites?: RevokedInviteRow[];
 }
 
 interface BusinessOnboardingOwner {
@@ -71,6 +78,7 @@ interface BusinessOnboardingOwner {
     expiresAt: string;
     billingDeferredUntil: string | null;
   }[];
+  revokedInvites?: RevokedInviteRow[];
 }
 
 interface BusinessOnboardingReport {
@@ -98,6 +106,135 @@ interface BusinessOnboardingReport {
     avgHoursToAccept: number | null;
   };
   owners: BusinessOnboardingOwner[];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object";
+}
+
+function isNullableNumber(value: unknown): value is number | null {
+  return value === null || typeof value === "number";
+}
+
+function isNullableString(value: unknown): value is string | null | undefined {
+  return value == null || typeof value === "string";
+}
+
+function isMemberRow(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.email === "string";
+}
+
+function isPendingInviteRow(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === "string" &&
+    typeof value.email === "string" &&
+    typeof value.status === "string"
+  );
+}
+
+function isRevokedInviteRow(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.id === "string" && typeof value.email === "string";
+}
+
+function isMembershipSharingSeats(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.seatLimit === "number" &&
+    typeof value.activeSeats === "number" &&
+    typeof value.availableSeats === "number"
+  );
+}
+
+function isBusinessOnboardingOwner(
+  value: unknown,
+): value is BusinessOnboardingOwner {
+  if (!isRecord(value)) return false;
+  if (typeof value.subscriptionId !== "string") return false;
+  if (typeof value.status !== "string") return false;
+  if (
+    !isNullableString(value.planId) ||
+    !isNullableString(value.planName)
+  ) {
+    return false;
+  }
+  if (!isRecord(value.owner) || typeof value.owner.email !== "string") {
+    return false;
+  }
+  if (!isMembershipSharingSeats(value.seats)) return false;
+  if (!Array.isArray(value.members) || !value.members.every(isMemberRow)) {
+    return false;
+  }
+  if (
+    !Array.isArray(value.pendingInvites) ||
+    !value.pendingInvites.every(isPendingInviteRow)
+  ) {
+    return false;
+  }
+  if (
+    value.revokedInvites != null &&
+    (!Array.isArray(value.revokedInvites) ||
+      !value.revokedInvites.every(isRevokedInviteRow))
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** Core report shape (snapshot/funnel). Owners are filtered separately. */
+function parseBusinessOnboardingReport(value: unknown): {
+  report: BusinessOnboardingReport;
+  droppedOwners: number;
+} | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.windowDays !== "number") return null;
+  if (typeof value.windowStart !== "string") return null;
+
+  if (!isRecord(value.snapshot)) return null;
+  const snapshot = value.snapshot;
+  if (
+    typeof snapshot.activeBusinessPlans !== "number" ||
+    typeof snapshot.seatsPurchased !== "number" ||
+    typeof snapshot.seatsUsed !== "number" ||
+    typeof snapshot.seatsUnused !== "number" ||
+    typeof snapshot.activeMembers !== "number" ||
+    !isRecord(snapshot.pendingInvites) ||
+    typeof snapshot.pendingInvites.total !== "number" ||
+    typeof snapshot.pendingInvites.pending !== "number" ||
+    typeof snapshot.pendingInvites.billingPending !== "number" ||
+    typeof snapshot.pendingInvites.creditPending !== "number"
+  ) {
+    return null;
+  }
+
+  if (!isRecord(value.funnel)) return null;
+  const funnel = value.funnel;
+  if (
+    typeof funnel.invitesSent !== "number" ||
+    typeof funnel.invitesAccepted !== "number" ||
+    typeof funnel.invitesExpired !== "number" ||
+    typeof funnel.invitesRevoked !== "number" ||
+    !isNullableNumber(funnel.sentToAcceptedPercent) ||
+    !isNullableNumber(funnel.avgHoursToAccept)
+  ) {
+    return null;
+  }
+
+  if (!Array.isArray(value.owners)) return null;
+
+  const owners = value.owners.filter(isBusinessOnboardingOwner);
+  return {
+    report: {
+      windowDays: value.windowDays,
+      windowStart: value.windowStart,
+      snapshot: snapshot as BusinessOnboardingReport["snapshot"],
+      funnel: funnel as BusinessOnboardingReport["funnel"],
+      owners,
+    },
+    droppedOwners: value.owners.length - owners.length,
+  };
 }
 
 type Tab = "seats" | "onboarding";
@@ -133,6 +270,7 @@ export default function AdminMembershipSharing() {
   const [onboardingLoading, setOnboardingLoading] = useState(true);
   const [seatsError, setSeatsError] = useState<string | null>(null);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [onboardingNotice, setOnboardingNotice] = useState<string | null>(null);
   const [seatDraft, setSeatDraft] = useState<Record<string, string>>({});
   const [metrics, setMetrics] = useState<MembershipSharingMetrics | null>(null);
   const [onboardingDays, setOnboardingDays] = useState(30);
@@ -194,20 +332,37 @@ export default function AdminMembershipSharing() {
 
     setOnboardingLoading(true);
     setOnboardingError(null);
+    setOnboardingNotice(null);
     // Drop prior window data so the UI does not keep showing stale metrics.
     setOnboarding(null);
     try {
       const res = await adminBusinessOnboarding({ days: onboardingDays });
       if (!isCurrentRequest()) return;
-      if (!res.ok || !res.data) {
+      if (!res.ok) {
         setOnboarding(null);
         setOnboardingError(res.error ?? "Failed to load Business onboarding");
         return;
       }
-      setOnboarding(res.data as BusinessOnboardingReport);
+      const parsed = parseBusinessOnboardingReport(res.data);
+      if (!parsed) {
+        setOnboarding(null);
+        setOnboardingError(
+          "Invalid Business onboarding response: missing or malformed report data",
+        );
+        return;
+      }
+      setOnboarding(parsed.report);
+      setOnboardingNotice(
+        parsed.droppedOwners > 0
+          ? `${parsed.droppedOwners} owner row${
+              parsed.droppedOwners === 1 ? "" : "s"
+            } could not be displayed.`
+          : null,
+      );
     } catch (err) {
       if (!isCurrentRequest()) return;
       setOnboarding(null);
+      setOnboardingNotice(null);
       setOnboardingError(
         err instanceof Error
           ? err.message
@@ -295,6 +450,12 @@ export default function AdminMembershipSharing() {
       {activeError ? (
         <div className="rounded-md border border-red-500/40 bg-red-950/30 px-4 py-3 text-sm text-red-200">
           {activeError}
+        </div>
+      ) : null}
+
+      {tab === "onboarding" && onboardingNotice ? (
+        <div className="rounded-md border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+          {onboardingNotice}
         </div>
       ) : null}
 
@@ -393,6 +554,7 @@ export default function AdminMembershipSharing() {
                       <th className="px-4 py-3">Seats</th>
                       <th className="px-4 py-3">Members</th>
                       <th className="px-4 py-3">Pending invites</th>
+                      <th className="px-4 py-3">Revoked invites</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -437,15 +599,26 @@ export default function AdminMembershipSharing() {
                             "—"
                           )}
                         </td>
+                        <td className="px-4 py-3 text-slate-400">
+                          {row.revokedInvites?.length ? (
+                            <ul className="space-y-1">
+                              {row.revokedInvites.map((invite) => (
+                                <li key={invite.id}>{invite.email}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
                       </tr>
                     ))}
                     {!onboardingLoading && onboarding.owners.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={5}
+                          colSpan={6}
                           className="px-4 py-8 text-center text-slate-500"
                         >
-                          No active Business plans found
+                          No owner rows to display
                         </td>
                       </tr>
                     ) : null}
@@ -526,6 +699,7 @@ export default function AdminMembershipSharing() {
                   <th className="px-4 py-3">Seats</th>
                   <th className="px-4 py-3">Members</th>
                   <th className="px-4 py-3">Pending</th>
+                  <th className="px-4 py-3">Revoked</th>
                   {canWrite ? <th className="px-4 py-3">Seat limit</th> : null}
                 </tr>
               </thead>
@@ -582,6 +756,11 @@ export default function AdminMembershipSharing() {
                         ? row.pendingInvites.map((i) => i.email).join(", ")
                         : "—"}
                     </td>
+                    <td className="px-4 py-3 text-slate-400">
+                      {row.revokedInvites?.length
+                        ? row.revokedInvites.map((i) => i.email).join(", ")
+                        : "—"}
+                    </td>
                     {canWrite ? (
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -612,7 +791,7 @@ export default function AdminMembershipSharing() {
                 {!seatsLoading && rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={canWrite ? 6 : 5}
+                      colSpan={canWrite ? 7 : 6}
                       className="px-4 py-8 text-center text-slate-500"
                     >
                       No active subscriptions found
