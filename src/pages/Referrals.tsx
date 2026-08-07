@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getSessionToken, fetchReferralDashboard } from "@/auth";
+import { formatReferralRewardLabel } from "@/lib/referral-campaign-copy";
 
 interface ReferralRow {
   id: string;
@@ -29,6 +30,14 @@ interface ReferralRow {
   rewardedAt: string | null;
 }
 
+interface ReferralCampaign {
+  id: string;
+  rewardMonths: number;
+  startAt: string;
+  endAt: string;
+  active: boolean;
+}
+
 interface DashboardPayload {
   referralUrl: string;
   token: string;
@@ -37,6 +46,8 @@ interface DashboardPayload {
   pendingReferrals: number;
   referrals: ReferralRow[];
   referralsHasMore: boolean;
+  standardRewardMonths?: number;
+  campaign?: ReferralCampaign | null;
 }
 
 const REFERRALS_PAGE_SIZE = 20;
@@ -85,6 +96,42 @@ function coerceReferralRow(raw: unknown): ReferralRow | null {
     subscribedAt: coerceIsoOrNull(raw["subscribedAt"]),
     rewardedAt: coerceIsoOrNull(raw["rewardedAt"]),
   };
+}
+
+function coerceCampaign(raw: unknown): ReferralCampaign | null {
+  if (!isPlainObject(raw)) return null;
+  const id = coerceString(raw["id"]);
+  const rewardMonths = raw["rewardMonths"];
+  const startAt = coerceString(raw["startAt"]);
+  const endAt = coerceString(raw["endAt"]);
+  if (
+    !id ||
+    typeof rewardMonths !== "number" ||
+    rewardMonths < 1 ||
+    !startAt ||
+    !endAt ||
+    raw["active"] !== true
+  ) {
+    return null;
+  }
+  return {
+    id,
+    rewardMonths,
+    startAt,
+    endAt,
+    active: true,
+  };
+}
+
+function formatCampaignDeadline(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "the end of August";
+  return d.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 function normalizeReferralRows(value: unknown): ReferralRow[] {
@@ -142,6 +189,11 @@ const Referrals = () => {
           pendingReferrals: res.pendingReferrals ?? 0,
           referrals: normalizeReferralRows(res.referrals),
           referralsHasMore: Boolean(res.referralsHasMore),
+          standardRewardMonths:
+            typeof res.standardRewardMonths === "number"
+              ? res.standardRewardMonths
+              : 1,
+          campaign: coerceCampaign(res.campaign),
         });
         setFetchError(null);
       } else {
@@ -268,6 +320,9 @@ const Referrals = () => {
 
   const referralRows = data?.referrals ?? [];
   const dashboardReady = data !== null;
+  const liveCampaign = data?.campaign?.active ? data.campaign : null;
+  const promoMonths = liveCampaign?.rewardMonths ?? data?.standardRewardMonths ?? 1;
+  const promoLabel = formatReferralRewardLabel(promoMonths);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -295,10 +350,25 @@ const Referrals = () => {
             <h1 className="mb-2 text-4xl font-bold text-foreground">
               Refer a <span className="text-primary">friend</span>
             </h1>
-            <p className="text-muted-foreground">
-              Share your link. When a friend subscribes, you can earn 1 free
-              month on your subscription (program terms apply).
-            </p>
+            {liveCampaign ? (
+              <div className="space-y-2">
+                <p className="text-lg font-medium text-foreground">
+                  Refer a friend and get {promoLabel}.
+                </p>
+                <p className="text-muted-foreground">
+                  For every eligible friend who joins KeenVPN through your
+                  referral during August, you&apos;ll receive {promoLabel} when
+                  they subscribe. Promotion ends{" "}
+                  {formatCampaignDeadline(liveCampaign.endAt)} UTC (program
+                  terms apply).
+                </p>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">
+                Share your link. When a friend subscribes, you can earn{" "}
+                {promoLabel} on your subscription (program terms apply).
+              </p>
+            )}
           </div>
 
           {!dashboardReady && fetchError ? (
