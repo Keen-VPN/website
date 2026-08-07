@@ -398,6 +398,14 @@ export async function fetchReferralDashboard(
   referralsOffset?: number;
   referralsLimit?: number;
   referralsHasMore?: boolean;
+  standardRewardMonths?: number;
+  campaign?: {
+    id: string;
+    rewardMonths: number;
+    startAt: string;
+    endAt: string;
+    active: boolean;
+  } | null;
   error?: string;
 }> {
   try {

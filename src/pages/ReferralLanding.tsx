@@ -15,11 +15,13 @@ import {
   clearReferralTokenStorage,
   setReferralTokenStorage,
 } from "@/auth/referral-token";
+import { formatReferralRewardLabel } from "@/lib/referral-campaign-copy";
 
 const ReferralLanding = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const [referrerName, setReferrerName] = useState<string | null>(null);
+  const [rewardMonths, setRewardMonths] = useState(1);
   const [loading, setLoading] = useState(true);
   /** `true` once we get explicit `valid: false` */
   const [inviteInvalid, setInviteInvalid] = useState(false);
@@ -34,6 +36,7 @@ const ReferralLanding = () => {
     }
     setLoading(true);
     setReferrerName(null);
+    setRewardMonths(1);
     setInviteInvalid(false);
     setResolveFailed(false);
     setLoading(true);
@@ -47,6 +50,10 @@ const ReferralLanding = () => {
         const data = (await res.json().catch(() => ({}))) as {
           valid?: boolean;
           referrerName?: string;
+          campaign?: {
+            active?: boolean;
+            rewardMonths?: number;
+          } | null;
         };
         if (cancelled) return;
         if (!res.ok) {
@@ -66,6 +73,13 @@ const ReferralLanding = () => {
           setReferralTokenStorage(token);
           if (data.referrerName) {
             setReferrerName(data.referrerName);
+          }
+          if (
+            data.campaign?.active === true &&
+            typeof data.campaign.rewardMonths === "number" &&
+            data.campaign.rewardMonths >= 1
+          ) {
+            setRewardMonths(data.campaign.rewardMonths);
           }
         }
         setLoading(false);
@@ -89,6 +103,8 @@ const ReferralLanding = () => {
       </div>
     );
   }
+
+  const rewardLabel = formatReferralRewardLabel(rewardMonths);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -119,7 +135,7 @@ const ReferralLanding = () => {
               ) : (
                 <>
                   Create an account with the same browser session to connect this invite.
-                  When you subscribe, your friend can earn 1 free month.
+                  When you subscribe, your friend can earn {rewardLabel}.
                 </>
               )}
             </CardDescription>
