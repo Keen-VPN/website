@@ -16,7 +16,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getSessionToken, fetchReferralDashboard } from "@/auth";
-import { formatReferralRewardLabel } from "@/lib/referral-campaign-copy";
+import {
+  formatCampaignDeadline,
+  formatCampaignPeriodPhrase,
+  formatReferralRewardLabel,
+} from "@/lib/referral-campaign-copy";
 
 interface ReferralRow {
   id: string;
@@ -121,17 +125,6 @@ function coerceCampaign(raw: unknown): ReferralCampaign | null {
     endAt,
     active: true,
   };
-}
-
-function formatCampaignDeadline(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "the end of August";
-  return d.toLocaleDateString(undefined, {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
 }
 
 function normalizeReferralRows(value: unknown): ReferralRow[] {
@@ -357,10 +350,13 @@ const Referrals = () => {
                 </p>
                 <p className="text-muted-foreground">
                   For every eligible friend who joins KeenVPN through your
-                  referral during August, you&apos;ll receive {promoLabel} when
-                  they subscribe. Promotion ends{" "}
-                  {formatCampaignDeadline(liveCampaign.endAt)} UTC (program
-                  terms apply).
+                  referral {formatCampaignPeriodPhrase(
+                    liveCampaign.startAt,
+                    liveCampaign.endAt,
+                  )}
+                  , you&apos;ll receive {promoLabel} when they subscribe.
+                  Promotion ends {formatCampaignDeadline(liveCampaign.endAt)}{" "}
+                  UTC (program terms apply).
                 </p>
               </div>
             ) : (
