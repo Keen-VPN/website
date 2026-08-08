@@ -394,6 +394,8 @@ export async function fetchReferralDashboard(
   totalReferrals?: number;
   rewardsEarned?: number;
   pendingReferrals?: number;
+  rewardsAwaitingSubscription?: number;
+  canReceiveRewards?: boolean;
   referrals?: Record<string, unknown>[];
   referralsOffset?: number;
   referralsLimit?: number;

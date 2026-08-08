@@ -48,6 +48,8 @@ interface DashboardPayload {
   totalReferrals: number;
   rewardsEarned: number;
   pendingReferrals: number;
+  rewardsAwaitingSubscription: number;
+  canReceiveRewards: boolean;
   referrals: ReferralRow[];
   referralsHasMore: boolean;
   standardRewardMonths?: number;
@@ -180,6 +182,8 @@ const Referrals = () => {
           totalReferrals: res.totalReferrals ?? 0,
           rewardsEarned: res.rewardsEarned ?? 0,
           pendingReferrals: res.pendingReferrals ?? 0,
+          rewardsAwaitingSubscription: res.rewardsAwaitingSubscription ?? 0,
+          canReceiveRewards: Boolean(res.canReceiveRewards),
           referrals: normalizeReferralRows(res.referrals),
           referralsHasMore: Boolean(res.referralsHasMore),
           standardRewardMonths:
@@ -240,6 +244,12 @@ const Referrals = () => {
         totalReferrals: res.totalReferrals ?? prev.totalReferrals,
         rewardsEarned: res.rewardsEarned ?? prev.rewardsEarned,
         pendingReferrals: res.pendingReferrals ?? prev.pendingReferrals,
+        rewardsAwaitingSubscription:
+          res.rewardsAwaitingSubscription ?? prev.rewardsAwaitingSubscription,
+        canReceiveRewards:
+          typeof res.canReceiveRewards === "boolean"
+            ? res.canReceiveRewards
+            : prev.canReceiveRewards,
         referrals: appendReferralRows(
           prev.referrals,
           normalizeReferralRows(res.referrals),
@@ -280,12 +290,16 @@ const Referrals = () => {
     }
   };
 
-  const statusBadge = (status: string) => {
+  const statusBadge = (status: string, rewardedAt: string | null) => {
     switch (status) {
       case "REWARDED":
         return <Badge className="bg-green-600">Reward applied</Badge>;
       case "SUBSCRIBED":
-        return <Badge className="bg-blue-600">Subscribed</Badge>;
+        return rewardedAt ? (
+          <Badge className="bg-blue-600">Subscribed</Badge>
+        ) : (
+          <Badge className="bg-amber-600">Reward waiting</Badge>
+        );
       case "TRIALING":
         return (
           <Badge variant="outline" className="border-violet-500 text-violet-700">
@@ -349,23 +363,50 @@ const Referrals = () => {
                   Refer a friend and get {promoLabel}.
                 </p>
                 <p className="text-muted-foreground">
+                  Share anytime — no active subscription required to invite.
                   For every eligible friend who joins KeenVPN through your
                   referral {formatCampaignPeriodPhrase(
                     liveCampaign.startAt,
                     liveCampaign.endAt,
                   )}
-                  , you&apos;ll receive {promoLabel} when they subscribe.
-                  Promotion ends {formatCampaignDeadline(liveCampaign.endAt)}{" "}
-                  UTC (program terms apply).
+                  , you&apos;ll receive {promoLabel} when they subscribe (applied
+                  to your KeenVPN subscription). Promotion ends{" "}
+                  {formatCampaignDeadline(liveCampaign.endAt)} UTC (program
+                  terms apply).
                 </p>
               </div>
             ) : (
               <p className="text-muted-foreground">
-                Share your link. When a friend subscribes, you can earn{" "}
-                {promoLabel} on your subscription (program terms apply).
+                Share your link anytime — you don&apos;t need an active
+                subscription to invite friends. When a friend subscribes, you
+                earn {promoLabel} on your KeenVPN subscription (program terms
+                apply).
               </p>
             )}
           </div>
+
+          {dashboardReady &&
+          data.rewardsAwaitingSubscription > 0 &&
+          !data.canReceiveRewards ? (
+            <Alert className="mb-8 border-amber-500/40 bg-amber-500/5">
+              <AlertTitle>Reward waiting on your subscription</AlertTitle>
+              <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  {data.rewardsAwaitingSubscription === 1
+                    ? "A friend subscribed. Start or resume KeenVPN and your referral reward will apply automatically."
+                    : `${data.rewardsAwaitingSubscription} friends subscribed. Start or resume KeenVPN and your referral rewards will apply automatically.`}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => navigate("/subscribe")}
+                >
+                  View plans
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
           {!dashboardReady && fetchError ? (
             <p className="mb-8 text-sm text-muted-foreground">
@@ -382,7 +423,8 @@ const Referrals = () => {
                     Your referral link
                   </CardTitle>
                   <CardDescription>
-                    Anyone who signs up with this link is attributed to you.
+                    Anyone who signs up with this link is attributed to you. You
+                    can share it even before you subscribe.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -464,7 +506,7 @@ const Referrals = () => {
                                 </div>
                               )}
                             </div>
-                            {statusBadge(r.status)}
+                            {statusBadge(r.status, r.rewardedAt)}
                           </div>
                           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                             {referralPrimaryStages.map((s) => (
