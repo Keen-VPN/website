@@ -87,6 +87,11 @@ function coerceIsoOrNull(value: unknown): string | null {
   return null;
 }
 
+/** Accept only real booleans so loaders stay consistent (ignore "false"/1). */
+function coerceBoolean(value: unknown, fallback = false): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
 /** Normalize dashboard `referrals` items from JSON (typed as loose records upstream). */
 function coerceReferralRow(raw: unknown): ReferralRow | null {
   if (!isPlainObject(raw)) return null;
@@ -183,7 +188,7 @@ const Referrals = () => {
           rewardsEarned: res.rewardsEarned ?? 0,
           pendingReferrals: res.pendingReferrals ?? 0,
           rewardsAwaitingSubscription: res.rewardsAwaitingSubscription ?? 0,
-          canReceiveRewards: Boolean(res.canReceiveRewards),
+          canReceiveRewards: coerceBoolean(res.canReceiveRewards),
           referrals: normalizeReferralRows(res.referrals),
           referralsHasMore: Boolean(res.referralsHasMore),
           standardRewardMonths:
@@ -246,10 +251,10 @@ const Referrals = () => {
         pendingReferrals: res.pendingReferrals ?? prev.pendingReferrals,
         rewardsAwaitingSubscription:
           res.rewardsAwaitingSubscription ?? prev.rewardsAwaitingSubscription,
-        canReceiveRewards:
-          typeof res.canReceiveRewards === "boolean"
-            ? res.canReceiveRewards
-            : prev.canReceiveRewards,
+        canReceiveRewards: coerceBoolean(
+          res.canReceiveRewards,
+          prev.canReceiveRewards,
+        ),
         referrals: appendReferralRows(
           prev.referrals,
           normalizeReferralRows(res.referrals),
