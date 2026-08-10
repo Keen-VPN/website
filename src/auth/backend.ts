@@ -7877,3 +7877,96 @@ export async function adminUpdateAffiliateLink(
     return { ok: false, error: "Network error updating affiliate link" };
   }
 }
+
+export interface UpdateHotLinkPayload {
+  partnerName?: string;
+  category?: string;
+  websiteUrl?: string;
+  referralUrl?: string;
+  referralCode?: string;
+  promotionalValue?: string;
+  description?: string;
+  priority?: number;
+  notes?: string;
+  /** Replaces the whole domain set. Omit to leave domains unchanged. */
+  domains?: string[];
+}
+
+export async function adminUpdateHotLink(
+  id: string,
+  payload: UpdateHotLinkPayload,
+): Promise<{
+  ok: boolean;
+  data?: AdminHotLink;
+  rejectedDomains?: HotLinkDomainRejection[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/hot-links/${id}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      link?: AdminHotLink;
+      rejectedDomains?: HotLinkDomainRejection[];
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Failed to update hot link" };
+    }
+    // An edit whose every domain was rejected returns 200 with link:null, so
+    // the rejections are the answer rather than an error string.
+    return {
+      ok: Boolean(raw.link),
+      data: raw.link,
+      rejectedDomains: raw.rejectedDomains ?? [],
+      error: raw.link ? undefined : "No domain was accepted",
+    };
+  } catch {
+    return { ok: false, error: "Network error updating hot link" };
+  }
+}
+
+/**
+ * Dry-run a domain list before saving — the ticket's "preview matching
+ * domains". Pass `hotLinkId` when editing so the partner's own domains are not
+ * reported as conflicts with itself.
+ */
+export async function adminValidateHotLinkDomains(
+  domains: string[],
+  hotLinkId?: string,
+): Promise<{
+  ok: boolean;
+  accepted?: string[];
+  rejected?: HotLinkDomainRejection[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/hot-links/validate-domains`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domains, hotLinkId }),
+      },
+    );
+    const raw = (await response.json().catch(() => ({}))) as {
+      accepted?: string[];
+      rejected?: HotLinkDomainRejection[];
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Validation failed" };
+    }
+    return {
+      ok: true,
+      accepted: raw.accepted ?? [],
+      rejected: raw.rejected ?? [],
+    };
+  } catch {
+    return { ok: false, error: "Network error validating domains" };
+  }
+}
