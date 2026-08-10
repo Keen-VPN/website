@@ -17,6 +17,8 @@ import {
   adminImportHotLinksCsv,
   adminListHotLinks,
   adminSetHotLinkActive,
+  adminUpdateHotLink,
+  adminValidateHotLinkDomains,
   type AdminHotLink,
   type HotLinkDomainRejection,
   type HotLinkImportResult,
@@ -47,9 +49,16 @@ export default function AdminHotLinks() {
   const [category, setCategory] = useState("");
 
   const [createOpen, setCreateOpen] = useState(false);
+  // null = the dialog is creating; an id = it is editing that partner.
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [rejected, setRejected] = useState<HotLinkDomainRejection[]>([]);
+  const [domainPreview, setDomainPreview] = useState<{
+    accepted: string[];
+    rejected: HotLinkDomainRejection[];
+  } | null>(null);
+  const [previewing, setPreviewing] = useState(false);
 
   const [importOpen, setImportOpen] = useState(false);
   const [csv, setCsv] = useState("");
@@ -80,10 +89,64 @@ export default function AdminHotLinks() {
     [links],
   );
 
+  function openCreate() {
+    setEditingId(null);
+    setForm({ ...EMPTY_FORM });
+    setRejected([]);
+    setDomainPreview(null);
+    setCreateOpen(true);
+  }
+
+  function openEdit(link: AdminHotLink) {
+    setEditingId(link.id);
+    setForm({
+      partnerName: link.partnerName,
+      category: link.category,
+      websiteUrl: link.websiteUrl,
+      referralUrl: link.referralUrl,
+      referralCode: link.referralCode ?? "",
+      promotionalValue: link.promotionalValue ?? "",
+      description: link.description ?? "",
+      priority: String(link.priority),
+      notes: link.notes ?? "",
+      domains: link.domains.map((d) => d.host).join(" "),
+    });
+    setRejected([]);
+    setDomainPreview(null);
+    setCreateOpen(true);
+  }
+
+  function parseDomains(raw: string): string[] {
+    return raw
+      .split(/[\s;,]+/)
+      .map((d) => d.trim())
+      .filter(Boolean);
+  }
+
+  /** The ticket's "preview matching domains" — checks before saving. */
+  async function handlePreviewDomains() {
+    const domains = parseDomains(form.domains);
+    if (domains.length === 0) return;
+    setPreviewing(true);
+    const result = await adminValidateHotLinkDomains(
+      domains,
+      editingId ?? undefined,
+    );
+    setPreviewing(false);
+    if (!result.ok) {
+      setError(result.error ?? "Validation failed");
+      return;
+    }
+    setDomainPreview({
+      accepted: result.accepted ?? [],
+      rejected: result.rejected ?? [],
+    });
+  }
+
   async function handleCreate() {
     setSaving(true);
     setRejected([]);
-    const result = await adminCreateHotLink({
+    const payload = {
       partnerName: form.partnerName.trim(),
       category: form.category.trim(),
       websiteUrl: form.websiteUrl.trim(),
@@ -95,11 +158,11 @@ export default function AdminHotLinks() {
       priority: Number(form.priority) || 0,
       // Accept the same separators the CSV importer does, so an admin can paste
       // a domain cell straight out of a spreadsheet.
-      domains: form.domains
-        .split(/[\s;,]+/)
-        .map((d) => d.trim())
-        .filter(Boolean),
-    });
+      domains: parseDomains(form.domains),
+    };
+    const result = editingId
+      ? await adminUpdateHotLink(editingId, payload)
+      : await adminCreateHotLink(payload);
     setSaving(false);
 
     // Rejections are shown even on success: a partner can be created while some
@@ -107,11 +170,14 @@ export default function AdminHotLinks() {
     // admin believing a domain is matching when it is not.
     setRejected(result.rejectedDomains ?? []);
     if (result.ok) {
-      setForm({ ...EMPTY_FORM });
-      if (!result.rejectedDomains?.length) setCreateOpen(false);
+      if (!result.rejectedDomains?.length) {
+        setForm({ ...EMPTY_FORM });
+        setEditingId(null);
+        setCreateOpen(false);
+      }
       void load();
     } else {
-      setError(result.error ?? "Create failed");
+      setError(result.error ?? (editingId ? "Update failed" : "Create failed"));
     }
   }
 
@@ -180,7 +246,7 @@ export default function AdminHotLinks() {
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             Import CSV
           </Button>
-          <Button onClick={() => setCreateOpen(true)}>Add partner</Button>
+          <Button onClick={openCreate}>Add partner</Button>
         </div>
       </div>
 
@@ -259,6 +325,13 @@ export default function AdminHotLinks() {
                     <Button
                       size="sm"
                       variant="ghost"
+                      onClick={() => openEdit(link)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       onClick={() => void toggleActive(link)}
                     >
                       {link.isActive ? "Deactivate" : "Activate"}
@@ -282,7 +355,9 @@ export default function AdminHotLinks() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add partner</DialogTitle>
+            <DialogTitle>
+              {editingId ? "Edit partner" : "Add partner"}
+            </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-3">
             {(
@@ -319,10 +394,47 @@ export default function AdminHotLinks() {
                   setForm((f) => ({ ...f, domains: e.target.value }))
                 }
               />
-              <p className="text-xs text-muted-foreground">
-                Space, comma or semicolon separated. Each domain can belong to
-                only one partner.
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="flex-1 text-xs text-muted-foreground">
+                  Space, comma or semicolon separated. Each domain can belong to
+                  only one partner.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={previewing || !form.domains.trim()}
+                  onClick={() => void handlePreviewDomains()}
+                >
+                  {previewing ? "Checking…" : "Preview"}
+                </Button>
+              </div>
+              {domainPreview && (
+                <div className="rounded-md border px-3 py-2 text-xs">
+                  {domainPreview.accepted.length > 0 && (
+                    <p>
+                      <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                        Available:
+                      </span>{" "}
+                      <span className="font-mono">
+                        {domainPreview.accepted.join(", ")}
+                      </span>
+                    </p>
+                  )}
+                  {domainPreview.rejected.length > 0 && (
+                    <p className="mt-1">
+                      <span className="font-medium text-amber-700 dark:text-amber-400">
+                        Unavailable:
+                      </span>{" "}
+                      <span className="font-mono">
+                        {domainPreview.rejected
+                          .map((r) => `${r.host} (${r.reason.replace(/_/g, " ")})`)
+                          .join(", ")}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="notes">Internal notes</Label>
@@ -358,7 +470,7 @@ export default function AdminHotLinks() {
               Cancel
             </Button>
             <Button disabled={saving} onClick={() => void handleCreate()}>
-              {saving ? "Saving…" : "Create"}
+              {saving ? "Saving…" : editingId ? "Save changes" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
