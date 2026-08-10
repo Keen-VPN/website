@@ -18,6 +18,7 @@ const Pricing = lazy(() => import("./pages/Pricing"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const Support = lazy(() => import("./pages/Support"));
+const DeleteAccount = lazy(() => import("./pages/DeleteAccount"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const MagicLinkRequest = lazy(() => import("./pages/MagicLinkRequest"));
 const MagicLinkVerify = lazy(() => import("./pages/MagicLinkVerify"));
@@ -57,6 +58,10 @@ const AdminDomainInsights = lazy(
   () => import("./pages/admin/AdminDomainInsights"),
 );
 const AdminPerks = lazy(() => import("./pages/admin/AdminPerks"));
+const AdminHotLinks = lazy(() => import("./pages/admin/AdminHotLinks"));
+const AdminAffiliateLinks = lazy(
+  () => import("./pages/admin/AdminAffiliateLinks"),
+);
 const AdminPerkRequests = lazy(() => import("./pages/admin/AdminPerkRequests"));
 const AdminProductEvents = lazy(
   () => import("./pages/admin/AdminProductEvents"),
@@ -114,6 +119,9 @@ const App = () => (
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/support" element={<Support />} />
+              {/* Public, no auth guard: Play requires this URL to work for users
+                  who can no longer sign in or no longer have the app installed. */}
+              <Route path="/delete-account" element={<DeleteAccount />} />
               <Route path="/my-ip-address" element={<MyIPAddress />} />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/signin/magic" element={<MagicLinkRequest />} />
@@ -218,6 +226,11 @@ const App = () => (
                   element={<AdminDomainInsights />}
                 />
                 <Route path="perks" element={<AdminPerks />} />
+                <Route path="hot-links" element={<AdminHotLinks />} />
+                <Route
+                  path="affiliate-links"
+                  element={<AdminAffiliateLinks />}
+                />
                 <Route path="perk-requests" element={<AdminPerkRequests />} />
                 <Route path="user-profiles" element={<AdminUserProfiles />} />
                 <Route path="workflows" element={<AdminWorkflows />} />

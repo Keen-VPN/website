@@ -6399,3 +6399,321 @@ export async function markFriendsNotificationsRead(
     "Failed to mark notifications read",
   );
 }
+
+/* ---------------------------------------------------------------------------
+ * Hot Links — partner referral database (KVPN-538)
+ * ------------------------------------------------------------------------ */
+
+export interface AdminHotLinkDomain {
+  host: string;
+  pathPrefix: string | null;
+}
+
+export interface AdminHotLink {
+  id: string;
+  partnerName: string;
+  category: string;
+  websiteUrl: string;
+  referralUrl: string;
+  referralCode: string | null;
+  promotionalValue: string | null;
+  description: string | null;
+  isActive: boolean;
+  priority: number;
+  startsAt: string | null;
+  endsAt: string | null;
+  notes: string | null;
+  domains: AdminHotLinkDomain[];
+}
+
+export interface CreateHotLinkPayload {
+  partnerName: string;
+  category: string;
+  websiteUrl: string;
+  referralUrl: string;
+  referralCode?: string;
+  promotionalValue?: string;
+  description?: string;
+  priority?: number;
+  notes?: string;
+  domains: string[];
+}
+
+/** Domains the API refused, with the reason, so the UI can show them per row. */
+export interface HotLinkDomainRejection {
+  host: string;
+  reason: string;
+}
+
+export async function adminListHotLinks(options?: {
+  category?: string;
+  search?: string;
+}): Promise<{ ok: boolean; data?: AdminHotLink[]; error?: string }> {
+  try {
+    const params = new URLSearchParams();
+    if (options?.category) params.set("category", options.category);
+    if (options?.search) params.set("search", options.search);
+    const query = params.toString();
+    const response = await fetch(
+      `${BACKEND_URL}/admin/hot-links${query ? `?${query}` : ""}`,
+      { credentials: "include" },
+    );
+    const raw = (await response.json().catch(() => ({}))) as {
+      links?: AdminHotLink[];
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Failed to load hot links" };
+    }
+    return { ok: true, data: raw.links ?? [] };
+  } catch {
+    return { ok: false, error: "Network error loading hot links" };
+  }
+}
+
+export async function adminCreateHotLink(payload: CreateHotLinkPayload): Promise<{
+  ok: boolean;
+  data?: AdminHotLink;
+  rejectedDomains?: HotLinkDomainRejection[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/hot-links`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      link?: AdminHotLink;
+      rejectedDomains?: HotLinkDomainRejection[];
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Failed to create hot link" };
+    }
+    // A create can succeed at the HTTP level and still create nothing when every
+    // domain was rejected, so surface the rejections rather than a bare success.
+    return {
+      ok: Boolean(raw.link),
+      data: raw.link,
+      rejectedDomains: raw.rejectedDomains ?? [],
+      error: raw.link ? undefined : "No domain was accepted",
+    };
+  } catch {
+    return { ok: false, error: "Network error creating hot link" };
+  }
+}
+
+export async function adminSetHotLinkActive(
+  id: string,
+  isActive: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/hot-links/${id}/active`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive }),
+    });
+    if (!response.ok) {
+      const raw = (await response.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      return { ok: false, error: raw.message ?? "Failed to update hot link" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Network error updating hot link" };
+  }
+}
+
+export async function adminDeleteHotLink(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/hot-links/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (!response.ok) {
+      const raw = (await response.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      return { ok: false, error: raw.message ?? "Failed to delete hot link" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Network error deleting hot link" };
+  }
+}
+
+export interface HotLinkImportResult {
+  created: number;
+  rowErrors: { lineNumber: number; reason: string }[];
+  domainRejections: { lineNumber: number; host: string; reason: string }[];
+}
+
+/** `dryRun` writes nothing and reports every problem — always preview first. */
+export async function adminImportHotLinksCsv(
+  csv: string,
+  dryRun: boolean,
+): Promise<{ ok: boolean; data?: HotLinkImportResult; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/hot-links/import`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ csv, dryRun }),
+    });
+    const raw = (await response.json().catch(() => ({}))) as
+      HotLinkImportResult & { message?: string };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Import failed" };
+    }
+    return {
+      ok: true,
+      data: {
+        created: raw.created ?? 0,
+        rowErrors: raw.rowErrors ?? [],
+        domainRejections: raw.domainRejections ?? [],
+      },
+    };
+  } catch {
+    return { ok: false, error: "Network error importing hot links" };
+  }
+}
+
+export async function adminExportHotLinksCsv(): Promise<{
+  ok: boolean;
+  csv?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/hot-links/export`, {
+      credentials: "include",
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      csv?: string;
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Export failed" };
+    }
+    return { ok: true, csv: raw.csv ?? "" };
+  } catch {
+    return { ok: false, error: "Network error exporting hot links" };
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Affiliate links — pre-signup, bound to an email (KVPN-559)
+ * ------------------------------------------------------------------------ */
+
+export interface AdminAffiliateLink {
+  id: string;
+  email: string;
+  displayName: string | null;
+  campaignId: string | null;
+  rewardMonths: number;
+  isActive: boolean;
+  expiresAt: string | null;
+  claimed: boolean;
+  claimedAt: string | null;
+  notes: string | null;
+}
+
+export interface CreateAffiliateLinkPayload {
+  email: string;
+  displayName?: string;
+  campaignId?: string;
+  rewardMonths?: number;
+  expiresAt?: string;
+  notes?: string;
+}
+
+export async function adminListAffiliateLinks(
+  email?: string,
+): Promise<{ ok: boolean; data?: AdminAffiliateLink[]; error?: string }> {
+  try {
+    const query = email ? `?email=${encodeURIComponent(email)}` : "";
+    const response = await fetch(`${BACKEND_URL}/admin/affiliate-links${query}`, {
+      credentials: "include",
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      links?: AdminAffiliateLink[];
+      message?: string;
+    };
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: raw.message ?? "Failed to load affiliate links",
+      };
+    }
+    return { ok: true, data: raw.links ?? [] };
+  } catch {
+    return { ok: false, error: "Network error loading affiliate links" };
+  }
+}
+
+/**
+ * Creates a link. The shareable URL comes back exactly once and is never
+ * recoverable — only its hash is stored — so the caller must show it to the
+ * admin immediately.
+ */
+export async function adminCreateAffiliateLink(
+  payload: CreateAffiliateLinkPayload,
+): Promise<{
+  ok: boolean;
+  data?: AdminAffiliateLink & { url?: string };
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/affiliate-links`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      link?: AdminAffiliateLink & { url?: string };
+      message?: string;
+    };
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: raw.message ?? "Failed to create affiliate link",
+      };
+    }
+    return { ok: true, data: raw.link };
+  } catch {
+    return { ok: false, error: "Network error creating affiliate link" };
+  }
+}
+
+export async function adminUpdateAffiliateLink(
+  id: string,
+  patch: { isActive?: boolean; expiresAt?: string; notes?: string },
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/affiliate-links/${id}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (!response.ok) {
+      const raw = (await response.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      return {
+        ok: false,
+        error: raw.message ?? "Failed to update affiliate link",
+      };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Network error updating affiliate link" };
+  }
+}

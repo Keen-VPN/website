@@ -15,6 +15,8 @@ import {
   Gift,
   Megaphone,
   UserCircle,
+  Link2,
+  Share2,
 } from "lucide-react";
 import { useFeatureFlags } from "@/lib/feature-flags";
 
@@ -104,6 +106,20 @@ export default function AdminSidebarLayout() {
             >
               <Gift className="h-4 w-4" />
               Perks
+            </NavLink>
+            <NavLink
+              to="/admin/hot-links"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Link2 className="h-4 w-4" />
+              Hot Links
+            </NavLink>
+            <NavLink
+              to="/admin/affiliate-links"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Share2 className="h-4 w-4" />
+              Affiliate Links
             </NavLink>
             {workflowsEnabled ? (
               <NavLink
