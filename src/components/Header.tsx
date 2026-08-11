@@ -64,7 +64,7 @@ const Header = () => {
               Pricing
             </a>
             <a
-              href={marketingSiteUrl("/server-locations.html")}
+              href={marketingSiteUrl("/server-locations/")}
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
               Servers
@@ -173,7 +173,7 @@ const Header = () => {
                 Pricing
               </a>
               <a
-                href={marketingSiteUrl("/server-locations.html")}
+                href={marketingSiteUrl("/server-locations/")}
                 className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
                 onClick={() => setIsMenuOpen(false)}
               >

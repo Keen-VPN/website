@@ -150,7 +150,7 @@ const App = () => (
               />
               <Route
                 path="/servers"
-                element={<MarketingSiteRedirect path="/server-locations.html" />}
+                element={<MarketingSiteRedirect path="/server-locations/" />}
               />
               <Route
                 path="/pricing"
