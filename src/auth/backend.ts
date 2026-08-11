@@ -7970,3 +7970,94 @@ export async function adminValidateHotLinkDomains(
     return { ok: false, error: "Network error validating domains" };
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * AI assistant connections (KVPN-506)
+ *
+ * A member authorises one assistant at a time to read their recommendations.
+ * The token is returned once at creation and only its hash is stored, so it
+ * cannot be recovered — the UI must surface it immediately.
+ * ------------------------------------------------------------------------ */
+
+export interface AiConnection {
+  id: string;
+  platform: string;
+  scopes: string[];
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export async function listAiConnections(
+  sessionToken: string,
+): Promise<{ ok: boolean; data?: AiConnection[]; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/ai/connections`, {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      connections?: AiConnection[];
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Failed to load connections" };
+    }
+    return { ok: true, data: raw.connections ?? [] };
+  } catch {
+    return { ok: false, error: "Network error loading connections" };
+  }
+}
+
+export async function createAiConnection(
+  sessionToken: string,
+  platform: string,
+  expiresInDays?: number,
+): Promise<{
+  ok: boolean;
+  token?: string;
+  data?: AiConnection;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/ai/connections`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ platform, expiresInDays }),
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      token?: string;
+      connection?: AiConnection;
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Failed to connect" };
+    }
+    return { ok: true, token: raw.token, data: raw.connection };
+  } catch {
+    return { ok: false, error: "Network error creating connection" };
+  }
+}
+
+export async function revokeAiConnection(
+  sessionToken: string,
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/ai/connections/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    if (!response.ok) {
+      const raw = (await response.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      return { ok: false, error: raw.message ?? "Failed to revoke" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Network error revoking connection" };
+  }
+}
