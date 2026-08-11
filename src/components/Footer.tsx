@@ -41,7 +41,7 @@ const Footer = () => {
             <ul className="flex flex-wrap justify-end gap-4">
               <li>
                 <a
-                  href={marketingSiteUrl("/server-locations.html")}
+                  href={marketingSiteUrl("/server-locations/")}
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   Server Locations
