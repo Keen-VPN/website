@@ -230,6 +230,7 @@ export default function AdminUserProfile() {
     setAuthEmailError(null);
     setAuthEmailMessage(null);
     setNewAuthEmail("");
+    setAuthEmailSaving(false);
 
     setLoading(true);
     setError(null);
@@ -267,6 +268,8 @@ export default function AdminUserProfile() {
   async function handleAdminAuthEmailChange(event: React.FormEvent) {
     event.preventDefault();
     if (!userId || !newAuthEmail.trim()) return;
+    const forUserId = userId;
+    const requestId = authEmailRequestId.current;
     const trimmed = newAuthEmail.trim().toLowerCase();
     if (authEmail && trimmed === authEmail.trim().toLowerCase()) {
       setAuthEmailError("That is already this user's current login email.");
@@ -275,40 +278,53 @@ export default function AdminUserProfile() {
     setAuthEmailSaving(true);
     setAuthEmailError(null);
     setAuthEmailMessage(null);
-    const res = await adminRequestUserAuthEmailChange(userId, trimmed);
+    const res = await adminRequestUserAuthEmailChange(forUserId, trimmed);
+    if (requestId !== authEmailRequestId.current) return;
     setAuthEmailSaving(false);
     if (!res.success) {
       setAuthEmailError(res.error ?? "Failed to start email change");
       return;
     }
-    setPendingAuthEmail(res.pending ?? null);
+    if (res.pending) {
+      setPendingAuthEmail(res.pending);
+    }
     setNewAuthEmail("");
     setAuthEmailMessage(
       res.message ?? "Verification email sent to the new address.",
     );
+    void loadAuthEmail(forUserId);
   }
 
   async function handleAdminAuthEmailResend() {
     if (!userId) return;
+    const forUserId = userId;
+    const requestId = authEmailRequestId.current;
     setAuthEmailSaving(true);
     setAuthEmailError(null);
     setAuthEmailMessage(null);
-    const res = await adminResendUserAuthEmailChange(userId);
+    const res = await adminResendUserAuthEmailChange(forUserId);
+    if (requestId !== authEmailRequestId.current) return;
     setAuthEmailSaving(false);
     if (!res.success) {
       setAuthEmailError(res.error ?? "Failed to resend verification");
       return;
     }
-    setPendingAuthEmail(res.pending ?? null);
+    if (res.pending) {
+      setPendingAuthEmail(res.pending);
+    }
     setAuthEmailMessage(res.message ?? "Verification email resent.");
+    void loadAuthEmail(forUserId);
   }
 
   async function handleAdminAuthEmailCancel() {
     if (!userId) return;
+    const forUserId = userId;
+    const requestId = authEmailRequestId.current;
     setAuthEmailSaving(true);
     setAuthEmailError(null);
     setAuthEmailMessage(null);
-    const res = await adminCancelUserAuthEmailChange(userId);
+    const res = await adminCancelUserAuthEmailChange(forUserId);
+    if (requestId !== authEmailRequestId.current) return;
     setAuthEmailSaving(false);
     if (!res.success) {
       setAuthEmailError(res.error ?? "Failed to cancel email change");
@@ -316,6 +332,7 @@ export default function AdminUserProfile() {
     }
     setPendingAuthEmail(null);
     setAuthEmailMessage(res.message ?? "Pending email change cancelled.");
+    void loadAuthEmail(forUserId);
   }
 
   const user = profile?.user;
