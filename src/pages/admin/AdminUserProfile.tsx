@@ -450,7 +450,7 @@ export default function AdminUserProfile() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={authEmailSaving}
+                  disabled={!authEmailReady || authEmailSaving}
                   onClick={() => void handleAdminAuthEmailResend()}
                 >
                   {authEmailSaving ? "Working…" : "Resend verification"}
@@ -459,12 +459,17 @@ export default function AdminUserProfile() {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  disabled={authEmailSaving}
+                  disabled={!authEmailReady || authEmailSaving}
                   onClick={() => void handleAdminAuthEmailCancel()}
                 >
                   Cancel change
                 </Button>
               </div>
+            ) : null}
+            {!authEmailReady && !authEmailError ? (
+              <p className="text-sm text-muted-foreground">
+                Refreshing authentication email status…
+              </p>
             ) : null}
           </div>
         ) : null}
