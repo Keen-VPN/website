@@ -17,6 +17,7 @@ import { SecureVaultCard } from "@/components/SecureVaultCard";
 import { AiAssistantCard } from "@/components/AiAssistantCard";
 import { UserInformationCard } from "@/components/UserInformationCard";
 import { EmailPreferencesCard } from "@/components/EmailPreferencesCard";
+import { AuthEmailCard } from "@/components/AuthEmailCard";
 import { useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
 import { cn } from "@/lib/utils";
 import { trackWorkspaceEvent } from "@/lib/product-analytics";
@@ -408,7 +409,10 @@ export function AccountWorkspace({
               >
                 <div className="grid gap-4 xl:grid-cols-2">
                   <UserInformationCard sessionToken={sessionToken} />
-                  <EmailPreferencesCard sessionToken={sessionToken} />
+                  <AuthEmailCard sessionToken={sessionToken} />
+                  <div className="xl:col-span-2">
+                    <EmailPreferencesCard sessionToken={sessionToken} />
+                  </div>
                 </div>
               </TabsContent>
 

@@ -26,6 +26,7 @@ const SignIn = lazy(() => import("./pages/SignIn"));
 const MagicLinkRequest = lazy(() => import("./pages/MagicLinkRequest"));
 const MagicLinkVerify = lazy(() => import("./pages/MagicLinkVerify"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
+const ChangeAuthEmail = lazy(() => import("./pages/ChangeAuthEmail"));
 const Reactivate = lazy(() => import("./pages/Reactivate"));
 const ContextualEmailUnsubscribe = lazy(
   () => import("./pages/ContextualEmailUnsubscribe"),
@@ -179,6 +180,7 @@ const App = () => (
               <Route path="/signin/magic" element={<MagicLinkRequest />} />
               <Route path="/auth/magic" element={<MagicLinkVerify />} />
               <Route path="/auth/verify-email" element={<VerifyEmail />} />
+              <Route path="/auth/change-email" element={<ChangeAuthEmail />} />
               <Route path="/reactivate" element={<Reactivate />} />
               <Route
                 path="/email/unsubscribe"
