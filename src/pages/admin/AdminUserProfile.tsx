@@ -2,12 +2,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   adminFetchUserEngagementProfile,
+  adminGetUserAuthEmail,
+  adminRequestUserAuthEmailChange,
   type AdminUserEngagementProfile,
   type AdminUserEmailRecord,
   type AdminUserReviewActivityRecord,
   type AdminUserTimelineEvent,
+  type AuthEmailPending,
 } from "@/auth/backend";
 import { formatDuration } from "@/lib/format-duration";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 function formatDateTime(iso: string | null) {
   if (!iso) return "—";
@@ -175,12 +182,33 @@ function TimelineList({ events }: { events: AdminUserTimelineEvent[] }) {
 
 export default function AdminUserProfile() {
   const { userId } = useParams<{ userId: string }>();
+  const { can } = useAdminAuth();
+  const canWriteAuthEmail = can("users.write");
   const [profile, setProfile] = useState<AdminUserEngagementProfile | null>(
     null,
   );
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
+  const [pendingAuthEmail, setPendingAuthEmail] =
+    useState<AuthEmailPending | null>(null);
+  const [newAuthEmail, setNewAuthEmail] = useState("");
+  const [authEmailError, setAuthEmailError] = useState<string | null>(null);
+  const [authEmailMessage, setAuthEmailMessage] = useState<string | null>(null);
+  const [authEmailSaving, setAuthEmailSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
+
+  const loadAuthEmail = useCallback(async () => {
+    if (!userId) return;
+    const res = await adminGetUserAuthEmail(userId);
+    if (res.success) {
+      setAuthEmail(res.email ?? null);
+      setPendingAuthEmail(res.pending ?? null);
+      setAuthEmailError(null);
+    } else {
+      setAuthEmailError(res.error ?? "Failed to load auth email");
+    }
+  }, [userId]);
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -215,12 +243,32 @@ export default function AdminUserProfile() {
     setProfile(res.data);
     setLoading(false);
     activeRequest.current = null;
-  }, [userId]);
+    void loadAuthEmail();
+  }, [loadAuthEmail, userId]);
 
   useEffect(() => {
     void load();
     return () => activeRequest.current?.abort();
   }, [load]);
+
+  async function handleAdminAuthEmailChange(event: React.FormEvent) {
+    event.preventDefault();
+    if (!userId || !newAuthEmail.trim()) return;
+    setAuthEmailSaving(true);
+    setAuthEmailError(null);
+    setAuthEmailMessage(null);
+    const res = await adminRequestUserAuthEmailChange(userId, newAuthEmail);
+    setAuthEmailSaving(false);
+    if (!res.success) {
+      setAuthEmailError(res.error ?? "Failed to start email change");
+      return;
+    }
+    setPendingAuthEmail(res.pending ?? null);
+    setNewAuthEmail("");
+    setAuthEmailMessage(
+      res.message ?? "Verification email sent to the new address.",
+    );
+  }
 
   const user = profile?.user;
 
@@ -299,6 +347,62 @@ export default function AdminUserProfile() {
           )}
         </div>
       </div>
+
+      <section className="space-y-3 rounded-lg border border-border p-4">
+        <div>
+          <h3 className="text-lg font-semibold">Authentication email</h3>
+          <p className="text-sm text-muted-foreground">
+            Support recovery: start a pending change and send verification only
+            to the new inbox (for users who lost access to their old email).
+          </p>
+        </div>
+        <p className="text-sm">
+          Current:{" "}
+          <span className="font-medium">
+            {authEmail ?? user?.email ?? (loading ? "…" : "—")}
+          </span>
+        </p>
+        {pendingAuthEmail ? (
+          <p className="text-sm text-muted-foreground">
+            Pending verification for{" "}
+            <span className="font-medium text-foreground">
+              {pendingAuthEmail.newEmail}
+            </span>{" "}
+            (expires {formatDateTime(pendingAuthEmail.expiresAt)})
+          </p>
+        ) : null}
+        {authEmailError ? (
+          <p className="text-sm text-destructive">{authEmailError}</p>
+        ) : null}
+        {authEmailMessage ? (
+          <p className="text-sm text-muted-foreground">{authEmailMessage}</p>
+        ) : null}
+        {canWriteAuthEmail ? (
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={(event) => void handleAdminAuthEmailChange(event)}
+          >
+            <div className="min-w-[240px] flex-1 space-y-1">
+              <Label htmlFor="admin-auth-email">New authentication email</Label>
+              <Input
+                id="admin-auth-email"
+                type="email"
+                value={newAuthEmail}
+                onChange={(e) => setNewAuthEmail(e.target.value)}
+                placeholder="user@example.com"
+                required
+              />
+            </div>
+            <Button type="submit" disabled={authEmailSaving || !newAuthEmail.trim()}>
+              {authEmailSaving ? "Sending…" : "Send verification"}
+            </Button>
+          </form>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            You need users.write permission to start an auth email change.
+          </p>
+        )}
+      </section>
 
       <section className="space-y-3">
         <div>
