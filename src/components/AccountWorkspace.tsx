@@ -410,7 +410,9 @@ export function AccountWorkspace({
                 <div className="grid gap-4 xl:grid-cols-2">
                   <UserInformationCard sessionToken={sessionToken} />
                   <AuthEmailCard sessionToken={sessionToken} />
-                  <EmailPreferencesCard sessionToken={sessionToken} />
+                  <div className="xl:col-span-2">
+                    <EmailPreferencesCard sessionToken={sessionToken} />
+                  </div>
                 </div>
               </TabsContent>
 

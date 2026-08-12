@@ -39,35 +39,44 @@ const ChangeAuthEmail = () => {
         return;
       }
 
-      if (action === "cancel") {
-        const result = await cancelAuthEmailChangeWithToken(token);
+      try {
+        if (action === "cancel") {
+          const result = await cancelAuthEmailChangeWithToken(token);
+          const success = Boolean(result.success);
+          setOk(success);
+          setMessage(
+            success
+              ? result.message || "Pending email change cancelled."
+              : result.error || result.message || "Cancellation failed.",
+          );
+          return;
+        }
+
+        const result = await confirmAuthEmailChange(token);
         const success = Boolean(result.success);
         setOk(success);
+        if (success) {
+          setMessage(
+            result.message ||
+              (result.email
+                ? `Your login email is now ${result.email}.`
+                : "Your login email was updated successfully."),
+          );
+        } else {
+          setMessage(
+            result.error || result.message || "Verification failed.",
+          );
+        }
+      } catch (error) {
+        setOk(false);
         setMessage(
-          success
-            ? result.message || "Pending email change cancelled."
-            : result.error || result.message || "Cancellation failed.",
+          error instanceof Error
+            ? error.message
+            : "Something went wrong. Please try again or contact support.",
         );
+      } finally {
         setLoading(false);
-        return;
       }
-
-      const result = await confirmAuthEmailChange(token);
-      const success = Boolean(result.success);
-      setOk(success);
-      if (success) {
-        setMessage(
-          result.message ||
-            (result.email
-              ? `Your login email is now ${result.email}.`
-              : "Your login email was updated successfully."),
-        );
-      } else {
-        setMessage(
-          result.error || result.message || "Verification failed.",
-        );
-      }
-      setLoading(false);
     };
     void run();
   }, [action, token]);

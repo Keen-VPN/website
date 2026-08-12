@@ -33,6 +33,11 @@ export function AuthEmailCard({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const loadGeneration = useRef(0);
+  const onEmailUpdatedRef = useRef(onEmailUpdated);
+
+  useEffect(() => {
+    onEmailUpdatedRef.current = onEmailUpdated;
+  }, [onEmailUpdated]);
 
   const loadStatus = useCallback(async () => {
     const generation = ++loadGeneration.current;
@@ -43,12 +48,12 @@ export function AuthEmailCard({
     if (response.success && response.email) {
       setEmail(response.email);
       setPending(response.pending ?? null);
-      onEmailUpdated?.(response.email);
+      onEmailUpdatedRef.current?.(response.email);
     } else {
       setLoadError(response.error ?? "Could not load authentication email");
     }
     setLoading(false);
-  }, [onEmailUpdated, sessionToken]);
+  }, [sessionToken]);
 
   useEffect(() => {
     void loadStatus();
@@ -60,8 +65,17 @@ export function AuthEmailCard({
   async function handleRequestChange(event: React.FormEvent) {
     event.preventDefault();
     setFormError(null);
+    const trimmed = newEmail.trim().toLowerCase();
+    if (!trimmed) {
+      setFormError("Enter a new email address.");
+      return;
+    }
+    if (trimmed === email.trim().toLowerCase()) {
+      setFormError("That is already your current login email.");
+      return;
+    }
     setSaving(true);
-    const response = await requestAuthEmailChange(sessionToken, newEmail);
+    const response = await requestAuthEmailChange(sessionToken, trimmed);
     setSaving(false);
     if (!response.success) {
       setFormError(response.error ?? "Could not start email change");

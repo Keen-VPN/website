@@ -38,6 +38,8 @@ export {
   cancelAuthEmailChangeWithToken,
   adminGetUserAuthEmail,
   adminRequestUserAuthEmailChange,
+  adminResendUserAuthEmailChange,
+  adminCancelUserAuthEmailChange,
   getUserProfileInformation,
   updateUserProfileInformation,
   getSignupSourceStatus,

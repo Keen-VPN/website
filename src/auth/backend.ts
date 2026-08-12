@@ -1452,6 +1452,72 @@ export async function adminRequestUserAuthEmailChange(
   }
 }
 
+export async function adminResendUserAuthEmailChange(
+  userId: string,
+): Promise<AuthEmailStatusResponse> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/auth-email/resend`,
+      {
+        method: "POST",
+        credentials: "include",
+      },
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to resend authentication email verification",
+        ),
+      };
+    }
+    return data as AuthEmailStatusResponse;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to resend authentication email verification",
+    };
+  }
+}
+
+export async function adminCancelUserAuthEmailChange(
+  userId: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/auth-email/cancel`,
+      {
+        method: "POST",
+        credentials: "include",
+      },
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to cancel authentication email change",
+        ),
+      };
+    }
+    return data as { success: boolean; message?: string };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to cancel authentication email change",
+    };
+  }
+}
+
 export async function updateEmailPreferences(
   sessionToken: string,
   contextualEngagementOptIn: boolean,
