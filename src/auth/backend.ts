@@ -1184,6 +1184,341 @@ export async function getEmailPreferences(
   }
 }
 
+export interface AuthEmailPending {
+  newEmail: string;
+  expiresAt: string;
+  requestedBy: string;
+}
+
+export interface AuthEmailStatusResponse {
+  success: boolean;
+  email?: string;
+  emailVerified?: boolean;
+  hasLinkedOAuth?: boolean;
+  pending?: AuthEmailPending | null;
+  message?: string;
+  error?: string;
+}
+
+export async function getAuthEmailStatus(
+  sessionToken: string,
+): Promise<AuthEmailStatusResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/auth-email`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load authentication email",
+        ),
+      };
+    }
+    return data as AuthEmailStatusResponse;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to load authentication email",
+    };
+  }
+}
+
+export async function requestAuthEmailChange(
+  sessionToken: string,
+  email: string,
+): Promise<AuthEmailStatusResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/auth-email/change`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to start email change",
+        ),
+      };
+    }
+    return data as AuthEmailStatusResponse;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to start email change",
+    };
+  }
+}
+
+export async function resendAuthEmailChange(
+  sessionToken: string,
+): Promise<AuthEmailStatusResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/auth-email/resend`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to resend verification email",
+        ),
+      };
+    }
+    return data as AuthEmailStatusResponse;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to resend verification email",
+    };
+  }
+}
+
+export async function cancelAuthEmailChange(
+  sessionToken: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/user/auth-email/cancel`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to cancel email change",
+        ),
+      };
+    }
+    return data as { success: boolean; message?: string };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to cancel email change",
+    };
+  }
+}
+
+export async function confirmAuthEmailChange(
+  token: string,
+): Promise<{ success: boolean; message?: string; email?: string; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/auth-email/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Verification link is invalid or expired",
+        ),
+      };
+    }
+    return data as { success: boolean; message?: string; email?: string };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Verification link is invalid or expired",
+    };
+  }
+}
+
+export async function cancelAuthEmailChangeWithToken(
+  token: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/auth-email/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Cancellation link is invalid or expired",
+        ),
+      };
+    }
+    return data as { success: boolean; message?: string };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Cancellation link is invalid or expired",
+    };
+  }
+}
+
+export async function adminGetUserAuthEmail(
+  userId: string,
+): Promise<AuthEmailStatusResponse> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/auth-email`,
+      { credentials: "include" },
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load authentication email",
+        ),
+      };
+    }
+    return data as AuthEmailStatusResponse;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to load authentication email",
+    };
+  }
+}
+
+export async function adminRequestUserAuthEmailChange(
+  userId: string,
+  email: string,
+): Promise<AuthEmailStatusResponse> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/auth-email/change`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      },
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to start authentication email change",
+        ),
+      };
+    }
+    return data as AuthEmailStatusResponse;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to start authentication email change",
+    };
+  }
+}
+
+export async function adminResendUserAuthEmailChange(
+  userId: string,
+): Promise<AuthEmailStatusResponse> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/auth-email/resend`,
+      {
+        method: "POST",
+        credentials: "include",
+      },
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to resend authentication email verification",
+        ),
+      };
+    }
+    return data as AuthEmailStatusResponse;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to resend authentication email verification",
+    };
+  }
+}
+
+export async function adminCancelUserAuthEmailChange(
+  userId: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/users/${encodeURIComponent(userId)}/auth-email/cancel`,
+      {
+        method: "POST",
+        credentials: "include",
+      },
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to cancel authentication email change",
+        ),
+      };
+    }
+    return data as { success: boolean; message?: string };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to cancel authentication email change",
+    };
+  }
+}
+
 export async function updateEmailPreferences(
   sessionToken: string,
   contextualEngagementOptIn: boolean,
