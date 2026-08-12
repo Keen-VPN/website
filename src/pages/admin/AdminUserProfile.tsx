@@ -466,11 +466,6 @@ export default function AdminUserProfile() {
                 </Button>
               </div>
             ) : null}
-            {!authEmailReady && !authEmailError ? (
-              <p className="text-sm text-muted-foreground">
-                Refreshing authentication email status…
-              </p>
-            ) : null}
           </div>
         ) : null}
         {authEmailError ? (
