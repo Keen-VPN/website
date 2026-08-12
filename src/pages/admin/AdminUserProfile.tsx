@@ -211,10 +211,11 @@ export default function AdminUserProfile() {
       setAuthEmail(res.email ?? null);
       setPendingAuthEmail(res.pending ?? null);
       setAuthEmailError(null);
+      setAuthEmailReady(true);
     } else {
       setAuthEmailError(res.error ?? "Failed to load auth email");
+      setAuthEmailReady(false);
     }
-    setAuthEmailReady(true);
   }, []);
 
   const load = useCallback(async () => {
@@ -468,16 +469,30 @@ export default function AdminUserProfile() {
           </div>
         ) : null}
         {authEmailError ? (
-          <p className="text-sm text-destructive">{authEmailError}</p>
+          <div className="space-y-1">
+            <p className="text-sm text-destructive">{authEmailError}</p>
+            {!authEmailReady && userId ? (
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-sm"
+                onClick={() => void loadAuthEmail(userId)}
+              >
+                Retry
+              </Button>
+            ) : null}
+          </div>
         ) : null}
         {authEmailMessage ? (
           <p className="text-sm text-muted-foreground">{authEmailMessage}</p>
         ) : null}
         {canWriteAuthEmail ? (
           !authEmailReady ? (
-            <p className="text-sm text-muted-foreground">
-              Loading authentication email…
-            </p>
+            authEmailError ? null : (
+              <p className="text-sm text-muted-foreground">
+                Loading authentication email…
+              </p>
+            )
           ) : pendingAuthEmail ? null : (
             <form
               className="flex flex-wrap items-end gap-3"
