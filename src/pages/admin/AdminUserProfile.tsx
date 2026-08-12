@@ -196,15 +196,17 @@ export default function AdminUserProfile() {
   const [authEmailError, setAuthEmailError] = useState<string | null>(null);
   const [authEmailMessage, setAuthEmailMessage] = useState<string | null>(null);
   const [authEmailSaving, setAuthEmailSaving] = useState(false);
+  const [authEmailReady, setAuthEmailReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
-  const authEmailRequestId = useRef(0);
+  const authEmailLoadId = useRef(0);
+  const authEmailMutationId = useRef(0);
 
   const loadAuthEmail = useCallback(async (forUserId: string) => {
-    const requestId = ++authEmailRequestId.current;
+    const loadId = ++authEmailLoadId.current;
     const res = await adminGetUserAuthEmail(forUserId);
-    if (requestId !== authEmailRequestId.current) return;
+    if (loadId !== authEmailLoadId.current) return;
     if (res.success) {
       setAuthEmail(res.email ?? null);
       setPendingAuthEmail(res.pending ?? null);
@@ -212,6 +214,7 @@ export default function AdminUserProfile() {
     } else {
       setAuthEmailError(res.error ?? "Failed to load auth email");
     }
+    setAuthEmailReady(true);
   }, []);
 
   const load = useCallback(async () => {
@@ -224,13 +227,15 @@ export default function AdminUserProfile() {
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
-    authEmailRequestId.current += 1;
+    authEmailLoadId.current += 1;
+    authEmailMutationId.current += 1;
     setAuthEmail(null);
     setPendingAuthEmail(null);
     setAuthEmailError(null);
     setAuthEmailMessage(null);
     setNewAuthEmail("");
     setAuthEmailSaving(false);
+    setAuthEmailReady(false);
 
     setLoading(true);
     setError(null);
@@ -248,6 +253,7 @@ export default function AdminUserProfile() {
       setError(res.error ?? "Failed to load user profile");
       setLoading(false);
       activeRequest.current = null;
+      void loadAuthEmail(userId);
       return;
     }
 
@@ -261,15 +267,16 @@ export default function AdminUserProfile() {
     void load();
     return () => {
       activeRequest.current?.abort();
-      authEmailRequestId.current += 1;
+      authEmailLoadId.current += 1;
+      authEmailMutationId.current += 1;
     };
   }, [load]);
 
   async function handleAdminAuthEmailChange(event: React.FormEvent) {
     event.preventDefault();
-    if (!userId || !newAuthEmail.trim()) return;
+    if (!userId || !authEmailReady || !newAuthEmail.trim()) return;
     const forUserId = userId;
-    const requestId = authEmailRequestId.current;
+    const mutationId = authEmailMutationId.current;
     const trimmed = newAuthEmail.trim().toLowerCase();
     if (authEmail && trimmed === authEmail.trim().toLowerCase()) {
       setAuthEmailError("That is already this user's current login email.");
@@ -279,7 +286,7 @@ export default function AdminUserProfile() {
     setAuthEmailError(null);
     setAuthEmailMessage(null);
     const res = await adminRequestUserAuthEmailChange(forUserId, trimmed);
-    if (requestId !== authEmailRequestId.current) return;
+    if (mutationId !== authEmailMutationId.current) return;
     setAuthEmailSaving(false);
     if (!res.success) {
       setAuthEmailError(res.error ?? "Failed to start email change");
@@ -296,14 +303,14 @@ export default function AdminUserProfile() {
   }
 
   async function handleAdminAuthEmailResend() {
-    if (!userId) return;
+    if (!userId || !authEmailReady) return;
     const forUserId = userId;
-    const requestId = authEmailRequestId.current;
+    const mutationId = authEmailMutationId.current;
     setAuthEmailSaving(true);
     setAuthEmailError(null);
     setAuthEmailMessage(null);
     const res = await adminResendUserAuthEmailChange(forUserId);
-    if (requestId !== authEmailRequestId.current) return;
+    if (mutationId !== authEmailMutationId.current) return;
     setAuthEmailSaving(false);
     if (!res.success) {
       setAuthEmailError(res.error ?? "Failed to resend verification");
@@ -317,14 +324,14 @@ export default function AdminUserProfile() {
   }
 
   async function handleAdminAuthEmailCancel() {
-    if (!userId) return;
+    if (!userId || !authEmailReady) return;
     const forUserId = userId;
-    const requestId = authEmailRequestId.current;
+    const mutationId = authEmailMutationId.current;
     setAuthEmailSaving(true);
     setAuthEmailError(null);
     setAuthEmailMessage(null);
     const res = await adminCancelUserAuthEmailChange(forUserId);
-    if (requestId !== authEmailRequestId.current) return;
+    if (mutationId !== authEmailMutationId.current) return;
     setAuthEmailSaving(false);
     if (!res.success) {
       setAuthEmailError(res.error ?? "Failed to cancel email change");
@@ -467,7 +474,11 @@ export default function AdminUserProfile() {
           <p className="text-sm text-muted-foreground">{authEmailMessage}</p>
         ) : null}
         {canWriteAuthEmail ? (
-          pendingAuthEmail ? null : (
+          !authEmailReady ? (
+            <p className="text-sm text-muted-foreground">
+              Loading authentication email…
+            </p>
+          ) : pendingAuthEmail ? null : (
             <form
               className="flex flex-wrap items-end gap-3"
               onSubmit={(event) => void handleAdminAuthEmailChange(event)}
