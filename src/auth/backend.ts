@@ -1194,6 +1194,7 @@ export interface AuthEmailStatusResponse {
   success: boolean;
   email?: string;
   emailVerified?: boolean;
+  hasLinkedOAuth?: boolean;
   pending?: AuthEmailPending | null;
   message?: string;
   error?: string;

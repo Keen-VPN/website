@@ -426,7 +426,9 @@ export default function AdminUserProfile() {
           <h3 className="text-lg font-semibold">Authentication email</h3>
           <p className="text-sm text-muted-foreground">
             Support recovery: start a pending change and send verification only
-            to the new inbox (for users who lost access to their old email).
+            to the new inbox (for users who lost access to their old email). This
+            updates sign-in codes and magic links; linked Google/Apple identities
+            still open the same account.
           </p>
         </div>
         <p className="text-sm">

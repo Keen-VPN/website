@@ -26,6 +26,7 @@ export function AuthEmailCard({
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState<AuthEmailPending | null>(null);
+  const [hasLinkedOAuth, setHasLinkedOAuth] = useState(false);
   const [editing, setEditing] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,7 @@ export function AuthEmailCard({
     if (response.success && response.email) {
       setEmail(response.email);
       setPending(response.pending ?? null);
+      setHasLinkedOAuth(Boolean(response.hasLinkedOAuth));
       onEmailUpdatedRef.current?.(response.email);
     } else {
       setLoadError(response.error ?? "Could not load authentication email");
@@ -133,7 +135,7 @@ export function AuthEmailCard({
   return (
     <WorkspacePanel
       title="Authentication email"
-      description="The email you use to sign in to KeenVPN"
+      description="The email used for KeenVPN sign-in codes and magic links"
     >
       <div className={`${workspaceSectionSurface} space-y-4`}>
         {loading ? (
@@ -158,6 +160,12 @@ export function AuthEmailCard({
             <div>
               <Label className="text-muted-foreground">Current email</Label>
               <p className="mt-1 font-medium break-all">{email}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Used for sign-in codes and magic links.
+                {hasLinkedOAuth
+                  ? " Linked Google or Apple sign-in still opens this account."
+                  : ""}
+              </p>
             </div>
 
             {pending ? (
