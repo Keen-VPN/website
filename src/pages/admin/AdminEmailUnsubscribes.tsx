@@ -782,7 +782,7 @@ function AdminEmailUnsubscribesDashboard() {
                         row.last_email_broadcast_id,
                       )}
                     </td>
-                    <td className="p-3">{row.category_label}</td>
+                    <td className="p-3">{row.preference_category_label}</td>
                     <td className="p-3">{scopeLabel(row.scope)}</td>
                     <td className="p-3">{sourceLabel(row.source)}</td>
                     <td className="p-3 text-right">

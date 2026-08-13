@@ -4127,9 +4127,12 @@ export interface AdminEmailUnsubscribeEventRow {
   id: string;
   email: string;
   source: string;
-  category: string;
-  category_label: string;
+  /** Preference category the recipient turned off, or "all". */
+  preference_category: string;
+  preference_category_label: string;
   scope: "all" | "category";
+  /** Classification of the broadcast they last received, when known. */
+  category: string | null;
   unsubscribed_at: string;
   subscribed_at: string | null;
   subscribed_days: number | null;
