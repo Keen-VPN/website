@@ -51,6 +51,14 @@ const CATEGORY_OPTIONS: {
   { value: "announcement", label: "#announcement" },
 ];
 
+const EMAIL_CATEGORY_OPTIONS: { value: string; label: string }[] = [
+  { value: "none", label: "No category (all recipients)" },
+  { value: "product_updates", label: "Product Updates" },
+  { value: "education_privacy", label: "Education, Privacy & Security" },
+  { value: "perks_offers", label: "Perks & Offers" },
+  { value: "referrals", label: "Referrals" },
+];
+
 const DEFAULT_CTA_LABEL = "View perks";
 const DEFAULT_CTA_URL = "https://vpnkeen.com/perks";
 const BROADCAST_JOB_POLL_INTERVAL_MS = 2000;
@@ -73,6 +81,7 @@ export default function AdminBroadcastEmail() {
   const [profileTargeting, setProfileTargeting] = useState<AudienceTargeting>(
     () => createDefaultAudienceTargeting(),
   );
+  const [emailCategory, setEmailCategory] = useState("none");
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [totalAudience, setTotalAudience] = useState<number | null>(null);
   const [matchPercentage, setMatchPercentage] = useState<number | null>(null);
@@ -121,6 +130,7 @@ export default function AdminBroadcastEmail() {
       // than guessing, so reporting never shows an invented category.
       category: category === "none" ? undefined : category,
       profileTargeting,
+      emailCategory: emailCategory === "none" ? undefined : emailCategory,
       subject: subject.trim(),
       headline: headline.trim(),
       body: body.trim(),
@@ -132,6 +142,7 @@ export default function AdminBroadcastEmail() {
       audience,
       category,
       profileTargeting,
+      emailCategory,
       subject,
       headline,
       body,
@@ -145,6 +156,7 @@ export default function AdminBroadcastEmail() {
     async (
       targetAudience: BroadcastEmailAudience,
       targeting: AudienceTargeting,
+      category: string,
     ) => {
       if (getAudienceTargetingValidationError(targeting)) {
         return;
@@ -161,6 +173,7 @@ export default function AdminBroadcastEmail() {
         context: "broadcast",
         deliverability: targetAudience,
         profileTargeting: targeting,
+        emailCategory: category === "none" ? undefined : category,
       });
       if (requestId !== audienceRequestIdRef.current) {
         return;
@@ -239,13 +252,14 @@ export default function AdminBroadcastEmail() {
     setLoadingAudience(true);
 
     const timer = window.setTimeout(() => {
-      void refreshAudience(audience, profileTargeting);
+      void refreshAudience(audience, profileTargeting, emailCategory);
     }, 300);
     return () => window.clearTimeout(timer);
   }, [
     canBroadcast,
     audience,
     profileTargeting,
+    emailCategory,
     refreshAudience,
     audienceTargetingError,
   ]);
@@ -264,6 +278,7 @@ export default function AdminBroadcastEmail() {
     const result = await adminExportBroadcastAudienceCsv(
       audience,
       profileTargeting,
+      emailCategory === "none" ? undefined : emailCategory,
     );
     setExporting(false);
     if (!result.ok || !result.blob) {
@@ -461,7 +476,7 @@ export default function AdminBroadcastEmail() {
 
       <section className="rounded-xl border border-border bg-card p-5 space-y-4">
         <h3 className="text-sm font-semibold">Audience</h3>
-        <div className="grid gap-4 md:grid-cols-[minmax(0,280px)_minmax(0,220px)_1fr] md:items-end">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,280px)_minmax(0,220px)_minmax(0,220px)_1fr] md:items-end">
           <div className="space-y-2">
             <Label htmlFor="audience">Recipient filter</Label>
             <Select
@@ -516,6 +531,25 @@ export default function AdminBroadcastEmail() {
             </Select>
             <p className="text-xs text-muted-foreground">
               Groups this send in unsubscribe and weekly reporting.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email-category">Email category</Label>
+            <Select value={emailCategory} onValueChange={setEmailCategory}>
+              <SelectTrigger id="email-category">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EMAIL_CATEGORY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Recipients who turned this category off in their email preferences
+              are excluded.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
