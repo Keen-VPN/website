@@ -20,6 +20,7 @@ import {
   type AudienceTargeting,
   type AudienceTargetingPreview,
   type BroadcastEmailAudience,
+  type BroadcastEmailCategory,
 } from "@/auth/backend";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
@@ -33,6 +34,21 @@ import {
 const AUDIENCE_OPTIONS: { value: BroadcastEmailAudience; label: string }[] = [
   { value: "all_deliverable", label: "All deliverable users" },
   { value: "opted_in", label: "Opted in to tips & offers only" },
+  {
+    value: "referral_eligible",
+    label: "Referral eligible (had a long session)",
+  },
+];
+
+const CATEGORY_OPTIONS: {
+  value: BroadcastEmailCategory | "none";
+  label: string;
+}[] = [
+  { value: "none", label: "Uncategorised" },
+  { value: "referrals", label: "#referrals" },
+  { value: "lifecycle", label: "#lifecycle" },
+  { value: "product", label: "#product" },
+  { value: "announcement", label: "#announcement" },
 ];
 
 const EMAIL_CATEGORY_OPTIONS: { value: string; label: string }[] = [
@@ -59,6 +75,9 @@ export default function AdminBroadcastEmail() {
 
   const [audience, setAudience] =
     useState<BroadcastEmailAudience>("all_deliverable");
+  const [category, setCategory] = useState<BroadcastEmailCategory | "none">(
+    "none",
+  );
   const [profileTargeting, setProfileTargeting] = useState<AudienceTargeting>(
     () => createDefaultAudienceTargeting(),
   );
@@ -107,6 +126,9 @@ export default function AdminBroadcastEmail() {
   const composePayload = useCallback(
     () => ({
       audience,
+      // "none" means genuinely uncategorised; the backend stores null rather
+      // than guessing, so reporting never shows an invented category.
+      category: category === "none" ? undefined : category,
       profileTargeting,
       emailCategory: emailCategory === "none" ? undefined : emailCategory,
       subject: subject.trim(),
@@ -118,6 +140,7 @@ export default function AdminBroadcastEmail() {
     }),
     [
       audience,
+      category,
       profileTargeting,
       emailCategory,
       subject,
@@ -453,14 +476,21 @@ export default function AdminBroadcastEmail() {
 
       <section className="rounded-xl border border-border bg-card p-5 space-y-4">
         <h3 className="text-sm font-semibold">Audience</h3>
-        <div className="grid gap-4 md:grid-cols-[minmax(0,280px)_1fr] md:items-end">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,280px)_minmax(0,220px)_minmax(0,220px)_1fr] md:items-end">
           <div className="space-y-2">
             <Label htmlFor="audience">Recipient filter</Label>
             <Select
               value={audience}
-              onValueChange={(value) =>
-                setAudience(value as BroadcastEmailAudience)
-              }
+              onValueChange={(value) => {
+                const next = value as BroadcastEmailAudience;
+                setAudience(next);
+                // The backend tags a referral audience as #referrals when no
+                // category was chosen. Reflect that here so the form shows
+                // what will actually be stored rather than "Uncategorised".
+                if (next === "referral_eligible" && category === "none") {
+                  setCategory("referrals");
+                }
+              }}
             >
               <SelectTrigger id="audience">
                 <SelectValue />
@@ -473,6 +503,37 @@ export default function AdminBroadcastEmail() {
                 ))}
               </SelectContent>
             </Select>
+            {audience === "referral_eligible" ? (
+              <p className="text-xs text-muted-foreground">
+                Only users who have completed at least one VPN session of an
+                hour or more.
+              </p>
+            ) : null}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="category">Category</Label>
+            <Select
+              value={category}
+              onValueChange={(value) =>
+                setCategory(value as BroadcastEmailCategory | "none")
+              }
+            >
+              <SelectTrigger id="category">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Groups this send in unsubscribe and weekly reporting.
+            </p>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="email-category">Email category</Label>
             <Select value={emailCategory} onValueChange={setEmailCategory}>
               <SelectTrigger id="email-category">
@@ -487,8 +548,8 @@ export default function AdminBroadcastEmail() {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Recipients who turned this category off in their email
-              preferences are excluded.
+              Recipients who turned this category off in their email preferences
+              are excluded.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">

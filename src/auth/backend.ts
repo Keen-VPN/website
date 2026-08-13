@@ -6534,10 +6534,24 @@ export async function unlinkProvider(
   return response.json();
 }
 
-export type BroadcastEmailAudience = "all_deliverable" | "opted_in";
+export type BroadcastEmailAudience =
+  | "all_deliverable"
+  | "opted_in"
+  // Users with at least one long VPN session (KVPN-602). Referral sends target
+  // this so we only ask people to recommend KeenVPN once it has worked for them.
+  | "referral_eligible";
+
+// Internal classification, used to read referral sends apart from the rest of
+// the lifecycle programme in unsubscribe and weekly reporting (KVPN-602).
+export type BroadcastEmailCategory =
+  | "referrals"
+  | "lifecycle"
+  | "product"
+  | "announcement";
 
 export interface AdminBroadcastComposePayload {
   audience?: BroadcastEmailAudience;
+  category?: BroadcastEmailCategory;
   profileTargeting?: AudienceTargeting;
   emailCategory?: string;
   subject: string;
