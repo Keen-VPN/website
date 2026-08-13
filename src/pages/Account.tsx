@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AiConnectionsPanel } from "@/components/AiConnectionsPanel";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -1296,6 +1297,14 @@ const AccountInner = () => {
                 </a>
               </CardContent>
             </Card>
+
+            {sessionToken && (
+              <Card className="shadow-card">
+                <CardContent className="pt-6">
+                  <AiConnectionsPanel sessionToken={sessionToken} />
+                </CardContent>
+              </Card>
+            )}
 
             <Card className="border-destructive/40 shadow-card">
               <CardHeader className="pb-3">

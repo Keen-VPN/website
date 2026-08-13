@@ -28,6 +28,7 @@ const MagicLinkVerify = lazy(() => import("./pages/MagicLinkVerify"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const ChangeAuthEmail = lazy(() => import("./pages/ChangeAuthEmail"));
 const Reactivate = lazy(() => import("./pages/Reactivate"));
+const EmailPreferences = lazy(() => import("./pages/EmailPreferences"));
 const ContextualEmailUnsubscribe = lazy(
   () => import("./pages/ContextualEmailUnsubscribe"),
 );
@@ -62,6 +63,10 @@ const AdminDomainInsights = lazy(
   () => import("./pages/admin/AdminDomainInsights"),
 );
 const AdminPerks = lazy(() => import("./pages/admin/AdminPerks"));
+const AdminHotLinks = lazy(() => import("./pages/admin/AdminHotLinks"));
+const AdminAffiliateLinks = lazy(
+  () => import("./pages/admin/AdminAffiliateLinks"),
+);
 const AdminPerkRequests = lazy(() => import("./pages/admin/AdminPerkRequests"));
 const AdminProductEvents = lazy(
   () => import("./pages/admin/AdminProductEvents"),
@@ -182,6 +187,7 @@ const App = () => (
                 path="/email/unsubscribe"
                 element={<ContextualEmailUnsubscribe />}
               />
+              <Route path="/email/preferences" element={<EmailPreferences />} />
               <Route path="/r/:token" element={<ReferralLanding />} />
               <Route
                 path="/referrals"
@@ -277,6 +283,11 @@ const App = () => (
                   element={<AdminDomainInsights />}
                 />
                 <Route path="perks" element={<AdminPerks />} />
+                <Route path="hot-links" element={<AdminHotLinks />} />
+                <Route
+                  path="affiliate-links"
+                  element={<AdminAffiliateLinks />}
+                />
                 <Route path="perk-requests" element={<AdminPerkRequests />} />
                 <Route path="user-profiles" element={<AdminUserProfiles />} />
                 <Route path="workflows" element={<AdminWorkflows />} />

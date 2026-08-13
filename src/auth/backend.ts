@@ -1184,6 +1184,138 @@ export async function getEmailPreferences(
   }
 }
 
+export interface EmailCategoryPreference {
+  category: string;
+  label: string;
+  description: string;
+  subscribed: boolean;
+}
+
+export interface EmailCategoryPreferencesResponse {
+  success: boolean;
+  email?: string;
+  unsubscribedFromAll?: boolean;
+  preferences?: EmailCategoryPreference[];
+  error?: string;
+}
+
+async function emailCategoryPreferencesRequest(
+  path: string,
+  init: RequestInit,
+): Promise<EmailCategoryPreferencesResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}${path}`, init);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load email preferences",
+        ),
+      };
+    }
+    return data as EmailCategoryPreferencesResponse;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to load email preferences",
+    };
+  }
+}
+
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+/** Signed link from an email footer; works without a KeenVPN session. */
+export function fetchEmailCategoryPreferencesByToken(token: string) {
+  return emailCategoryPreferencesRequest(
+    `/email-preferences?token=${encodeURIComponent(token)}`,
+    { method: "GET" },
+  );
+}
+
+export function updateEmailCategoryPreferencesByToken(
+  token: string,
+  preferences: Record<string, boolean>,
+) {
+  return emailCategoryPreferencesRequest("/email-preferences", {
+    method: "PATCH",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ token, preferences }),
+  });
+}
+
+export function unsubscribeAllByToken(token: string) {
+  return emailCategoryPreferencesRequest("/email-preferences/unsubscribe-all", {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ token }),
+  });
+}
+
+export function fetchMyEmailCategoryPreferences(sessionToken: string) {
+  return emailCategoryPreferencesRequest("/email-preferences/me", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${sessionToken}` },
+  });
+}
+
+export function updateMyEmailCategoryPreferences(
+  sessionToken: string,
+  preferences: Record<string, boolean>,
+) {
+  return emailCategoryPreferencesRequest("/email-preferences/me", {
+    method: "PATCH",
+    headers: { ...JSON_HEADERS, Authorization: `Bearer ${sessionToken}` },
+    body: JSON.stringify({ preferences }),
+  });
+}
+
+export function unsubscribeAllForCurrentUser(sessionToken: string) {
+  return emailCategoryPreferencesRequest(
+    "/email-preferences/me/unsubscribe-all",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    },
+  );
+}
+
+/** Untokenised visitor: mail them their own preference link. */
+export async function requestEmailPreferencesLink(
+  email: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/email-preferences/request-link`, {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ email }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to send preference link",
+        ),
+      };
+    }
+    return data as { success: boolean; message?: string };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to send preference link",
+    };
+  }
+}
+
 export interface AuthEmailPending {
   newEmail: string;
   expiresAt: string;
@@ -3934,6 +4066,9 @@ export interface AdminEmailUnsubscribeSummary {
   from: string;
   to: string;
   total_unsubscribes: number;
+  unsubscribe_all_events: number;
+  category_optout_events: number;
+  category_optout_share: number | null;
   broadcast_unsubscribes: number;
   delivered_recipients: number;
   unsubscribe_rate: number | null;
@@ -3970,10 +4105,34 @@ export interface AdminEmailUnsubscribeCampaignsReport {
   rows: AdminEmailUnsubscribeCampaignRow[];
 }
 
+export interface AdminEmailUnsubscribeCategoryRow {
+  category: string;
+  category_label: string;
+  scope: "all" | "category";
+  unsubscribes: number;
+  share_of_total: number | null;
+  last_unsubscribe_at: string | null;
+  avg_subscribed_days: number | null;
+  avg_emails_received: number | null;
+}
+
+export interface AdminEmailUnsubscribeCategoriesReport {
+  from: string;
+  to: string;
+  total_unsubscribes: number;
+  rows: AdminEmailUnsubscribeCategoryRow[];
+}
+
 export interface AdminEmailUnsubscribeEventRow {
   id: string;
   email: string;
   source: string;
+  /** Preference category the recipient turned off, or "all". */
+  preference_category: string;
+  preference_category_label: string;
+  scope: "all" | "category";
+  /** Classification of the broadcast they last received, when known. */
+  category: string | null;
   unsubscribed_at: string;
   subscribed_at: string | null;
   subscribed_days: number | null;
@@ -4002,6 +4161,7 @@ async function adminFetchEmailUnsubscribeJson<T>(
     interval?: AdminUnsubscribeTrendInterval;
     campaign?: string;
     template?: string;
+    category?: string;
     limit?: number;
     offset?: number;
     signal?: AbortSignal;
@@ -4015,6 +4175,7 @@ async function adminFetchEmailUnsubscribeJson<T>(
     if (params.interval) query.set("interval", params.interval);
     if (params.campaign) query.set("campaign", params.campaign);
     if (params.template) query.set("template", params.template);
+    if (params.category) query.set("category", params.category);
     if (params.limit != null) query.set("limit", String(params.limit));
     if (params.offset != null) query.set("offset", String(params.offset));
     const suffix = query.toString() ? `?${query.toString()}` : "";
@@ -4091,6 +4252,7 @@ export function adminFetchEmailUnsubscribeEvents(params?: {
   to?: string;
   campaign?: string;
   template?: string;
+  category?: string;
   limit?: number;
   offset?: number;
   signal?: AbortSignal;
@@ -4099,6 +4261,22 @@ export function adminFetchEmailUnsubscribeEvents(params?: {
     "events",
     params ?? {},
     "Failed to load unsubscribe events",
+  );
+}
+
+export async function adminFetchEmailUnsubscribeCategories(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminEmailUnsubscribeCategoriesReport;
+  error?: string;
+}> {
+  return adminFetchEmailUnsubscribeJson<AdminEmailUnsubscribeCategoriesReport>(
+    "categories",
+    params ?? {},
+    "Failed to load unsubscribe categories",
   );
 }
 
@@ -4616,6 +4794,7 @@ export async function adminPreviewAudienceTargeting(payload: {
   context: "perks" | "broadcast";
   deliverability?: BroadcastEmailAudience;
   profileTargeting?: AudienceTargeting;
+  emailCategory?: string;
 }): Promise<{
   ok: boolean;
   data?: AudienceTargetingPreview;
@@ -6355,11 +6534,26 @@ export async function unlinkProvider(
   return response.json();
 }
 
-export type BroadcastEmailAudience = "all_deliverable" | "opted_in";
+export type BroadcastEmailAudience =
+  | "all_deliverable"
+  | "opted_in"
+  // Users with at least one long VPN session (KVPN-602). Referral sends target
+  // this so we only ask people to recommend KeenVPN once it has worked for them.
+  | "referral_eligible";
+
+// Internal classification, used to read referral sends apart from the rest of
+// the lifecycle programme in unsubscribe and weekly reporting (KVPN-602).
+export type BroadcastEmailCategory =
+  | "referrals"
+  | "lifecycle"
+  | "product"
+  | "announcement";
 
 export interface AdminBroadcastComposePayload {
   audience?: BroadcastEmailAudience;
+  category?: BroadcastEmailCategory;
   profileTargeting?: AudienceTargeting;
+  emailCategory?: string;
   subject: string;
   headline: string;
   body: string;
@@ -6414,6 +6608,7 @@ export async function adminFetchBroadcastAudience(
 export async function adminExportBroadcastAudienceCsv(
   audience: BroadcastEmailAudience = "all_deliverable",
   profileTargeting?: AudienceTargeting,
+  emailCategory?: string,
 ): Promise<{ ok: boolean; blob?: Blob; error?: string }> {
   try {
     const response = await fetch(
@@ -6425,6 +6620,7 @@ export async function adminExportBroadcastAudienceCsv(
         body: JSON.stringify({
           audience,
           ...(profileTargeting ? { profileTargeting } : {}),
+          ...(emailCategory ? { emailCategory } : {}),
         }),
       },
     );
@@ -7893,4 +8089,506 @@ export async function updateFriendSharingPreferences(
     { method: "PATCH", body: JSON.stringify(preferences) },
     "Failed to update sharing preferences",
   );
+}
+
+/* ---------------------------------------------------------------------------
+ * Hot Links — partner referral database (KVPN-538)
+ * ------------------------------------------------------------------------ */
+
+export interface AdminHotLinkDomain {
+  host: string;
+  pathPrefix: string | null;
+}
+
+export interface AdminHotLink {
+  id: string;
+  partnerName: string;
+  category: string;
+  websiteUrl: string;
+  referralUrl: string;
+  referralCode: string | null;
+  promotionalValue: string | null;
+  description: string | null;
+  isActive: boolean;
+  priority: number;
+  startsAt: string | null;
+  endsAt: string | null;
+  notes: string | null;
+  domains: AdminHotLinkDomain[];
+}
+
+export interface CreateHotLinkPayload {
+  partnerName: string;
+  category: string;
+  websiteUrl: string;
+  referralUrl: string;
+  referralCode?: string;
+  promotionalValue?: string;
+  description?: string;
+  priority?: number;
+  notes?: string;
+  domains: string[];
+}
+
+/** Domains the API refused, with the reason, so the UI can show them per row. */
+export interface HotLinkDomainRejection {
+  host: string;
+  reason: string;
+}
+
+export async function adminListHotLinks(options?: {
+  category?: string;
+  search?: string;
+}): Promise<{ ok: boolean; data?: AdminHotLink[]; error?: string }> {
+  try {
+    const params = new URLSearchParams();
+    if (options?.category) params.set("category", options.category);
+    if (options?.search) params.set("search", options.search);
+    const query = params.toString();
+    const response = await fetch(
+      `${BACKEND_URL}/admin/hot-links${query ? `?${query}` : ""}`,
+      { credentials: "include" },
+    );
+    const raw = (await response.json().catch(() => ({}))) as {
+      links?: AdminHotLink[];
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Failed to load hot links" };
+    }
+    return { ok: true, data: raw.links ?? [] };
+  } catch {
+    return { ok: false, error: "Network error loading hot links" };
+  }
+}
+
+export async function adminCreateHotLink(payload: CreateHotLinkPayload): Promise<{
+  ok: boolean;
+  data?: AdminHotLink;
+  rejectedDomains?: HotLinkDomainRejection[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/hot-links`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      link?: AdminHotLink;
+      rejectedDomains?: HotLinkDomainRejection[];
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Failed to create hot link" };
+    }
+    // A create can succeed at the HTTP level and still create nothing when every
+    // domain was rejected, so surface the rejections rather than a bare success.
+    return {
+      ok: Boolean(raw.link),
+      data: raw.link,
+      rejectedDomains: raw.rejectedDomains ?? [],
+      error: raw.link ? undefined : "No domain was accepted",
+    };
+  } catch {
+    return { ok: false, error: "Network error creating hot link" };
+  }
+}
+
+export async function adminSetHotLinkActive(
+  id: string,
+  isActive: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/hot-links/${id}/active`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive }),
+    });
+    if (!response.ok) {
+      const raw = (await response.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      return { ok: false, error: raw.message ?? "Failed to update hot link" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Network error updating hot link" };
+  }
+}
+
+export async function adminDeleteHotLink(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/hot-links/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (!response.ok) {
+      const raw = (await response.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      return { ok: false, error: raw.message ?? "Failed to delete hot link" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Network error deleting hot link" };
+  }
+}
+
+export interface HotLinkImportResult {
+  created: number;
+  rowErrors: { lineNumber: number; reason: string }[];
+  domainRejections: { lineNumber: number; host: string; reason: string }[];
+}
+
+/** `dryRun` writes nothing and reports every problem — always preview first. */
+export async function adminImportHotLinksCsv(
+  csv: string,
+  dryRun: boolean,
+): Promise<{ ok: boolean; data?: HotLinkImportResult; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/hot-links/import`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ csv, dryRun }),
+    });
+    const raw = (await response.json().catch(() => ({}))) as
+      HotLinkImportResult & { message?: string };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Import failed" };
+    }
+    return {
+      ok: true,
+      data: {
+        created: raw.created ?? 0,
+        rowErrors: raw.rowErrors ?? [],
+        domainRejections: raw.domainRejections ?? [],
+      },
+    };
+  } catch {
+    return { ok: false, error: "Network error importing hot links" };
+  }
+}
+
+export async function adminExportHotLinksCsv(): Promise<{
+  ok: boolean;
+  csv?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/hot-links/export`, {
+      credentials: "include",
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      csv?: string;
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Export failed" };
+    }
+    return { ok: true, csv: raw.csv ?? "" };
+  } catch {
+    return { ok: false, error: "Network error exporting hot links" };
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Affiliate links — pre-signup, bound to an email (KVPN-559)
+ * ------------------------------------------------------------------------ */
+
+export interface AdminAffiliateLink {
+  id: string;
+  email: string;
+  displayName: string | null;
+  campaignId: string | null;
+  rewardMonths: number;
+  isActive: boolean;
+  expiresAt: string | null;
+  claimed: boolean;
+  claimedAt: string | null;
+  notes: string | null;
+}
+
+export interface CreateAffiliateLinkPayload {
+  email: string;
+  displayName?: string;
+  campaignId?: string;
+  rewardMonths?: number;
+  expiresAt?: string;
+  notes?: string;
+}
+
+export async function adminListAffiliateLinks(
+  email?: string,
+): Promise<{ ok: boolean; data?: AdminAffiliateLink[]; error?: string }> {
+  try {
+    const query = email ? `?email=${encodeURIComponent(email)}` : "";
+    const response = await fetch(`${BACKEND_URL}/admin/affiliate-links${query}`, {
+      credentials: "include",
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      links?: AdminAffiliateLink[];
+      message?: string;
+    };
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: raw.message ?? "Failed to load affiliate links",
+      };
+    }
+    return { ok: true, data: raw.links ?? [] };
+  } catch {
+    return { ok: false, error: "Network error loading affiliate links" };
+  }
+}
+
+/**
+ * Creates a link. The shareable URL comes back exactly once and is never
+ * recoverable — only its hash is stored — so the caller must show it to the
+ * admin immediately.
+ */
+export async function adminCreateAffiliateLink(
+  payload: CreateAffiliateLinkPayload,
+): Promise<{
+  ok: boolean;
+  data?: AdminAffiliateLink & { url?: string };
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/affiliate-links`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      link?: AdminAffiliateLink & { url?: string };
+      message?: string;
+    };
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: raw.message ?? "Failed to create affiliate link",
+      };
+    }
+    return { ok: true, data: raw.link };
+  } catch {
+    return { ok: false, error: "Network error creating affiliate link" };
+  }
+}
+
+export async function adminUpdateAffiliateLink(
+  id: string,
+  patch: { isActive?: boolean; expiresAt?: string; notes?: string },
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/affiliate-links/${id}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (!response.ok) {
+      const raw = (await response.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      return {
+        ok: false,
+        error: raw.message ?? "Failed to update affiliate link",
+      };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Network error updating affiliate link" };
+  }
+}
+
+export interface UpdateHotLinkPayload {
+  partnerName?: string;
+  category?: string;
+  websiteUrl?: string;
+  referralUrl?: string;
+  referralCode?: string;
+  promotionalValue?: string;
+  description?: string;
+  priority?: number;
+  notes?: string;
+  /** Replaces the whole domain set. Omit to leave domains unchanged. */
+  domains?: string[];
+}
+
+export async function adminUpdateHotLink(
+  id: string,
+  payload: UpdateHotLinkPayload,
+): Promise<{
+  ok: boolean;
+  data?: AdminHotLink;
+  rejectedDomains?: HotLinkDomainRejection[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/hot-links/${id}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      link?: AdminHotLink;
+      rejectedDomains?: HotLinkDomainRejection[];
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Failed to update hot link" };
+    }
+    // An edit whose every domain was rejected returns 200 with link:null, so
+    // the rejections are the answer rather than an error string.
+    return {
+      ok: Boolean(raw.link),
+      data: raw.link,
+      rejectedDomains: raw.rejectedDomains ?? [],
+      error: raw.link ? undefined : "No domain was accepted",
+    };
+  } catch {
+    return { ok: false, error: "Network error updating hot link" };
+  }
+}
+
+/**
+ * Dry-run a domain list before saving — the ticket's "preview matching
+ * domains". Pass `hotLinkId` when editing so the partner's own domains are not
+ * reported as conflicts with itself.
+ */
+export async function adminValidateHotLinkDomains(
+  domains: string[],
+  hotLinkId?: string,
+): Promise<{
+  ok: boolean;
+  accepted?: string[];
+  rejected?: HotLinkDomainRejection[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/hot-links/validate-domains`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domains, hotLinkId }),
+      },
+    );
+    const raw = (await response.json().catch(() => ({}))) as {
+      accepted?: string[];
+      rejected?: HotLinkDomainRejection[];
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Validation failed" };
+    }
+    return {
+      ok: true,
+      accepted: raw.accepted ?? [],
+      rejected: raw.rejected ?? [],
+    };
+  } catch {
+    return { ok: false, error: "Network error validating domains" };
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * AI assistant connections (KVPN-506)
+ *
+ * A member authorises one assistant at a time to read their recommendations.
+ * The token is returned once at creation and only its hash is stored, so it
+ * cannot be recovered — the UI must surface it immediately.
+ * ------------------------------------------------------------------------ */
+
+export interface AiConnection {
+  id: string;
+  platform: string;
+  scopes: string[];
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export async function listAiConnections(
+  sessionToken: string,
+): Promise<{ ok: boolean; data?: AiConnection[]; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/ai/connections`, {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      connections?: AiConnection[];
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Failed to load connections" };
+    }
+    return { ok: true, data: raw.connections ?? [] };
+  } catch {
+    return { ok: false, error: "Network error loading connections" };
+  }
+}
+
+export async function createAiConnection(
+  sessionToken: string,
+  platform: string,
+  expiresInDays?: number,
+): Promise<{
+  ok: boolean;
+  token?: string;
+  data?: AiConnection;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/ai/connections`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ platform, expiresInDays }),
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      token?: string;
+      connection?: AiConnection;
+      message?: string;
+    };
+    if (!response.ok) {
+      return { ok: false, error: raw.message ?? "Failed to connect" };
+    }
+    return { ok: true, token: raw.token, data: raw.connection };
+  } catch {
+    return { ok: false, error: "Network error creating connection" };
+  }
+}
+
+export async function revokeAiConnection(
+  sessionToken: string,
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/ai/connections/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    if (!response.ok) {
+      const raw = (await response.json().catch(() => ({}))) as {
+        message?: string;
+      };
+      return { ok: false, error: raw.message ?? "Failed to revoke" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Network error revoking connection" };
+  }
 }

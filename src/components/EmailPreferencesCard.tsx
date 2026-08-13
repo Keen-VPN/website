@@ -4,6 +4,7 @@ import { WorkspacePanel } from "@/components/workspace/WorkspacePanel";
 import { workspaceSectionSurface } from "@/components/workspace/workspace-ui";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -107,6 +108,23 @@ export function EmailPreferencesCard({ sessionToken }: EmailPreferencesCardProps
               onCheckedChange={(checked) => void handleToggle(checked)}
             />
           )}
+          </div>
+        </div>
+        <div className={workspaceSectionSurface}>
+          <div className="space-y-1">
+            <Label className="text-base">Subscription preferences</Label>
+            <p className="text-sm text-muted-foreground">
+              Choose which KeenVPN emails you receive — product updates,
+              privacy guides, perks and referrals.
+            </p>
+            <Button
+              asChild
+              type="button"
+              variant="link"
+              className="h-auto p-0 text-sm"
+            >
+              <Link to="/email/preferences">Manage email preferences</Link>
+            </Button>
           </div>
         </div>
     </WorkspacePanel>
