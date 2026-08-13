@@ -2,12 +2,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   adminFetchUserEngagementProfile,
+  adminGetUserAuthEmail,
+  adminRequestUserAuthEmailChange,
+  adminResendUserAuthEmailChange,
+  adminCancelUserAuthEmailChange,
   type AdminUserEngagementProfile,
   type AdminUserEmailRecord,
   type AdminUserReviewActivityRecord,
   type AdminUserTimelineEvent,
+  type AuthEmailPending,
 } from "@/auth/backend";
 import { formatDuration } from "@/lib/format-duration";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 function formatDateTime(iso: string | null) {
   if (!iso) return "—";
@@ -175,12 +184,39 @@ function TimelineList({ events }: { events: AdminUserTimelineEvent[] }) {
 
 export default function AdminUserProfile() {
   const { userId } = useParams<{ userId: string }>();
+  const { can } = useAdminAuth();
+  const canWriteAuthEmail = can("users.write");
   const [profile, setProfile] = useState<AdminUserEngagementProfile | null>(
     null,
   );
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
+  const [pendingAuthEmail, setPendingAuthEmail] =
+    useState<AuthEmailPending | null>(null);
+  const [newAuthEmail, setNewAuthEmail] = useState("");
+  const [authEmailError, setAuthEmailError] = useState<string | null>(null);
+  const [authEmailMessage, setAuthEmailMessage] = useState<string | null>(null);
+  const [authEmailSaving, setAuthEmailSaving] = useState(false);
+  const [authEmailReady, setAuthEmailReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
+  const authEmailLoadId = useRef(0);
+  const authEmailMutationId = useRef(0);
+
+  const loadAuthEmail = useCallback(async (forUserId: string) => {
+    const loadId = ++authEmailLoadId.current;
+    const res = await adminGetUserAuthEmail(forUserId);
+    if (loadId !== authEmailLoadId.current) return;
+    if (res.success) {
+      setAuthEmail(res.email ?? null);
+      setPendingAuthEmail(res.pending ?? null);
+      setAuthEmailError(null);
+      setAuthEmailReady(true);
+    } else {
+      setAuthEmailError(res.error ?? "Failed to load auth email");
+      setAuthEmailReady(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -192,6 +228,15 @@ export default function AdminUserProfile() {
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
+    authEmailLoadId.current += 1;
+    authEmailMutationId.current += 1;
+    setAuthEmail(null);
+    setPendingAuthEmail(null);
+    setAuthEmailError(null);
+    setAuthEmailMessage(null);
+    setNewAuthEmail("");
+    setAuthEmailSaving(false);
+    setAuthEmailReady(false);
 
     setLoading(true);
     setError(null);
@@ -209,18 +254,94 @@ export default function AdminUserProfile() {
       setError(res.error ?? "Failed to load user profile");
       setLoading(false);
       activeRequest.current = null;
+      void loadAuthEmail(userId);
       return;
     }
 
     setProfile(res.data);
     setLoading(false);
     activeRequest.current = null;
-  }, [userId]);
+    void loadAuthEmail(userId);
+  }, [loadAuthEmail, userId]);
 
   useEffect(() => {
     void load();
-    return () => activeRequest.current?.abort();
+    return () => {
+      activeRequest.current?.abort();
+      authEmailLoadId.current += 1;
+      authEmailMutationId.current += 1;
+    };
   }, [load]);
+
+  async function handleAdminAuthEmailChange(event: React.FormEvent) {
+    event.preventDefault();
+    if (!userId || !authEmailReady || !newAuthEmail.trim()) return;
+    const forUserId = userId;
+    const mutationId = authEmailMutationId.current;
+    const trimmed = newAuthEmail.trim().toLowerCase();
+    if (authEmail && trimmed === authEmail.trim().toLowerCase()) {
+      setAuthEmailError("That is already this user's current login email.");
+      return;
+    }
+    setAuthEmailSaving(true);
+    setAuthEmailError(null);
+    setAuthEmailMessage(null);
+    const res = await adminRequestUserAuthEmailChange(forUserId, trimmed);
+    if (mutationId !== authEmailMutationId.current) return;
+    setAuthEmailSaving(false);
+    if (!res.success) {
+      setAuthEmailError(res.error ?? "Failed to start email change");
+      return;
+    }
+    if (res.pending) {
+      setPendingAuthEmail(res.pending);
+    }
+    setNewAuthEmail("");
+    setAuthEmailMessage(
+      res.message ?? "Verification email sent to the new address.",
+    );
+    void loadAuthEmail(forUserId);
+  }
+
+  async function handleAdminAuthEmailResend() {
+    if (!userId || !authEmailReady) return;
+    const forUserId = userId;
+    const mutationId = authEmailMutationId.current;
+    setAuthEmailSaving(true);
+    setAuthEmailError(null);
+    setAuthEmailMessage(null);
+    const res = await adminResendUserAuthEmailChange(forUserId);
+    if (mutationId !== authEmailMutationId.current) return;
+    setAuthEmailSaving(false);
+    if (!res.success) {
+      setAuthEmailError(res.error ?? "Failed to resend verification");
+      return;
+    }
+    if (res.pending) {
+      setPendingAuthEmail(res.pending);
+    }
+    setAuthEmailMessage(res.message ?? "Verification email resent.");
+    void loadAuthEmail(forUserId);
+  }
+
+  async function handleAdminAuthEmailCancel() {
+    if (!userId || !authEmailReady) return;
+    const forUserId = userId;
+    const mutationId = authEmailMutationId.current;
+    setAuthEmailSaving(true);
+    setAuthEmailError(null);
+    setAuthEmailMessage(null);
+    const res = await adminCancelUserAuthEmailChange(forUserId);
+    if (mutationId !== authEmailMutationId.current) return;
+    setAuthEmailSaving(false);
+    if (!res.success) {
+      setAuthEmailError(res.error ?? "Failed to cancel email change");
+      return;
+    }
+    setPendingAuthEmail(null);
+    setAuthEmailMessage(res.message ?? "Pending email change cancelled.");
+    void loadAuthEmail(forUserId);
+  }
 
   const user = profile?.user;
 
@@ -299,6 +420,108 @@ export default function AdminUserProfile() {
           )}
         </div>
       </div>
+
+      <section className="space-y-3 rounded-lg border border-border p-4">
+        <div>
+          <h3 className="text-lg font-semibold">Authentication email</h3>
+          <p className="text-sm text-muted-foreground">
+            Support recovery: start a pending change and send verification only
+            to the new inbox (for users who lost access to their old email). This
+            updates sign-in codes and magic links; linked Google/Apple identities
+            still open the same account.
+          </p>
+        </div>
+        <p className="text-sm">
+          Current:{" "}
+          <span className="font-medium">
+            {authEmail ?? user?.email ?? (loading ? "…" : "—")}
+          </span>
+        </p>
+        {pendingAuthEmail ? (
+          <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+            <p className="text-sm text-muted-foreground">
+              Pending verification for{" "}
+              <span className="font-medium text-foreground">
+                {pendingAuthEmail.newEmail}
+              </span>{" "}
+              (expires {formatDateTime(pendingAuthEmail.expiresAt)})
+            </p>
+            {canWriteAuthEmail ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!authEmailReady || authEmailSaving}
+                  onClick={() => void handleAdminAuthEmailResend()}
+                >
+                  {authEmailSaving ? "Working…" : "Resend verification"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={!authEmailReady || authEmailSaving}
+                  onClick={() => void handleAdminAuthEmailCancel()}
+                >
+                  Cancel change
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {authEmailError ? (
+          <div className="space-y-1">
+            <p className="text-sm text-destructive">{authEmailError}</p>
+            {!authEmailReady && userId ? (
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-sm"
+                onClick={() => void loadAuthEmail(userId)}
+              >
+                Retry
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+        {authEmailMessage ? (
+          <p className="text-sm text-muted-foreground">{authEmailMessage}</p>
+        ) : null}
+        {canWriteAuthEmail ? (
+          !authEmailReady ? (
+            authEmailError ? null : (
+              <p className="text-sm text-muted-foreground">
+                Loading authentication email…
+              </p>
+            )
+          ) : pendingAuthEmail ? null : (
+            <form
+              className="flex flex-wrap items-end gap-3"
+              onSubmit={(event) => void handleAdminAuthEmailChange(event)}
+            >
+              <div className="min-w-[240px] flex-1 space-y-1">
+                <Label htmlFor="admin-auth-email">New authentication email</Label>
+                <Input
+                  id="admin-auth-email"
+                  type="email"
+                  value={newAuthEmail}
+                  onChange={(e) => setNewAuthEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  required
+                />
+              </div>
+              <Button type="submit" disabled={authEmailSaving || !newAuthEmail.trim()}>
+                {authEmailSaving ? "Sending…" : "Send verification"}
+              </Button>
+            </form>
+          )
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            You need users.write permission to start an auth email change.
+          </p>
+        )}
+      </section>
 
       <section className="space-y-3">
         <div>
