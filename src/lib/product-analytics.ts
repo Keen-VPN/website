@@ -28,6 +28,28 @@ export function trackAnnualSubscriptionEvent(
   );
 }
 
+export type TwoYearSubscriptionEventName =
+  | "two_year_plan_viewed"
+  | "two_year_switch_clicked"
+  | "two_year_switch_completed";
+
+export function trackTwoYearSubscriptionEvent(
+  eventName: TwoYearSubscriptionEventName,
+  payload: ProductAnalyticsPayload = {},
+): void {
+  if (typeof window === "undefined") return;
+
+  const detail = {
+    ...payload,
+    event: eventName,
+  };
+
+  window.dataLayer?.push(detail);
+  window.dispatchEvent(
+    new CustomEvent("keen_two_year_subscription", { detail }),
+  );
+}
+
 export function trackProductEngagement(
   eventName: "why_keenvpn_viewed" | "comparison_section_clicked",
   payload: ProductAnalyticsPayload = {},

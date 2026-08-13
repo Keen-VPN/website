@@ -52,10 +52,29 @@ export function isAppleIapSubscription(
   return subscription?.subscriptionType === "apple_iap";
 }
 
+const TWO_YEAR_BILLING_PERIODS = new Set(["2year", "two_year", "two-year"]);
+
+/** True for a 2-year subscription, whichever spelling the backend reports. */
+export function isTwoYearSubscription(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (
+    TWO_YEAR_BILLING_PERIODS.has(
+      (subscription?.billingPeriod ?? "").toLowerCase(),
+    )
+  ) {
+    return true;
+  }
+  const planLabel =
+    `${subscription?.planId ?? ""} ${subscription?.plan ?? ""}`.toLowerCase();
+  return /2\s*-?\s*year|two[\s-_]?year/.test(planLabel);
+}
+
 /** Resolve the active billing interval from backend data, with legacy plan labels as fallback. */
 export function resolveSubscriptionBillingPeriod(
   subscription: SubscriptionData | null | undefined,
-): "month" | "year" {
+): "month" | "year" | "2year" {
+  if (isTwoYearSubscription(subscription)) return "2year";
   if (subscription?.billingPeriod === "year") return "year";
   if (subscription?.billingPeriod === "month") return "month";
 
@@ -64,6 +83,27 @@ export function resolveSubscriptionBillingPeriod(
   return planLabel.includes("year") || planLabel.includes("annual")
     ? "year"
     : "month";
+}
+
+/**
+ * Stripe subscriber on a shorter term with auto-renewal on — eligible to switch to
+ * the 2-year term at the next billing date.
+ */
+export function canSwitchStripeToTwoYear(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (
+    !subscription ||
+    subscription.canManageBilling !== true ||
+    !isStripeSubscription(subscription)
+  )
+    return false;
+  if (subscription.cancelAtPeriodEnd) return false;
+  if (isTwoYearSubscription(subscription)) return false;
+  if (resolveMembershipPlanTier(subscription) !== "individual") return false;
+
+  const status = getSubscriptionStatus(subscription);
+  return status === "active" || status === "trialing";
 }
 
 function isMonthlyPlanName(planName?: string | null): boolean {

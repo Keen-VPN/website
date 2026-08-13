@@ -24,13 +24,18 @@ export interface SubscriptionData {
   subscriptionType?: string;
   currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
-  billingPeriod?: "month" | "year" | null;
+  billingPeriod?: "month" | "year" | "2year" | null;
   subscriptionStartedAt?: string | null;
   daysSinceSubscriptionStart?: number | null;
   showAnnualUpgradePrompt?: boolean;
   scheduledBillingInterval?: ScheduledBillingInterval | null;
   accessRole?: "owner" | "linked" | "member";
   canManageBilling: boolean;
+  /** Bonus months granted on a promotional first term (2-year plan). */
+  promotionalBonusMonths?: number | null;
+  promotionalTermEnd?: string | null;
+  /** Paid-through date to display: promotional term end when bonus months extend service. */
+  serviceThroughDate?: string | null;
 }
 
 export interface TrialData {
