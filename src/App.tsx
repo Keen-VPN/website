@@ -28,6 +28,7 @@ const MagicLinkVerify = lazy(() => import("./pages/MagicLinkVerify"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const ChangeAuthEmail = lazy(() => import("./pages/ChangeAuthEmail"));
 const Reactivate = lazy(() => import("./pages/Reactivate"));
+const EmailPreferences = lazy(() => import("./pages/EmailPreferences"));
 const ContextualEmailUnsubscribe = lazy(
   () => import("./pages/ContextualEmailUnsubscribe"),
 );
@@ -186,6 +187,7 @@ const App = () => (
                 path="/email/unsubscribe"
                 element={<ContextualEmailUnsubscribe />}
               />
+              <Route path="/email/preferences" element={<EmailPreferences />} />
               <Route path="/r/:token" element={<ReferralLanding />} />
               <Route
                 path="/referrals"

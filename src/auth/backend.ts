@@ -1184,6 +1184,138 @@ export async function getEmailPreferences(
   }
 }
 
+export interface EmailCategoryPreference {
+  category: string;
+  label: string;
+  description: string;
+  subscribed: boolean;
+}
+
+export interface EmailCategoryPreferencesResponse {
+  success: boolean;
+  email?: string;
+  unsubscribedFromAll?: boolean;
+  preferences?: EmailCategoryPreference[];
+  error?: string;
+}
+
+async function emailCategoryPreferencesRequest(
+  path: string,
+  init: RequestInit,
+): Promise<EmailCategoryPreferencesResponse> {
+  try {
+    const response = await fetch(`${BACKEND_URL}${path}`, init);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load email preferences",
+        ),
+      };
+    }
+    return data as EmailCategoryPreferencesResponse;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to load email preferences",
+    };
+  }
+}
+
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+/** Signed link from an email footer; works without a KeenVPN session. */
+export function fetchEmailCategoryPreferencesByToken(token: string) {
+  return emailCategoryPreferencesRequest(
+    `/email-preferences?token=${encodeURIComponent(token)}`,
+    { method: "GET" },
+  );
+}
+
+export function updateEmailCategoryPreferencesByToken(
+  token: string,
+  preferences: Record<string, boolean>,
+) {
+  return emailCategoryPreferencesRequest("/email-preferences", {
+    method: "PATCH",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ token, preferences }),
+  });
+}
+
+export function unsubscribeAllByToken(token: string) {
+  return emailCategoryPreferencesRequest("/email-preferences/unsubscribe-all", {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ token }),
+  });
+}
+
+export function fetchMyEmailCategoryPreferences(sessionToken: string) {
+  return emailCategoryPreferencesRequest("/email-preferences/me", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${sessionToken}` },
+  });
+}
+
+export function updateMyEmailCategoryPreferences(
+  sessionToken: string,
+  preferences: Record<string, boolean>,
+) {
+  return emailCategoryPreferencesRequest("/email-preferences/me", {
+    method: "PATCH",
+    headers: { ...JSON_HEADERS, Authorization: `Bearer ${sessionToken}` },
+    body: JSON.stringify({ preferences }),
+  });
+}
+
+export function unsubscribeAllForCurrentUser(sessionToken: string) {
+  return emailCategoryPreferencesRequest(
+    "/email-preferences/me/unsubscribe-all",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    },
+  );
+}
+
+/** Untokenised visitor: mail them their own preference link. */
+export async function requestEmailPreferencesLink(
+  email: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/email-preferences/request-link`, {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ email }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to send preference link",
+        ),
+      };
+    }
+    return data as { success: boolean; message?: string };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to send preference link",
+    };
+  }
+}
+
 export interface AuthEmailPending {
   newEmail: string;
   expiresAt: string;
@@ -3934,6 +4066,9 @@ export interface AdminEmailUnsubscribeSummary {
   from: string;
   to: string;
   total_unsubscribes: number;
+  unsubscribe_all_events: number;
+  category_optout_events: number;
+  category_optout_share: number | null;
   broadcast_unsubscribes: number;
   delivered_recipients: number;
   unsubscribe_rate: number | null;
@@ -3970,10 +4105,31 @@ export interface AdminEmailUnsubscribeCampaignsReport {
   rows: AdminEmailUnsubscribeCampaignRow[];
 }
 
+export interface AdminEmailUnsubscribeCategoryRow {
+  category: string;
+  category_label: string;
+  scope: "all" | "category";
+  unsubscribes: number;
+  share_of_total: number | null;
+  last_unsubscribe_at: string | null;
+  avg_subscribed_days: number | null;
+  avg_emails_received: number | null;
+}
+
+export interface AdminEmailUnsubscribeCategoriesReport {
+  from: string;
+  to: string;
+  total_unsubscribes: number;
+  rows: AdminEmailUnsubscribeCategoryRow[];
+}
+
 export interface AdminEmailUnsubscribeEventRow {
   id: string;
   email: string;
   source: string;
+  category: string;
+  category_label: string;
+  scope: "all" | "category";
   unsubscribed_at: string;
   subscribed_at: string | null;
   subscribed_days: number | null;
@@ -4002,6 +4158,7 @@ async function adminFetchEmailUnsubscribeJson<T>(
     interval?: AdminUnsubscribeTrendInterval;
     campaign?: string;
     template?: string;
+    category?: string;
     limit?: number;
     offset?: number;
     signal?: AbortSignal;
@@ -4015,6 +4172,7 @@ async function adminFetchEmailUnsubscribeJson<T>(
     if (params.interval) query.set("interval", params.interval);
     if (params.campaign) query.set("campaign", params.campaign);
     if (params.template) query.set("template", params.template);
+    if (params.category) query.set("category", params.category);
     if (params.limit != null) query.set("limit", String(params.limit));
     if (params.offset != null) query.set("offset", String(params.offset));
     const suffix = query.toString() ? `?${query.toString()}` : "";
@@ -4091,6 +4249,7 @@ export function adminFetchEmailUnsubscribeEvents(params?: {
   to?: string;
   campaign?: string;
   template?: string;
+  category?: string;
   limit?: number;
   offset?: number;
   signal?: AbortSignal;
@@ -4099,6 +4258,22 @@ export function adminFetchEmailUnsubscribeEvents(params?: {
     "events",
     params ?? {},
     "Failed to load unsubscribe events",
+  );
+}
+
+export async function adminFetchEmailUnsubscribeCategories(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminEmailUnsubscribeCategoriesReport;
+  error?: string;
+}> {
+  return adminFetchEmailUnsubscribeJson<AdminEmailUnsubscribeCategoriesReport>(
+    "categories",
+    params ?? {},
+    "Failed to load unsubscribe categories",
   );
 }
 
@@ -4616,6 +4791,7 @@ export async function adminPreviewAudienceTargeting(payload: {
   context: "perks" | "broadcast";
   deliverability?: BroadcastEmailAudience;
   profileTargeting?: AudienceTargeting;
+  emailCategory?: string;
 }): Promise<{
   ok: boolean;
   data?: AudienceTargetingPreview;
@@ -6360,6 +6536,7 @@ export type BroadcastEmailAudience = "all_deliverable" | "opted_in";
 export interface AdminBroadcastComposePayload {
   audience?: BroadcastEmailAudience;
   profileTargeting?: AudienceTargeting;
+  emailCategory?: string;
   subject: string;
   headline: string;
   body: string;
@@ -6414,6 +6591,7 @@ export async function adminFetchBroadcastAudience(
 export async function adminExportBroadcastAudienceCsv(
   audience: BroadcastEmailAudience = "all_deliverable",
   profileTargeting?: AudienceTargeting,
+  emailCategory?: string,
 ): Promise<{ ok: boolean; blob?: Blob; error?: string }> {
   try {
     const response = await fetch(
@@ -6425,6 +6603,7 @@ export async function adminExportBroadcastAudienceCsv(
         body: JSON.stringify({
           audience,
           ...(profileTargeting ? { profileTargeting } : {}),
+          ...(emailCategory ? { emailCategory } : {}),
         }),
       },
     );

@@ -23,10 +23,12 @@ import {
 } from "@/components/ui/chart";
 import {
   adminFetchEmailUnsubscribeCampaigns,
+  adminFetchEmailUnsubscribeCategories,
   adminFetchEmailUnsubscribeEvents,
   adminFetchEmailUnsubscribeSummary,
   adminFetchEmailUnsubscribeTrends,
   type AdminEmailUnsubscribeCampaignsReport,
+  type AdminEmailUnsubscribeCategoriesReport,
   type AdminEmailUnsubscribeEventsReport,
   type AdminEmailUnsubscribeSummary,
   type AdminEmailUnsubscribeTrendReport,
@@ -71,6 +73,10 @@ function formatDateTime(value: string | null | undefined): string {
     timeZone: "UTC",
     timeZoneName: "short",
   });
+}
+
+function scopeLabel(scope: "all" | "category"): string {
+  return scope === "all" ? "All marketing" : "Single category";
 }
 
 function sourceLabel(source: string): string {
@@ -128,6 +134,7 @@ function AdminEmailUnsubscribesDashboard() {
     useState<AdminUnsubscribeTrendInterval>("day");
   const [campaignFilter, setCampaignFilter] = useState("");
   const [templateFilter, setTemplateFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [page, setPage] = useState(0);
 
   const [summary, setSummary] = useState<AdminEmailUnsubscribeSummary | null>(
@@ -137,6 +144,8 @@ function AdminEmailUnsubscribesDashboard() {
     useState<AdminEmailUnsubscribeTrendReport | null>(null);
   const [campaigns, setCampaigns] =
     useState<AdminEmailUnsubscribeCampaignsReport | null>(null);
+  const [categories, setCategories] =
+    useState<AdminEmailUnsubscribeCategoriesReport | null>(null);
   const [events, setEvents] =
     useState<AdminEmailUnsubscribeEventsReport | null>(null);
 
@@ -153,6 +162,7 @@ function AdminEmailUnsubscribesDashboard() {
         setSummary(null);
         setTrends(null);
         setCampaigns(null);
+        setCategories(null);
         setError(null);
         setLoading(false);
         return;
@@ -168,7 +178,8 @@ function AdminEmailUnsubscribesDashboard() {
       const fromIso = `${from}T00:00:00.000Z`;
       const toIso = `${to}T00:00:00.000Z`;
 
-      const [summaryRes, trendsRes, campaignsRes] = await Promise.all([
+      const [summaryRes, trendsRes, campaignsRes, categoriesRes] =
+        await Promise.all([
         adminFetchEmailUnsubscribeSummary({
           from: fromIso,
           to: toIso,
@@ -185,6 +196,11 @@ function AdminEmailUnsubscribesDashboard() {
           to: toIso,
           signal: controller.signal,
         }),
+        adminFetchEmailUnsubscribeCategories({
+          from: fromIso,
+          to: toIso,
+          signal: controller.signal,
+        }),
       ]);
 
       if (controller.signal.aborted || activeRequest.current !== controller) {
@@ -197,15 +213,19 @@ function AdminEmailUnsubscribesDashboard() {
         !trendsRes.ok ||
         !trendsRes.data ||
         !campaignsRes.ok ||
-        !campaignsRes.data
+        !campaignsRes.data ||
+        !categoriesRes.ok ||
+        !categoriesRes.data
       ) {
         setSummary(null);
         setTrends(null);
         setCampaigns(null);
+        setCategories(null);
         setError(
           summaryRes.error ??
             trendsRes.error ??
             campaignsRes.error ??
+            categoriesRes.error ??
             "Failed to load unsubscribe reports",
         );
         setLoading(false);
@@ -216,6 +236,7 @@ function AdminEmailUnsubscribesDashboard() {
       setSummary(summaryRes.data);
       setTrends(trendsRes.data);
       setCampaigns(campaignsRes.data);
+      setCategories(categoriesRes.data);
       setLoading(false);
       activeRequest.current = null;
     },
@@ -228,6 +249,7 @@ function AdminEmailUnsubscribesDashboard() {
       to: string,
       campaign: string,
       template: string,
+      category: string,
       pageIndex: number,
     ) => {
       if (!from.trim() || !to.trim()) {
@@ -248,6 +270,7 @@ function AdminEmailUnsubscribesDashboard() {
         to: `${to}T00:00:00.000Z`,
         campaign: campaign.trim() || undefined,
         template: template.trim() || undefined,
+        category: category.trim() || undefined,
         limit: PAGE_SIZE,
         offset: pageIndex * PAGE_SIZE,
         signal: controller.signal,
@@ -281,9 +304,24 @@ function AdminEmailUnsubscribesDashboard() {
   }, [loadReports, fromInput, toInput, interval]);
 
   useEffect(() => {
-    void loadEvents(fromInput, toInput, campaignFilter, templateFilter, page);
+    void loadEvents(
+      fromInput,
+      toInput,
+      campaignFilter,
+      templateFilter,
+      categoryFilter,
+      page,
+    );
     return () => eventsRequest.current?.abort();
-  }, [loadEvents, fromInput, toInput, campaignFilter, templateFilter, page]);
+  }, [
+    loadEvents,
+    fromInput,
+    toInput,
+    campaignFilter,
+    templateFilter,
+    categoryFilter,
+    page,
+  ]);
 
   const chartRows = useMemo(
     () =>
@@ -380,6 +418,7 @@ function AdminEmailUnsubscribesDashboard() {
               toInput,
               campaignFilter,
               templateFilter,
+              categoryFilter,
               page,
             );
           }}
@@ -399,6 +438,24 @@ function AdminEmailUnsubscribesDashboard() {
           <p className="text-sm text-muted-foreground">Total unsubscribes</p>
           <p className="text-2xl font-semibold">
             {loading || error ? "—" : (summary?.total_unsubscribes ?? 0)}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {loading || error
+              ? ""
+              : `${summary?.unsubscribe_all_events ?? 0} all marketing / ${summary?.category_optout_events ?? 0} single category`}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-sm text-muted-foreground">
+            Category opt-out share
+          </p>
+          <p className="text-2xl font-semibold">
+            {loading || error
+              ? "—"
+              : formatOptionalRate(summary?.category_optout_share)}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Chose fewer emails instead of unsubscribing from everything
           </p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
@@ -467,6 +524,71 @@ function AdminEmailUnsubscribesDashboard() {
             </LineChart>
           </ChartContainer>
         )}
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-lg font-medium">By category</h3>
+        <div className="rounded-lg border border-border overflow-x-auto">
+          <table className="w-full min-w-[800px] text-sm">
+            <thead className="bg-muted/50">
+              <tr className="text-left">
+                <th className="p-3">Category</th>
+                <th className="p-3">Scope</th>
+                <th className="p-3 text-right">Unsubscribes</th>
+                <th className="p-3 text-right">Share</th>
+                <th className="p-3 text-right">Avg days subscribed</th>
+                <th className="p-3 text-right">Avg emails</th>
+                <th className="p-3">Last unsubscribe</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="p-3 text-muted-foreground">
+                    Loading…
+                  </td>
+                </tr>
+              ) : (categories?.rows.length ?? 0) === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-3 text-muted-foreground">
+                    No category breakdown for this window.
+                  </td>
+                </tr>
+              ) : (
+                categories?.rows.map((row) => (
+                  <tr key={row.category} className="border-t border-border">
+                    <td className="p-3">
+                      <button
+                        type="button"
+                        className="text-left text-primary underline-offset-4 hover:underline"
+                        onClick={() => {
+                          setCategoryFilter(row.category);
+                          setPage(0);
+                        }}
+                      >
+                        {row.category_label}
+                      </button>
+                    </td>
+                    <td className="p-3">{scopeLabel(row.scope)}</td>
+                    <td className="p-3 text-right">{row.unsubscribes}</td>
+                    <td className="p-3 text-right">
+                      {formatOptionalRate(row.share_of_total)}
+                    </td>
+                    <td className="p-3 text-right">
+                      {formatOptionalNumber(row.avg_subscribed_days)}
+                    </td>
+                    <td className="p-3 text-right">
+                      {formatOptionalNumber(row.avg_emails_received)}
+                    </td>
+                    <td className="p-3">
+                      {formatDateTime(row.last_unsubscribe_at)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div>
@@ -584,13 +706,32 @@ function AdminEmailUnsubscribesDashboard() {
                 }}
               />
             </label>
-            {campaignFilter || templateFilter ? (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-muted-foreground">Category filter</span>
+              <select
+                className="min-w-[180px] rounded-md border border-border bg-background px-3 py-2"
+                value={categoryFilter}
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value);
+                  setPage(0);
+                }}
+              >
+                <option value="">All events</option>
+                {(categories?.rows ?? []).map((row) => (
+                  <option key={row.category} value={row.category}>
+                    {row.category_label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {campaignFilter || templateFilter || categoryFilter ? (
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
                   setCampaignFilter("");
                   setTemplateFilter("");
+                  setCategoryFilter("");
                   setPage(0);
                 }}
               >
@@ -610,6 +751,8 @@ function AdminEmailUnsubscribesDashboard() {
               <tr className="text-left">
                 <th className="p-3">Email</th>
                 <th className="p-3">Last email</th>
+                <th className="p-3">Category</th>
+                <th className="p-3">Scope</th>
                 <th className="p-3">Source</th>
                 <th className="p-3 text-right">Days subscribed</th>
                 <th className="p-3 text-right">Emails received</th>
@@ -619,13 +762,13 @@ function AdminEmailUnsubscribesDashboard() {
             <tbody>
               {eventsLoading ? (
                 <tr>
-                  <td colSpan={6} className="p-3 text-muted-foreground">
+                  <td colSpan={8} className="p-3 text-muted-foreground">
                     Loading…
                   </td>
                 </tr>
               ) : (events?.rows.length ?? 0) === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-3 text-muted-foreground">
+                  <td colSpan={8} className="p-3 text-muted-foreground">
                     No unsubscribe events for this filter.
                   </td>
                 </tr>
@@ -639,6 +782,8 @@ function AdminEmailUnsubscribesDashboard() {
                         row.last_email_broadcast_id,
                       )}
                     </td>
+                    <td className="p-3">{row.category_label}</td>
+                    <td className="p-3">{scopeLabel(row.scope)}</td>
                     <td className="p-3">{sourceLabel(row.source)}</td>
                     <td className="p-3 text-right">
                       {formatOptionalNumber(row.subscribed_days)}
