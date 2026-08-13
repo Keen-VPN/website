@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -44,9 +44,14 @@ const CSV_HEADER =
 export default function AdminHotLinks() {
   const [links, setLinks] = useState<AdminHotLink[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("");
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const loadSequence = useRef(0);
+  const hasLoaded = useRef(false);
 
   const [createOpen, setCreateOpen] = useState(false);
   // null = the dialog is creating; an id = it is editing that partner.
@@ -64,30 +69,68 @@ export default function AdminHotLinks() {
   const [csv, setCsv] = useState("");
   const [importing, setImporting] = useState(false);
   const [preview, setPreview] = useState<HotLinkImportResult | null>(null);
+  const [previewedCsv, setPreviewedCsv] = useState<string | null>(null);
+  const csvRef = useRef("");
+
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setDebouncedSearch(search.trim()),
+      300,
+    );
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    const requestId = ++loadSequence.current;
+    if (hasLoaded.current) setRefreshing(true);
+    else setLoading(true);
+
     const result = await adminListHotLinks({
       category: category || undefined,
-      search: search || undefined,
+      search: debouncedSearch || undefined,
     });
+    if (requestId !== loadSequence.current) return;
+
     if (result.ok) {
-      setLinks(result.data ?? []);
+      const nextLinks = result.data ?? [];
+      setLinks(nextLinks);
+      setAvailableCategories((current) =>
+        [...new Set([...current, ...nextLinks.map((link) => link.category)])]
+          .filter(Boolean)
+          .sort(),
+      );
       setError(null);
     } else {
       setError(result.error ?? "Failed to load");
     }
+    hasLoaded.current = true;
     setLoading(false);
-  }, [category, search]);
+    setRefreshing(false);
+  }, [category, debouncedSearch]);
 
   useEffect(() => {
     void load();
+    return () => {
+      loadSequence.current += 1;
+    };
   }, [load]);
 
-  const categories = useMemo(
-    () => [...new Set(links.map((l) => l.category))].sort(),
-    [links],
-  );
+  // Category choices come from an unfiltered snapshot, independently of the
+  // current table results, so selecting one category never hides the others.
+  useEffect(() => {
+    let cancelled = false;
+    void adminListHotLinks({}).then((result) => {
+      if (cancelled || !result.ok) return;
+      setAvailableCategories(
+        [...new Set((result.data ?? []).map((link) => link.category))]
+          .filter(Boolean)
+          .sort(),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function openCreate() {
     setEditingId(null);
@@ -182,15 +225,22 @@ export default function AdminHotLinks() {
   }
 
   async function handleImport(dryRun: boolean) {
+    const submittedCsv = csv;
     setImporting(true);
-    const result = await adminImportHotLinksCsv(csv, dryRun);
+    const result = await adminImportHotLinksCsv(submittedCsv, dryRun);
     setImporting(false);
     if (!result.ok) {
       setError(result.error ?? "Import failed");
       return;
     }
+    if (submittedCsv !== csvRef.current) return;
     setPreview(result.data ?? null);
-    if (!dryRun) {
+    if (dryRun) {
+      setPreviewedCsv(submittedCsv);
+    } else {
+      // Applying is a write. Require another preview before it can be applied
+      // again, preventing accidental duplicate imports.
+      setPreviewedCsv(null);
       void load();
     }
   }
@@ -263,13 +313,19 @@ export default function AdminHotLinks() {
           onChange={(e) => setCategory(e.target.value)}
         >
           <option value="">All categories</option>
-          {categories.map((c) => (
+          {availableCategories.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
           ))}
         </select>
       </div>
+
+      {refreshing && (
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          Updating results…
+        </p>
+      )}
 
       {error && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
@@ -428,7 +484,9 @@ export default function AdminHotLinks() {
                       </span>{" "}
                       <span className="font-mono">
                         {domainPreview.rejected
-                          .map((r) => `${r.host} (${r.reason.replace(/_/g, " ")})`)
+                          .map(
+                            (r) => `${r.host} (${r.reason.replace(/_/g, " ")})`,
+                          )
                           .join(", ")}
                       </span>
                     </p>
@@ -495,7 +553,13 @@ export default function AdminHotLinks() {
               className="font-mono text-xs"
               placeholder="Paste CSV including the header row…"
               value={csv}
-              onChange={(e) => setCsv(e.target.value)}
+              onChange={(e) => {
+                const nextCsv = e.target.value;
+                csvRef.current = nextCsv;
+                setCsv(nextCsv);
+                setPreview(null);
+                setPreviewedCsv(null);
+              }}
             />
             <input
               type="file"
@@ -504,7 +568,12 @@ export default function AdminHotLinks() {
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
-                void file.text().then(setCsv);
+                void file.text().then((contents) => {
+                  csvRef.current = contents;
+                  setCsv(contents);
+                  setPreview(null);
+                  setPreviewedCsv(null);
+                });
               }}
             />
 
@@ -554,7 +623,12 @@ export default function AdminHotLinks() {
               {importing ? "Checking…" : "Preview"}
             </Button>
             <Button
-              disabled={importing || !csv.trim()}
+              disabled={
+                importing ||
+                !csv.trim() ||
+                preview === null ||
+                previewedCsv !== csv
+              }
               onClick={() => void handleImport(false)}
             >
               Apply import

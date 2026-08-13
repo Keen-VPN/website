@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,42 +29,77 @@ const EMPTY_FORM = {
 export default function AdminAffiliateLinks() {
   const [links, setLinks] = useState<AdminAffiliateLink[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailFilter, setEmailFilter] = useState("");
+  const [debouncedEmailFilter, setDebouncedEmailFilter] = useState("");
+  const loadSequence = useRef(0);
+  const hasLoaded = useRef(false);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const updatingIdRef = useRef<string | null>(null);
 
   // The shareable URL is returned exactly once at creation — only its hash is
   // stored — so it is held here until the admin dismisses it. Closing the
   // dialog without copying means issuing a new link.
   const [issuedUrl, setIssuedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+
+  const rewardMonths = Number(form.rewardMonths);
+  const rewardMonthsValid = Number.isInteger(rewardMonths) && rewardMonths > 0;
+
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setDebouncedEmailFilter(emailFilter.trim()),
+      300,
+    );
+    return () => window.clearTimeout(timer);
+  }, [emailFilter]);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    const result = await adminListAffiliateLinks(emailFilter || undefined);
+    const requestId = ++loadSequence.current;
+    if (hasLoaded.current) setRefreshing(true);
+    else setLoading(true);
+
+    const result = await adminListAffiliateLinks(
+      debouncedEmailFilter || undefined,
+    );
+    if (requestId !== loadSequence.current) return;
+
     if (result.ok) {
       setLinks(result.data ?? []);
       setError(null);
     } else {
       setError(result.error ?? "Failed to load");
     }
+    hasLoaded.current = true;
     setLoading(false);
-  }, [emailFilter]);
+    setRefreshing(false);
+  }, [debouncedEmailFilter]);
 
   useEffect(() => {
     void load();
+    return () => {
+      loadSequence.current += 1;
+    };
   }, [load]);
 
   async function handleCreate() {
+    if (!rewardMonthsValid) {
+      setError("Reward months must be a positive whole number.");
+      return;
+    }
+
     setSaving(true);
     const result = await adminCreateAffiliateLink({
       email: form.email.trim(),
       displayName: form.displayName.trim() || undefined,
       campaignId: form.campaignId.trim() || undefined,
-      rewardMonths: Number(form.rewardMonths) || 1,
+      rewardMonths,
       expiresAt: form.expiresAt
         ? new Date(form.expiresAt).toISOString()
         : undefined,
@@ -80,15 +115,38 @@ export default function AdminAffiliateLinks() {
     setForm({ ...EMPTY_FORM });
     setIssuedUrl(result.data?.url ?? null);
     setCopied(false);
+    setCopyError(null);
     void load();
   }
 
   async function toggleActive(link: AdminAffiliateLink) {
-    const result = await adminUpdateAffiliateLink(link.id, {
-      isActive: !link.isActive,
-    });
-    if (result.ok) void load();
-    else setError(result.error ?? "Update failed");
+    if (updatingIdRef.current) return;
+    updatingIdRef.current = link.id;
+    setUpdatingId(link.id);
+    try {
+      const result = await adminUpdateAffiliateLink(link.id, {
+        isActive: !link.isActive,
+      });
+      if (result.ok) await load();
+      else setError(result.error ?? "Update failed");
+    } finally {
+      updatingIdRef.current = null;
+      setUpdatingId(null);
+    }
+  }
+
+  async function copyIssuedUrl() {
+    if (!issuedUrl) return;
+    try {
+      await navigator.clipboard.writeText(issuedUrl);
+      setCopied(true);
+      setCopyError(null);
+    } catch {
+      setCopied(false);
+      setCopyError(
+        "Could not copy automatically. Select and copy the link manually before closing.",
+      );
+    }
   }
 
   return (
@@ -111,6 +169,12 @@ export default function AdminAffiliateLinks() {
         onChange={(e) => setEmailFilter(e.target.value)}
         className="max-w-sm"
       />
+
+      {refreshing && (
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          Updating results…
+        </p>
+      )}
 
       {error && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
@@ -169,9 +233,14 @@ export default function AdminAffiliateLinks() {
                     <Button
                       size="sm"
                       variant="ghost"
+                      disabled={updatingId !== null}
                       onClick={() => void toggleActive(link)}
                     >
-                      {link.isActive ? "Deactivate" : "Activate"}
+                      {updatingId === link.id
+                        ? "Updating…"
+                        : link.isActive
+                          ? "Deactivate"
+                          : "Activate"}
                     </Button>
                   </td>
                 </tr>
@@ -215,12 +284,20 @@ export default function AdminAffiliateLinks() {
                 <Label htmlFor={key}>{label}</Label>
                 <Input
                   id={key}
+                  {...(key === "rewardMonths"
+                    ? { type: "number", min: 1, step: 1 }
+                    : {})}
                   value={form[key]}
                   placeholder={placeholder}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, [key]: e.target.value }))
                   }
                 />
+                {key === "rewardMonths" && !rewardMonthsValid && (
+                  <p className="text-xs text-destructive">
+                    Enter a positive whole number.
+                  </p>
+                )}
               </div>
             ))}
             <div className="flex flex-col gap-1">
@@ -251,7 +328,7 @@ export default function AdminAffiliateLinks() {
               Cancel
             </Button>
             <Button
-              disabled={saving || !form.email.trim()}
+              disabled={saving || !form.email.trim() || !rewardMonthsValid}
               onClick={() => void handleCreate()}
             >
               {saving ? "Issuing…" : "Issue link"}
@@ -277,17 +354,14 @@ export default function AdminAffiliateLinks() {
             <code className="block break-all rounded-md bg-muted px-3 py-2 text-xs">
               {issuedUrl}
             </code>
+            {copyError && (
+              <p className="text-sm text-destructive" role="alert">
+                {copyError}
+              </p>
+            )}
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (issuedUrl) {
-                  void navigator.clipboard.writeText(issuedUrl);
-                  setCopied(true);
-                }
-              }}
-            >
+            <Button variant="outline" onClick={() => void copyIssuedUrl()}>
               {copied ? "Copied" : "Copy"}
             </Button>
             <Button onClick={() => setIssuedUrl(null)}>Done</Button>
