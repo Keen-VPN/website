@@ -52,6 +52,7 @@ export default function AdminHotLinks() {
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const latestQuery = useRef({ category: "", search: "" });
   const loadSequence = useRef(0);
+  const categorySnapshotSequence = useRef(0);
   const hasLoaded = useRef(false);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -72,7 +73,6 @@ export default function AdminHotLinks() {
   const [preview, setPreview] = useState<HotLinkImportResult | null>(null);
   const [previewedCsv, setPreviewedCsv] = useState<string | null>(null);
   const csvRef = useRef("");
-  latestQuery.current = { category, search: debouncedSearch };
 
   useEffect(() => {
     const timer = window.setTimeout(
@@ -82,28 +82,52 @@ export default function AdminHotLinks() {
     return () => window.clearTimeout(timer);
   }, [search]);
 
+  useEffect(() => {
+    latestQuery.current = { category, search: debouncedSearch };
+  }, [category, debouncedSearch]);
+
+  useEffect(
+    () => () => {
+      categorySnapshotSequence.current += 1;
+    },
+    [],
+  );
+
   const load = useCallback(async () => {
     const requestId = ++loadSequence.current;
     if (hasLoaded.current) setRefreshing(true);
     else setLoading(true);
 
     const query = latestQuery.current;
+    const categoryRequestId =
+      !query.category && !query.search
+        ? ++categorySnapshotSequence.current
+        : null;
     const result = await adminListHotLinks({
       category: query.category || undefined,
       search: query.search || undefined,
     });
-    if (requestId !== loadSequence.current) return;
 
     if (result.ok) {
       const nextLinks = result.data ?? [];
-      setLinks(nextLinks);
-      if (!query.category && !query.search) {
+      // An unfiltered response is also the category snapshot. Preserve that
+      // metadata even if a newer filtered table request superseded this one.
+      if (
+        categoryRequestId !== null &&
+        categoryRequestId === categorySnapshotSequence.current
+      ) {
         setAvailableCategories(
           [...new Set(nextLinks.map((link) => link.category))]
             .filter(Boolean)
             .sort(),
         );
       }
+    }
+
+    if (requestId !== loadSequence.current) return;
+
+    if (result.ok) {
+      setLinks(result.data ?? []);
       setError(null);
     } else {
       setError(result.error ?? "Failed to load");
@@ -126,8 +150,11 @@ export default function AdminHotLinks() {
    * cleared; the category effect will then refresh the table itself.
    */
   const refreshCategories = useCallback(async (): Promise<boolean> => {
+    const requestId = ++categorySnapshotSequence.current;
     const result = await adminListHotLinks({});
-    if (!result.ok) return false;
+    if (!result.ok || requestId !== categorySnapshotSequence.current) {
+      return false;
+    }
 
     const nextCategories = [
       ...new Set((result.data ?? []).map((link) => link.category)),

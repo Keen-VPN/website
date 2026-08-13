@@ -52,7 +52,6 @@ export default function AdminAffiliateLinks() {
 
   const rewardMonths = Number(form.rewardMonths);
   const rewardMonthsValid = Number.isInteger(rewardMonths) && rewardMonths > 0;
-  latestEmailFilter.current = debouncedEmailFilter;
 
   useEffect(() => {
     const timer = window.setTimeout(
@@ -61,6 +60,10 @@ export default function AdminAffiliateLinks() {
     );
     return () => window.clearTimeout(timer);
   }, [emailFilter]);
+
+  useEffect(() => {
+    latestEmailFilter.current = debouncedEmailFilter;
+  }, [debouncedEmailFilter]);
 
   const load = useCallback(async () => {
     const requestId = ++loadSequence.current;
