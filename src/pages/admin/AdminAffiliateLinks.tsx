@@ -33,6 +33,7 @@ export default function AdminAffiliateLinks() {
   const [error, setError] = useState<string | null>(null);
   const [emailFilter, setEmailFilter] = useState("");
   const [debouncedEmailFilter, setDebouncedEmailFilter] = useState("");
+  const latestEmailFilter = useRef("");
   const loadSequence = useRef(0);
   const hasLoaded = useRef(false);
 
@@ -51,6 +52,7 @@ export default function AdminAffiliateLinks() {
 
   const rewardMonths = Number(form.rewardMonths);
   const rewardMonthsValid = Number.isInteger(rewardMonths) && rewardMonths > 0;
+  latestEmailFilter.current = debouncedEmailFilter;
 
   useEffect(() => {
     const timer = window.setTimeout(
@@ -66,7 +68,7 @@ export default function AdminAffiliateLinks() {
     else setLoading(true);
 
     const result = await adminListAffiliateLinks(
-      debouncedEmailFilter || undefined,
+      latestEmailFilter.current || undefined,
     );
     if (requestId !== loadSequence.current) return;
 
@@ -79,21 +81,16 @@ export default function AdminAffiliateLinks() {
     hasLoaded.current = true;
     setLoading(false);
     setRefreshing(false);
-  }, [debouncedEmailFilter]);
+  }, []);
 
   useEffect(() => {
     void load();
     return () => {
       loadSequence.current += 1;
     };
-  }, [load]);
+  }, [debouncedEmailFilter, load]);
 
   async function handleCreate() {
-    if (!rewardMonthsValid) {
-      setError("Reward months must be a positive whole number.");
-      return;
-    }
-
     setSaving(true);
     const result = await adminCreateAffiliateLink({
       email: form.email.trim(),

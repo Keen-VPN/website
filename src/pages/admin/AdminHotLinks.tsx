@@ -50,6 +50,7 @@ export default function AdminHotLinks() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("");
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const latestQuery = useRef({ category: "", search: "" });
   const loadSequence = useRef(0);
   const hasLoaded = useRef(false);
 
@@ -71,6 +72,7 @@ export default function AdminHotLinks() {
   const [preview, setPreview] = useState<HotLinkImportResult | null>(null);
   const [previewedCsv, setPreviewedCsv] = useState<string | null>(null);
   const csvRef = useRef("");
+  latestQuery.current = { category, search: debouncedSearch };
 
   useEffect(() => {
     const timer = window.setTimeout(
@@ -85,20 +87,23 @@ export default function AdminHotLinks() {
     if (hasLoaded.current) setRefreshing(true);
     else setLoading(true);
 
+    const query = latestQuery.current;
     const result = await adminListHotLinks({
-      category: category || undefined,
-      search: debouncedSearch || undefined,
+      category: query.category || undefined,
+      search: query.search || undefined,
     });
     if (requestId !== loadSequence.current) return;
 
     if (result.ok) {
       const nextLinks = result.data ?? [];
       setLinks(nextLinks);
-      setAvailableCategories((current) =>
-        [...new Set([...current, ...nextLinks.map((link) => link.category)])]
-          .filter(Boolean)
-          .sort(),
-      );
+      if (!query.category && !query.search) {
+        setAvailableCategories(
+          [...new Set(nextLinks.map((link) => link.category))]
+            .filter(Boolean)
+            .sort(),
+        );
+      }
       setError(null);
     } else {
       setError(result.error ?? "Failed to load");
@@ -106,31 +111,49 @@ export default function AdminHotLinks() {
     hasLoaded.current = true;
     setLoading(false);
     setRefreshing(false);
-  }, [category, debouncedSearch]);
+  }, []);
 
   useEffect(() => {
     void load();
     return () => {
       loadSequence.current += 1;
     };
-  }, [load]);
+  }, [category, debouncedSearch, load]);
 
-  // Category choices come from an unfiltered snapshot, independently of the
-  // current table results, so selecting one category never hides the others.
-  useEffect(() => {
-    let cancelled = false;
-    void adminListHotLinks({}).then((result) => {
-      if (cancelled || !result.ok) return;
-      setAvailableCategories(
-        [...new Set((result.data ?? []).map((link) => link.category))]
-          .filter(Boolean)
-          .sort(),
-      );
-    });
-    return () => {
-      cancelled = true;
-    };
+  /**
+   * Refresh the category selector from a current, unfiltered snapshot after a
+   * mutation. Returns true when the selected category disappeared and was
+   * cleared; the category effect will then refresh the table itself.
+   */
+  const refreshCategories = useCallback(async (): Promise<boolean> => {
+    const result = await adminListHotLinks({});
+    if (!result.ok) return false;
+
+    const nextCategories = [
+      ...new Set((result.data ?? []).map((link) => link.category)),
+    ]
+      .filter(Boolean)
+      .sort();
+    setAvailableCategories(nextCategories);
+
+    const selected = latestQuery.current.category;
+    if (selected && !nextCategories.includes(selected)) {
+      setCategory("");
+      return true;
+    }
+    return false;
   }, []);
+
+  const refreshAfterCategoryMutation = useCallback(async () => {
+    const query = latestQuery.current;
+    if (!query.category && !query.search) {
+      await load();
+      return;
+    }
+
+    const selectionCleared = await refreshCategories();
+    if (!selectionCleared) await load();
+  }, [load, refreshCategories]);
 
   function openCreate() {
     setEditingId(null);
@@ -218,7 +241,7 @@ export default function AdminHotLinks() {
         setEditingId(null);
         setCreateOpen(false);
       }
-      void load();
+      void refreshAfterCategoryMutation();
     } else {
       setError(result.error ?? (editingId ? "Update failed" : "Create failed"));
     }
@@ -241,7 +264,7 @@ export default function AdminHotLinks() {
       // Applying is a write. Require another preview before it can be applied
       // again, preventing accidental duplicate imports.
       setPreviewedCsv(null);
-      void load();
+      void refreshAfterCategoryMutation();
     }
   }
 
@@ -275,7 +298,7 @@ export default function AdminHotLinks() {
       return;
     }
     const result = await adminDeleteHotLink(link.id);
-    if (result.ok) void load();
+    if (result.ok) void refreshAfterCategoryMutation();
     else setError(result.error ?? "Delete failed");
   }
 
