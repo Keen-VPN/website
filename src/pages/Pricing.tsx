@@ -36,9 +36,7 @@ import {
   formatTwoYearComparisonPrice,
   resolvePricingPlanSelection,
   transformApiPlans,
-  twoYearBonusCopy,
   twoYearHeroPriceDisplay,
-  twoYearTermLabel,
   type PricingTerm,
 } from "@/lib/pricing";
 import { DEFAULT_ANNUAL_SAVINGS_LABEL } from "@/lib/subscription-pricing";
@@ -426,9 +424,6 @@ const Pricing = () => {
                 : isAnnual
                   ? formatAnnualBillingDetail(plan)
                   : null;
-              const twoYearBonusDetail = isTwoYear
-                ? twoYearBonusCopy(plan)
-                : null;
               const showBusinessPlanUpgrade =
                 ctaKind === "manage_account" &&
                 plan.name === "Business" &&
@@ -459,7 +454,7 @@ const Pricing = () => {
                     </h3>
                     <p className="text-muted-foreground text-sm">
                       {isTwoYear
-                        ? `Complete VPN protection — ${twoYearTermLabel(plan)}`
+                        ? "Complete VPN protection — 2 Years"
                         : isAnnual
                           ? "Complete VPN protection for the entire year"
                           : "Complete VPN protection with monthly flexibility"}
@@ -483,7 +478,7 @@ const Pricing = () => {
                     </div>
                     {isTwoYear && plan.twoYearSavingsLabel && (
                       <p className="mt-2 text-sm font-medium text-primary">
-                        {plan.twoYearSavingsLabel} · {twoYearTermLabel(plan)}
+                        {plan.twoYearSavingsLabel} · 2 Years
                       </p>
                     )}
                     {!isTwoYear && isAnnual && plan.annualSavingsLabel && (
@@ -497,11 +492,6 @@ const Pricing = () => {
                     {annualBillingDetail && (
                       <p className="mt-1 text-xs text-muted-foreground">
                         {annualBillingDetail}
-                      </p>
-                    )}
-                    {twoYearBonusDetail && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {twoYearBonusDetail}
                       </p>
                     )}
                     {plan.isPerSeat &&

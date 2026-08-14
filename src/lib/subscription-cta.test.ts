@@ -121,6 +121,20 @@ describe("membership plan tier helpers", () => {
     expect(isTwoYearSubscription(annual)).toBe(false);
 
     expect(canSwitchStripeToTwoYear(annual)).toBe(true);
+    expect(
+      canSwitchStripeToTwoYear(
+        stripeSub({
+          ...annual,
+          scheduledPlanChange: {
+            from: "year",
+            to: "2year",
+            planId: "premium_2year",
+            planName: "Premium VPN - 2 Years",
+            effectiveAt: "2027-08-27T00:00:00.000Z",
+          },
+        }),
+      ),
+    ).toBe(false);
     expect(canSwitchStripeToTwoYear(stripeSub({ billingPeriod: "month" }))).toBe(
       true,
     );

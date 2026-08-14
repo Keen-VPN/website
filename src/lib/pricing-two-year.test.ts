@@ -5,9 +5,7 @@ import {
   isTwoYearApiPlan,
   resolvePricingPlanSelection,
   transformApiPlans,
-  twoYearBonusCopy,
   twoYearHeroPriceDisplay,
-  twoYearTermLabel,
   type ApiPlan,
 } from "@/lib/pricing";
 import { computeTermSavings } from "@/lib/subscription-pricing";
@@ -48,8 +46,6 @@ const twoYearPlan = apiPlan({
   priceId: "price_2year",
   intervalCount: 2,
   paidMonths: 24,
-  bonusMonths: 4,
-  totalInitialMonths: 28,
 });
 
 describe("isTwoYearApiPlan", () => {
@@ -91,11 +87,9 @@ describe("transformApiPlans with a 2-year price", () => {
     expect(individual.twoYearPriceId).toBe("price_2year");
     expect(individual.twoYearPrice).toBe(60);
     expect(individual.twoYearPriceDisplay).toBe("$60");
-    // $60 over 28 months of access.
-    expect(individual.twoYearMonthlyEquivalent).toBe("$2.14");
-    expect(individual.twoYearBonusMonths).toBe(4);
-    expect(individual.twoYearTotalMonths).toBe(28);
-    expect(individual.twoYearSavingsLabel).toBe("Save 46.4%");
+    // $60 over the 24-month billing term.
+    expect(individual.twoYearMonthlyEquivalent).toBe("$2.50");
+    expect(individual.twoYearSavingsLabel).toBe("Save 37.5%");
   });
 
   it("omits 2-year fields when the backend exposes no 2-year price", () => {
@@ -103,7 +97,6 @@ describe("transformApiPlans with a 2-year price", () => {
 
     expect(individual.twoYearId).toBeUndefined();
     expect(individual.twoYearPrice).toBeNull();
-    expect(individual.twoYearBonusMonths).toBeUndefined();
     expect(individual.annualSavingsLabel).toBe("Save 37.5%");
   });
 });
@@ -135,56 +128,33 @@ describe("resolvePricingPlanSelection for the 2-year term", () => {
 describe("2-year display copy", () => {
   const [individual] = transformApiPlans([monthlyPlan, annualPlan, twoYearPlan]);
 
-  it("shows the effective monthly price and the promotional term", () => {
-    expect(twoYearHeroPriceDisplay(individual)).toBe("$2.14");
-    expect(twoYearTermLabel(individual)).toBe("2 Years + 4 Months Free");
+  it("shows the effective monthly price and 24-month term", () => {
+    expect(twoYearHeroPriceDisplay(individual)).toBe("$2.50");
     expect(formatTwoYearBillingDetail(individual)).toBe(
-      "Only $2.14/month — $60 once for 28 months, then renews every 2 years",
+      "Only $2.50/month — $60 once for 24 months, then renews every 2 years",
     );
     expect(formatTwoYearComparisonPrice(individual)).toBe(
-      "$2.14 / month, billed every 2 years",
+      "$2.50 / month, billed every 2 years",
     );
-  });
-
-  it("states that bonus months apply to the first term only", () => {
-    expect(twoYearBonusCopy(individual)).toBe(
-      "28 months of KeenVPN for the price of 24. Bonus months apply to this first term only; it renews every 2 years after that.",
-    );
-  });
-
-  it("drops promotional copy when no bonus months are granted", () => {
-    const [withoutPromo] = transformApiPlans([
-      monthlyPlan,
-      annualPlan,
-      apiPlan({
-        ...twoYearPlan,
-        bonusMonths: 0,
-        totalInitialMonths: 24,
-      }),
-    ]);
-
-    expect(twoYearTermLabel(withoutPromo)).toBe("2 Years");
-    expect(twoYearBonusCopy(withoutPromo)).toBeNull();
-    expect(withoutPromo.twoYearMonthlyEquivalent).toBe("$2.50");
   });
 });
 
 describe("computeTermSavings", () => {
-  it("counts bonus months as access months", () => {
-    expect(computeTermSavings(4, 60, 24, 4)).toEqual({
-      savingsPercent: 46.4,
-      savingsAmount: 52,
-      effectiveMonthlyPrice: 2.14,
-      accessMonths: 28,
+  it("uses the 24 paid months", () => {
+    expect(computeTermSavings(4, 60, 24)).toEqual({
+      savingsPercent: 37.5,
+      savingsAmount: 36,
+      effectiveMonthlyPrice: 2.5,
+      accessMonths: 24,
     });
   });
 
   it("returns zeroes for unusable inputs", () => {
-    expect(computeTermSavings(0, 60, 24, 4)).toEqual({
+    expect(computeTermSavings(0, 60, 24)).toEqual({
       savingsPercent: 0,
       savingsAmount: 0,
       effectiveMonthlyPrice: 0,
-      accessMonths: 28,
+      accessMonths: 24,
     });
   });
 });

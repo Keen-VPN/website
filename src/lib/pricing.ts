@@ -19,8 +19,6 @@ export interface ApiPlan {
   /** Multi-year terms report the Stripe interval multiplier, e.g. 2 for the 2-year plan. */
   intervalCount?: number;
   paidMonths?: number;
-  bonusMonths?: number;
-  totalInitialMonths?: number;
 }
 
 import {
@@ -79,8 +77,6 @@ export interface PricingPlan {
   twoYearMonthlyEquivalent?: string | null;
   twoYearSavingsPercent?: number | null;
   twoYearSavingsLabel?: string | null;
-  twoYearBonusMonths?: number;
-  twoYearTotalMonths?: number;
   twoYearPriceId?: string;
 }
 
@@ -190,15 +186,9 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
         : null;
 
     const twoYearPaidMonths = twoYear?.paidMonths ?? TWO_YEAR_PAID_MONTHS;
-    const twoYearBonusMonths = Math.max(0, twoYear?.bonusMonths ?? 0);
     const twoYearSavings =
       twoYear && monthlyPrice > 0
-        ? computeTermSavings(
-            monthlyPrice,
-            twoYear.price,
-            twoYearPaidMonths,
-            twoYearBonusMonths,
-          )
+        ? computeTermSavings(monthlyPrice, twoYear.price, twoYearPaidMonths)
         : null;
     const twoYearSavingsPercent = twoYearSavings?.savingsPercent ?? null;
 
@@ -268,10 +258,6 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
         twoYearSavingsPercent && twoYearSavingsPercent > 0
           ? `Save ${formatSavingsPercent(twoYearSavingsPercent)}%`
           : null,
-      twoYearBonusMonths: twoYear ? twoYearBonusMonths : undefined,
-      twoYearTotalMonths: twoYear
-        ? (twoYear.totalInitialMonths ?? twoYearPaidMonths + twoYearBonusMonths)
-        : undefined,
       twoYearPriceId: twoYear?.priceId,
     });
   });
@@ -329,27 +315,11 @@ export function twoYearHeroPriceDisplay(plan: PricingPlan): string {
 /** Subtitle under the 2-year hero price; null when the plan has no 2-year term. */
 export function formatTwoYearBillingDetail(plan: PricingPlan): string | null {
   if (!plan.twoYearId || !plan.twoYearPriceDisplay) return null;
-  const months = plan.twoYearTotalMonths ?? TWO_YEAR_PAID_MONTHS;
   const equivalent = plan.twoYearMonthlyEquivalent;
   const lead = equivalent
     ? `Only ${equivalent}/month`
     : plan.twoYearPriceDisplay;
-  return `${lead} — ${plan.twoYearPriceDisplay} once for ${months} months, then renews every 2 years`;
-}
-
-/** Promo headline, e.g. "2 Years + 4 Months Free"; plain term label without a promotion. */
-export function twoYearTermLabel(plan: PricingPlan): string {
-  const bonus = plan.twoYearBonusMonths ?? 0;
-  return bonus > 0 ? `2 Years + ${bonus} Months Free` : "2 Years";
-}
-
-/** Bonus-month explainer for checkout and plan cards; null when no promotion is active. */
-export function twoYearBonusCopy(plan: PricingPlan): string | null {
-  const bonus = plan.twoYearBonusMonths ?? 0;
-  if (!plan.twoYearId || bonus <= 0) return null;
-  const paidMonths = TWO_YEAR_PAID_MONTHS;
-  const total = plan.twoYearTotalMonths ?? paidMonths + bonus;
-  return `${total} months of KeenVPN for the price of ${paidMonths}. Bonus months apply to this first term only; it renews every 2 years after that.`;
+  return `${lead} — ${plan.twoYearPriceDisplay} once for ${TWO_YEAR_PAID_MONTHS} months, then renews every 2 years`;
 }
 
 /** Compare-plans table price row for the 2-year term. */

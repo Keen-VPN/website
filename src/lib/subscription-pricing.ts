@@ -42,21 +42,17 @@ export interface TermSavingsSummary {
   savingsPercent: number;
   savingsAmount: number;
   effectiveMonthlyPrice: number;
-  /** Paid months plus promotional bonus months. */
+  /** Paid months in the billing term. */
   accessMonths: number;
 }
 
-/**
- * Savings of a multi-month term against paying monthly for the same access window.
- * Bonus months count as access, so they lower the effective monthly price.
- */
+/** Savings of a multi-month term against paying monthly for the same term. */
 export function computeTermSavings(
   monthlyPrice: number,
   termPrice: number,
   paidMonths: number,
-  bonusMonths = 0,
 ): TermSavingsSummary {
-  const accessMonths = paidMonths + Math.max(0, bonusMonths);
+  const accessMonths = paidMonths;
   if (monthlyPrice <= 0 || termPrice <= 0 || accessMonths <= 0) {
     return {
       savingsPercent: 0,

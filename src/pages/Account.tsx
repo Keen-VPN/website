@@ -175,12 +175,6 @@ const AccountInner = () => {
     entitlementsStatus === "error";
   const canManageBilling = subscription?.canManageBilling === true;
   const isTwoYear = isTwoYearSubscription(subscription);
-  const promotionalBonusMonths = subscription?.promotionalBonusMonths ?? 0;
-  // Bonus months extend service past the paid term, so show that date separately.
-  const serviceThroughDate =
-    subscription?.serviceThroughDate ??
-    subscription?.promotionalTermEnd ??
-    null;
   const { dashboard: membershipDashboard } = useMembershipSharingContext();
   const pendingBusinessTransfer =
     membershipDashboard?.role === "transfer_pending"
@@ -976,9 +970,13 @@ const AccountInner = () => {
                       </p>
                       {isTwoYear && (
                         <p className="text-xs text-muted-foreground">
-                          {promotionalBonusMonths > 0
-                            ? `2-year term with ${promotionalBonusMonths} bonus months on this first term · renews every 2 years`
-                            : "Renews every 2 years"}
+                          Renews every 2 years
+                        </p>
+                      )}
+                      {subscription.scheduledPlanChange && (
+                        <p className="text-xs text-muted-foreground">
+                          Switches to {subscription.scheduledPlanChange.planName}{" "}
+                          on {formatDate(subscription.scheduledPlanChange.effectiveAt)}
                         </p>
                       )}
                     </div>
@@ -1105,20 +1103,6 @@ const AccountInner = () => {
                         </Badge>
                       )}
                     </div>
-
-                    {isTwoYear && serviceThroughDate && (
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            Service Through
-                          </p>
-                          <p className="font-medium">
-                            {formatDate(serviceThroughDate)}
-                          </p>
-                        </div>
-                      </div>
-                    )}
 
                     {subscription.endDate && (
                       <div className="flex items-center">

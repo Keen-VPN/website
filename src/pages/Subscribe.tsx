@@ -47,18 +47,9 @@ const getPlanPaidMonths = (plan: ApiPlan) => {
   return 1;
 };
 
-/** Months of service on this first term: paid months plus any promotional bonus. */
-const getPlanAccessMonths = (plan: ApiPlan) =>
-  plan.totalInitialMonths ?? getPlanPaidMonths(plan) + (plan.bonusMonths ?? 0);
-
 /** Checkout copy spelling out the initial term and how it renews. */
 const twoYearCheckoutTermDetail = (plan: ApiPlan) => {
   const paidMonths = getPlanPaidMonths(plan);
-  const accessMonths = getPlanAccessMonths(plan);
-  const bonusMonths = Math.max(0, accessMonths - paidMonths);
-  if (bonusMonths > 0) {
-    return `$${plan.price} today covers ${accessMonths} months — ${paidMonths} paid months plus ${bonusMonths} bonus months on this first term. It renews every 2 years at the then-current 2-year price, without the bonus months.`;
-  }
   return `$${plan.price} today covers ${paidMonths} months, then renews every 2 years.`;
 };
 
@@ -114,18 +105,15 @@ const getPlanOptionLabel = (plan: ApiPlan) => {
 };
 
 const getPlanOptionPrice = (plan: ApiPlan) => {
-  const accessMonths = getPlanAccessMonths(plan);
-  return accessMonths > 1
-    ? `$${(plan.price / accessMonths).toFixed(2)}/mo`
+  const paidMonths = getPlanPaidMonths(plan);
+  return paidMonths > 1
+    ? `$${(plan.price / paidMonths).toFixed(2)}/mo`
     : `$${plan.price}/mo`;
 };
 
 const getPlanOptionMeta = (plan: ApiPlan) => {
   if (isTwoYearApiPlan(plan)) {
-    const accessMonths = getPlanAccessMonths(plan);
-    return accessMonths > getPlanPaidMonths(plan)
-      ? `$${plan.price} every 2 years · ${accessMonths} months on this first term`
-      : `$${plan.price} every 2 years`;
+    return `$${plan.price} every 2 years`;
   }
   return isAnnualPlan(plan) ? `$${plan.price}/year` : "Billed monthly";
 };
@@ -605,7 +593,7 @@ const Subscribe = () => {
         price:
           "period" in selectedPlan
             ? isTwoYearApiPlan(selectedPlan)
-              ? `$${(selectedPlan.price / getPlanAccessMonths(selectedPlan)).toFixed(2)}`
+              ? `$${(selectedPlan.price / getPlanPaidMonths(selectedPlan)).toFixed(2)}`
               : isAnnualPlan(selectedPlan)
                 ? `$${(selectedPlan.price / 12).toFixed(2)}`
                 : `$${selectedPlan.price}`

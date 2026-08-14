@@ -100,6 +100,7 @@ export function canSwitchStripeToTwoYear(
     return false;
   if (subscription.cancelAtPeriodEnd) return false;
   if (isTwoYearSubscription(subscription)) return false;
+  if (subscription.scheduledPlanChange?.to === "2year") return false;
   if (resolveMembershipPlanTier(subscription) !== "individual") return false;
 
   const status = getSubscriptionStatus(subscription);
@@ -114,7 +115,10 @@ function isMonthlyPlanName(planName?: string | null): boolean {
 export function hasScheduledAnnualBilling(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
-  return subscription?.scheduledBillingInterval?.to === "year";
+  return (
+    subscription?.scheduledBillingInterval?.to === "year" ||
+    subscription?.scheduledPlanChange?.to === "year"
+  );
 }
 
 /** Stripe monthly (or trialing monthly) with auto-renewal on — eligible for one-click annual upgrade. */

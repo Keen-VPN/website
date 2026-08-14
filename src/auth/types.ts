@@ -13,6 +13,14 @@ export interface ScheduledBillingInterval {
   effectiveAt: string;
 }
 
+export interface ScheduledPlanChange {
+  from: "month" | "year" | "2year";
+  to: "month" | "year" | "2year";
+  planId: string;
+  planName: string;
+  effectiveAt: string;
+}
+
 export interface SubscriptionData {
   status: string;
   endDate: string;
@@ -29,12 +37,9 @@ export interface SubscriptionData {
   daysSinceSubscriptionStart?: number | null;
   showAnnualUpgradePrompt?: boolean;
   scheduledBillingInterval?: ScheduledBillingInterval | null;
+  scheduledPlanChange?: ScheduledPlanChange | null;
   accessRole?: "owner" | "linked" | "member";
   canManageBilling: boolean;
-  /** Bonus months granted on a promotional first term (2-year plan). */
-  promotionalBonusMonths?: number | null;
-  promotionalTermEnd?: string | null;
-  /** Paid-through date to display: promotional term end when bonus months extend service. */
   serviceThroughDate?: string | null;
 }
 
