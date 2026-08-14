@@ -92,6 +92,7 @@ export {
   unclaimPerk,
   submitPerkRequest,
   upgradeSubscriptionToAnnual,
+  changeSubscriptionPlan,
   upgradeSubscriptionToBusiness,
   recordSubscriptionProductEvent,
   cancelSubscription,

@@ -2162,7 +2162,10 @@ export async function recordSubscriptionProductEvent(
   eventName:
     | "annual_plan_viewed"
     | "annual_upgrade_clicked"
-    | "annual_upgrade_completed",
+    | "annual_upgrade_completed"
+    | "two_year_plan_viewed"
+    | "two_year_switch_clicked"
+    | "two_year_switch_completed",
   payload?: { platform?: string; source?: string },
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -2546,6 +2549,54 @@ export async function upgradeSubscriptionToAnnual(
         error instanceof Error
           ? error.message
           : "Failed to upgrade to annual plan",
+    };
+  }
+}
+
+/**
+ * Switch an Individual Stripe subscription to another term (monthly/annual/2-year)
+ * at the next billing date. The already-paid period runs to its end.
+ */
+export async function changeSubscriptionPlan(
+  sessionToken: string,
+  planId: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/subscription/change-plan`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ planId }),
+    });
+
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Failed to change plan"),
+      };
+    }
+
+    if (data?.success) {
+      return { success: true, message: data.message };
+    }
+
+    return {
+      success: false,
+      error: data?.error || data?.message || "Plan change failed",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to change plan",
     };
   }
 }

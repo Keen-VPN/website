@@ -26,13 +26,18 @@ import {
 } from "@/constants/pricing";
 import { fetchSubscriptionPlans, getSessionToken } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
+import { useTwoYearPlanChange } from "@/hooks/use-plan-change";
 import { useMembershipSharing } from "@/hooks/use-membership-sharing";
 import {
   annualHeroPriceDisplay,
   formatAnnualBillingDetail,
   formatAnnualComparisonPrice,
+  formatTwoYearBillingDetail,
+  formatTwoYearComparisonPrice,
   resolvePricingPlanSelection,
   transformApiPlans,
+  twoYearHeroPriceDisplay,
+  type PricingTerm,
 } from "@/lib/pricing";
 import { DEFAULT_ANNUAL_SAVINGS_LABEL } from "@/lib/subscription-pricing";
 
@@ -40,6 +45,7 @@ import { PricingPlan } from "@/lib/pricing";
 import SEOHead from "@/components/SEOHead";
 import {
   canStartFreeTrial,
+  canSwitchStripeToTwoYear,
   canUpgradeToBusinessPlan,
   canUpgradeStripeToAnnual,
   hasScheduledAnnualBilling,
@@ -102,9 +108,7 @@ const Pricing = () => {
 
   const isMonthlyStripeUpgradeEligible = canUpgradeStripeToAnnual(subscription);
   const annualBillingAlreadyScheduled = hasScheduledAnnualBilling(subscription);
-  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">(
-    "annual",
-  );
+  const [billingPeriod, setBillingPeriod] = useState<PricingTerm>("annual");
 
   // Hide only while role is unresolved or a transfer is confirmed. Dashboard
   // errors/404s fail open so a membership API outage does not remove upgrade.
@@ -138,6 +142,13 @@ const Pricing = () => {
     });
 
   const { upgrading, upgradeToAnnual, trackAnnualEvent } = useAnnualUpgrade();
+  const {
+    changing: switchingToTwoYear,
+    switchToTwoYear,
+    trackTwoYearEvent,
+  } = useTwoYearPlanChange();
+  const isTwoYearSwitchEligible = canSwitchStripeToTwoYear(subscription);
+  const twoYearViewTrackedRef = useRef(false);
   // annual_plan_viewed: once per page visit (default billing is annual on mount).
   // Toggling monthly → annual again does not re-fire; avoids inflated toggle counts.
   const annualViewTrackedRef = useRef(false);
@@ -196,6 +207,21 @@ const Pricing = () => {
     currentSubscriptionPeriod !== selectedBusinessPeriod;
   const annualSavingsLabel =
     premiumPlan?.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL;
+  // The 2-year term is only offered once the backend exposes its Stripe price.
+  const twoYearPlan = useMemo(
+    () => plans.find((p) => Boolean(p.twoYearId)),
+    [plans],
+  );
+  const twoYearOffered = Boolean(twoYearPlan);
+  const twoYearToggleLabel = twoYearPlan
+    ? (twoYearPlan.twoYearSavingsLabel ?? "Best value")
+    : null;
+
+  useEffect(() => {
+    if (!twoYearOffered && billingPeriod === "twoYear") {
+      setBillingPeriod("annual");
+    }
+  }, [billingPeriod, twoYearOffered]);
 
   useEffect(() => {
     if (billingPeriod !== "annual" || annualViewTrackedRef.current) {
@@ -204,6 +230,15 @@ const Pricing = () => {
     annualViewTrackedRef.current = true;
     void trackAnnualEvent("annual_plan_viewed", "pricing_page");
   }, [billingPeriod, trackAnnualEvent]);
+
+  // two_year_plan_viewed: once per page visit, only after the visitor selects the term.
+  useEffect(() => {
+    if (billingPeriod !== "twoYear" || twoYearViewTrackedRef.current) {
+      return;
+    }
+    twoYearViewTrackedRef.current = true;
+    void trackTwoYearEvent("two_year_plan_viewed", "pricing_page");
+  }, [billingPeriod, trackTwoYearEvent]);
 
   useEffect(() => {
     const loadPlans = async () => {
@@ -303,6 +338,21 @@ const Pricing = () => {
               Annual
               <span className="ml-2 text-sm">({annualSavingsLabel})</span>
             </button>
+            {twoYearOffered && (
+              <button
+                onClick={() => setBillingPeriod("twoYear")}
+                className={`px-6 py-2 rounded-full transition-all relative ${
+                  billingPeriod === "twoYear"
+                    ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                2 Years
+                {twoYearToggleLabel && (
+                  <span className="ml-2 text-sm">({twoYearToggleLabel})</span>
+                )}
+              </button>
+            )}
           </div>
 
           <div className="max-w-2xl mx-auto mt-10 rounded-xl border border-border bg-card/80 px-6 py-5 text-left">
@@ -353,20 +403,27 @@ const Pricing = () => {
                 plan,
                 billingPeriod,
               );
+              const isTwoYear = planSelection?.billingPeriod === "2year";
               const isAnnual =
                 planSelection?.billingPeriod === "year" ||
                 (!planSelection && billingPeriod === "annual");
               const period =
                 plan.monthlyPrice === null
                   ? ""
-                  : isAnnual
-                    ? plan.annualMonthlyEquivalent
-                      ? "/month, billed annually"
-                      : "/year"
-                    : "/month";
-              const annualBillingDetail = isAnnual
-                ? formatAnnualBillingDetail(plan)
-                : null;
+                  : isTwoYear
+                    ? plan.twoYearMonthlyEquivalent
+                      ? "/month, billed every 2 years"
+                      : "/2 years"
+                    : isAnnual
+                      ? plan.annualMonthlyEquivalent
+                        ? "/month, billed annually"
+                        : "/year"
+                      : "/month";
+              const annualBillingDetail = isTwoYear
+                ? formatTwoYearBillingDetail(plan)
+                : isAnnual
+                  ? formatAnnualBillingDetail(plan)
+                  : null;
               const showBusinessPlanUpgrade =
                 ctaKind === "manage_account" &&
                 plan.name === "Business" &&
@@ -396,16 +453,20 @@ const Pricing = () => {
                       {plan.name}
                     </h3>
                     <p className="text-muted-foreground text-sm">
-                      {isAnnual
-                        ? "Complete VPN protection for the entire year"
-                        : "Complete VPN protection with monthly flexibility"}
+                      {isTwoYear
+                        ? "Complete VPN protection — 2 Years"
+                        : isAnnual
+                          ? "Complete VPN protection for the entire year"
+                          : "Complete VPN protection with monthly flexibility"}
                     </p>
                   </div>
 
                   <div className="mb-6">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="text-4xl font-bold text-foreground">
-                        {annualHeroPriceDisplay(plan, isAnnual)}
+                        {isTwoYear
+                          ? twoYearHeroPriceDisplay(plan)
+                          : annualHeroPriceDisplay(plan, isAnnual)}
                       </span>
                       {period && (
                         <span className="text-muted-foreground">
@@ -415,7 +476,12 @@ const Pricing = () => {
                       )}
                       <PricingNoticeTooltip />
                     </div>
-                    {isAnnual && plan.annualSavingsLabel && (
+                    {isTwoYear && plan.twoYearSavingsLabel && (
+                      <p className="mt-2 text-sm font-medium text-primary">
+                        {plan.twoYearSavingsLabel} · 2 Years
+                      </p>
+                    )}
+                    {!isTwoYear && isAnnual && plan.annualSavingsLabel && (
                       <p className="mt-2 text-sm font-medium text-primary">
                         {plan.annualSavingsLabel}
                         {plan.annualYearlySavingsDisplay
@@ -501,6 +567,46 @@ const Pricing = () => {
                       </Button>
                     </>
                   ) : ctaKind === "manage_account" &&
+                    isTwoYear &&
+                    isTwoYearSwitchEligible &&
+                    planSelection ? (
+                    <div className="mb-6 space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Your current paid period runs to its end. The 2-year
+                        term starts
+                        {paidThroughLabel
+                          ? ` on ${paidThroughLabel}`
+                          : " at your next billing date"}
+                        .
+                      </p>
+                      <Button
+                        onClick={() =>
+                          void switchToTwoYear(
+                            planSelection.planId,
+                            "pricing_card",
+                          )
+                        }
+                        disabled={switchingToTwoYear}
+                        className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
+                        size="lg"
+                      >
+                        {switchingToTwoYear ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Switching...
+                          </>
+                        ) : (
+                          <>
+                            <ArrowUpCircle className="h-4 w-4 mr-2" />
+                            Switch to 2-year
+                            {plan.twoYearSavingsLabel
+                              ? ` (${plan.twoYearSavingsLabel})`
+                              : ""}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ) : ctaKind === "manage_account" &&
                     annualBillingAlreadyScheduled &&
                     isAnnual ? (
                     <div className="mb-6">
@@ -550,9 +656,11 @@ const Pricing = () => {
                       onClick={() => {
                         if (ctaKind === "loading") return;
                         const queryParams = new URLSearchParams({
-                          planId: isAnnual
-                            ? plan.annualId || ""
-                            : plan.monthlyId || "",
+                          planId:
+                            planSelection?.planId ??
+                            (isAnnual
+                              ? plan.annualId || ""
+                              : plan.monthlyId || ""),
                         });
                         navigate(`/subscribe?${queryParams.toString()}`);
                       }}
@@ -629,18 +737,22 @@ const Pricing = () => {
                       {plan.name}
                     </div>
                     <div className="text-xs md:text-sm text-muted-foreground mt-1 hidden sm:block">
-                      {billingPeriod === "annual"
-                        ? formatAnnualComparisonPrice(plan)
-                        : plan.monthlyPrice === null
-                          ? "Custom"
-                          : `${plan.monthlyPriceDisplay} / month`}
+                      {billingPeriod === "twoYear"
+                        ? formatTwoYearComparisonPrice(plan)
+                        : billingPeriod === "annual"
+                          ? formatAnnualComparisonPrice(plan)
+                          : plan.monthlyPrice === null
+                            ? "Custom"
+                            : `${plan.monthlyPriceDisplay} / month`}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1 sm:hidden">
-                      {billingPeriod === "annual"
-                        ? formatAnnualComparisonPrice(plan)
-                        : plan.monthlyPrice === null
-                          ? "Custom"
-                          : plan.monthlyPriceDisplay}
+                      {billingPeriod === "twoYear"
+                        ? formatTwoYearComparisonPrice(plan)
+                        : billingPeriod === "annual"
+                          ? formatAnnualComparisonPrice(plan)
+                          : plan.monthlyPrice === null
+                            ? "Custom"
+                            : plan.monthlyPriceDisplay}
                     </div>
                   </div>
                 ))}

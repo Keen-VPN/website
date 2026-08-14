@@ -87,6 +87,10 @@ function friendlyBilling(raw: string): string {
     case "annual":
     case "yearly":
       return "Annual";
+    case "2year":
+    case "two_year":
+    case "two-year":
+      return "2 Years";
     default:
       return raw;
   }
@@ -292,8 +296,8 @@ export default function AdminChurn() {
         <CardHeader>
           <CardTitle>Revenue impact</CardTitle>
           <CardDescription>
-            Monthly revenue at start of month (annual plans ÷ 12) vs revenue
-            lost to cancelled subscribers.
+            Monthly revenue at start of month (annual plans ÷ 12; 2-year plans
+            ÷ 24) vs revenue lost to cancelled subscribers.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
