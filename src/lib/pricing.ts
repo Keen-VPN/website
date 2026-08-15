@@ -187,7 +187,10 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
         ? `Save ${formatSavingsPercent(annualSavingsPercent)}%`
         : null;
 
-    const twoYearPaidMonths = twoYear?.paidMonths ?? TWO_YEAR_PAID_MONTHS;
+    // A Stripe 2-year interval always covers 24 months. Treat any missing or
+    // inconsistent display metadata as 24 so monthly equivalents and renewal
+    // copy cannot describe different term lengths.
+    const twoYearPaidMonths = TWO_YEAR_PAID_MONTHS;
     const twoYearSavings =
       twoYear && monthlyPrice > 0
         ? computeTermSavings(monthlyPrice, twoYear.price, twoYearPaidMonths)

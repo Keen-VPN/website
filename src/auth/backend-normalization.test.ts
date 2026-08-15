@@ -60,4 +60,29 @@ describe("normalizeBackendAuthResponse", () => {
       normalizeBackendAuthResponse(raw).subscription?.scheduledPlanChange,
     ).toBeUndefined();
   });
+
+  it.each(["", "not-a-date"])(
+    "rejects a scheduled plan change with invalid effectiveAt %j",
+    (effectiveAt) => {
+      const raw: RawBackendAuthResponse = {
+        success: true,
+        subscription: {
+          status: "active",
+          billingPeriod: "2year",
+          canManageBilling: true,
+          scheduledPlanChange: {
+            from: "2year",
+            to: "year",
+            planId: "premium_yearly",
+            planName: "Premium VPN - Annual",
+            effectiveAt,
+          },
+        },
+      };
+
+      expect(
+        normalizeBackendAuthResponse(raw).subscription?.scheduledPlanChange,
+      ).toBeUndefined();
+    },
+  );
 });

@@ -152,15 +152,17 @@ describe("2-year display copy", () => {
     );
   });
 
-  it("uses the paid-month count supplied by the catalog", () => {
+  it("normalizes inconsistent catalog metadata to the 24-month term", () => {
     const [customTerm] = transformApiPlans([
       monthlyPlan,
       annualPlan,
       { ...twoYearPlan, paidMonths: 23 },
     ]);
 
+    expect(customTerm.twoYearPaidMonths).toBe(24);
+    expect(customTerm.twoYearMonthlyEquivalent).toBe("$2.50");
     expect(formatTwoYearBillingDetail(customTerm)).toContain(
-      "$60 once for 23 months",
+      "$60 once for 24 months",
     );
   });
 });

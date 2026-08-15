@@ -232,7 +232,9 @@ export function normalizeBackendAuthResponse(
       supportedPeriods.has(to as ScheduledPlanChange["to"]) &&
       typeof planId === "string" &&
       typeof planName === "string" &&
-      typeof effectiveAt === "string"
+      typeof effectiveAt === "string" &&
+      effectiveAt.trim().length > 0 &&
+      !Number.isNaN(new Date(effectiveAt).getTime())
     ) {
       normalizedSubscription.scheduledPlanChange = {
         from: from as ScheduledPlanChange["from"],
