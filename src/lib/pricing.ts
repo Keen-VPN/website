@@ -16,16 +16,40 @@ export interface ApiPlan {
   isPerSeat?: boolean;
   minSeats?: number;
   defaultSeats?: number;
+  /** Multi-year terms report the Stripe interval multiplier, e.g. 2 for the 2-year plan. */
+  intervalCount?: number;
+  paidMonths?: number;
 }
 
 import {
   computeAnnualSavings,
+  computeTermSavings,
   formatSavingsPercent,
   formatUsd,
   type AnnualSavingsSummary,
 } from "@/lib/subscription-pricing";
 
 export type { AnnualSavingsSummary };
+
+/** Billing term a visitor can select on the pricing page. */
+export type PricingTerm = "monthly" | "annual" | "twoYear";
+
+export const TWO_YEAR_PAID_MONTHS = 24;
+
+export function isTwoYearApiPlan(plan: ApiPlan): boolean {
+  const period = (plan.billingPeriod || plan.period || "").toLowerCase();
+  if (["2year", "two_year", "two-year", "2 years"].includes(period)) {
+    return true;
+  }
+  return plan.interval === "year" && plan.intervalCount === 2;
+}
+
+/** Canonical number of months covered by one charge for a catalog term. */
+export function getApiPlanPaidMonths(plan: ApiPlan): number {
+  if (isTwoYearApiPlan(plan)) return TWO_YEAR_PAID_MONTHS;
+  const period = (plan.billingPeriod || plan.period || "").toLowerCase();
+  return period === "year" || period === "annual" ? 12 : 1;
+}
 
 export interface PricingPlan {
   monthlyId?: string;
@@ -53,13 +77,36 @@ export interface PricingPlan {
   defaultSeats?: number;
   monthlyPriceId?: string;
   annualPriceId?: string;
+  /** 2-year term; present only when the backend exposes a dedicated 2-year price. */
+  twoYearId?: string;
+  twoYearPrice?: number | null;
+  twoYearPriceDisplay?: string | null;
+  twoYearMonthlyEquivalent?: string | null;
+  twoYearSavingsPercent?: number | null;
+  twoYearSavingsLabel?: string | null;
+  twoYearPriceId?: string;
+  /** Number of months covered by the initial 2-year charge. */
+  twoYearPaidMonths?: number;
 }
 
 export function resolvePricingPlanSelection(
   plan: PricingPlan | null | undefined,
-  requestedPeriod: "monthly" | "annual",
-): { planId: string; billingPeriod: "month" | "year" } | null {
+  requestedPeriod: PricingTerm,
+): { planId: string; billingPeriod: "month" | "year" | "2year" } | null {
   if (!plan) return null;
+
+  if (requestedPeriod === "twoYear") {
+    if (plan.twoYearId) {
+      return { planId: plan.twoYearId, billingPeriod: "2year" };
+    }
+    // Plans without a 2-year price (Business) keep their longest available term.
+    if (plan.annualId) {
+      return { planId: plan.annualId, billingPeriod: "year" };
+    }
+    return plan.monthlyId
+      ? { planId: plan.monthlyId, billingPeriod: "month" }
+      : null;
+  }
 
   if (requestedPeriod === "annual") {
     if (plan.annualId) {
@@ -100,10 +147,12 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       const key = isPremium ? "premium" : isTeam ? "team" : "other";
 
       if (!acc[key]) {
-        acc[key] = { monthly: null, annual: null };
+        acc[key] = { monthly: null, annual: null, twoYear: null };
       }
 
-      if (plan.period === "month" || plan.billingPeriod === "month") {
+      if (isTwoYearApiPlan(plan)) {
+        acc[key].twoYear = plan;
+      } else if (plan.period === "month" || plan.billingPeriod === "month") {
         acc[key].monthly = plan;
       } else if (plan.period === "year" || plan.billingPeriod === "year") {
         acc[key].annual = plan;
@@ -111,13 +160,16 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
 
       return acc;
     },
-    {} as Record<string, { monthly: ApiPlan | null; annual: ApiPlan | null }>,
+    {} as Record<
+      string,
+      { monthly: ApiPlan | null; annual: ApiPlan | null; twoYear: ApiPlan | null }
+    >,
   );
 
   const transformedPlans: PricingPlan[] = [];
 
-  Object.entries(plansByType).forEach(([type, { monthly, annual }]) => {
-    if (!monthly && !annual) return;
+  Object.entries(plansByType).forEach(([type, { monthly, annual, twoYear }]) => {
+    if (!monthly && !annual && !twoYear) return;
 
     const isPremium = type === "premium";
     const isTeam = type === "team";
@@ -142,11 +194,22 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
         ? `Save ${formatSavingsPercent(annualSavingsPercent)}%`
         : null;
 
+    // Normalize at the catalog boundary so Pricing and Subscribe consume the
+    // same term length even if display metadata is missing or inconsistent.
+    const twoYearPaidMonths = twoYear
+      ? getApiPlanPaidMonths(twoYear)
+      : TWO_YEAR_PAID_MONTHS;
+    const twoYearSavings =
+      twoYear && monthlyPrice > 0
+        ? computeTermSavings(monthlyPrice, twoYear.price, twoYearPaidMonths)
+        : null;
+    const twoYearSavingsPercent = twoYearSavings?.savingsPercent ?? null;
+
     const features = annual?.features?.length
       ? annual.features
       : monthly?.features?.length
         ? monthly.features
-        : [];
+        : (twoYear?.features ?? []);
 
     // Business bills per seat: `monthlyPrice`/`annualPrice` here is the per-seat price.
     const deviceConnectionFeature = {
@@ -196,6 +259,20 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
         : undefined,
       monthlyPriceId: monthly?.priceId,
       annualPriceId: annual?.priceId,
+      twoYearId: twoYear?.id,
+      twoYearPrice: twoYear?.price ?? null,
+      twoYearPriceDisplay: twoYear ? formatUsd(twoYear.price) : null,
+      twoYearMonthlyEquivalent:
+        twoYearSavings && twoYearSavings.effectiveMonthlyPrice > 0
+          ? formatUsd(twoYearSavings.effectiveMonthlyPrice)
+          : null,
+      twoYearSavingsPercent,
+      twoYearSavingsLabel:
+        twoYearSavingsPercent && twoYearSavingsPercent > 0
+          ? `Save ${formatSavingsPercent(twoYearSavingsPercent)}%`
+          : null,
+      twoYearPriceId: twoYear?.priceId,
+      twoYearPaidMonths: twoYear ? twoYearPaidMonths : undefined,
     });
   });
 
@@ -236,6 +313,37 @@ export function formatAnnualBillingDetail(plan: PricingPlan): string | null {
     return `Only ${plan.annualMonthlyEquivalent}/month billed yearly (${plan.annualPriceDisplay}/year)`;
   }
   return plan.annualPriceDisplay;
+}
+
+/** Hero price on plan cards when the 2-year term is selected. */
+export function twoYearHeroPriceDisplay(plan: PricingPlan): string {
+  if (plan.monthlyPrice === null) return "Custom";
+  return (
+    plan.twoYearMonthlyEquivalent ??
+    plan.twoYearPriceDisplay ??
+    plan.annualMonthlyEquivalent ??
+    plan.monthlyPriceDisplay
+  );
+}
+
+/** Subtitle under the 2-year hero price; null when the plan has no 2-year term. */
+export function formatTwoYearBillingDetail(plan: PricingPlan): string | null {
+  if (!plan.twoYearId || !plan.twoYearPriceDisplay) return null;
+  const equivalent = plan.twoYearMonthlyEquivalent;
+  const lead = equivalent
+    ? `Only ${equivalent}/month`
+    : plan.twoYearPriceDisplay;
+  return `${lead} — ${plan.twoYearPriceDisplay} once for ${plan.twoYearPaidMonths ?? TWO_YEAR_PAID_MONTHS} months, then renews every 2 years`;
+}
+
+/** Compare-plans table price row for the 2-year term. */
+export function formatTwoYearComparisonPrice(plan: PricingPlan): string {
+  if (plan.monthlyPrice === null) return "Custom";
+  if (!plan.twoYearId) return formatAnnualComparisonPrice(plan);
+  if (plan.twoYearMonthlyEquivalent) {
+    return `${plan.twoYearMonthlyEquivalent} / month, billed every 2 years`;
+  }
+  return `${plan.twoYearPriceDisplay} / 2 years`;
 }
 
 /** Compare-plans table price row for annual billing. */

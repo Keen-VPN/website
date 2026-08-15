@@ -13,6 +13,14 @@ export interface ScheduledBillingInterval {
   effectiveAt: string;
 }
 
+export interface ScheduledPlanChange {
+  from: "month" | "year" | "2year";
+  to: "month" | "year" | "2year";
+  planId: string;
+  planName: string;
+  effectiveAt: string;
+}
+
 export interface SubscriptionData {
   status: string;
   endDate: string;
@@ -24,13 +32,15 @@ export interface SubscriptionData {
   subscriptionType?: string;
   currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
-  billingPeriod?: "month" | "year" | null;
+  billingPeriod?: "month" | "year" | "2year" | null;
   subscriptionStartedAt?: string | null;
   daysSinceSubscriptionStart?: number | null;
   showAnnualUpgradePrompt?: boolean;
   scheduledBillingInterval?: ScheduledBillingInterval | null;
+  scheduledPlanChange?: ScheduledPlanChange | null;
   accessRole?: "owner" | "linked" | "member";
   canManageBilling: boolean;
+  serviceThroughDate?: string | null;
 }
 
 export interface TrialData {

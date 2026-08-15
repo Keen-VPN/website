@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { SubscriptionData } from "@/auth/types";
 import {
+  canSwitchStripeToTwoYear,
   canUpgradeStripeToAnnual,
   canUpgradeToBusinessPlan,
   hasScheduledAnnualBilling,
+  isTwoYearSubscription,
   resolveMembershipPlanTier,
   resolveSubscriptionBillingPeriod,
 } from "@/lib/subscription-cta";
@@ -98,6 +100,74 @@ describe("membership plan tier helpers", () => {
         }),
       ),
     ).toBe("year");
+  });
+
+  it("resolves the 2-year term and offers the switch to shorter-term subscribers", () => {
+    const twoYear = stripeSub({
+      billingPeriod: "2year",
+      plan: "Premium VPN - 2 Years",
+      planId: "premium_2year",
+    });
+    const annual = stripeSub({
+      billingPeriod: "year",
+      plan: "Premium VPN - Annual",
+      planId: "premium_yearly",
+    });
+
+    expect(resolveSubscriptionBillingPeriod(twoYear)).toBe("2year");
+    expect(isTwoYearSubscription(twoYear)).toBe(true);
+    // Annual/monthly stay unchanged: no 2-year false positive on "yearly".
+    expect(resolveSubscriptionBillingPeriod(annual)).toBe("year");
+    expect(isTwoYearSubscription(annual)).toBe(false);
+    expect(
+      resolveSubscriptionBillingPeriod(
+        stripeSub({
+          billingPeriod: "month",
+          plan: "Legacy Premium 2 Year",
+          planId: "legacy_2year",
+        }),
+      ),
+    ).toBe("month");
+
+    expect(canSwitchStripeToTwoYear(annual)).toBe(true);
+    expect(
+      canSwitchStripeToTwoYear(
+        stripeSub({
+          ...annual,
+          scheduledPlanChange: {
+            from: "year",
+            to: "2year",
+            planId: "premium_2year",
+            planName: "Premium VPN - 2 Years",
+            effectiveAt: "2027-08-27T00:00:00.000Z",
+          },
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      canSwitchStripeToTwoYear(stripeSub({ billingPeriod: "month" })),
+    ).toBe(true);
+    // Already on the 2-year term, or leaving at period end.
+    expect(canSwitchStripeToTwoYear(twoYear)).toBe(false);
+    expect(
+      canSwitchStripeToTwoYear(
+        stripeSub({ billingPeriod: "year", cancelAtPeriodEnd: true }),
+      ),
+    ).toBe(false);
+    expect(
+      canSwitchStripeToTwoYear(
+        stripeSub({ billingPeriod: "year", subscriptionType: "apple_iap" }),
+      ),
+    ).toBe(false);
+    expect(
+      canSwitchStripeToTwoYear(
+        stripeSub({
+          billingPeriod: "year",
+          plan: "KeenVPN Business - Annual",
+          planId: "team_yearly",
+        }),
+      ),
+    ).toBe(false);
   });
 
   it("hides annual upgrade CTA when annual billing is already scheduled", () => {

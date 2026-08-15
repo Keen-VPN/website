@@ -5,6 +5,7 @@ import type {
 } from "@/lib/vault-fields";
 import {
   BackendAuthResponse,
+  ScheduledPlanChange,
   SubscriptionData,
   TrialData,
   UserEntitlements,
@@ -71,6 +72,14 @@ export interface RawSubscription {
     to?: string;
     effectiveAt?: string;
   } | null;
+  scheduledPlanChange?: {
+    from?: string;
+    to?: string;
+    planId?: string;
+    planName?: string;
+    effectiveAt?: string;
+  } | null;
+  serviceThroughDate?: string | null;
   customerId?: string;
   plan?: string;
   planName?: string;
@@ -127,7 +136,7 @@ function normalizeTrial(
  *   so pages never flicker between labels due to stale non-active subscription data.
  * - Trial data is normalised from snake_case backend fields to camelCase frontend types.
  */
-function normalizeBackendAuthResponse(
+export function normalizeBackendAuthResponse(
   data: RawBackendAuthResponse,
 ): BackendAuthResponse {
   const rawSubscription = data.subscription;
@@ -173,6 +182,7 @@ function normalizeBackendAuthResponse(
   if (
     rawSubscription.billingPeriod === "month" ||
     rawSubscription.billingPeriod === "year" ||
+    rawSubscription.billingPeriod === "2year" ||
     rawSubscription.billingPeriod === null
   ) {
     normalizedSubscription.billingPeriod = rawSubscription.billingPeriod;
@@ -208,6 +218,38 @@ function normalizeBackendAuthResponse(
     }
   } else if (scheduled === null) {
     normalizedSubscription.scheduledBillingInterval = null;
+  }
+  const scheduledPlanChange = rawSubscription.scheduledPlanChange;
+  if (scheduledPlanChange && typeof scheduledPlanChange === "object") {
+    const { from, to, planId, planName, effectiveAt } = scheduledPlanChange;
+    const supportedPeriods = new Set<ScheduledPlanChange["from"]>([
+      "month",
+      "year",
+      "2year",
+    ]);
+    if (
+      supportedPeriods.has(from as ScheduledPlanChange["from"]) &&
+      supportedPeriods.has(to as ScheduledPlanChange["to"]) &&
+      typeof planId === "string" &&
+      typeof planName === "string" &&
+      typeof effectiveAt === "string" &&
+      effectiveAt.trim().length > 0 &&
+      !Number.isNaN(new Date(effectiveAt).getTime())
+    ) {
+      normalizedSubscription.scheduledPlanChange = {
+        from: from as ScheduledPlanChange["from"],
+        to: to as ScheduledPlanChange["to"],
+        planId,
+        planName,
+        effectiveAt,
+      };
+    }
+  } else if (scheduledPlanChange === null) {
+    normalizedSubscription.scheduledPlanChange = null;
+  }
+  if (rawSubscription.serviceThroughDate !== undefined) {
+    normalizedSubscription.serviceThroughDate =
+      rawSubscription.serviceThroughDate;
   }
   if (rawSubscription.planId !== undefined) {
     normalizedSubscription.planId = rawSubscription.planId;
@@ -2162,7 +2204,10 @@ export async function recordSubscriptionProductEvent(
   eventName:
     | "annual_plan_viewed"
     | "annual_upgrade_clicked"
-    | "annual_upgrade_completed",
+    | "annual_upgrade_completed"
+    | "two_year_plan_viewed"
+    | "two_year_switch_clicked"
+    | "two_year_switch_completed",
   payload?: { platform?: string; source?: string },
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -2546,6 +2591,54 @@ export async function upgradeSubscriptionToAnnual(
         error instanceof Error
           ? error.message
           : "Failed to upgrade to annual plan",
+    };
+  }
+}
+
+/**
+ * Switch an Individual Stripe subscription to another term (monthly/annual/2-year)
+ * at the next billing date. The already-paid period runs to its end.
+ */
+export async function changeSubscriptionPlan(
+  sessionToken: string,
+  planId: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/subscription/change-plan`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ planId }),
+    });
+
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(data, "Failed to change plan"),
+      };
+    }
+
+    if (data?.success) {
+      return { success: true, message: data.message };
+    }
+
+    return {
+      success: false,
+      error: data?.error || data?.message || "Plan change failed",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to change plan",
     };
   }
 }

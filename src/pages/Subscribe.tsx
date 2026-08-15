@@ -8,7 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PricingPlan, ApiPlan } from "@/lib/pricing";
+import {
+  PricingPlan,
+  ApiPlan,
+  getApiPlanPaidMonths,
+  isTwoYearApiPlan,
+} from "@/lib/pricing";
 import { Check, Gift, Loader2, ExternalLink, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,7 +37,14 @@ import {
 const getPlanBillingPeriod = (plan: ApiPlan) =>
   plan.billingPeriod || plan.period;
 
-const isAnnualPlan = (plan: ApiPlan) => getPlanBillingPeriod(plan) === "year";
+const isAnnualPlan = (plan: ApiPlan) =>
+  !isTwoYearApiPlan(plan) && getPlanBillingPeriod(plan) === "year";
+
+/** Checkout copy spelling out the initial term and how it renews. */
+const twoYearCheckoutTermDetail = (plan: ApiPlan) => {
+  const paidMonths = getApiPlanPaidMonths(plan);
+  return `$${plan.price} today covers ${paidMonths} months, then renews every 2 years.`;
+};
 
 const getPlanTier = (plan: ApiPlan) => {
   const id = plan.id.toLowerCase();
@@ -72,24 +84,34 @@ const getTierLabel = (tier: string) =>
   PLAN_TIER_OPTIONS.find((option) => option.id === tier)?.label ?? tier;
 
 const sortPlansByBillingPeriod = (plans: ApiPlan[]) => {
-  const order = { month: 0, year: 1 };
+  const getSortPeriod = (plan: ApiPlan) =>
+    isTwoYearApiPlan(plan) ? "2year" : getPlanBillingPeriod(plan);
+  const order = { month: 0, year: 1, "2year": 2 };
   return [...plans].sort(
     (a, b) =>
-      (order[getPlanBillingPeriod(a) as keyof typeof order] ?? 99) -
-      (order[getPlanBillingPeriod(b) as keyof typeof order] ?? 99),
+      (order[getSortPeriod(a) as keyof typeof order] ?? 99) -
+      (order[getSortPeriod(b) as keyof typeof order] ?? 99),
   );
 };
 
-const getPlanOptionLabel = (plan: ApiPlan) =>
-  isAnnualPlan(plan) ? "Annual" : "Monthly";
+const getPlanOptionLabel = (plan: ApiPlan) => {
+  if (isTwoYearApiPlan(plan)) return "2 Years";
+  return isAnnualPlan(plan) ? "Annual" : "Monthly";
+};
 
-const getPlanOptionPrice = (plan: ApiPlan) =>
-  isAnnualPlan(plan)
-    ? `$${(plan.price / 12).toFixed(2)}/mo`
+const getPlanOptionPrice = (plan: ApiPlan) => {
+  const paidMonths = getApiPlanPaidMonths(plan);
+  return paidMonths > 1
+    ? `$${(plan.price / paidMonths).toFixed(2)}/mo`
     : `$${plan.price}/mo`;
+};
 
-const getPlanOptionMeta = (plan: ApiPlan) =>
-  isAnnualPlan(plan) ? `$${plan.price}/year` : "Billed monthly";
+const getPlanOptionMeta = (plan: ApiPlan) => {
+  if (isTwoYearApiPlan(plan)) {
+    return `$${plan.price} every 2 years`;
+  }
+  return isAnnualPlan(plan) ? `$${plan.price}/year` : "Billed monthly";
+};
 
 const matchesRequestedPlan = (plan: ApiPlan, requestedPlanId: string) => {
   if (plan.id === requestedPlanId) return true;
@@ -99,8 +121,19 @@ const matchesRequestedPlan = (plan: ApiPlan, requestedPlanId: string) => {
   ) {
     return isAnnualPlan(plan) && plan.id.toLowerCase().includes("premium");
   }
+  if (
+    requestedPlanId === "premium_2year" ||
+    requestedPlanId === "premium_two_year" ||
+    requestedPlanId === "premium-2year"
+  ) {
+    return isTwoYearApiPlan(plan) && plan.id.toLowerCase().includes("premium");
+  }
   if (requestedPlanId === "premium_monthly") {
-    return !isAnnualPlan(plan) && plan.id.toLowerCase().includes("premium");
+    return (
+      !isAnnualPlan(plan) &&
+      !isTwoYearApiPlan(plan) &&
+      plan.id.toLowerCase().includes("premium")
+    );
   }
   return false;
 };
@@ -554,16 +587,24 @@ const Subscribe = () => {
         name: selectedPlan.name || "KeenVPN Premium",
         price:
           "period" in selectedPlan
-            ? isAnnualPlan(selectedPlan)
-              ? `$${(selectedPlan.price / 12).toFixed(2)}`
-              : `$${selectedPlan.price}`
+            ? isTwoYearApiPlan(selectedPlan)
+              ? `$${(selectedPlan.price / getApiPlanPaidMonths(selectedPlan)).toFixed(2)}`
+              : isAnnualPlan(selectedPlan)
+                ? `$${(selectedPlan.price / 12).toFixed(2)}`
+                : `$${selectedPlan.price}`
             : selectedPlan.monthlyPriceDisplay,
         period:
           "period" in selectedPlan
-            ? isAnnualPlan(selectedPlan)
-              ? "/month, billed annually"
-              : "/month"
+            ? isTwoYearApiPlan(selectedPlan)
+              ? "/month, billed every 2 years"
+              : isAnnualPlan(selectedPlan)
+                ? "/month, billed annually"
+                : "/month"
             : "/month", // Default
+        termDetail:
+          "period" in selectedPlan && isTwoYearApiPlan(selectedPlan)
+            ? twoYearCheckoutTermDetail(selectedPlan)
+            : null,
         description:
           selectedPlan.description ||
           `${selectedPlan.name} - Complete VPN protection`,
@@ -689,6 +730,11 @@ const Subscribe = () => {
                   </span>
                   <PricingNoticeTooltip />
                 </div>
+                {planDisplay.termDetail && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {planDisplay.termDetail}
+                  </p>
+                )}
               </CardHeader>
               <CardContent>
                 <PlanTierSelector

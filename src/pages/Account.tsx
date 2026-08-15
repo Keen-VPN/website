@@ -89,6 +89,7 @@ import {
   getSubscriptionCtaLabel,
   hasManageableSubscription,
   hasScheduledAnnualBilling,
+  isTwoYearSubscription,
   shouldShowAnnualUpgradeOffer,
 } from "@/lib/subscription-cta";
 import {
@@ -173,6 +174,7 @@ const AccountInner = () => {
     mayHaveWorkspaceAccess &&
     entitlementsStatus === "error";
   const canManageBilling = subscription?.canManageBilling === true;
+  const isTwoYear = isTwoYearSubscription(subscription);
   const { dashboard: membershipDashboard } = useMembershipSharingContext();
   const pendingBusinessTransfer =
     membershipDashboard?.role === "transfer_pending"
@@ -966,6 +968,17 @@ const AccountInner = () => {
                       <p className="font-medium">
                         {subscription.plan || "KeenVPN Premium"}
                       </p>
+                      {isTwoYear && !subscription.scheduledPlanChange && (
+                        <p className="text-xs text-muted-foreground">
+                          Renews every 2 years
+                        </p>
+                      )}
+                      {subscription.scheduledPlanChange && (
+                        <p className="text-xs text-muted-foreground">
+                          Switches to {subscription.scheduledPlanChange.planName}{" "}
+                          on {formatDate(subscription.scheduledPlanChange.effectiveAt)}
+                        </p>
+                      )}
                     </div>
 
                     {pendingBusinessTransfer ? (
