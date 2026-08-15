@@ -11,8 +11,8 @@ import {
 import {
   PricingPlan,
   ApiPlan,
+  getApiPlanPaidMonths,
   isTwoYearApiPlan,
-  TWO_YEAR_PAID_MONTHS,
 } from "@/lib/pricing";
 import { Check, Gift, Loader2, ExternalLink, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -40,16 +40,9 @@ const getPlanBillingPeriod = (plan: ApiPlan) =>
 const isAnnualPlan = (plan: ApiPlan) =>
   !isTwoYearApiPlan(plan) && getPlanBillingPeriod(plan) === "year";
 
-/** Paid months of a term, used for the effective monthly price. */
-const getPlanPaidMonths = (plan: ApiPlan) => {
-  if (isTwoYearApiPlan(plan)) return plan.paidMonths ?? TWO_YEAR_PAID_MONTHS;
-  if (isAnnualPlan(plan)) return 12;
-  return 1;
-};
-
 /** Checkout copy spelling out the initial term and how it renews. */
 const twoYearCheckoutTermDetail = (plan: ApiPlan) => {
-  const paidMonths = getPlanPaidMonths(plan);
+  const paidMonths = getApiPlanPaidMonths(plan);
   return `$${plan.price} today covers ${paidMonths} months, then renews every 2 years.`;
 };
 
@@ -107,7 +100,7 @@ const getPlanOptionLabel = (plan: ApiPlan) => {
 };
 
 const getPlanOptionPrice = (plan: ApiPlan) => {
-  const paidMonths = getPlanPaidMonths(plan);
+  const paidMonths = getApiPlanPaidMonths(plan);
   return paidMonths > 1
     ? `$${(plan.price / paidMonths).toFixed(2)}/mo`
     : `$${plan.price}/mo`;
@@ -595,7 +588,7 @@ const Subscribe = () => {
         price:
           "period" in selectedPlan
             ? isTwoYearApiPlan(selectedPlan)
-              ? `$${(selectedPlan.price / getPlanPaidMonths(selectedPlan)).toFixed(2)}`
+              ? `$${(selectedPlan.price / getApiPlanPaidMonths(selectedPlan)).toFixed(2)}`
               : isAnnualPlan(selectedPlan)
                 ? `$${(selectedPlan.price / 12).toFixed(2)}`
                 : `$${selectedPlan.price}`

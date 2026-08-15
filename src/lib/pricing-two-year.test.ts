@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatTwoYearBillingDetail,
   formatTwoYearComparisonPrice,
+  getApiPlanPaidMonths,
   isTwoYearApiPlan,
   resolvePricingPlanSelection,
   transformApiPlans,
@@ -77,6 +78,14 @@ describe("isTwoYearApiPlan", () => {
         }),
       ),
     ).toBe(false);
+  });
+});
+
+describe("getApiPlanPaidMonths", () => {
+  it("uses canonical term lengths instead of inconsistent display metadata", () => {
+    expect(getApiPlanPaidMonths(monthlyPlan)).toBe(1);
+    expect(getApiPlanPaidMonths(annualPlan)).toBe(12);
+    expect(getApiPlanPaidMonths({ ...twoYearPlan, paidMonths: 23 })).toBe(24);
   });
 });
 

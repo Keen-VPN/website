@@ -44,6 +44,13 @@ export function isTwoYearApiPlan(plan: ApiPlan): boolean {
   return plan.interval === "year" && plan.intervalCount === 2;
 }
 
+/** Canonical number of months covered by one charge for a catalog term. */
+export function getApiPlanPaidMonths(plan: ApiPlan): number {
+  if (isTwoYearApiPlan(plan)) return TWO_YEAR_PAID_MONTHS;
+  const period = (plan.billingPeriod || plan.period || "").toLowerCase();
+  return period === "year" || period === "annual" ? 12 : 1;
+}
+
 export interface PricingPlan {
   monthlyId?: string;
   annualId?: string;
@@ -187,10 +194,11 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
         ? `Save ${formatSavingsPercent(annualSavingsPercent)}%`
         : null;
 
-    // A Stripe 2-year interval always covers 24 months. Treat any missing or
-    // inconsistent display metadata as 24 so monthly equivalents and renewal
-    // copy cannot describe different term lengths.
-    const twoYearPaidMonths = TWO_YEAR_PAID_MONTHS;
+    // Normalize at the catalog boundary so Pricing and Subscribe consume the
+    // same term length even if display metadata is missing or inconsistent.
+    const twoYearPaidMonths = twoYear
+      ? getApiPlanPaidMonths(twoYear)
+      : TWO_YEAR_PAID_MONTHS;
     const twoYearSavings =
       twoYear && monthlyPrice > 0
         ? computeTermSavings(monthlyPrice, twoYear.price, twoYearPaidMonths)
