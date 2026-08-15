@@ -96,10 +96,8 @@ const Pricing = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, subscription, trial, loading: authLoading } = useAuth();
   const sessionToken = getSessionToken();
-  const {
-    dashboard: membershipDashboard,
-    loading: membershipLoading,
-  } = useMembershipSharing(sessionToken);
+  const { dashboard: membershipDashboard, loading: membershipLoading } =
+    useMembershipSharing(sessionToken);
 
   const ctaKind = useMemo(
     () => getPricingCtaKind(authLoading, user, subscription?.status, trial),
@@ -148,6 +146,8 @@ const Pricing = () => {
     trackTwoYearEvent,
   } = useTwoYearPlanChange();
   const isTwoYearSwitchEligible = canSwitchStripeToTwoYear(subscription);
+  const isTrialingSubscription =
+    subscription?.status.toLowerCase() === "trialing";
   const twoYearViewTrackedRef = useRef(false);
   // annual_plan_viewed: once per page visit (default billing is annual on mount).
   // Toggling monthly → annual again does not re-fire; avoids inflated toggle counts.
@@ -316,10 +316,10 @@ const Pricing = () => {
           </p>
 
           {/* Billing Toggle */}
-          <div className="inline-flex items-center gap-4 bg-gradient-card p-2 rounded-full border border-border">
+          <div className="inline-flex max-w-full flex-wrap items-center justify-center gap-2 rounded-2xl border border-border bg-gradient-card p-2 sm:gap-4 sm:rounded-full">
             <button
               onClick={() => setBillingPeriod("monthly")}
-              className={`px-6 py-2 rounded-full transition-all ${
+              className={`px-4 py-2 rounded-full transition-all sm:px-6 ${
                 billingPeriod === "monthly"
                   ? "bg-gradient-primary text-primary-foreground shadow-glow"
                   : "text-muted-foreground hover:text-foreground"
@@ -329,7 +329,7 @@ const Pricing = () => {
             </button>
             <button
               onClick={() => setBillingPeriod("annual")}
-              className={`px-6 py-2 rounded-full transition-all relative ${
+              className={`relative px-4 py-2 rounded-full transition-all sm:px-6 ${
                 billingPeriod === "annual"
                   ? "bg-gradient-primary text-primary-foreground shadow-glow"
                   : "text-muted-foreground hover:text-foreground"
@@ -341,7 +341,7 @@ const Pricing = () => {
             {twoYearOffered && (
               <button
                 onClick={() => setBillingPeriod("twoYear")}
-                className={`px-6 py-2 rounded-full transition-all relative ${
+                className={`relative px-4 py-2 rounded-full transition-all sm:px-6 ${
                   billingPeriod === "twoYear"
                     ? "bg-gradient-primary text-primary-foreground shadow-glow"
                     : "text-muted-foreground hover:text-foreground"
@@ -572,8 +572,9 @@ const Pricing = () => {
                     planSelection ? (
                     <div className="mb-6 space-y-2">
                       <p className="text-xs text-muted-foreground">
-                        Your current paid period runs to its end. The 2-year
-                        term starts
+                        {isTrialingSubscription
+                          ? "Your free trial continues to its end. The 2-year term starts"
+                          : "Your current paid period runs to its end. The 2-year term starts"}
                         {paidThroughLabel
                           ? ` on ${paidThroughLabel}`
                           : " at your next billing date"}

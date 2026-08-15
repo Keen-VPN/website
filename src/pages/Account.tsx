@@ -968,7 +968,7 @@ const AccountInner = () => {
                       <p className="font-medium">
                         {subscription.plan || "KeenVPN Premium"}
                       </p>
-                      {isTwoYear && (
+                      {isTwoYear && !subscription.scheduledPlanChange && (
                         <p className="text-xs text-muted-foreground">
                           Renews every 2 years
                         </p>

@@ -58,12 +58,9 @@ const TWO_YEAR_BILLING_PERIODS = new Set(["2year", "two_year", "two-year"]);
 export function isTwoYearSubscription(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
-  if (
-    TWO_YEAR_BILLING_PERIODS.has(
-      (subscription?.billingPeriod ?? "").toLowerCase(),
-    )
-  ) {
-    return true;
+  const explicitPeriod = (subscription?.billingPeriod ?? "").toLowerCase();
+  if (explicitPeriod) {
+    return TWO_YEAR_BILLING_PERIODS.has(explicitPeriod);
   }
   const planLabel =
     `${subscription?.planId ?? ""} ${subscription?.plan ?? ""}`.toLowerCase();
@@ -74,9 +71,10 @@ export function isTwoYearSubscription(
 export function resolveSubscriptionBillingPeriod(
   subscription: SubscriptionData | null | undefined,
 ): "month" | "year" | "2year" {
-  if (isTwoYearSubscription(subscription)) return "2year";
+  if (subscription?.billingPeriod === "2year") return "2year";
   if (subscription?.billingPeriod === "year") return "year";
   if (subscription?.billingPeriod === "month") return "month";
+  if (isTwoYearSubscription(subscription)) return "2year";
 
   const planLabel =
     `${subscription?.planId ?? ""} ${subscription?.plan ?? ""}`.toLowerCase();

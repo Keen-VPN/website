@@ -41,7 +41,7 @@ export function isTwoYearApiPlan(plan: ApiPlan): boolean {
   if (["2year", "two_year", "two-year", "2 years"].includes(period)) {
     return true;
   }
-  return plan.interval === "year" && (plan.intervalCount ?? 1) >= 2;
+  return plan.interval === "year" && plan.intervalCount === 2;
 }
 
 export interface PricingPlan {
@@ -78,6 +78,8 @@ export interface PricingPlan {
   twoYearSavingsPercent?: number | null;
   twoYearSavingsLabel?: string | null;
   twoYearPriceId?: string;
+  /** Number of months covered by the initial 2-year charge. */
+  twoYearPaidMonths?: number;
 }
 
 export function resolvePricingPlanSelection(
@@ -259,6 +261,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
           ? `Save ${formatSavingsPercent(twoYearSavingsPercent)}%`
           : null,
       twoYearPriceId: twoYear?.priceId,
+      twoYearPaidMonths: twoYear ? twoYearPaidMonths : undefined,
     });
   });
 
@@ -319,7 +322,7 @@ export function formatTwoYearBillingDetail(plan: PricingPlan): string | null {
   const lead = equivalent
     ? `Only ${equivalent}/month`
     : plan.twoYearPriceDisplay;
-  return `${lead} — ${plan.twoYearPriceDisplay} once for ${TWO_YEAR_PAID_MONTHS} months, then renews every 2 years`;
+  return `${lead} — ${plan.twoYearPriceDisplay} once for ${plan.twoYearPaidMonths ?? TWO_YEAR_PAID_MONTHS} months, then renews every 2 years`;
 }
 
 /** Compare-plans table price row for the 2-year term. */

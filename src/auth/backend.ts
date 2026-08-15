@@ -5,6 +5,7 @@ import type {
 } from "@/lib/vault-fields";
 import {
   BackendAuthResponse,
+  ScheduledPlanChange,
   SubscriptionData,
   TrialData,
   UserEntitlements,
@@ -71,6 +72,14 @@ export interface RawSubscription {
     to?: string;
     effectiveAt?: string;
   } | null;
+  scheduledPlanChange?: {
+    from?: string;
+    to?: string;
+    planId?: string;
+    planName?: string;
+    effectiveAt?: string;
+  } | null;
+  serviceThroughDate?: string | null;
   customerId?: string;
   plan?: string;
   planName?: string;
@@ -127,7 +136,7 @@ function normalizeTrial(
  *   so pages never flicker between labels due to stale non-active subscription data.
  * - Trial data is normalised from snake_case backend fields to camelCase frontend types.
  */
-function normalizeBackendAuthResponse(
+export function normalizeBackendAuthResponse(
   data: RawBackendAuthResponse,
 ): BackendAuthResponse {
   const rawSubscription = data.subscription;
@@ -173,6 +182,7 @@ function normalizeBackendAuthResponse(
   if (
     rawSubscription.billingPeriod === "month" ||
     rawSubscription.billingPeriod === "year" ||
+    rawSubscription.billingPeriod === "2year" ||
     rawSubscription.billingPeriod === null
   ) {
     normalizedSubscription.billingPeriod = rawSubscription.billingPeriod;
@@ -208,6 +218,36 @@ function normalizeBackendAuthResponse(
     }
   } else if (scheduled === null) {
     normalizedSubscription.scheduledBillingInterval = null;
+  }
+  const scheduledPlanChange = rawSubscription.scheduledPlanChange;
+  if (scheduledPlanChange && typeof scheduledPlanChange === "object") {
+    const { from, to, planId, planName, effectiveAt } = scheduledPlanChange;
+    const supportedPeriods = new Set<ScheduledPlanChange["from"]>([
+      "month",
+      "year",
+      "2year",
+    ]);
+    if (
+      supportedPeriods.has(from as ScheduledPlanChange["from"]) &&
+      supportedPeriods.has(to as ScheduledPlanChange["to"]) &&
+      typeof planId === "string" &&
+      typeof planName === "string" &&
+      typeof effectiveAt === "string"
+    ) {
+      normalizedSubscription.scheduledPlanChange = {
+        from: from as ScheduledPlanChange["from"],
+        to: to as ScheduledPlanChange["to"],
+        planId,
+        planName,
+        effectiveAt,
+      };
+    }
+  } else if (scheduledPlanChange === null) {
+    normalizedSubscription.scheduledPlanChange = null;
+  }
+  if (rawSubscription.serviceThroughDate !== undefined) {
+    normalizedSubscription.serviceThroughDate =
+      rawSubscription.serviceThroughDate;
   }
   if (rawSubscription.planId !== undefined) {
     normalizedSubscription.planId = rawSubscription.planId;

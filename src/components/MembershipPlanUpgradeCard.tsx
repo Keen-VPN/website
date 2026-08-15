@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, Users } from "lucide-react";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import type { SubscriptionData } from "@/auth/types";
-import type { ApiPlan } from "@/lib/pricing";
+import { isTwoYearApiPlan, type ApiPlan } from "@/lib/pricing";
 import { useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
 import {
   canUpgradeToBusinessPlan,
@@ -70,13 +70,15 @@ export function MembershipPlanUpgradeCard({
   const annualPlan = useMemo(
     () =>
       plans.find(
-        (plan) => plan.period === "year" || plan.billingPeriod === "year",
+        (plan) =>
+          !isTwoYearApiPlan(plan) &&
+          (plan.period === "year" || plan.billingPeriod === "year"),
       ) ?? null,
     [plans],
   );
   const currentBillingPeriod = resolveSubscriptionBillingPeriod(subscription);
   const selectedPlan =
-    currentBillingPeriod === "year"
+    currentBillingPeriod === "year" || currentBillingPeriod === "2year"
       ? (annualPlan ?? monthlyPlan)
       : (monthlyPlan ?? annualPlan);
   const isAppleBilling = isAppleIapSubscription(subscription);

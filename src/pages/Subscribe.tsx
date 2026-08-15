@@ -91,11 +91,13 @@ const getTierLabel = (tier: string) =>
   PLAN_TIER_OPTIONS.find((option) => option.id === tier)?.label ?? tier;
 
 const sortPlansByBillingPeriod = (plans: ApiPlan[]) => {
+  const getSortPeriod = (plan: ApiPlan) =>
+    isTwoYearApiPlan(plan) ? "2year" : getPlanBillingPeriod(plan);
   const order = { month: 0, year: 1, "2year": 2 };
   return [...plans].sort(
     (a, b) =>
-      (order[getPlanBillingPeriod(a) as keyof typeof order] ?? 99) -
-      (order[getPlanBillingPeriod(b) as keyof typeof order] ?? 99),
+      (order[getSortPeriod(a) as keyof typeof order] ?? 99) -
+      (order[getSortPeriod(b) as keyof typeof order] ?? 99),
   );
 };
 

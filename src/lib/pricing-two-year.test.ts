@@ -67,6 +67,16 @@ describe("isTwoYearApiPlan", () => {
   it("leaves monthly and annual plans untouched", () => {
     expect(isTwoYearApiPlan(monthlyPlan)).toBe(false);
     expect(isTwoYearApiPlan(annualPlan)).toBe(false);
+    expect(
+      isTwoYearApiPlan(
+        apiPlan({
+          period: "year",
+          interval: "year",
+          billingPeriod: "year",
+          intervalCount: 3,
+        }),
+      ),
+    ).toBe(false);
   });
 });
 
@@ -126,7 +136,11 @@ describe("resolvePricingPlanSelection for the 2-year term", () => {
 });
 
 describe("2-year display copy", () => {
-  const [individual] = transformApiPlans([monthlyPlan, annualPlan, twoYearPlan]);
+  const [individual] = transformApiPlans([
+    monthlyPlan,
+    annualPlan,
+    twoYearPlan,
+  ]);
 
   it("shows the effective monthly price and 24-month term", () => {
     expect(twoYearHeroPriceDisplay(individual)).toBe("$2.50");
@@ -135,6 +149,18 @@ describe("2-year display copy", () => {
     );
     expect(formatTwoYearComparisonPrice(individual)).toBe(
       "$2.50 / month, billed every 2 years",
+    );
+  });
+
+  it("uses the paid-month count supplied by the catalog", () => {
+    const [customTerm] = transformApiPlans([
+      monthlyPlan,
+      annualPlan,
+      { ...twoYearPlan, paidMonths: 23 },
+    ]);
+
+    expect(formatTwoYearBillingDetail(customTerm)).toContain(
+      "$60 once for 23 months",
     );
   });
 });

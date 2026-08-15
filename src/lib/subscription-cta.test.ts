@@ -119,6 +119,15 @@ describe("membership plan tier helpers", () => {
     // Annual/monthly stay unchanged: no 2-year false positive on "yearly".
     expect(resolveSubscriptionBillingPeriod(annual)).toBe("year");
     expect(isTwoYearSubscription(annual)).toBe(false);
+    expect(
+      resolveSubscriptionBillingPeriod(
+        stripeSub({
+          billingPeriod: "month",
+          plan: "Legacy Premium 2 Year",
+          planId: "legacy_2year",
+        }),
+      ),
+    ).toBe("month");
 
     expect(canSwitchStripeToTwoYear(annual)).toBe(true);
     expect(
@@ -135,9 +144,9 @@ describe("membership plan tier helpers", () => {
         }),
       ),
     ).toBe(false);
-    expect(canSwitchStripeToTwoYear(stripeSub({ billingPeriod: "month" }))).toBe(
-      true,
-    );
+    expect(
+      canSwitchStripeToTwoYear(stripeSub({ billingPeriod: "month" })),
+    ).toBe(true);
     // Already on the 2-year term, or leaving at period end.
     expect(canSwitchStripeToTwoYear(twoYear)).toBe(false);
     expect(
