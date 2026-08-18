@@ -81,14 +81,11 @@ export function ContactEmailRequiredDialog({
   }, [sessionToken, onCompleted]);
 
   useEffect(() => {
-    if (!open) {
-      loadGenerationRef.current += 1;
-      setStatusReady(false);
-      setStatusLoadError(null);
-      return;
-    }
     void loadStatus();
-  }, [open, loadStatus]);
+    return () => {
+      loadGenerationRef.current += 1;
+    };
+  }, [loadStatus]);
 
   useEffect(() => {
     if (!open || !pendingVerification || !statusReady) return;
