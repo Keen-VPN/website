@@ -25,6 +25,7 @@ import {
   type SignInResult,
   getSignupSourceStatus,
   getContactEmailStatus,
+  isContactEmailRequired,
 } from '@/auth';
 import { SignupSourceDialog } from '@/components/SignupSourceDialog';
 import { ContactEmailRequiredDialog } from '@/components/ContactEmailRequiredDialog';
@@ -593,9 +594,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (cancelled) {
         return;
       }
-      setContactEmailDialogOpen(
-        Boolean(response.success && response.shouldPrompt),
-      );
+      setContactEmailDialogOpen(isContactEmailRequired(response));
       setContactEmailStatusReady(true);
     });
 

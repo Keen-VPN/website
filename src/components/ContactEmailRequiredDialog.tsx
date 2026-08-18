@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import {
   getContactEmailStatus,
+  isContactEmailRequired,
   saveContactEmail,
   sendContactEmailVerification,
 } from "@/auth";
@@ -39,22 +40,30 @@ export function ContactEmailRequiredDialog({
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [statusReady, setStatusReady] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
 
+  const formLocked = !statusReady || loading;
+
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setStatusReady(false);
+      return;
+    }
 
     let cancelled = false;
+    setStatusReady(false);
     void (async () => {
       const status = await getContactEmailStatus(sessionToken);
       if (cancelled) return;
-      if (status.success && status.isVerified && !status.shouldPrompt) {
+      if (status.success && !isContactEmailRequired(status)) {
         onCompleted();
         return;
       }
       setEmail(status.contactEmail ?? "");
       setPendingVerification(Boolean(status.contactEmail && !status.isVerified));
       setError(null);
+      setStatusReady(true);
     })();
 
     return () => {
@@ -65,9 +74,11 @@ export function ContactEmailRequiredDialog({
   useEffect(() => {
     if (!open || !pendingVerification) return;
 
+    let cancelled = false;
     const checkVerified = async () => {
       const status = await getContactEmailStatus(sessionToken);
-      if (status.success && status.isVerified) {
+      if (cancelled) return;
+      if (status.success && !isContactEmailRequired(status)) {
         onCompleted();
       }
     };
@@ -83,6 +94,7 @@ export function ContactEmailRequiredDialog({
     document.addEventListener("visibilitychange", onFocus);
 
     return () => {
+      cancelled = true;
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
@@ -90,6 +102,7 @@ export function ContactEmailRequiredDialog({
   }, [open, pendingVerification, sessionToken, onCompleted]);
 
   async function handleVerify() {
+    if (formLocked) return;
     const normalized = email.trim().toLowerCase();
     if (!isValidContactEmail(normalized)) {
       setError("Enter a valid email address.");
@@ -153,15 +166,16 @@ export function ContactEmailRequiredDialog({
             }}
             placeholder="you@example.com"
             autoComplete="email"
+            disabled={formLocked}
           />
         </div>
         {error ? <p className="text-sm text-red-500">{error}</p> : null}
         <DialogFooter>
-          <Button onClick={() => void handleVerify()} disabled={loading}>
-            {loading ? (
+          <Button onClick={() => void handleVerify()} disabled={formLocked}>
+            {loading || !statusReady ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending...
+                {statusReady ? "Sending..." : "Loading..."}
               </>
             ) : pendingVerification ? (
               "Resend verification"

@@ -1056,6 +1056,12 @@ export interface ContactEmailStatusResponse {
   error?: string;
 }
 
+export function isContactEmailRequired(
+  status: Pick<ContactEmailStatusResponse, "success" | "required">,
+): boolean {
+  return status.success === true && status.required === true;
+}
+
 export async function getContactEmailStatus(
   sessionToken: string,
 ): Promise<ContactEmailStatusResponse> {
@@ -1069,6 +1075,7 @@ export async function getContactEmailStatus(
       return {
         success: false,
         shouldPrompt: false,
+        required: false,
         contactEmail: null,
         isVerified: false,
         error: extractBackendErrorMessage(
@@ -1082,6 +1089,7 @@ export async function getContactEmailStatus(
     return {
       success: false,
       shouldPrompt: false,
+      required: false,
       contactEmail: null,
       isVerified: false,
       error:
