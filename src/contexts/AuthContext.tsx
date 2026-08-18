@@ -601,6 +601,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setHasSessionToken(false);
           setAuthProvider(null);
           setUser(null);
+          setLinkedProviders(null);
           setSubscription(null);
           setTrial(null);
           setEntitlements(null);
