@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -44,33 +44,45 @@ export function ContactEmailRequiredDialog({
   const [statusReady, setStatusReady] = useState(false);
   const [statusLoadError, setStatusLoadError] = useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = useState(false);
+  const loadGenerationRef = useRef(0);
 
   const formLocked = !statusReady || loading || statusLoading;
 
   const loadStatus = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
     setStatusLoading(true);
     setStatusLoadError(null);
     setStatusReady(false);
-    const status = await getContactEmailStatus(sessionToken);
-    setStatusLoading(false);
-    if (!status.success) {
-      setStatusLoadError(
-        status.error || "Could not load contact email status. Please try again.",
+    try {
+      const status = await getContactEmailStatus(sessionToken);
+      if (generation !== loadGenerationRef.current) return;
+      if (!status.success) {
+        setStatusLoadError(
+          status.error ||
+            "Could not load contact email status. Please try again.",
+        );
+        return;
+      }
+      if (!isContactEmailRequired(status)) {
+        onCompleted();
+        return;
+      }
+      setEmail(status.contactEmail ?? "");
+      setPendingVerification(
+        Boolean(status.contactEmail && !status.isVerified),
       );
-      return;
+      setError(null);
+      setStatusReady(true);
+    } finally {
+      if (generation === loadGenerationRef.current) {
+        setStatusLoading(false);
+      }
     }
-    if (!isContactEmailRequired(status)) {
-      onCompleted();
-      return;
-    }
-    setEmail(status.contactEmail ?? "");
-    setPendingVerification(Boolean(status.contactEmail && !status.isVerified));
-    setError(null);
-    setStatusReady(true);
   }, [sessionToken, onCompleted]);
 
   useEffect(() => {
     if (!open) {
+      loadGenerationRef.current += 1;
       setStatusReady(false);
       setStatusLoadError(null);
       return;
@@ -194,14 +206,15 @@ export function ContactEmailRequiredDialog({
             </Button>
           ) : (
             <Button onClick={() => void handleVerify()} disabled={formLocked}>
-              {loading || statusLoading || !statusReady ? (
+              {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {loading
-                    ? "Sending..."
-                    : statusLoading || !statusReady
-                      ? "Loading..."
-                      : "Verify Email"}
+                  Sending...
+                </>
+              ) : statusLoading || !statusReady ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
                 </>
               ) : pendingVerification ? (
                 "Resend verification"
