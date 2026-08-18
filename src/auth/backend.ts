@@ -1050,6 +1050,7 @@ export async function verifyMagicLink(
 export interface ContactEmailStatusResponse {
   success: boolean;
   shouldPrompt: boolean;
+  required?: boolean;
   contactEmail: string | null;
   isVerified: boolean;
   error?: string;
