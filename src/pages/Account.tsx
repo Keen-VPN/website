@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -24,14 +23,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Loader2,
   LogOut,
   Shield,
@@ -50,10 +41,6 @@ import { useToast } from "@/hooks/use-toast";
 import {
   deleteAccount,
   getSessionToken,
-  getContactEmailStatus,
-  saveContactEmail,
-  sendContactEmailVerification,
-  skipContactEmailPrompt,
 } from "@/auth";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -129,13 +116,6 @@ const AccountInner = () => {
     upgradeToBusinessPlan,
   } = useSubscriptionBillingActions();
   const { upgrading, upgradeToAnnual } = useAnnualUpgrade();
-  const [showContactEmailModal, setShowContactEmailModal] = useState(false);
-  const [contactEmail, setContactEmail] = useState("");
-  const [contactEmailLoading, setContactEmailLoading] = useState(false);
-  const [contactEmailError, setContactEmailError] = useState<string | null>(
-    null,
-  );
-  const hasHandledContactEmailPromptRef = useRef(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -499,88 +479,6 @@ const AccountInner = () => {
     }
   };
 
-  useEffect(() => {
-    const run = async () => {
-      if (hasHandledContactEmailPromptRef.current) return;
-      if (showContactEmailModal) return;
-      if (!hasSessionToken) return;
-      const token = getSessionToken();
-      if (!token) return;
-      const result = await getContactEmailStatus(token);
-      if (result.success && result.shouldPrompt) {
-        setContactEmail(result.contactEmail ?? "");
-        setContactEmailError(null);
-        hasHandledContactEmailPromptRef.current = true;
-        setShowContactEmailModal(true);
-        return;
-      }
-      // Avoid repeated status calls in this session once backend says no prompt is needed
-      // (or the request fails), even if auth context dependencies change.
-      hasHandledContactEmailPromptRef.current = true;
-    };
-    void run();
-  }, [hasSessionToken, user?.email, showContactEmailModal]);
-
-  const handleSaveContactEmail = async () => {
-    const token = getSessionToken();
-    if (!token) return;
-    const normalized = contactEmail.trim().toLowerCase();
-    if (!isValidContactEmail(normalized)) {
-      setContactEmailError("Enter a valid email address.");
-      return;
-    }
-    if (isPrivateRelayEmail(normalized)) {
-      setContactEmailError(
-        "Please enter a real contact email (not Apple private relay).",
-      );
-      return;
-    }
-    setContactEmailError(null);
-    setContactEmailLoading(true);
-    const saved = await saveContactEmail(token, normalized);
-    if (!saved.success) {
-      toast({
-        title: "Could not save email",
-        description: saved.error || "Please try again.",
-        variant: "destructive",
-      });
-      setContactEmailLoading(false);
-      return;
-    }
-    const sent = await sendContactEmailVerification(token);
-    if (!sent.success) {
-      toast({
-        title: "Saved, but email was not sent",
-        description: sent.error || "Please try again.",
-        variant: "destructive",
-      });
-      setContactEmailLoading(false);
-      return;
-    }
-    toast({
-      title: "Check your inbox",
-      description: "We sent a verification link to your contact email.",
-    });
-    hasHandledContactEmailPromptRef.current = true;
-    setShowContactEmailModal(false);
-    setContactEmailLoading(false);
-  };
-
-  const isPrivateRelayEmail = (email: string) =>
-    email.endsWith("@privaterelay.appleid.com");
-
-  const isValidContactEmail = (email: string) =>
-    /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email);
-
-  const handleSkipContactEmail = async () => {
-    const token = getSessionToken();
-    if (token) {
-      await skipContactEmailPrompt(token);
-    }
-    hasHandledContactEmailPromptRef.current = true;
-    setShowContactEmailModal(false);
-  };
-
   const formatDate = (dateString: string) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -725,46 +623,6 @@ const AccountInner = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Dialog open={showContactEmailModal} onOpenChange={() => {}}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Stay in the loop</DialogTitle>
-            <DialogDescription>
-              Add your email to receive important updates about your account,
-              subscription, and security.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Input
-              type="email"
-              value={contactEmail}
-              onChange={(e) => {
-                setContactEmail(e.target.value);
-                if (contactEmailError) setContactEmailError(null);
-              }}
-              placeholder="you@example.com"
-            />
-            {contactEmailError ? (
-              <p className="text-sm text-red-500">{contactEmailError}</p>
-            ) : null}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={handleSkipContactEmail}
-              disabled={contactEmailLoading}
-            >
-              Skip for now
-            </Button>
-            <Button
-              onClick={handleSaveContactEmail}
-              disabled={contactEmailLoading}
-            >
-              {contactEmailLoading ? "Saving..." : "Save Email"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       <Header />
       <main className="flex-1 py-20 bg-gradient-hero">
         <div className="container mx-auto px-4 max-w-4xl">

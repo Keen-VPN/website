@@ -26,6 +26,7 @@ export {
   requestMagicLink,
   verifyMagicLink,
   getContactEmailStatus,
+  isContactEmailRequired,
   saveContactEmail,
   skipContactEmailPrompt,
   getEmailPreferences,
