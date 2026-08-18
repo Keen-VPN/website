@@ -594,7 +594,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (cancelled) {
         return;
       }
-      setContactEmailDialogOpen(isContactEmailRequired(response));
+      setContactEmailDialogOpen(!response.success || isContactEmailRequired(response));
       setContactEmailStatusReady(true);
     });
 
