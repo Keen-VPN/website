@@ -24,8 +24,11 @@ import {
   type UserEntitlements,
   type SignInResult,
   getSignupSourceStatus,
+  getContactEmailStatus,
+  isContactEmailRequired,
 } from '@/auth';
 import { SignupSourceDialog } from '@/components/SignupSourceDialog';
+import { ContactEmailRequiredDialog } from '@/components/ContactEmailRequiredDialog';
 import {
   consumePendingMembershipTransfer,
   consumePendingMembershipTransferReturnUrl,
@@ -112,6 +115,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const backendAuthInProgressRef = useRef(false);
   const signupSourceCheckedRef = useRef(false);
   const [signupSourceDialogOpen, setSignupSourceDialogOpen] = useState(false);
+  const [contactEmailDialogOpen, setContactEmailDialogOpen] = useState(false);
+  const [contactEmailStatusReady, setContactEmailStatusReady] = useState(false);
   const { toast, dismiss: dismissToast } = useToast();
 
   // Check if user came from ASWebAuthenticationSession (macOS desktop app)
@@ -572,7 +577,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
+    if (!hasSessionToken) {
+      setContactEmailStatusReady(false);
+      setContactEmailDialogOpen(false);
+      signupSourceCheckedRef.current = false;
+      return;
+    }
+
+    const token = getSessionToken();
+    if (!token) {
+      return;
+    }
+
+    let cancelled = false;
+    void getContactEmailStatus(token).then((response) => {
+      if (cancelled) {
+        return;
+      }
+      setContactEmailDialogOpen(isContactEmailRequired(response));
+      setContactEmailStatusReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasSessionToken]);
+
+  useEffect(() => {
     if (!hasSessionToken || signupSourceCheckedRef.current) {
+      return;
+    }
+    if (!contactEmailStatusReady || contactEmailDialogOpen) {
       return;
     }
 
@@ -596,7 +631,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       cancelled = true;
     };
-  }, [hasSessionToken]);
+  }, [hasSessionToken, contactEmailStatusReady, contactEmailDialogOpen]);
 
   // ============================================================================
   // Sign In
@@ -974,20 +1009,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshLinkedProviders,
   }), [user, subscription, trial, entitlements, entitlementsStatus, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, refreshLinkedProviders]);
 
-  const sessionTokenForSignupSource = React.useMemo(() => {
-    if (!hasSessionToken || !signupSourceDialogOpen) {
+  const sessionTokenForDialogs = React.useMemo(() => {
+    if (
+      !hasSessionToken ||
+      (!signupSourceDialogOpen && !contactEmailDialogOpen)
+    ) {
       return null;
     }
     return getSessionToken();
-  }, [hasSessionToken, signupSourceDialogOpen]);
+  }, [hasSessionToken, signupSourceDialogOpen, contactEmailDialogOpen]);
+
+  const handleContactEmailCompleted = React.useCallback(() => {
+    setContactEmailDialogOpen(false);
+  }, []);
 
   return (
     <AuthContext.Provider value={value}>
       {children}
-      {signupSourceDialogOpen && sessionTokenForSignupSource ? (
+      {contactEmailDialogOpen && sessionTokenForDialogs ? (
+        <ContactEmailRequiredDialog
+          open={contactEmailDialogOpen}
+          sessionToken={sessionTokenForDialogs}
+          onCompleted={handleContactEmailCompleted}
+        />
+      ) : null}
+      {signupSourceDialogOpen && sessionTokenForDialogs && !contactEmailDialogOpen ? (
         <SignupSourceDialog
           open={signupSourceDialogOpen}
-          sessionToken={sessionTokenForSignupSource}
+          sessionToken={sessionTokenForDialogs}
           onCompleted={() => setSignupSourceDialogOpen(false)}
         />
       ) : null}

@@ -81,6 +81,7 @@ export interface BackendAuthResponse {
     contactEmail?: string | null;
     contactEmailVerified?: boolean;
     shouldPromptContactEmail?: boolean;
+    contactEmailRequired?: boolean;
     createdUser?: boolean;
     shouldPromptSignupSource?: boolean;
   };
