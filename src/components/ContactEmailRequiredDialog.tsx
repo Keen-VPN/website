@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -40,39 +40,46 @@ export function ContactEmailRequiredDialog({
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
   const [statusReady, setStatusReady] = useState(false);
+  const [statusLoadError, setStatusLoadError] = useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = useState(false);
 
-  const formLocked = !statusReady || loading;
+  const formLocked = !statusReady || loading || statusLoading;
+
+  const loadStatus = useCallback(async () => {
+    setStatusLoading(true);
+    setStatusLoadError(null);
+    setStatusReady(false);
+    const status = await getContactEmailStatus(sessionToken);
+    setStatusLoading(false);
+    if (!status.success) {
+      setStatusLoadError(
+        status.error || "Could not load contact email status. Please try again.",
+      );
+      return;
+    }
+    if (!isContactEmailRequired(status)) {
+      onCompleted();
+      return;
+    }
+    setEmail(status.contactEmail ?? "");
+    setPendingVerification(Boolean(status.contactEmail && !status.isVerified));
+    setError(null);
+    setStatusReady(true);
+  }, [sessionToken, onCompleted]);
 
   useEffect(() => {
     if (!open) {
       setStatusReady(false);
+      setStatusLoadError(null);
       return;
     }
-
-    let cancelled = false;
-    setStatusReady(false);
-    void (async () => {
-      const status = await getContactEmailStatus(sessionToken);
-      if (cancelled) return;
-      if (status.success && !isContactEmailRequired(status)) {
-        onCompleted();
-        return;
-      }
-      setEmail(status.contactEmail ?? "");
-      setPendingVerification(Boolean(status.contactEmail && !status.isVerified));
-      setError(null);
-      setStatusReady(true);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, sessionToken, onCompleted]);
+    void loadStatus();
+  }, [open, loadStatus]);
 
   useEffect(() => {
-    if (!open || !pendingVerification) return;
+    if (!open || !pendingVerification || !statusReady) return;
 
     let cancelled = false;
     const checkVerified = async () => {
@@ -99,7 +106,7 @@ export function ContactEmailRequiredDialog({
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [open, pendingVerification, sessionToken, onCompleted]);
+  }, [open, pendingVerification, statusReady, sessionToken, onCompleted]);
 
   async function handleVerify() {
     if (formLocked) return;
@@ -147,6 +154,9 @@ export function ContactEmailRequiredDialog({
             account and subscription updates.
           </DialogDescription>
         </DialogHeader>
+        {statusLoadError ? (
+          <p className="text-sm text-red-500">{statusLoadError}</p>
+        ) : null}
         {pendingVerification ? (
           <p className="text-sm text-muted-foreground">
             We sent a verification link to <strong>{email}</strong>. Open that
@@ -171,18 +181,35 @@ export function ContactEmailRequiredDialog({
         </div>
         {error ? <p className="text-sm text-red-500">{error}</p> : null}
         <DialogFooter>
-          <Button onClick={() => void handleVerify()} disabled={formLocked}>
-            {loading || !statusReady ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {statusReady ? "Sending..." : "Loading..."}
-              </>
-            ) : pendingVerification ? (
-              "Resend verification"
-            ) : (
-              "Verify Email"
-            )}
-          </Button>
+          {statusLoadError ? (
+            <Button onClick={() => void loadStatus()} disabled={statusLoading}>
+              {statusLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Retrying...
+                </>
+              ) : (
+                "Retry"
+              )}
+            </Button>
+          ) : (
+            <Button onClick={() => void handleVerify()} disabled={formLocked}>
+              {loading || statusLoading || !statusReady ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {loading
+                    ? "Sending..."
+                    : statusLoading || !statusReady
+                      ? "Loading..."
+                      : "Verify Email"}
+                </>
+              ) : pendingVerification ? (
+                "Resend verification"
+              ) : (
+                "Verify Email"
+              )}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
