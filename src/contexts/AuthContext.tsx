@@ -599,6 +599,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           clearSessionToken();
           setHasSessionToken(false);
           setAuthProvider(null);
+          setUser(null);
+          setSubscription(null);
+          setTrial(null);
+          setEntitlements(null);
+          setEntitlementsStatus("idle");
 
           void import('@/auth')
             .then(({ signOut }) => signOut())
