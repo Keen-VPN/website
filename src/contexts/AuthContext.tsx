@@ -594,7 +594,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (cancelled) {
         return;
       }
-      setContactEmailDialogOpen(!response.success || isContactEmailRequired(response));
+      if (response.unauthorized) {
+        if (getSessionToken() === token) {
+          clearSessionToken();
+          setHasSessionToken(false);
+          setAuthProvider(null);
+
+          void import('@/auth')
+            .then(({ signOut }) => signOut())
+            .catch(() => {
+              // Ignore errors when clearing persistence for an invalid session.
+            });
+        }
+        return;
+      }
+      setContactEmailDialogOpen(
+        !response.success || isContactEmailRequired(response),
+      );
       setContactEmailStatusReady(true);
     });
 

@@ -1054,6 +1054,7 @@ export interface ContactEmailStatusResponse {
   contactEmail: string | null;
   isVerified: boolean;
   error?: string;
+  unauthorized?: boolean;
 }
 
 export function isContactEmailRequired(
@@ -1078,6 +1079,7 @@ export async function getContactEmailStatus(
         required: false,
         contactEmail: null,
         isVerified: false,
+        unauthorized: response.status === 401,
         error: extractBackendErrorMessage(
           data,
           "Failed to fetch contact email status",
@@ -1092,6 +1094,7 @@ export async function getContactEmailStatus(
       required: false,
       contactEmail: null,
       isVerified: false,
+      unauthorized: false,
       error:
         error instanceof Error
           ? error.message
