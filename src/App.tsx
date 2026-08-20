@@ -175,7 +175,7 @@ const App = () => (
               <Route path="/delete-account" element={<DeleteAccount />} />
               <Route
                 path="/my-ip-address"
-                element={<MarketingSiteRedirect path="/#network-status-banner" />}
+                element={<MarketingSiteRedirect path="/my-ip-address" />}
               />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/signin/magic" element={<MagicLinkRequest />} />
