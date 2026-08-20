@@ -1,37 +1,8 @@
 import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
 import { marketingSiteUrl } from "@/lib/site-urls";
-
-const destinations = [
-  {
-    label: "Plans",
-    title: "Pricing",
-    description: "Compare plans and start a free trial.",
-    href: marketingSiteUrl("/pricing.html"),
-    external: true,
-  },
-  {
-    label: "Account",
-    title: "Sign in",
-    description: "Open your KeenVPN account.",
-    href: "/signin",
-    external: false,
-  },
-  {
-    label: "Coverage",
-    title: "Server locations",
-    description: "Browse countries and cities worldwide.",
-    href: marketingSiteUrl("/server-locations/"),
-    external: true,
-  },
-  {
-    label: "Check",
-    title: "My IP address",
-    description: "See what the internet is seeing right now.",
-    href: marketingSiteUrl("/my-ip-address"),
-    external: true,
-  },
-] as const;
+// Keep destination copy/layout in sync with public/404.html
+import { NOT_FOUND_DESTINATIONS } from "@/lib/not-found-content";
 
 const NotFound = () => {
   const location = useLocation();
@@ -98,41 +69,46 @@ const NotFound = () => {
           </div>
         </div>
 
-        <section
-          aria-label="Popular destinations"
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          {destinations.map((item) => {
-            const className =
-              "flex min-h-[180px] flex-col gap-2.5 rounded-[18px] border border-border bg-card p-6 transition-transform hover:-translate-y-0.5 hover:border-primary/40";
-            const content = (
-              <>
-                <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                  {item.label}
-                </span>
-                <strong className="text-xl font-semibold leading-snug">
-                  {item.title}
-                </strong>
-                <p className="mt-auto text-sm leading-relaxed text-muted-foreground">
-                  {item.description}
-                </p>
-              </>
-            );
-
-            if (item.external) {
-              return (
-                <a key={item.title} href={item.href} className={className}>
-                  {content}
-                </a>
+        <section aria-labelledby="not-found-destinations-heading">
+          <h2
+            id="not-found-destinations-heading"
+            className="mb-4 text-sm font-semibold uppercase tracking-[0.06em] text-muted-foreground"
+          >
+            Popular destinations
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {NOT_FOUND_DESTINATIONS.map((item) => {
+              const className =
+                "flex min-h-[180px] flex-col gap-2.5 rounded-[18px] border border-border bg-card p-6 transition-transform hover:-translate-y-0.5 hover:border-primary/40";
+              const content = (
+                <>
+                  <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                    {item.label}
+                  </span>
+                  <h3 className="text-xl font-semibold leading-snug">
+                    {item.title}
+                  </h3>
+                  <p className="mt-auto text-sm leading-relaxed text-muted-foreground">
+                    {item.description}
+                  </p>
+                </>
               );
-            }
 
-            return (
-              <Link key={item.title} to={item.href} className={className}>
-                {content}
-              </Link>
-            );
-          })}
+              if (item.external) {
+                return (
+                  <a key={item.title} href={item.href} className={className}>
+                    {content}
+                  </a>
+                );
+              }
+
+              return (
+                <Link key={item.title} to={item.href} className={className}>
+                  {content}
+                </Link>
+              );
+            })}
+          </div>
         </section>
       </main>
 

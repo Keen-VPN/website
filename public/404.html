@@ -12,6 +12,15 @@
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <!--
+      Keep destination copy/layout in sync with src/pages/NotFound.tsx
+      and src/lib/not-found-content.ts.
+
+      Marketing links are intentionally pinned to production (https://vpnkeen.com).
+      This static file is served by Netlify outside the Vite env pipeline, so it
+      cannot read VITE_MARKETING_SITE_URL. Preview/staging SPA 404s use
+      marketingSiteUrl() in NotFound.tsx instead.
+    -->
     <style>
       :root {
         --bg: #0f2040;
@@ -119,6 +128,14 @@
         background: var(--card);
         border: 1px solid var(--border);
       }
+      .destinations-heading {
+        margin: 0 0 16px;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
       .cards {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -141,8 +158,10 @@
         text-transform: uppercase;
         color: var(--muted);
       }
-      .card strong {
+      .card h3 {
+        margin: 0;
         font-size: 20px;
+        font-weight: 600;
         line-height: 1.3;
       }
       .card p {
@@ -207,27 +226,32 @@
           <a class="button button-secondary" href="/signin">Sign in</a>
         </div>
       </div>
-      <section class="cards" aria-label="Popular destinations">
-        <a class="card" href="https://vpnkeen.com/pricing.html">
-          <span>Plans</span>
-          <strong>Pricing</strong>
-          <p>Compare plans and start a free trial.</p>
-        </a>
-        <a class="card" href="/signin">
-          <span>Account</span>
-          <strong>Sign in</strong>
-          <p>Open your KeenVPN account.</p>
-        </a>
-        <a class="card" href="https://vpnkeen.com/server-locations/">
-          <span>Coverage</span>
-          <strong>Server locations</strong>
-          <p>Browse countries and cities worldwide.</p>
-        </a>
-        <a class="card" href="https://vpnkeen.com/my-ip-address">
-          <span>Check</span>
-          <strong>My IP address</strong>
-          <p>See what the internet is seeing right now.</p>
-        </a>
+      <section aria-labelledby="not-found-destinations-heading">
+        <h2 id="not-found-destinations-heading" class="destinations-heading">
+          Popular destinations
+        </h2>
+        <div class="cards">
+          <a class="card" href="https://vpnkeen.com/pricing.html">
+            <span>Plans</span>
+            <h3>Pricing</h3>
+            <p>Compare plans and start a free trial.</p>
+          </a>
+          <a class="card" href="/signin">
+            <span>Account</span>
+            <h3>Sign in</h3>
+            <p>Open your KeenVPN account.</p>
+          </a>
+          <a class="card" href="https://vpnkeen.com/server-locations/">
+            <span>Coverage</span>
+            <h3>Server locations</h3>
+            <p>Browse countries and cities worldwide.</p>
+          </a>
+          <a class="card" href="https://vpnkeen.com/my-ip-address">
+            <span>Check</span>
+            <h3>My IP address</h3>
+            <p>See what the internet is seeing right now.</p>
+          </a>
+        </div>
       </section>
     </main>
     <footer>
