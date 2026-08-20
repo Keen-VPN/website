@@ -1,9 +1,6 @@
 import { marketingSiteUrl } from "@/lib/site-urls";
 
-/**
- * Shared 404 destination copy for the SPA NotFound page.
- * Keep in sync with public/404.html (static Netlify fallback).
- */
+/** Destination cards for the SPA NotFound page (Netlify SPA rewrite → index.html). */
 export const NOT_FOUND_DESTINATIONS = [
   {
     label: "Plans",

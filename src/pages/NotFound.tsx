@@ -1,7 +1,6 @@
 import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
 import { marketingSiteUrl } from "@/lib/site-urls";
-// Keep destination copy/layout in sync with public/404.html
 import { NOT_FOUND_DESTINATIONS } from "@/lib/not-found-content";
 
 const NotFound = () => {
