@@ -193,7 +193,7 @@ function CategoryQuestions({
 function SupportFooter() {
   return (
     <footer className="border-t border-[#e5e0d6] py-8 sm:py-9">
-      <div className="grid gap-8 px-6 sm:grid-cols-3 sm:gap-10 sm:px-10 lg:px-12">
+      <div className="grid gap-8 px-6 sm:grid-cols-2 sm:gap-10 sm:px-10 lg:px-12">
         <div>
           <a
             href={marketingSiteUrl()}
