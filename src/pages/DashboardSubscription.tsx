@@ -27,6 +27,7 @@ import {
   type SubscriptionEvent,
   formatCurrency,
   formatEventDate,
+  getStatusInfo,
 } from '@/lib/subscription-history-api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SubscriptionCancellationControls } from '@/components/SubscriptionCancellationControls';
@@ -149,24 +150,6 @@ function planChangeCtaLabel(
   if (targetPeriod === '2year') return `${verb} 2-year`;
   if (targetPeriod === 'year') return `${verb} 1-year`;
   return `${verb} monthly`;
-}
-
-function billingStatusBadge(status: SubscriptionEvent['status']): {
-  label: string;
-  className: string;
-} {
-  switch (status) {
-    case 'active':
-      return { label: 'Active', className: 'bg-[#e6f9f0] text-[#1a9e5a]' };
-    case 'trialing':
-      return { label: 'Trialing', className: 'bg-[#eef3ff] text-[#3b6ae8]' };
-    case 'expired':
-      return { label: 'Expired', className: 'bg-[#f0f3f8] text-[#627086]' };
-    case 'cancelled':
-      return { label: 'Cancelled', className: 'bg-[#fff0f0] text-[#d14343]' };
-    default:
-      return { label: status, className: 'bg-[#f0f3f8] text-[#627086]' };
-  }
 }
 
 function formatDate(dateString?: string | null) {
@@ -956,7 +939,7 @@ function BillingHistoryTab() {
               </tr>
             ) : (
               events.map((event) => {
-                const status = billingStatusBadge(event.status);
+                const status = getStatusInfo(event.status, 'dashboard');
                 const canOpenReceipt =
                   event.eventType !== 'cancellation' &&
                   event.eventType !== 'trial_start' &&

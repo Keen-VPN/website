@@ -624,37 +624,45 @@ export function getEventTypeLabel(
 }
 
 /**
- * Get status display information
+ * Get status display information.
+ * `dashboard` uses soft hex badges that match the account dashboard chrome.
  */
-export function getStatusInfo(status: SubscriptionEvent["status"]): {
+export function getStatusInfo(
+  status: SubscriptionEvent["status"],
+  variant: "default" | "dashboard" = "default",
+): {
   label: string;
   className: string;
 } {
-  const statusMap: Record<
-    SubscriptionEvent["status"],
-    { label: string; className: string }
-  > = {
-    active: {
-      label: "Active",
-      className: "bg-green-500 text-white",
-    },
-    cancelled: {
-      label: "Cancelled",
-      className: "bg-red-500 text-white",
-    },
-    expired: {
-      label: "Expired",
-      className: "bg-gray-500 text-white",
-    },
-    trialing: {
-      label: "Trialing",
-      className: "bg-blue-500 text-white",
-    },
+  const labels: Record<SubscriptionEvent["status"], string> = {
+    active: "Active",
+    cancelled: "Cancelled",
+    expired: "Expired",
+    trialing: "Trialing",
   };
 
-  return (
-    statusMap[status] || { label: status, className: "bg-gray-500 text-white" }
-  );
+  const defaultClasses: Record<SubscriptionEvent["status"], string> = {
+    active: "bg-green-500 text-white",
+    cancelled: "bg-red-500 text-white",
+    expired: "bg-gray-500 text-white",
+    trialing: "bg-blue-500 text-white",
+  };
+
+  const dashboardClasses: Record<SubscriptionEvent["status"], string> = {
+    active: "bg-[#e6f9f0] text-[#1a9e5a]",
+    cancelled: "bg-[#fff0f0] text-[#d14343]",
+    expired: "bg-[#f0f3f8] text-[#627086]",
+    trialing: "bg-[#eef3ff] text-[#3b6ae8]",
+  };
+
+  const label = labels[status] || status;
+  const className =
+    (variant === "dashboard" ? dashboardClasses : defaultClasses)[status] ||
+    (variant === "dashboard"
+      ? "bg-[#f0f3f8] text-[#627086]"
+      : "bg-gray-500 text-white");
+
+  return { label, className };
 }
 
 /**
