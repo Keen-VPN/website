@@ -95,7 +95,7 @@ const SignIn = () => {
     if (redirectUrl) {
       return redirectUrl;
     }
-    return "/account";
+    return "/dashboard";
   }, []);
 
   // Redirect logic for logged-in users
@@ -128,7 +128,9 @@ const SignIn = () => {
         const redirectUrl = consumePostLoginRedirect();
         if (redirectUrl) {
           window.location.href = redirectUrl;
+          return;
         }
+        window.location.href = "/dashboard";
       }
     }
   }, [user, authLoading, subscription, hasSessionToken]);
