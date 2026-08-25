@@ -16,6 +16,7 @@ interface MembershipPlanUpgradeCardProps {
   sessionToken?: string | null;
   upgrading?: boolean;
   onUpgradePlan: (planId: string, seatCount: number) => void | Promise<void>;
+  variant?: "default" | "dashboard";
 }
 
 export function MembershipPlanUpgradeCard({
@@ -23,6 +24,7 @@ export function MembershipPlanUpgradeCard({
   sessionToken = null,
   upgrading = false,
   onUpgradePlan,
+  variant = "default",
 }: MembershipPlanUpgradeCardProps) {
   const [plans, setPlans] = useState<ApiPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
@@ -111,15 +113,41 @@ export function MembershipPlanUpgradeCard({
       ? "year"
       : "month";
 
+  const isDashboard = variant === "dashboard";
+
   return (
-    <div className="space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-4">
+    <div
+      className={
+        isDashboard
+          ? "space-y-3 rounded-[15px] border border-[#e3e8f0] bg-white p-5 shadow-[0px_3px_4px_rgba(15,32,64,0.03)] sm:p-6"
+          : "space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-4"
+      }
+    >
       <div className="flex items-start gap-3">
-        <Users className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <Users
+          className={
+            isDashboard
+              ? "mt-0.5 h-5 w-5 shrink-0 text-[#0f2040]"
+              : "mt-0.5 h-5 w-5 shrink-0 text-primary"
+          }
+        />
         <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">
+          <p
+            className={
+              isDashboard
+                ? "text-[15px] font-semibold text-[#0f2040]"
+                : "text-sm font-medium text-foreground"
+            }
+          >
             Share KeenVPN with your team
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p
+            className={
+              isDashboard
+                ? "text-[13px] text-[#627086]"
+                : "text-xs text-muted-foreground"
+            }
+          >
             {isAppleBilling
               ? "Enable Business now and move future billing to Stripe. Your existing Apple paid time is used first."
               : "Enable Business without an upgrade charge. Your current billing period and renewal date stay the same."}
@@ -127,9 +155,21 @@ export function MembershipPlanUpgradeCard({
         </div>
       </div>
 
-      <div className="space-y-3 rounded-md border border-border/80 bg-background/80 p-3">
+      <div
+        className={
+          isDashboard
+            ? "space-y-3 rounded-[10px] border border-[#e3e8f0] bg-[#fafbfd] p-3"
+            : "space-y-3 rounded-md border border-border/80 bg-background/80 p-3"
+        }
+      >
         {plansLoading || !selectedPlan ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div
+            className={
+              isDashboard
+                ? "flex items-center gap-2 text-[13px] text-[#627086]"
+                : "flex items-center gap-2 text-sm text-muted-foreground"
+            }
+          >
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading Business plan…
           </div>
@@ -137,18 +177,44 @@ export function MembershipPlanUpgradeCard({
           <>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-medium">Business</p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p
+                  className={
+                    isDashboard
+                      ? "text-[14px] font-semibold text-[#0f2040]"
+                      : "text-sm font-medium"
+                  }
+                >
+                  Business
+                </p>
+                <p
+                  className={
+                    isDashboard
+                      ? "mt-1 text-[12px] text-[#627086]"
+                      : "mt-1 text-xs text-muted-foreground"
+                  }
+                >
                   Pay per active member · 5 connected devices per seat
                 </p>
               </div>
-              <span className="text-xs capitalize text-muted-foreground">
+              <span
+                className={
+                  isDashboard
+                    ? "text-[12px] capitalize text-[#627086]"
+                    : "text-xs capitalize text-muted-foreground"
+                }
+              >
                 {pricePeriod}ly billing
               </span>
             </div>
 
             {unitPrice !== null ? (
-              <p className="text-xs text-muted-foreground">
+              <p
+                className={
+                  isDashboard
+                    ? "text-[12px] text-[#627086]"
+                    : "text-xs text-muted-foreground"
+                }
+              >
                 Your upgrade costs $0 today. Business is billed per active
                 member at the per-seat rate (
                 {pricePeriod === "year"
@@ -165,7 +231,13 @@ export function MembershipPlanUpgradeCard({
       </div>
 
       {isAppleBilling ? (
-        <p className="text-xs text-muted-foreground">
+        <p
+          className={
+            isDashboard
+              ? "text-[12px] text-[#627086]"
+              : "text-xs text-muted-foreground"
+          }
+        >
           Stripe will collect your payment method but will not bill it until
           your current Apple paid period ends. Turn off App Store auto-renewal
           to avoid future duplicate billing.
@@ -174,7 +246,11 @@ export function MembershipPlanUpgradeCard({
 
       <Button
         type="button"
-        className="w-full"
+        className={
+          isDashboard
+            ? "h-10 w-full rounded-[8px] bg-[#0f2040] text-[14px] font-semibold text-white hover:bg-[#0f2040]/90"
+            : "w-full"
+        }
         onClick={() =>
           selectedPlan ? void onUpgradePlan(selectedPlan.id, 1) : undefined
         }

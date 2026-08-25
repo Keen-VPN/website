@@ -136,10 +136,11 @@ function normalizeTrial(
  *
  * Key behaviour:
  * - Subscription fields are renamed/coerced (e.g. `currentPeriodEnd` → `endDate`).
- * - Only subscriptions with an actionable status (`active`, `trialing`, `past_due`)
- *   are surfaced; all others are coerced to `null`. This keeps CTA label logic
- *   consistent across every auth path (sign-in, session verify, and status refresh)
- *   so pages never flicker between labels due to stale non-active subscription data.
+ * - Actionable statuses (`active`, `trialing`, `past_due`) are always surfaced.
+ * - Ended statuses (`canceled` / `cancelled` / `expired`) are also kept so renew /
+ *   expired UI can render; other non-actionable statuses stay `null`.
+ * - Callers that need “has an active subscription” must still check active
+ *   statuses (see `fetchSubscriptionStatusWithSession`), not mere presence.
  * - Trial data is normalised from snake_case backend fields to camelCase frontend types.
  */
 export function normalizeBackendAuthResponse(
@@ -2192,7 +2193,10 @@ export async function fetchSubscriptionStatusWithSession(
 
     return {
       success: normalized.success,
-      hasActiveSubscription: Boolean(normalized.subscription),
+      hasActiveSubscription: Boolean(
+        normalized.subscription &&
+          activeSubscriptionStatuses.has(normalized.subscription.status),
+      ),
       entitlements,
       subscription: normalized.subscription ?? null,
       trial: normalized.trial ?? null,

@@ -10,6 +10,7 @@ import {
 import { serverLocationStats } from "@/constants/server-locations";
 import { MembershipSharingProvider } from "@/contexts/MembershipSharingContext";
 import { MembershipTeamPanel } from "@/components/MembershipTeamPanel";
+import { ReceivedMembershipInviteBanner } from "@/components/ReceivedMembershipInviteBanner";
 import { hasManageableSubscription, isEndedSubscription } from "@/lib/subscription-cta";
 import { DashboardHomeLayout } from "@/components/dashboard/DashboardHomeShared";
 
@@ -308,6 +309,14 @@ export default function DashboardHome() {
 
   const content = (
     <>
+      {sessionToken ? (
+        <div className="px-4 pt-4 sm:px-6 sm:pt-6 lg:px-7 lg:pt-7">
+          <ReceivedMembershipInviteBanner
+            sessionToken={sessionToken}
+            variant="dashboard"
+          />
+        </div>
+      ) : null}
       {resolvedState === "subscribed" && <SubscribedHome />}
       {resolvedState === "new" && <NewUserHome />}
       {resolvedState === "expired" && <ExpiredHome />}

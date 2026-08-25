@@ -32,8 +32,16 @@ import {
 } from '@/lib/subscription-history-api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SubscriptionCancellationControls } from '@/components/SubscriptionCancellationControls';
+import { SubscriptionEventDetail } from '@/components/SubscriptionEventDetail';
+import { MembershipPlanUpgradeCard } from '@/components/MembershipPlanUpgradeCard';
 import {
+  MembershipSharingProvider,
+  useMembershipSharingContext,
+} from '@/contexts/MembershipSharingContext';
+import {
+  canUpgradeToBusinessPlan,
   hasManageableSubscription,
+  isAppleIapSubscription,
   isStripeSubscription,
   resolveMembershipPlanTier,
   resolveSubscriptionBillingPeriod,
@@ -167,14 +175,17 @@ function monthlyEquivalent(plan: ApiPlan) {
 }
 
 function CurrentPlanTab() {
-  const { subscription, user, loading } = useAuth();
+  const { subscription, user, loading, hasSessionToken } = useAuth();
   const navigate = useNavigate();
   const {
     openBillingPortal,
     portalLoading,
     cancelling,
     cancelSubscriptionAtPeriodEnd,
+    upgradeToBusinessPlan,
+    businessUpgradeLoading,
   } = useSubscriptionBillingActions();
+  const sessionToken = hasSessionToken ? getSessionToken() : null;
 
   if (loading) {
     return <Skeleton className="h-56 w-full rounded-[15px]" />;
@@ -234,6 +245,7 @@ function CurrentPlanTab() {
     !subscription.cancelAtPeriodEnd;
 
   return (
+    <>
     <section className="overflow-hidden rounded-[15px] border border-[#e3e8f0] bg-white shadow-[0px_12px_30px_rgba(15,32,64,0.06)]">
       <div className="flex min-h-[96px] items-center justify-between border-b border-[#e3e8f0] px-6 py-5 md:px-9">
         <h2 className="text-[22px] font-bold tracking-[-0.4px] text-[#0f2040]">
@@ -360,6 +372,19 @@ function CurrentPlanTab() {
         </div>
       </div>
     </section>
+
+    {subscription ? (
+      <div className="mt-5">
+        <MembershipPlanUpgradeCard
+          subscription={subscription}
+          sessionToken={sessionToken}
+          upgrading={businessUpgradeLoading}
+          onUpgradePlan={upgradeToBusinessPlan}
+          variant="dashboard"
+        />
+      </div>
+    ) : null}
+    </>
   );
 }
 
@@ -375,11 +400,26 @@ function PlansTab() {
   const { toast } = useToast();
   const { logout, subscription } = useAuth();
   const navigate = useNavigate();
-  const { openBillingPortal, openPlanChangePortal, portalLoading } =
-    useSubscriptionBillingActions();
+  const {
+    openBillingPortal,
+    openPlanChangePortal,
+    portalLoading,
+    upgradeToBusinessPlan,
+    businessUpgradeLoading,
+  } = useSubscriptionBillingActions();
+  const { dashboard: membershipDashboard, loading: membershipLoading } =
+    useMembershipSharingContext();
   const isManageable = hasManageableSubscription(subscription);
   const canOpenStripePortal =
     isStripeSubscription(subscription) && Boolean(subscription?.canManageBilling);
+  const membershipBlocksBusinessUpgrade =
+    membershipLoading ||
+    membershipDashboard?.role === 'transfer_pending' ||
+    Boolean(membershipDashboard?.pendingTransfer);
+  const canFreeBusinessUpgrade =
+    Boolean(subscription) &&
+    canUpgradeToBusinessPlan(subscription) &&
+    !membershipBlocksBusinessUpgrade;
 
   useEffect(() => {
     let cancelled = false;
@@ -586,7 +626,13 @@ function PlansTab() {
           const isCurrentPlan = isCurrentCatalogPlan(plan, subscription);
 
           if (isManageable && !isCurrentPlan && subscription) {
-            cta = planChangeCtaLabel(plan, subscription);
+            if (isBusiness && canFreeBusinessUpgrade) {
+              cta = isAppleIapSubscription(subscription)
+                ? 'Set up future Business billing'
+                : 'Enable Business for free';
+            } else {
+              cta = planChangeCtaLabel(plan, subscription);
+            }
           }
 
           return (
@@ -669,6 +715,16 @@ function PlansTab() {
                     navigate('/subscription');
                     return;
                   }
+                  // Match Account/Pricing: eligible Individual → Business is a
+                  // $0 in-place upgrade (or Apple checkout handoff), not portal.
+                  if (
+                    isBusiness &&
+                    canFreeBusinessUpgrade &&
+                    subscription
+                  ) {
+                    void upgradeToBusinessPlan(plan.id, 1);
+                    return;
+                  }
                   if (isManageable && canOpenStripePortal) {
                     void openPlanChangePortal();
                     return;
@@ -688,10 +744,12 @@ function PlansTab() {
                 }}
                 disabled={
                   checkoutLoadingId === plan.id ||
+                  businessUpgradeLoading ||
                   (isCurrentPlan && canOpenStripePortal && portalLoading) ||
                   (!isCurrentPlan &&
                     isManageable &&
                     canOpenStripePortal &&
+                    !canFreeBusinessUpgrade &&
                     portalLoading)
                 }
                 className={[
@@ -702,7 +760,11 @@ function PlansTab() {
                 ].join(' ')}
               >
                 {checkoutLoadingId === plan.id ||
-                ((isCurrentPlan || (isManageable && !isCurrentPlan)) &&
+                businessUpgradeLoading ||
+                ((isCurrentPlan ||
+                  (isManageable &&
+                    !isCurrentPlan &&
+                    !(isBusiness && canFreeBusinessUpgrade))) &&
                   canOpenStripePortal &&
                   portalLoading) ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
@@ -751,6 +813,10 @@ function PlansTab() {
   );
 }
 
+function isPaymentReceiptEvent(event: SubscriptionEvent) {
+  return event.eventType === 'purchase' || event.eventType === 'renewal';
+}
+
 function InvoiceModal({
   event,
   onClose,
@@ -769,107 +835,133 @@ function InvoiceModal({
       ? `${formatEventDate(event.periodStart).date} – ${formatEventDate(event.periodEnd).date}`
       : null;
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose]);
+
+  const content = (
+    <>
+      <button
+        type="button"
+        onClick={onClose}
+        className="flex items-center gap-2 px-5 pt-5 text-[14px] text-[#627086] hover:text-[#0f2040] sm:px-9 sm:pt-7 sm:text-[15px]"
+      >
+        <X className="h-5 w-5" />
+        Close invoice and payment details
+      </button>
+
+      <h2 className="break-words px-5 pb-6 pt-4 text-[24px] font-bold leading-tight tracking-[-0.5px] text-[#252525] sm:px-9 sm:pb-8 sm:pt-6 sm:text-[34px] sm:tracking-[-0.8px] md:text-[42px]">
+        Paid on {paidOn}
+      </h2>
+
+      <div className="border-y border-[#e3e8f0] px-5 py-5 sm:px-9">
+        <p className="text-[13px] font-semibold uppercase tracking-[0.4px] text-[#737373]">
+          Summary
+        </p>
+        <div className="mt-5 grid grid-cols-[72px_1fr] gap-y-2 text-[15px] sm:grid-cols-[88px_1fr] sm:text-[16px]">
+          <span className="text-[#737373]">To</span>
+          <span className="min-w-0 break-words font-medium text-[#303030]">
+            {user?.displayName || user?.email || '—'}
+          </span>
+          <span className="text-[#737373]">From</span>
+          <span className="font-medium text-[#303030]">KeenVPN</span>
+          <span className="text-[#737373]">Invoice</span>
+          <span className="min-w-0 break-all font-medium text-[#303030]">
+            #{event.id.slice(0, 12).toUpperCase()}
+          </span>
+        </div>
+      </div>
+
+      <div className="px-5 py-6 sm:px-9">
+        <p className="text-[13px] font-semibold uppercase tracking-[0.4px] text-[#737373]">
+          Items
+        </p>
+        {period ? (
+          <p className="mt-4 text-[13px] font-semibold uppercase text-[#737373] sm:text-[14px]">
+            {period}
+          </p>
+        ) : null}
+        <div className="mt-3 flex items-start justify-between gap-3 border-b border-[#e3e8f0] pb-5 text-[15px] sm:text-[16px]">
+          <div className="min-w-0">
+            <p className="font-medium text-[#303030]">{event.planName}</p>
+            <p className="mt-1 text-[#737373]">Qty 1</p>
+          </div>
+          <p className="shrink-0 font-medium text-[#303030]">{amount}</p>
+        </div>
+
+        <div className="mt-4 space-y-3 text-[15px] sm:text-[16px]">
+          <div className="flex justify-between gap-3">
+            <span className="text-[#454545]">Total excluding tax</span>
+            <span className="shrink-0 text-[#454545]">{amount}</span>
+          </div>
+          <div className="flex justify-between gap-3 border-t border-[#e3e8f0] pt-4">
+            <span className="font-semibold text-[#303030]">Total due</span>
+            <span className="shrink-0 font-semibold text-[#303030]">{amount}</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-[#454545]">Amount paid</span>
+            <span className="shrink-0 text-[#454545]">{amount}</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-[#454545]">Amount remaining</span>
+            <span className="shrink-0 text-[#454545]">
+              {formatCurrency(0, event.currency || 'USD')}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-[#e3e8f0] px-5 py-6 sm:px-9">
+        <p className="text-[18px] font-medium text-[#303030]">Payment history</p>
+        <div className="mt-5 flex items-center justify-between gap-3 text-[14px] sm:text-[15px]">
+          <div className="min-w-0">
+            <p className="font-medium text-[#303030]">{amount}</p>
+            <p className="mt-1 text-[#737373]">
+              {event.provider === 'apple_iap' ? 'App Store' : 'Stripe'}
+            </p>
+          </div>
+          <p className="shrink-0 text-[#737373]">{paidOn}</p>
+        </div>
+      </div>
+
+      <p className="border-t border-[#e3e8f0] px-5 py-6 text-[14px] text-[#627086] sm:px-9 sm:text-[15px]">
+        Questions? Contact{' '}
+        <a
+          href="mailto:support@vpnkeen.com"
+          className="font-semibold text-[#3b6ae8] hover:underline"
+        >
+          support@vpnkeen.com
+        </a>
+      </p>
+    </>
+  );
+
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[100]">
+      <button
+        type="button"
+        aria-label="Close invoice"
+        className="absolute inset-0 bg-black/40"
+        onClick={onClose}
+      />
+      {/* Absolute bottom sheet on mobile so content can scroll inside max height */}
       <div
         role="dialog"
         aria-modal="true"
-        className="relative max-h-[92vh] w-full max-w-[606px] overflow-y-auto rounded-t-[16px] bg-white shadow-2xl sm:rounded-[16px]"
+        className="absolute inset-x-0 bottom-0 z-10 flex max-h-[90dvh] w-full flex-col rounded-t-[16px] bg-white shadow-2xl sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[min(92vh,900px)] sm:w-full sm:max-w-[606px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[16px]"
       >
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex items-center gap-2 px-5 pt-5 text-[14px] text-[#627086] hover:text-[#0f2040] sm:px-9 sm:pt-7 sm:text-[15px]"
-        >
-          <X className="h-5 w-5" />
-          Close invoice and payment details
-        </button>
-
-        <h2 className="break-words px-5 pb-6 pt-4 text-[24px] font-bold leading-tight tracking-[-0.5px] text-[#252525] sm:px-9 sm:pb-8 sm:pt-6 sm:text-[34px] sm:tracking-[-0.8px] md:text-[42px]">
-          Paid on {paidOn}
-        </h2>
-
-        <div className="border-y border-[#e3e8f0] px-5 py-5 sm:px-9">
-          <p className="text-[13px] font-semibold uppercase tracking-[0.4px] text-[#737373]">
-            Summary
-          </p>
-          <div className="mt-5 grid grid-cols-[72px_1fr] gap-y-2 text-[15px] sm:grid-cols-[88px_1fr] sm:text-[16px]">
-            <span className="text-[#737373]">To</span>
-            <span className="min-w-0 break-words font-medium text-[#303030]">
-              {user?.displayName || user?.email || '—'}
-            </span>
-            <span className="text-[#737373]">From</span>
-            <span className="font-medium text-[#303030]">KeenVPN</span>
-            <span className="text-[#737373]">Invoice</span>
-            <span className="min-w-0 break-all font-medium text-[#303030]">
-              #{event.id.slice(0, 12).toUpperCase()}
-            </span>
-          </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {content}
         </div>
-
-        <div className="px-5 py-6 sm:px-9">
-          <p className="text-[13px] font-semibold uppercase tracking-[0.4px] text-[#737373]">
-            Items
-          </p>
-          {period ? (
-            <p className="mt-4 text-[13px] font-semibold uppercase text-[#737373] sm:text-[14px]">
-              {period}
-            </p>
-          ) : null}
-          <div className="mt-3 flex items-start justify-between gap-3 border-b border-[#e3e8f0] pb-5 text-[15px] sm:text-[16px]">
-            <div className="min-w-0">
-              <p className="font-medium text-[#303030]">{event.planName}</p>
-              <p className="mt-1 text-[#737373]">Qty 1</p>
-            </div>
-            <p className="shrink-0 font-medium text-[#303030]">{amount}</p>
-          </div>
-
-          <div className="mt-4 space-y-3 text-[15px] sm:text-[16px]">
-            <div className="flex justify-between gap-3">
-              <span className="text-[#454545]">Total excluding tax</span>
-              <span className="shrink-0 text-[#454545]">{amount}</span>
-            </div>
-            <div className="flex justify-between gap-3 border-t border-[#e3e8f0] pt-4">
-              <span className="font-semibold text-[#303030]">Total due</span>
-              <span className="shrink-0 font-semibold text-[#303030]">{amount}</span>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-[#454545]">Amount paid</span>
-              <span className="shrink-0 text-[#454545]">{amount}</span>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-[#454545]">Amount remaining</span>
-              <span className="shrink-0 text-[#454545]">
-                {formatCurrency(0, event.currency || 'USD')}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-[#e3e8f0] px-5 py-6 sm:px-9">
-          <p className="text-[18px] font-medium text-[#303030]">
-            Payment history
-          </p>
-          <div className="mt-5 flex items-center justify-between gap-3 text-[14px] sm:text-[15px]">
-            <div className="min-w-0">
-              <p className="font-medium text-[#303030]">{amount}</p>
-              <p className="mt-1 text-[#737373]">
-                {event.provider === 'apple_iap' ? 'App Store' : 'Stripe'}
-              </p>
-            </div>
-            <p className="shrink-0 text-[#737373]">{paidOn}</p>
-          </div>
-        </div>
-
-        <p className="border-t border-[#e3e8f0] px-5 py-6 text-[14px] text-[#627086] sm:px-9 sm:text-[15px]">
-          Questions? Contact{' '}
-          <a
-            href="mailto:support@vpnkeen.com"
-            className="font-semibold text-[#3b6ae8] hover:underline"
-          >
-            support@vpnkeen.com
-          </a>
-        </p>
       </div>
     </div>,
     document.body,
@@ -879,7 +971,11 @@ function InvoiceModal({
 function BillingHistoryTab() {
   const { events, loading, error, refetch, loadMore, pagination } =
     useSubscriptionHistory({ limit: 25 });
-  const [selected, setSelected] = useState<SubscriptionEvent | null>(null);
+  const [selectedInvoice, setSelectedInvoice] =
+    useState<SubscriptionEvent | null>(null);
+  const [selectedDetail, setSelectedDetail] =
+    useState<SubscriptionEvent | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   if (loading && events.length === 0) {
     return <Skeleton className="h-64 w-full rounded-[15px]" />;
@@ -900,8 +996,13 @@ function BillingHistoryTab() {
     );
   }
 
-  const openInvoice = (event: SubscriptionEvent) => {
-    setSelected(event);
+  const openEvent = (event: SubscriptionEvent) => {
+    if (isPaymentReceiptEvent(event)) {
+      setSelectedInvoice(event);
+      return;
+    }
+    setSelectedDetail(event);
+    setDetailOpen(true);
   };
 
   return (
@@ -916,7 +1017,7 @@ function BillingHistoryTab() {
               <th className="px-6 py-6 font-semibold">Status</th>
               <th className="px-6 py-6 font-semibold">Amount</th>
               <th className="w-12 px-3 py-6">
-                <span className="sr-only">View invoice</span>
+                <span className="sr-only">View details</span>
               </th>
             </tr>
           </thead>
@@ -933,20 +1034,25 @@ function BillingHistoryTab() {
             ) : (
               events.map((event) => {
                 const status = getStatusInfo(event.status, 'dashboard');
+                const isReceipt = isPaymentReceiptEvent(event);
                 return (
                   <tr
                     key={event.id}
                     className="cursor-pointer border-b border-[#eef2f7] last:border-0 hover:bg-[#fafbfd]"
-                    onClick={() => openInvoice(event)}
+                    onClick={() => openEvent(event)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        openInvoice(event);
+                        openEvent(event);
                       }
                     }}
                     tabIndex={0}
                     role="button"
-                    aria-label={`View invoice for ${event.planName}`}
+                    aria-label={
+                      isReceipt
+                        ? `View invoice for ${event.planName}`
+                        : `View details for ${event.planName}`
+                    }
                   >
                     <td className="px-11 py-6 text-[#24395f]">
                       {formatEventDate(event.eventDate).date}
@@ -998,15 +1104,29 @@ function BillingHistoryTab() {
         </div>
       ) : null}
 
-      {selected ? (
-        <InvoiceModal event={selected} onClose={() => setSelected(null)} />
+      {selectedInvoice ? (
+        <InvoiceModal
+          event={selectedInvoice}
+          onClose={() => setSelectedInvoice(null)}
+        />
       ) : null}
+
+      <SubscriptionEventDetail
+        event={selectedDetail}
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) setSelectedDetail(null);
+        }}
+      />
     </>
   );
 }
 
 export default function DashboardSubscription() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { hasSessionToken } = useAuth();
+  const sessionToken = hasSessionToken ? getSessionToken() : null;
   const tabParam = searchParams.get('tab');
   const activeTab: TabId =
     tabParam === 'plans' || tabParam === 'billing' ? tabParam : 'subscription';
@@ -1018,6 +1138,7 @@ export default function DashboardSubscription() {
   };
 
   return (
+    <MembershipSharingProvider sessionToken={sessionToken}>
     <div>
       <div className="border-b border-[#e3e8f0] px-4 pt-4 sm:px-6 sm:pt-5 md:px-10 md:pt-7 xl:px-12">
         <div className="-mx-4 flex gap-6 overflow-x-auto px-4 sm:mx-0 sm:gap-9 sm:overflow-visible sm:px-0">
@@ -1049,5 +1170,6 @@ export default function DashboardSubscription() {
         </div>
       </div>
     </div>
+    </MembershipSharingProvider>
   );
 }

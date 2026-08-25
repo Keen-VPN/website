@@ -450,14 +450,16 @@ export default function MembershipSharingAccept() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-[#f5f7fb] text-[#0f2040]">
       <Header />
       <main className="mx-auto flex max-w-xl flex-col items-center px-4 pt-28 pb-16 text-center sm:pt-32">
-        <h1 className="text-3xl font-semibold">Membership Invitation</h1>
-        {loading ? <p className="mt-4 text-slate-400">Loading…</p> : null}
+        <h1 className="text-3xl font-semibold tracking-[-0.4px] text-[#0f2040]">
+          Membership Invitation
+        </h1>
+        {loading ? <p className="mt-4 text-[#627086]">Loading…</p> : null}
         {!loading && accepted ? (
           <div className="mt-6 w-full max-w-md space-y-4">
-            <p className="text-slate-300">
+            <p className="text-[#43516a]">
               {creditPending && billingDeferredUntil
                 ? `Your transfer is confirmed. Your existing subscription stays active through ${new Date(
                     billingDeferredUntil,
@@ -467,23 +469,28 @@ export default function MembershipSharingAccept() {
                   : "You now have KeenVPN access through your company account."}
             </p>
             {requiresAppleCancellation ? (
-              <p className="rounded-md border border-amber-700/60 bg-amber-950/40 p-3 text-sm text-amber-100">
+              <p className="rounded-[10px] border border-[#f0d9a8] bg-[#fffaf0] p-3 text-sm text-[#8a5a00]">
                 {billingDeferredUntil
                   ? "Turn off App Store auto renewal before that date. Apple does not allow KeenVPN to cancel it for you."
                   : "Turn off App Store auto renewal to avoid being billed twice. Apple does not allow KeenVPN to cancel it for you."}
               </p>
             ) : null}
-            <Button type="button" onClick={openKeenVpnApp}>
+            <Button
+              type="button"
+              className="h-10 rounded-[8px] bg-[#0f2040] text-white hover:bg-[#0f2040]/90"
+              onClick={openKeenVpnApp}
+            >
               Open KeenVPN App
             </Button>
           </div>
         ) : null}
         {!loading && !accepted && error ? (
           <div className="mt-4 space-y-4">
-            <p className="text-red-300">{error}</p>
+            <p className="text-[#d14343]">{error}</p>
             {reauthReason ? (
               <Button
                 type="button"
+                className="h-10 rounded-[8px] bg-[#0f2040] text-white hover:bg-[#0f2040]/90"
                 onClick={handleReauthenticate}
                 disabled={reauthenticating}
               >
@@ -494,25 +501,33 @@ export default function MembershipSharingAccept() {
                     : "Sign in again"}
               </Button>
             ) : acceptRetryAvailable ? (
-              <Button type="button" onClick={() => void handleAccept()}>
+              <Button
+                type="button"
+                className="h-10 rounded-[8px] bg-[#0f2040] text-white hover:bg-[#0f2040]/90"
+                onClick={() => void handleAccept()}
+              >
                 Try accepting again
               </Button>
             ) : loadRetryAvailable ? (
-              <Button type="button" onClick={handleRetryLoad}>
+              <Button
+                type="button"
+                className="h-10 rounded-[8px] bg-[#0f2040] text-white hover:bg-[#0f2040]/90"
+                onClick={handleRetryLoad}
+              >
                 Try again
               </Button>
             ) : null}
           </div>
         ) : null}
         {!loading && !accepted && !error ? (
-          <div className="mt-6 w-full max-w-md space-y-4 text-slate-300">
+          <div className="mt-6 w-full max-w-md space-y-4 text-[#43516a]">
             <p>
               {ownerEmail
                 ? `${ownerEmail} invited you to use KeenVPN on their company account.`
                 : "You have been invited to use KeenVPN on a company account."}
             </p>
             {inviteEmail ? (
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-[#627086]">
                 {signedInAsInvitee ? (
                   <>
                     You are signed in as <strong>{inviteEmail}</strong>.
@@ -529,7 +544,7 @@ export default function MembershipSharingAccept() {
                 )}
               </p>
             ) : null}
-            <div className="rounded-md border border-slate-700 bg-slate-900 p-4 text-left text-sm">
+            <div className="rounded-[10px] border border-[#e3e8f0] bg-white p-4 text-left text-sm text-[#0f2040] shadow-[0px_3px_4px_rgba(15,32,64,0.03)]">
               <label
                 htmlFor="accept-company-membership"
                 className="flex items-start gap-3"
@@ -546,17 +561,23 @@ export default function MembershipSharingAccept() {
               </label>
             </div>
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
-              <Button type="button" variant="outline" onClick={handleDecline}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 rounded-[8px] border-[#0f2040]/25 text-[#0f2040]"
+                onClick={handleDecline}
+              >
                 Decline for now
               </Button>
               <Button
+                className="h-10 rounded-[8px] bg-[#0f2040] text-white hover:bg-[#0f2040]/90"
                 onClick={() => void handleAccept()}
                 disabled={loading || !confirmationAccepted}
               >
                 {billingPending ? "Complete invitation" : "Accept invitation"}
               </Button>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-[#627086]">
               Declining for now does not cancel the invitation. You can use the
               link in your email to review and accept it before it expires.
             </p>

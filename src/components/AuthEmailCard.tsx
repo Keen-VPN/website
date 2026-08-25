@@ -170,6 +170,19 @@ export function AuthEmailCard({
         </div>
       ) : (
         <>
+          {!embedded ? (
+            <div>
+              <Label className="text-muted-foreground">Current email</Label>
+              <p className="mt-1 break-all font-medium">{email}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Used for sign-in codes and magic links.
+                {hasLinkedOAuth
+                  ? " Linked Google or Apple sign-in still opens this account."
+                  : ""}
+              </p>
+            </div>
+          ) : null}
+
           {pending ? (
             <div className={pendingBox}>
               <p className={cn("text-sm", ink)}>
@@ -269,26 +282,14 @@ export function AuthEmailCard({
               </Button>
             </div>
           ) : (
-            <>
-              <div>
-                <Label className="text-muted-foreground">Current email</Label>
-                <p className="mt-1 break-all font-medium">{email}</p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Used for sign-in codes and magic links.
-                  {hasLinkedOAuth
-                    ? " Linked Google or Apple sign-in still opens this account."
-                    : ""}
-                </p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setEditing(true)}
-              >
-                Change email
-              </Button>
-            </>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setEditing(true)}
+            >
+              Change email
+            </Button>
           )}
         </>
       )}

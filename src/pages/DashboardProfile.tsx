@@ -130,6 +130,7 @@ export default function DashboardProfile() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const {
+    user,
     subscription,
     linkedProviders,
     authProvider,
@@ -313,7 +314,7 @@ export default function DashboardProfile() {
                 Email address
               </p>
               <p className="mt-1 break-all text-[14px] font-medium text-dash-ink">
-                —
+                {user?.email?.trim() || "—"}
               </p>
             </div>
           )}
