@@ -27,7 +27,6 @@ import {
   type SubscriptionEvent,
   formatCurrency,
   formatEventDate,
-  getStatusInfo,
 } from '@/lib/subscription-history-api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SubscriptionCancellationControls } from '@/components/SubscriptionCancellationControls';
@@ -109,6 +108,65 @@ function isCurrentCatalogPlan(
       ? 'year'
       : 'month';
   return subPeriod === planPeriod;
+}
+
+const BILLING_PERIOD_RANK: Record<'month' | 'year' | '2year', number> = {
+  month: 0,
+  year: 1,
+  '2year': 2,
+};
+
+function planChangeCtaLabel(
+  plan: ApiPlan,
+  subscription: SubscriptionData,
+): string {
+  const targetBusiness = getPlanTier(plan) === 'team';
+  const targetPeriod = isTwoYearApiPlan(plan)
+    ? '2year'
+    : isAnnualPlan(plan)
+      ? 'year'
+      : 'month';
+  const currentBusiness =
+    resolveMembershipPlanTier(subscription) === 'business';
+  const currentPeriod = resolveSubscriptionBillingPeriod(subscription);
+
+  const isUpgrade =
+    (targetBusiness && !currentBusiness) ||
+    (targetBusiness === currentBusiness &&
+      BILLING_PERIOD_RANK[targetPeriod] > BILLING_PERIOD_RANK[currentPeriod]);
+
+  const verb = isUpgrade ? 'Upgrade to' : 'Switch to';
+
+  if (targetBusiness && targetPeriod === 'year') {
+    return `${verb} Business annual`;
+  }
+  if (targetBusiness && targetPeriod === 'month') {
+    return `${verb} Business monthly`;
+  }
+  if (targetBusiness && targetPeriod === '2year') {
+    return `${verb} Business 2-year`;
+  }
+  if (targetPeriod === '2year') return `${verb} 2-year`;
+  if (targetPeriod === 'year') return `${verb} 1-year`;
+  return `${verb} monthly`;
+}
+
+function billingStatusBadge(status: SubscriptionEvent['status']): {
+  label: string;
+  className: string;
+} {
+  switch (status) {
+    case 'active':
+      return { label: 'Active', className: 'bg-[#e6f9f0] text-[#1a9e5a]' };
+    case 'trialing':
+      return { label: 'Trialing', className: 'bg-[#eef3ff] text-[#3b6ae8]' };
+    case 'expired':
+      return { label: 'Expired', className: 'bg-[#f0f3f8] text-[#627086]' };
+    case 'cancelled':
+      return { label: 'Cancelled', className: 'bg-[#fff0f0] text-[#d14343]' };
+    default:
+      return { label: status, className: 'bg-[#f0f3f8] text-[#627086]' };
+  }
 }
 
 function formatDate(dateString?: string | null) {
@@ -543,19 +601,8 @@ function PlansTab() {
 
           const isCurrentPlan = isCurrentCatalogPlan(plan, subscription);
 
-          // Subscribers changing plans: shorter term = Switch; longer/tier = Upgrade.
-          if (isManageable && !isCurrentPlan) {
-            if (twoYear) {
-              cta = 'Upgrade to 2-year';
-            } else if (annual && isBusiness) {
-              cta = 'Upgrade to Business annual';
-            } else if (annual) {
-              cta = 'Upgrade to 1-year';
-            } else if (isBusiness) {
-              cta = 'Upgrade to Business';
-            } else {
-              cta = 'Switch to monthly';
-            }
+          if (isManageable && !isCurrentPlan && subscription) {
+            cta = planChangeCtaLabel(plan, subscription);
           }
 
           return (
@@ -909,7 +956,7 @@ function BillingHistoryTab() {
               </tr>
             ) : (
               events.map((event) => {
-                const status = getStatusInfo(event.status);
+                const status = billingStatusBadge(event.status);
                 const canOpenReceipt =
                   event.eventType !== 'cancellation' &&
                   event.eventType !== 'trial_start' &&
