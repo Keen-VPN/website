@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Calendar,
@@ -28,12 +27,17 @@ import {
   type SubscriptionEvent,
   formatCurrency,
   formatEventDate,
+  fetchSubscriptionEventDetail,
   getEventTypeLabel,
+  getProviderInfo,
   getStatusInfo,
+  type SubscriptionEvent,
+  type SubscriptionEventDetail,
 } from '@/lib/subscription-history-api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SubscriptionCancellationControls } from '@/components/SubscriptionCancellationControls';
 import { MembershipPlanUpgradeCard } from '@/components/MembershipPlanUpgradeCard';
+import { DashboardSlideDialog } from '@/components/DashboardSlideDialog';
 import {
   MembershipSharingProvider,
   useMembershipSharingContext,
@@ -46,6 +50,7 @@ import {
   canUpgradeToBusinessPlan,
   hasManageableSubscription,
   hasScheduledAnnualBilling,
+  hasScheduledTwoYearBilling,
   isAppleIapSubscription,
   isStripeSubscription,
   resolveMembershipPlanTier,
@@ -400,6 +405,9 @@ function PlansTab() {
   const [checkoutLoadingId, setCheckoutLoadingId] = useState<string | null>(
     null,
   );
+  const [activeLoadingPlanId, setActiveLoadingPlanId] = useState<string | null>(
+    null,
+  );
   const { toast } = useToast();
   const { logout, subscription } = useAuth();
   const navigate = useNavigate();
@@ -430,11 +438,32 @@ function PlansTab() {
     Boolean(subscription) && canUpgradeToBusinessPlan(subscription);
   const businessActionBlocked =
     membershipLoading && businessUpgradeEligible;
-  const canOneClickAnnual = canUpgradeStripeToAnnual(subscription);
-  const canOneClickTwoYear = canSwitchStripeToTwoYear(subscription);
+  const isIndividualSubscriber =
+    resolveMembershipPlanTier(subscription) === 'individual';
+  const canOneClickAnnual =
+    isIndividualSubscriber && canUpgradeStripeToAnnual(subscription);
+  const canOneClickTwoYear =
+    isIndividualSubscriber && canSwitchStripeToTwoYear(subscription);
   const annualAlreadyScheduled = hasScheduledAnnualBilling(subscription);
-  const planActionBusy =
-    businessUpgradeLoading || upgradingToAnnual || switchingToTwoYear;
+  const twoYearAlreadyScheduled = hasScheduledTwoYearBilling(subscription);
+
+  useEffect(() => {
+    if (
+      !upgradingToAnnual &&
+      !switchingToTwoYear &&
+      !businessUpgradeLoading &&
+      !portalLoading &&
+      !checkoutLoadingId
+    ) {
+      setActiveLoadingPlanId(null);
+    }
+  }, [
+    upgradingToAnnual,
+    switchingToTwoYear,
+    businessUpgradeLoading,
+    portalLoading,
+    checkoutLoadingId,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -493,8 +522,8 @@ function PlansTab() {
         sessionStorage.getItem('asweb_session') === '1' ? '&asweb=1' : '';
       const isBusiness = getPlanTier(plan) === 'team';
       const successUrl = isBusiness
-        ? `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}&tab=team&business=upgraded${aswebSuffix}`
-        : `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}${aswebSuffix}`;
+        ? `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}&business=upgraded${aswebSuffix}`
+        : `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}${aswebSuffix}`;
       const cancelUrl = `${window.location.origin}/subscription?tab=plans`;
 
       const result = await createCheckoutSession(
@@ -645,6 +674,8 @@ function PlansTab() {
               cta = isAppleIapSubscription(subscription)
                 ? 'Set up future Business billing'
                 : 'Enable Business for free';
+            } else if (twoYear && twoYearAlreadyScheduled) {
+              cta = '2-year scheduled';
             } else if (twoYear && canOneClickTwoYear) {
               cta = 'Switch to 2-year';
             } else if (annual && !isBusiness && canOneClickAnnual) {
@@ -660,13 +691,20 @@ function PlansTab() {
             !isCurrentPlan &&
             !isBusiness &&
             annual &&
-            canOneClickAnnual;
+            canOneClickAnnual &&
+            isIndividualSubscriber;
           const useOneClickTwoYear =
-            !isCurrentPlan && twoYear && canOneClickTwoYear;
+            !isCurrentPlan &&
+            twoYear &&
+            canOneClickTwoYear &&
+            isIndividualSubscriber;
           const useFreeBusiness =
             !isCurrentPlan && isBusiness && canFreeBusinessUpgrade;
           const businessPlanWaiting =
             !isCurrentPlan && isBusiness && businessActionBlocked;
+          const isThisPlanLoading = activeLoadingPlanId === plan.id;
+          const isAnotherPlanLoading =
+            activeLoadingPlanId !== null && activeLoadingPlanId !== plan.id;
 
           return (
             <div
@@ -733,12 +771,14 @@ function PlansTab() {
               <button
                 type="button"
                 onClick={() => {
-                  if (businessPlanWaiting) return;
+                  if (businessPlanWaiting || isAnotherPlanLoading) return;
+                  setActiveLoadingPlanId(plan.id);
                   if (isCurrentPlan) {
                     if (canOpenStripePortal) {
                       void openBillingPortal();
                       return;
                     }
+                    setActiveLoadingPlanId(null);
                     toast({
                       title: 'Already subscribed',
                       description:
@@ -749,8 +789,6 @@ function PlansTab() {
                     navigate('/subscription');
                     return;
                   }
-                  // Match Pricing/Account: targeted APIs, not a generic Stripe portal
-                  // (portal defaults to monthly and breaks annual / 2-year upgrades).
                   if (useFreeBusiness && subscription) {
                     void upgradeToBusinessPlan(plan.id, 1);
                     return;
@@ -763,7 +801,17 @@ function PlansTab() {
                     void upgradeToAnnual('dashboard_plans');
                     return;
                   }
+                  if (twoYear && twoYearAlreadyScheduled) {
+                    setActiveLoadingPlanId(null);
+                    toast({
+                      title: '2-year plan already scheduled',
+                      description:
+                        'Your plan switches to the 2-year term at the next billing date.',
+                    });
+                    return;
+                  }
                   if (annual && !isBusiness && annualAlreadyScheduled) {
+                    setActiveLoadingPlanId(null);
                     toast({
                       title: 'Annual already scheduled',
                       description:
@@ -775,6 +823,7 @@ function PlansTab() {
                     void openPlanChangePortal();
                     return;
                   }
+                  setActiveLoadingPlanId(null);
                   if (isManageable) {
                     toast({
                       title: 'Change plan',
@@ -789,18 +838,16 @@ function PlansTab() {
                   void startCheckout(plan);
                 }}
                 disabled={
-                  checkoutLoadingId === plan.id ||
-                  planActionBusy ||
+                  isAnotherPlanLoading ||
                   businessPlanWaiting ||
-                  (isCurrentPlan && canOpenStripePortal && portalLoading) ||
-                  (!isCurrentPlan &&
-                    isManageable &&
-                    canOpenStripePortal &&
-                    !useFreeBusiness &&
-                    !useOneClickAnnual &&
-                    !useOneClickTwoYear &&
-                    !businessPlanWaiting &&
-                    portalLoading)
+                  (twoYearAlreadyScheduled && twoYear && !isCurrentPlan) ||
+                  (annualAlreadyScheduled &&
+                    annual &&
+                    !isBusiness &&
+                    !isCurrentPlan) ||
+                  checkoutLoadingId === plan.id ||
+                  isThisPlanLoading ||
+                  (isCurrentPlan && canOpenStripePortal && portalLoading)
                 }
                 className={[
                   'mt-4 w-full rounded-[8px] py-3 text-[17px] font-semibold transition-opacity',
@@ -809,16 +856,11 @@ function PlansTab() {
                     : 'border border-[#dbe2ec] bg-white text-[#0f2040] hover:bg-[#f5f7fb]',
                 ].join(' ')}
               >
-                {checkoutLoadingId === plan.id ||
-                planActionBusy ||
-                businessPlanWaiting ||
-                ((isCurrentPlan ||
-                  (isManageable &&
-                    !isCurrentPlan &&
-                    !useFreeBusiness &&
-                    !useOneClickAnnual &&
-                    !useOneClickTwoYear)) &&
-                  canOpenStripePortal &&
+                {isThisPlanLoading &&
+                (checkoutLoadingId === plan.id ||
+                  upgradingToAnnual ||
+                  switchingToTwoYear ||
+                  businessUpgradeLoading ||
                   portalLoading) ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                 ) : isCurrentPlan ? (
@@ -866,32 +908,56 @@ function PlansTab() {
   );
 }
 
+function isReceiptEvent(event: SubscriptionEvent): boolean {
+  return event.eventType === 'purchase' || event.eventType === 'renewal';
+}
+
 function invoiceHeadline(event: SubscriptionEvent, dateLabel: string) {
-  switch (event.eventType) {
-    case 'purchase':
-    case 'renewal':
-      return `Paid on ${dateLabel}`;
-    case 'trial_start':
-      return `Trial started ${dateLabel}`;
-    case 'trial_end':
-      return `Trial ended ${dateLabel}`;
-    case 'cancellation':
-      return `Cancelled ${dateLabel}`;
-    case 'plan_change':
-      return `Plan changed ${dateLabel}`;
-    default:
-      return `${getEventTypeLabel(event.eventType)} · ${dateLabel}`;
-  }
+  return `Paid on ${dateLabel}`;
+}
+
+function BillingModalClose({
+  onClose,
+  label,
+}: {
+  onClose: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClose}
+      className="flex items-center gap-2 px-5 pt-5 text-[14px] text-[#627086] hover:text-[#0f2040] sm:px-9 sm:pt-7 sm:text-[15px]"
+    >
+      <X className="h-5 w-5" />
+      {label}
+    </button>
+  );
 }
 
 function InvoiceModal({
   event,
+  open,
   onClose,
 }: {
-  event: SubscriptionEvent;
+  event: SubscriptionEvent | null;
+  open: boolean;
   onClose: () => void;
 }) {
   const { user } = useAuth();
+  if (!event) {
+    return (
+      <DashboardSlideDialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) onClose();
+        }}
+        ariaLabelledBy="billing-invoice-title"
+      >
+        {null}
+      </DashboardSlideDialog>
+    );
+  }
   const amount =
     typeof event.amount === 'number'
       ? formatCurrency(event.amount, event.currency || 'USD')
@@ -902,143 +968,306 @@ function InvoiceModal({
       ? `${formatEventDate(event.periodStart).date} – ${formatEventDate(event.periodEnd).date}`
       : null;
   const headline = invoiceHeadline(event, eventDate);
-  const isReceipt =
-    event.eventType === 'purchase' || event.eventType === 'renewal';
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [onClose]);
+  return (
+    <DashboardSlideDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+      ariaLabelledBy="billing-invoice-title"
+    >
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <BillingModalClose
+          onClose={onClose}
+          label="Close invoice and payment details"
+        />
 
-  const content = (
-    <>
-      <button
-        type="button"
-        onClick={onClose}
-        className="flex items-center gap-2 px-5 pt-5 text-[14px] text-[#627086] hover:text-[#0f2040] sm:px-9 sm:pt-7 sm:text-[15px]"
-      >
-        <X className="h-5 w-5" />
-        {isReceipt ? 'Close invoice and payment details' : 'Close details'}
-      </button>
+        <h2
+          id="billing-invoice-title"
+          className="break-words px-5 pb-6 pt-4 text-[24px] font-bold leading-tight tracking-[-0.5px] text-[#252525] sm:px-9 sm:pb-8 sm:pt-6 sm:text-[34px] sm:tracking-[-0.8px] md:text-[42px]"
+        >
+          {headline}
+        </h2>
 
-      <h2 className="break-words px-5 pb-6 pt-4 text-[24px] font-bold leading-tight tracking-[-0.5px] text-[#252525] sm:px-9 sm:pb-8 sm:pt-6 sm:text-[34px] sm:tracking-[-0.8px] md:text-[42px]">
-        {headline}
-      </h2>
-
-      <div className="border-y border-[#e3e8f0] px-5 py-5 sm:px-9">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.4px] text-[#737373]">
-          Summary
-        </p>
-        <div className="mt-5 grid grid-cols-[72px_1fr] gap-y-2 text-[15px] sm:grid-cols-[88px_1fr] sm:text-[16px]">
-          <span className="text-[#737373]">To</span>
-          <span className="min-w-0 break-words font-medium text-[#303030]">
-            {user?.displayName || user?.email || '—'}
-          </span>
-          <span className="text-[#737373]">From</span>
-          <span className="font-medium text-[#303030]">KeenVPN</span>
-          <span className="text-[#737373]">
-            {isReceipt ? 'Invoice' : 'Event'}
-          </span>
-          <span className="min-w-0 break-all font-medium text-[#303030]">
-            #{event.id.slice(0, 12).toUpperCase()}
-          </span>
-        </div>
-      </div>
-
-      <div className="px-5 py-6 sm:px-9">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.4px] text-[#737373]">
-          Items
-        </p>
-        {period ? (
-          <p className="mt-4 text-[13px] font-semibold uppercase text-[#737373] sm:text-[14px]">
-            {period}
+        <div className="border-y border-[#e3e8f0] px-5 py-5 sm:px-9">
+          <p className="text-[13px] font-semibold uppercase tracking-[0.4px] text-[#737373]">
+            Summary
           </p>
-        ) : null}
-        <div className="mt-3 flex items-start justify-between gap-3 border-b border-[#e3e8f0] pb-5 text-[15px] sm:text-[16px]">
-          <div className="min-w-0">
-            <p className="font-medium text-[#303030]">{event.planName}</p>
-            <p className="mt-1 text-[#737373]">
-              {getEventTypeLabel(event.eventType)}
-              {isReceipt ? ' · Qty 1' : ''}
-            </p>
-          </div>
-          <p className="shrink-0 font-medium text-[#303030]">{amount}</p>
-        </div>
-
-        <div className="mt-4 space-y-3 text-[15px] sm:text-[16px]">
-          <div className="flex justify-between gap-3">
-            <span className="text-[#454545]">Total excluding tax</span>
-            <span className="shrink-0 text-[#454545]">{amount}</span>
-          </div>
-          <div className="flex justify-between gap-3 border-t border-[#e3e8f0] pt-4">
-            <span className="font-semibold text-[#303030]">Total due</span>
-            <span className="shrink-0 font-semibold text-[#303030]">{amount}</span>
-          </div>
-          <div className="flex justify-between gap-3">
-            <span className="text-[#454545]">Amount paid</span>
-            <span className="shrink-0 text-[#454545]">{amount}</span>
-          </div>
-          <div className="flex justify-between gap-3">
-            <span className="text-[#454545]">Amount remaining</span>
-            <span className="shrink-0 text-[#454545]">
-              {formatCurrency(0, event.currency || 'USD')}
+          <div className="mt-5 grid grid-cols-[72px_1fr] gap-y-2 text-[15px] sm:grid-cols-[88px_1fr] sm:text-[16px]">
+            <span className="text-[#737373]">To</span>
+            <span className="min-w-0 break-words font-medium text-[#303030]">
+              {user?.displayName || user?.email || '—'}
+            </span>
+            <span className="text-[#737373]">From</span>
+            <span className="font-medium text-[#303030]">KeenVPN</span>
+            <span className="text-[#737373]">Invoice</span>
+            <span className="min-w-0 break-all font-medium text-[#303030]">
+              #{event.id.slice(0, 12).toUpperCase()}
             </span>
           </div>
         </div>
-      </div>
 
-      <div className="border-t border-[#e3e8f0] px-5 py-6 sm:px-9">
-        <p className="text-[18px] font-medium text-[#303030]">Payment history</p>
-        <div className="mt-5 flex items-center justify-between gap-3 text-[14px] sm:text-[15px]">
-          <div className="min-w-0">
-            <p className="font-medium text-[#303030]">{amount}</p>
-            <p className="mt-1 text-[#737373]">
-              {event.provider === 'apple_iap' ? 'App Store' : 'Stripe'}
+        <div className="px-5 py-6 sm:px-9">
+          <p className="text-[13px] font-semibold uppercase tracking-[0.4px] text-[#737373]">
+            Items
+          </p>
+          {period ? (
+            <p className="mt-4 text-[13px] font-semibold uppercase text-[#737373] sm:text-[14px]">
+              {period}
             </p>
+          ) : null}
+          <div className="mt-3 flex items-start justify-between gap-3 border-b border-[#e3e8f0] pb-5 text-[15px] sm:text-[16px]">
+            <div className="min-w-0">
+              <p className="font-medium text-[#303030]">{event.planName}</p>
+              <p className="mt-1 text-[#737373]">
+                {getEventTypeLabel(event.eventType)} · Qty 1
+              </p>
+            </div>
+            <p className="shrink-0 font-medium text-[#303030]">{amount}</p>
           </div>
-          <p className="shrink-0 text-[#737373]">{eventDate}</p>
-        </div>
-      </div>
 
-      <p className="border-t border-[#e3e8f0] px-5 py-6 text-[14px] text-[#627086] sm:px-9 sm:text-[15px]">
-        Questions? Contact{' '}
-        <a
-          href="mailto:support@vpnkeen.com"
-          className="font-semibold text-[#3b6ae8] hover:underline"
-        >
-          support@vpnkeen.com
-        </a>
-      </p>
-    </>
+          <div className="mt-4 space-y-3 text-[15px] sm:text-[16px]">
+            <div className="flex justify-between gap-3">
+              <span className="text-[#454545]">Total excluding tax</span>
+              <span className="shrink-0 text-[#454545]">{amount}</span>
+            </div>
+            <div className="flex justify-between gap-3 border-t border-[#e3e8f0] pt-4">
+              <span className="font-semibold text-[#303030]">Total due</span>
+              <span className="shrink-0 font-semibold text-[#303030]">
+                {amount}
+              </span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-[#454545]">Amount paid</span>
+              <span className="shrink-0 text-[#454545]">{amount}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-[#454545]">Amount remaining</span>
+              <span className="shrink-0 text-[#454545]">
+                {formatCurrency(0, event.currency || 'USD')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-[#e3e8f0] px-5 py-6 sm:px-9">
+          <p className="text-[18px] font-medium text-[#303030]">
+            Payment history
+          </p>
+          <div className="mt-5 flex items-center justify-between gap-3 text-[14px] sm:text-[15px]">
+            <div className="min-w-0">
+              <p className="font-medium text-[#303030]">{amount}</p>
+              <p className="mt-1 text-[#737373]">
+                {event.provider === 'apple_iap' ? 'App Store' : 'Stripe'}
+              </p>
+            </div>
+            <p className="shrink-0 text-[#737373]">{eventDate}</p>
+          </div>
+        </div>
+
+        <p className="border-t border-[#e3e8f0] px-5 py-6 text-[14px] text-[#627086] sm:px-9 sm:text-[15px]">
+          Questions? Contact{' '}
+          <a
+            href="mailto:support@vpnkeen.com"
+            className="font-semibold text-[#3b6ae8] hover:underline"
+          >
+            support@vpnkeen.com
+          </a>
+        </p>
+      </div>
+    </DashboardSlideDialog>
   );
+}
 
-  return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-4">
-      <button
-        type="button"
-        aria-label="Close"
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="relative z-10 flex max-h-[90dvh] w-full min-w-0 flex-col rounded-t-[16px] bg-white shadow-2xl sm:max-h-[min(92dvh,900px)] sm:w-full sm:max-w-[606px] sm:rounded-[16px]"
+function BillingEventDetailModal({
+  event,
+  open,
+  onClose,
+}: {
+  event: SubscriptionEvent | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [eventDetail, setEventDetail] = useState<SubscriptionEventDetail | null>(
+    null,
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !event) {
+      setEventDetail(null);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    void fetchSubscriptionEventDetail(event.id).then((response) => {
+      if (cancelled) return;
+      if (response.success) {
+        setEventDetail(response.data.event);
+      } else {
+        setError(response.error || 'Failed to load event details');
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [event, open]);
+
+  if (!event) {
+    return (
+      <DashboardSlideDialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) onClose();
+        }}
+        ariaLabelledBy="billing-event-title"
       >
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          {content}
+        {null}
+      </DashboardSlideDialog>
+    );
+  }
+
+  const dateInfo = formatEventDate(event.eventDate);
+  const statusInfo = getStatusInfo(event.status, 'dashboard');
+  const providerInfo = getProviderInfo(event.provider);
+
+  const amount =
+    typeof event.amount === 'number'
+      ? formatCurrency(event.amount, event.currency || 'USD')
+      : null;
+
+  return (
+    <DashboardSlideDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+      ariaLabelledBy="billing-event-title"
+    >
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <BillingModalClose onClose={onClose} label="Close event details" />
+
+        <div className="px-5 pb-5 pt-4 sm:px-9 sm:pb-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2
+                id="billing-event-title"
+                className="text-[22px] font-bold tracking-[-0.4px] text-[#0f2040] sm:text-[28px]"
+              >
+                {getEventTypeLabel(event.eventType)}
+              </h2>
+              <p className="mt-1 text-[14px] text-[#627086]">{dateInfo.full}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full bg-[#f0f3f8] px-2.5 py-1 text-[11px] font-semibold text-[#0f2040]">
+                {providerInfo.label}
+              </span>
+              <span
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusInfo.className}`}
+              >
+                {statusInfo.label}
+              </span>
+            </div>
+          </div>
+
+          <p className="mt-4 text-[15px] leading-relaxed text-[#43516a]">
+            {event.description}
+          </p>
         </div>
+
+        <div className="border-y border-[#e3e8f0] px-5 py-5 sm:px-9">
+          <p className="text-[13px] font-semibold uppercase tracking-[0.4px] text-[#737373]">
+            Event details
+          </p>
+          {loading ? (
+            <div className="mt-4 space-y-3">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          ) : error ? (
+            <p className="mt-4 text-[14px] text-[#b42318]">{error}</p>
+          ) : (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-wide text-[#627086]">
+                  Plan
+                </p>
+                <p className="mt-1 text-[15px] font-medium text-[#0f2040]">
+                  {event.planName}
+                </p>
+              </div>
+              {amount ? (
+                <div>
+                  <p className="text-[12px] font-semibold uppercase tracking-wide text-[#627086]">
+                    Amount
+                  </p>
+                  <p className="mt-1 text-[15px] font-medium text-[#0f2040]">
+                    {amount}
+                  </p>
+                </div>
+              ) : null}
+              {event.periodStart ? (
+                <div>
+                  <p className="text-[12px] font-semibold uppercase tracking-wide text-[#627086]">
+                    Period start
+                  </p>
+                  <p className="mt-1 text-[15px] font-medium text-[#0f2040]">
+                    {formatEventDate(event.periodStart).date}
+                  </p>
+                </div>
+              ) : null}
+              {event.periodEnd ? (
+                <div>
+                  <p className="text-[12px] font-semibold uppercase tracking-wide text-[#627086]">
+                    Period end
+                  </p>
+                  <p className="mt-1 text-[15px] font-medium text-[#0f2040]">
+                    {formatEventDate(event.periodEnd).date}
+                  </p>
+                </div>
+              ) : null}
+              {eventDetail?.additionalDetails.stripeSubscriptionId ? (
+                <div className="sm:col-span-2">
+                  <p className="text-[12px] font-semibold uppercase tracking-wide text-[#627086]">
+                    Subscription reference
+                  </p>
+                  <p className="mt-1 break-all font-mono text-[13px] text-[#0f2040]">
+                    {eventDetail.additionalDetails.stripeSubscriptionId}
+                  </p>
+                </div>
+              ) : null}
+              {eventDetail?.additionalDetails.originalTransactionId ? (
+                <div className="sm:col-span-2">
+                  <p className="text-[12px] font-semibold uppercase tracking-wide text-[#627086]">
+                    Transaction reference
+                  </p>
+                  <p className="mt-1 break-all font-mono text-[13px] text-[#0f2040]">
+                    {eventDetail.additionalDetails.originalTransactionId}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
+
+        <p className="border-t border-[#e3e8f0] px-5 py-6 text-[14px] text-[#627086] sm:px-9 sm:text-[15px]">
+          Questions? Contact{' '}
+          <a
+            href="mailto:support@vpnkeen.com"
+            className="font-semibold text-[#3b6ae8] hover:underline"
+          >
+            support@vpnkeen.com
+          </a>
+        </p>
       </div>
-    </div>,
-    document.body,
+    </DashboardSlideDialog>
   );
 }
 
@@ -1160,9 +1389,16 @@ function BillingHistoryTab() {
         </div>
       ) : null}
 
-      {selected ? (
-        <InvoiceModal event={selected} onClose={() => setSelected(null)} />
-      ) : null}
+      <InvoiceModal
+        event={selected && isReceiptEvent(selected) ? selected : null}
+        open={Boolean(selected && isReceiptEvent(selected))}
+        onClose={() => setSelected(null)}
+      />
+      <BillingEventDetailModal
+        event={selected && !isReceiptEvent(selected) ? selected : null}
+        open={Boolean(selected && !isReceiptEvent(selected))}
+        onClose={() => setSelected(null)}
+      />
     </>
   );
 }

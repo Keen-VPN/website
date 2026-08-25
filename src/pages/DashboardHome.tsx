@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ChevronRight, Shield } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ChevronRight, Shield, Smartphone } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useAppStoreUrl } from "@/hooks/use-app-store-url";
+import { useStripeCheckoutReturn } from "@/hooks/use-stripe-checkout-return";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   fetchDeviceConnectionsStatus,
@@ -13,6 +16,79 @@ import { MembershipTeamPanel } from "@/components/MembershipTeamPanel";
 import { ReceivedMembershipInviteBanner } from "@/components/ReceivedMembershipInviteBanner";
 import { hasManageableSubscription, isEndedSubscription } from "@/lib/subscription-cta";
 import { DashboardHomeLayout } from "@/components/dashboard/DashboardHomeShared";
+import {
+  getAppStoreInstallButtonLabel,
+  resolveAppStoreUrl,
+} from "@/lib/open-app-or-store";
+import {
+  isAppDeepLinkSupported,
+  getUnsupportedDeviceName,
+} from "@/lib/device-detection";
+import { RETURN_TO_APP_LABEL } from "@/lib/keenvpn-deep-links";
+import { openKeenVpnAppStore } from "@/lib/keenvpn-deep-links";
+
+function PaymentCompleteBanner({
+  isASWeb,
+  onReturnToApp,
+  onDismiss,
+}: {
+  isASWeb: boolean;
+  onReturnToApp: () => void;
+  onDismiss: () => void;
+}) {
+  const appStoreUrl = useAppStoreUrl();
+  const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
+  const unsupportedDeviceName = useMemo(() => getUnsupportedDeviceName(), []);
+
+  return (
+    <div className="mx-4 mb-4 rounded-[13px] border border-[#dbeafe] bg-[#f5f9ff] px-5 py-5 sm:mx-6 sm:px-6 lg:mx-7">
+      <div className="text-center">
+        <h3 className="text-[17px] font-semibold text-[#0f2040]">
+          Payment complete
+        </h3>
+        <p className="mt-1 text-[14px] text-[#627086]">
+          Thanks for trying KeenVPN. Your subscription is active.{" "}
+          {isASWeb
+            ? "Return to the app and connect to KeenVPN."
+            : isDeepLinkSupported
+              ? "Download KeenVPN to connect on this device."
+              : `Install KeenVPN on your ${unsupportedDeviceName} to connect.`}
+        </p>
+      </div>
+      <div className="mt-4 flex flex-col items-center gap-3">
+        {isASWeb ? (
+          <>
+            <button
+              type="button"
+              className="inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-[8px] bg-[#0f2040] px-5 py-3 text-[14px] font-semibold text-white hover:bg-[#0f2040]/90"
+              onClick={onReturnToApp}
+            >
+              <Smartphone className="h-5 w-5" />
+              {RETURN_TO_APP_LABEL}
+            </button>
+            <button
+              type="button"
+              className="text-[13px] font-medium text-[#627086] hover:text-[#0f2040]"
+              onClick={onDismiss}
+            >
+              Continue on web
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="inline-flex w-full max-w-sm items-center justify-center rounded-[8px] bg-[#0f2040] px-5 py-3 text-[14px] font-semibold text-white hover:bg-[#0f2040]/90"
+            onClick={() =>
+              openKeenVpnAppStore(resolveAppStoreUrl(appStoreUrl))
+            }
+          >
+            {getAppStoreInstallButtonLabel()}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ─── Subscribed state ────────────────────────────────────────────────────────
 
@@ -295,11 +371,61 @@ function HomeLoading() {
 
 // ─── Main export — picks the right state ─────────────────────────────────────
 
+function formatScheduledBillingDate(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+}
+
 export default function DashboardHome() {
   const { loading, subscription, hasSessionToken } = useAuth();
   const sessionToken = hasSessionToken ? getSessionToken() : null;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { toast } = useToast();
+  const businessUpgradeHandledRef = useRef(false);
+  const appStoreUrl = useAppStoreUrl();
+  const {
+    checkoutHydrating,
+    showPaymentCompleteBanner,
+    isASWeb,
+    dismissPostCheckoutUi,
+    returnToApp,
+  } = useStripeCheckoutReturn(appStoreUrl);
 
-  if (loading) return <HomeLoading />;
+  useEffect(() => {
+    if (searchParams.get("business") !== "upgraded") return;
+    if (businessUpgradeHandledRef.current) return;
+    businessUpgradeHandledRef.current = true;
+
+    const scheduledBillingPeriod = searchParams.get("billing");
+    const scheduledBillingDate = formatScheduledBillingDate(
+      searchParams.get("billingEffectiveAt"),
+    );
+    toast({
+      title: "Business plan updated",
+      description:
+        (scheduledBillingPeriod === "year" ||
+          scheduledBillingPeriod === "month") &&
+        scheduledBillingDate
+          ? `Business is active with no upgrade charge. ${
+              scheduledBillingPeriod === "year" ? "Annual" : "Monthly"
+            } billing starts on ${scheduledBillingDate}, after your current paid period ends.`
+          : "Business is enabled. Invite teammates in the Team section below.",
+    });
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("business");
+    next.delete("billing");
+    next.delete("billingEffectiveAt");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, toast]);
+
+  if (loading || checkoutHydrating) return <HomeLoading />;
 
   const resolvedState = hasManageableSubscription(subscription)
     ? "subscribed"
@@ -309,6 +435,13 @@ export default function DashboardHome() {
 
   const content = (
     <>
+      {showPaymentCompleteBanner ? (
+        <PaymentCompleteBanner
+          isASWeb={isASWeb}
+          onReturnToApp={() => returnToApp(getSessionToken())}
+          onDismiss={dismissPostCheckoutUi}
+        />
+      ) : null}
       {sessionToken ? (
         <ReceivedMembershipInviteBanner
           sessionToken={sessionToken}

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import GoogleIcon from "@/components/ui/google-icon";
 import { UserInformationCard } from "@/components/UserInformationCard";
+import { ConnectedDevicesCard } from "@/components/ConnectedDevicesCard";
 import { AuthEmailCard } from "@/components/AuthEmailCard";
 import { cn } from "@/lib/utils";
 import { hasManageableSubscription, canCancelStripeOnWebsite, isAppleIapSubscription } from "@/lib/subscription-cta";
@@ -493,6 +494,13 @@ export default function DashboardProfile() {
             </div>
           </div>
         </section>
+
+        {sessionToken ? (
+          <ConnectedDevicesCard
+            sessionToken={sessionToken}
+            variant="dashboard"
+          />
+        ) : null}
 
         {/* User information (optional profile Q&A from old Account page) */}
         {sessionToken ? (

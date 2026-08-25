@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { DashboardSlideDialog } from "@/components/DashboardSlideDialog";
 import { Loader2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { WorkspacePanel } from "@/components/workspace/WorkspacePanel";
@@ -79,24 +79,6 @@ export function AuthEmailCard({
       loadGeneration.current += 1;
     };
   }, [loadStatus]);
-
-  useEffect(() => {
-    if (!embedded || !editing) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !saving) {
-        setEditing(false);
-        setFormError(null);
-        setNewEmail("");
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [embedded, editing, saving]);
 
   function closeEditModal() {
     if (saving) return;
@@ -195,112 +177,102 @@ export function AuthEmailCard({
       );
     }
 
-    const changeEmailModal =
-      editing && typeof document !== "undefined"
-        ? createPortal(
-            <div className="fixed inset-0 z-[100]">
-              <button
-                type="button"
-                aria-label="Close"
-                className="absolute inset-0 bg-black/40"
-                onClick={closeEditModal}
-              />
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="change-email-title"
-                className="absolute inset-x-0 bottom-0 z-10 flex max-h-[90dvh] w-full flex-col rounded-t-[16px] bg-white shadow-2xl sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[min(90dvh,560px)] sm:w-full sm:max-w-[480px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[16px]"
+    const changeEmailModal = (
+      <DashboardSlideDialog
+        open={editing}
+        onOpenChange={(open) => {
+          if (!open) closeEditModal();
+        }}
+        ariaLabelledBy="change-email-title"
+        className="sm:max-w-[480px]"
+      >
+        <form
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          onSubmit={(e) => void handleRequestChange(e)}
+        >
+          <div className="flex shrink-0 items-center justify-between border-b border-[#e3e8f0] px-5 py-4 sm:px-6">
+            <h2
+              id="change-email-title"
+              className="text-[17px] font-semibold text-[#0f2040]"
+            >
+              Change email address
+            </h2>
+            <button
+              type="button"
+              aria-label="Close"
+              className="flex h-8 w-8 items-center justify-center rounded-[8px] text-[#627086] hover:bg-[#f5f7fb] hover:text-[#0f2040]"
+              onClick={closeEditModal}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+            <div>
+              <label
+                htmlFor="auth-email-current"
+                className="text-[13px] font-semibold text-[#0f2040]"
               >
-                <form
-                  className="flex min-h-0 flex-1 flex-col overflow-hidden"
-                  onSubmit={(e) => void handleRequestChange(e)}
-                >
-                  <div className="flex shrink-0 items-center justify-between border-b border-[#e3e8f0] px-5 py-4 sm:px-6">
-                    <h2
-                      id="change-email-title"
-                      className="text-[17px] font-semibold text-[#0f2040]"
-                    >
-                      Change email address
-                    </h2>
-                    <button
-                      type="button"
-                      aria-label="Close"
-                      className="flex h-8 w-8 items-center justify-center rounded-[8px] text-[#627086] hover:bg-[#f5f7fb] hover:text-[#0f2040]"
-                      onClick={closeEditModal}
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                  </div>
+                Current email address
+              </label>
+              <Input
+                id="auth-email-current"
+                type="email"
+                value={email}
+                readOnly
+                className="mt-2 h-11 rounded-[8px] border-[#dbe2ec] bg-[#f8fafc] text-[14px] text-[#0f2040]"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="auth-email-new"
+                className="text-[13px] font-semibold text-[#0f2040]"
+              >
+                New email address
+              </label>
+              <Input
+                id="auth-email-new"
+                type="email"
+                autoComplete="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                required
+                placeholder="Enter new email"
+                className="mt-2 h-11 rounded-[8px] border-[#dbe2ec] bg-white text-[14px] text-[#0f2040] placeholder:text-[#8d9ab1]"
+              />
+            </div>
+            {formError ? (
+              <p className="text-[13px] text-[#d14343]">{formError}</p>
+            ) : null}
+          </div>
 
-                  <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
-                    <div>
-                      <label
-                        htmlFor="auth-email-current"
-                        className="text-[13px] font-semibold text-[#0f2040]"
-                      >
-                        Current email address
-                      </label>
-                      <Input
-                        id="auth-email-current"
-                        type="email"
-                        value={email}
-                        readOnly
-                        className="mt-2 h-11 rounded-[8px] border-[#dbe2ec] bg-[#f8fafc] text-[14px] text-[#0f2040]"
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="auth-email-new"
-                        className="text-[13px] font-semibold text-[#0f2040]"
-                      >
-                        New email address
-                      </label>
-                      <Input
-                        id="auth-email-new"
-                        type="email"
-                        autoComplete="email"
-                        value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
-                        required
-                        placeholder="Enter new email"
-                        className="mt-2 h-11 rounded-[8px] border-[#dbe2ec] bg-white text-[14px] text-[#0f2040] placeholder:text-[#8d9ab1]"
-                      />
-                    </div>
-                    {formError ? (
-                      <p className="text-[13px] text-[#d14343]">{formError}</p>
-                    ) : null}
-                  </div>
-
-                  <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-[#e3e8f0] px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                    <button
-                      type="button"
-                      className={dashOutlineBtn}
-                      disabled={saving}
-                      onClick={closeEditModal}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className={dashPrimaryBtn}
-                      disabled={saving || !newEmail.trim()}
-                    >
-                      {saving ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Saving…
-                        </>
-                      ) : (
-                        "Save"
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null;
+          <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-[#e3e8f0] px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <button
+              type="button"
+              className={dashOutlineBtn}
+              disabled={saving}
+              onClick={closeEditModal}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={dashPrimaryBtn}
+              disabled={saving || !newEmail.trim()}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save"
+              )}
+            </button>
+          </div>
+        </form>
+      </DashboardSlideDialog>
+    );
 
     return (
       <div className={cn("space-y-4", className)}>

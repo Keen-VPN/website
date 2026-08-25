@@ -133,6 +133,13 @@ export function hasScheduledAnnualBilling(
   );
 }
 
+/** True when a switch to 2-year billing is already scheduled at the next renewal. */
+export function hasScheduledTwoYearBilling(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return subscription?.scheduledPlanChange?.to === "2year";
+}
+
 /** Stripe monthly (or trialing monthly) with auto-renewal on — eligible for one-click annual upgrade. */
 export function canUpgradeStripeToAnnual(
   subscription: SubscriptionData | null | undefined,
