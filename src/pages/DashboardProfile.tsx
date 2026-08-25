@@ -8,7 +8,6 @@ import {
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
@@ -23,20 +22,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import GoogleIcon from "@/components/ui/google-icon";
 import { UserInformationCard } from "@/components/UserInformationCard";
+import { AuthEmailCard } from "@/components/AuthEmailCard";
 import { cn } from "@/lib/utils";
 import { hasManageableSubscription, canCancelStripeOnWebsite, isAppleIapSubscription } from "@/lib/subscription-cta";
 import { AppleIapSubscriptionsCta } from "@/components/AppleIapSubscriptionsCta";
 import { useLinkedProviderActions } from "@/hooks/use-linked-provider-actions";
 import {
-  cancelAuthEmailChange,
   deleteAccount,
   fetchMyEmailCategoryPreferences,
-  getAuthEmailStatus,
   getSessionToken,
-  requestAuthEmailChange,
-  resendAuthEmailChange,
   updateMyEmailCategoryPreferences,
-  type AuthEmailPending,
   type EmailCategoryPreference,
 } from "@/auth/backend";
 
@@ -145,16 +140,6 @@ export default function DashboardProfile() {
   } = useAuth();
 
   const sessionToken = hasSessionToken ? getSessionToken() : null;
-
-  // ── Account email ──────────────────────────────────────────────────────────
-  const [email, setEmail] = useState("");
-  const [emailLoading, setEmailLoading] = useState(Boolean(sessionToken));
-  const [pending, setPending] = useState<AuthEmailPending | null>(null);
-  const [editingEmail, setEditingEmail] = useState(false);
-  const [newEmail, setNewEmail] = useState("");
-  const [emailSaving, setEmailSaving] = useState(false);
-  const [emailFormError, setEmailFormError] = useState<string | null>(null);
-  const emailLoadGen = useRef(0);
   const prefsLoadGen = useRef(0);
 
   // ── Connected accounts ─────────────────────────────────────────────────────
@@ -180,25 +165,6 @@ export default function DashboardProfile() {
 
   // ── Delete account ─────────────────────────────────────────────────────────
   const [deleting, setDeleting] = useState(false);
-
-  const loadEmail = useCallback(async () => {
-    if (!sessionToken) {
-      setEmail(user?.email ?? "you@example.com");
-      setEmailLoading(false);
-      return;
-    }
-    const generation = ++emailLoadGen.current;
-    setEmailLoading(true);
-    const response = await getAuthEmailStatus(sessionToken);
-    if (generation !== emailLoadGen.current) return;
-    if (response.success && response.email) {
-      setEmail(response.email);
-      setPending(response.pending ?? null);
-    } else {
-      setEmail(user?.email ?? "");
-    }
-    setEmailLoading(false);
-  }, [sessionToken, user?.email]);
 
   const loadPreferences = useCallback(async () => {
     if (!sessionToken) {
@@ -229,94 +195,14 @@ export default function DashboardProfile() {
   }, [sessionToken]);
 
   useEffect(() => {
-    void loadEmail();
     void loadPreferences();
     if (sessionToken) {
       void refreshLinkedProviders();
     }
     return () => {
-      emailLoadGen.current += 1;
       prefsLoadGen.current += 1;
     };
-  }, [loadEmail, loadPreferences, refreshLinkedProviders, sessionToken]);
-
-  async function handleRequestEmailChange(event: React.FormEvent) {
-    event.preventDefault();
-    if (!sessionToken) {
-      toast({
-        title: "Sign in required",
-        description: "Sign in to change your email address.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setEmailFormError(null);
-    const trimmed = newEmail.trim().toLowerCase();
-    if (!trimmed) {
-      setEmailFormError("Enter a new email address.");
-      return;
-    }
-    if (trimmed === email.trim().toLowerCase()) {
-      setEmailFormError("That is already your current login email.");
-      return;
-    }
-    setEmailSaving(true);
-    const response = await requestAuthEmailChange(sessionToken, trimmed);
-    setEmailSaving(false);
-    if (!response.success) {
-      setEmailFormError(response.error ?? "Could not start email change");
-      return;
-    }
-    setPending(response.pending ?? null);
-    setEditingEmail(false);
-    setNewEmail("");
-    toast({
-      title: "Verification email sent",
-      description:
-        response.message ??
-        "Check the new inbox to confirm your login email change.",
-    });
-  }
-
-  async function handleResendEmailChange() {
-    if (!sessionToken) return;
-    setEmailSaving(true);
-    const response = await resendAuthEmailChange(sessionToken);
-    setEmailSaving(false);
-    if (!response.success) {
-      toast({
-        title: "Could not resend verification",
-        description: response.error ?? "Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setPending(response.pending ?? null);
-    toast({
-      title: "Verification email resent",
-      description: response.message ?? "Check the new inbox again.",
-    });
-  }
-
-  async function handleCancelEmailChange() {
-    if (!sessionToken) return;
-    setEmailSaving(true);
-    const response = await cancelAuthEmailChange(sessionToken);
-    setEmailSaving(false);
-    if (!response.success) {
-      toast({
-        title: "Could not cancel change",
-        description: response.error ?? "Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setPending(null);
-    toast({
-      title: "Email change cancelled",
-      description: response.message ?? "Your current login email is unchanged.",
-    });
-  }
+  }, [loadPreferences, refreshLinkedProviders, sessionToken]);
 
   async function handleTogglePreference(
     category: string,
@@ -414,117 +300,22 @@ export default function DashboardProfile() {
   return (
     <div className="px-4 py-6 sm:px-6 sm:py-8 md:px-8 lg:px-10">
       <div className="mx-auto flex w-full max-w-[920px] flex-col gap-5">
-        {/* Account details */}
+        {/* Account details — shared AuthEmailCard (same flow as Settings) */}
         <section className={cardClass}>
           <SectionHeader
             title="Account details"
             description="Manage your personal information"
           />
-
-          {emailLoading ? (
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-2">
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-5 w-56" />
-              </div>
-              <Skeleton className="h-9 w-28 rounded-[8px]" />
-            </div>
-          ) : pending ? (
-            <div className="space-y-3 rounded-[10px] border border-[#e3e8f0] bg-[#f8fafc] p-4">
-              <p className="text-[14px] text-[#0f2040]">
-                Waiting for verification of{" "}
-                <span className="font-semibold">{pending.newEmail}</span>
-              </p>
-              <p className="text-[12px] text-[#627086]">
-                Expires {new Date(pending.expiresAt).toLocaleString()}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={outlineBtnClass}
-                  disabled={emailSaving}
-                  onClick={() => void handleResendEmailChange()}
-                >
-                  Resend verification
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-9 items-center px-3 text-[13px] font-semibold text-[#627086] hover:text-[#0f2040]"
-                  disabled={emailSaving}
-                  onClick={() => void handleCancelEmailChange()}
-                >
-                  Cancel change
-                </button>
-              </div>
-            </div>
-          ) : editingEmail ? (
-            <form
-              className="space-y-3"
-              onSubmit={(e) => void handleRequestEmailChange(e)}
-            >
-              <div>
-                <p className="text-[12px] font-medium text-[#627086]">
-                  New email address
-                </p>
-                <Input
-                  type="email"
-                  autoComplete="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  required
-                  placeholder="you@example.com"
-                  className="mt-1.5 h-10 rounded-[8px] border-[#dbe2ec]"
-                />
-              </div>
-              {emailFormError ? (
-                <p className="text-[13px] text-[#d14343]">{emailFormError}</p>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="submit"
-                  className="inline-flex h-9 items-center justify-center rounded-[8px] bg-[#0f2040] px-4 text-[13px] font-semibold text-white hover:bg-[#0f2040]/90 disabled:opacity-50"
-                  disabled={emailSaving || !newEmail.trim()}
-                >
-                  {emailSaving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending…
-                    </>
-                  ) : (
-                    "Send verification"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-9 items-center px-3 text-[13px] font-semibold text-[#627086] hover:text-[#0f2040]"
-                  disabled={emailSaving}
-                  onClick={() => {
-                    setEditingEmail(false);
-                    setEmailFormError(null);
-                    setNewEmail("");
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+          {sessionToken ? (
+            <AuthEmailCard sessionToken={sessionToken} embedded />
           ) : (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-[12px] font-medium text-[#627086]">
-                  Email address
-                </p>
-                <p className="mt-1 break-all text-[14px] font-medium text-[#0f2040]">
-                  {email || "—"}
-                </p>
-              </div>
-              <button
-                type="button"
-                className={outlineBtnClass}
-                onClick={() => setEditingEmail(true)}
-              >
-                Change email
-              </button>
+            <div className="min-w-0">
+              <p className="text-[12px] font-medium text-dash-muted">
+                Email address
+              </p>
+              <p className="mt-1 break-all text-[14px] font-medium text-dash-ink">
+                —
+              </p>
             </div>
           )}
         </section>

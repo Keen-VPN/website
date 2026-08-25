@@ -40,7 +40,7 @@ const SECTIONS: DownloadSection[] = [
         subtitle: "Windows 10 and 11 — installer coming soon",
         cta: "Coming soon",
         comingSoon: true,
-        icon: <Monitor className="h-5 w-5 text-[#0f2040]" />,
+        icon: <Monitor className="h-5 w-5 text-dash-ink" />,
       },
       {
         id: "macos",
@@ -48,7 +48,7 @@ const SECTIONS: DownloadSection[] = [
         subtitle: "macOS 13 and higher",
         cta: "Download",
         href: APP_STORE_URLS.macos,
-        icon: <Laptop className="h-5 w-5 text-[#0f2040]" />,
+        icon: <Laptop className="h-5 w-5 text-dash-ink" />,
       },
     ],
   },
@@ -63,7 +63,7 @@ const SECTIONS: DownloadSection[] = [
         subtitle: "Available on Google Play",
         cta: "Get app",
         href: APP_STORE_URLS.android,
-        icon: <Smartphone className="h-5 w-5 text-[#0f2040]" />,
+        icon: <Smartphone className="h-5 w-5 text-dash-ink" />,
       },
       {
         id: "ios",
@@ -71,7 +71,7 @@ const SECTIONS: DownloadSection[] = [
         subtitle: "Available on App Store",
         cta: "Get app",
         href: APP_STORE_URLS.ios,
-        icon: <TabletSmartphone className="h-5 w-5 text-[#0f2040]" />,
+        icon: <TabletSmartphone className="h-5 w-5 text-dash-ink" />,
       },
     ],
   },
@@ -86,7 +86,7 @@ const SECTIONS: DownloadSection[] = [
         subtitle: "Available on Chrome Web store",
         cta: "Add extension",
         href: CHROME_EXTENSION_URL,
-        icon: <Chrome className="h-5 w-5 text-[#0f2040]" />,
+        icon: <Chrome className="h-5 w-5 text-dash-ink" />,
       },
     ],
   },
@@ -104,18 +104,18 @@ function DownloadRow({ item }: { item: DownloadItem }) {
       : item.href;
 
   return (
-    <div className="flex flex-col gap-3 rounded-[10px] border border-[#e3e8f0] bg-[#fafbfd] px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4">
+    <div className="flex flex-col gap-3 rounded-[10px] border border-dash-border bg-dash-surface-muted px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4">
       <div className="flex min-w-0 flex-1 items-center gap-4">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-[#e3e8f0] bg-white">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-dash-border bg-dash-surface">
           {item.icon}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[15px] font-semibold text-[#0f2040]">{item.title}</p>
-          <p className="text-[13px] text-[#627086]">{item.subtitle}</p>
+          <p className="text-[15px] font-semibold text-dash-ink">{item.title}</p>
+          <p className="text-[13px] text-dash-muted">{item.subtitle}</p>
         </div>
       </div>
       {item.comingSoon || !href ? (
-        <span className="inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] border border-[#dbe2ec] bg-white px-4 text-[13px] font-semibold text-[#627086] sm:self-auto">
+        <span className="inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] border border-dash-border-strong bg-dash-surface px-4 text-[13px] font-semibold text-dash-muted sm:self-auto">
           {item.cta}
         </span>
       ) : (
@@ -123,7 +123,7 @@ function DownloadRow({ item }: { item: DownloadItem }) {
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] bg-[#0f2040] px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 sm:self-auto"
+          className="inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] bg-dash-ink px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 sm:self-auto"
         >
           {item.cta}
         </a>
@@ -139,13 +139,13 @@ export default function DashboardDownloads() {
         {SECTIONS.map((section) => (
           <section
             key={section.title}
-            className="rounded-[15px] border border-[#e3e8f0] bg-white px-4 py-5 shadow-[0px_3px_4px_rgba(15,32,64,0.03),0px_16px_19px_rgba(15,32,64,0.06)] sm:px-6 sm:py-6"
+            className="rounded-[15px] border border-dash-border bg-dash-surface px-4 py-5 shadow-dash-card sm:px-6 sm:py-6"
           >
             <div className="mb-5">
-              <h2 className="text-[18px] font-bold text-[#071f3f]">
+              <h2 className="text-[18px] font-bold text-dash-ink-deep">
                 {section.title}
               </h2>
-              <p className="mt-1 text-[14px] text-[#627086]">
+              <p className="mt-1 text-[14px] text-dash-muted">
                 {section.description}
               </p>
             </div>

@@ -89,6 +89,18 @@ All colors MUST be HSL.
     --chart-3: 217 62% 35%;
     --chart-4: 21 90% 56%;
     --chart-5: 203 47% 55%;
+
+    /* Light dashboard surface (account shell) */
+    --dash-ink: 217 62% 15%; /* #0f2040 */
+    --dash-ink-deep: 216 80% 14%; /* #071f3f */
+    --dash-muted: 215 18% 45%; /* #627086 */
+    --dash-border: 214 31% 91%; /* #e3e8f0 */
+    --dash-border-strong: 214 29% 89%; /* #dbe2ec */
+    --dash-surface: 0 0% 100%;
+    --dash-surface-muted: 220 33% 98%; /* #fafbfd */
+    --dash-canvas: 220 33% 97%; /* #f5f7fb */
+    --dash-shadow-card: 0px 3px 4px hsl(217 62% 15% / 0.03),
+      0px 16px 19px hsl(217 62% 15% / 0.06);
   }
 
   .dark {

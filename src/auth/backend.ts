@@ -110,6 +110,12 @@ export interface RawBackendAuthResponse extends Omit<
 }
 
 const activeSubscriptionStatuses = new Set(["active", "trialing", "past_due"]);
+/** Ended subscriptions we still surface so UI can show renew/expired states. */
+const endedSubscriptionStatuses = new Set([
+  "canceled",
+  "cancelled",
+  "expired",
+]);
 
 function normalizeTrial(
   rawTrial: RawTrial | null | undefined,
@@ -261,17 +267,17 @@ export function normalizeBackendAuthResponse(
     normalizedSubscription.seatLimit = rawSubscription.seatLimit;
   }
 
-  // Only surface subscriptions with actionable statuses so that all auth
-  // paths (sign-in and background status-session refresh) are consistent.
-  // Non-active statuses (e.g. "canceled", "incomplete") are treated as null
-  // to prevent stale data from showing the wrong CTA label on initial load.
-  const isActionable = activeSubscriptionStatuses.has(
-    normalizedSubscription.status,
-  );
+  // Surface active/trialing/past_due as usual. Also keep ended statuses
+  // (canceled/expired) so dashboard home can show ExpiredHome instead of
+  // treating former subscribers as brand-new users. Incomplete/other statuses
+  // stay null so CTAs that key off subscription presence stay correct.
+  const status = normalizedSubscription.status;
+  const isActionable = activeSubscriptionStatuses.has(status);
+  const isEnded = endedSubscriptionStatuses.has(status);
 
   return {
     ...responseWithoutRawTrial,
-    subscription: isActionable ? normalizedSubscription : null,
+    subscription: isActionable || isEnded ? normalizedSubscription : null,
     ...(data.trial !== undefined ? { trial: normalizedTrial } : {}),
   };
 }

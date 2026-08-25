@@ -10,7 +10,7 @@ import {
 import { serverLocationStats } from "@/constants/server-locations";
 import { MembershipSharingProvider } from "@/contexts/MembershipSharingContext";
 import { MembershipTeamPanel } from "@/components/MembershipTeamPanel";
-import { hasManageableSubscription } from "@/lib/subscription-cta";
+import { hasManageableSubscription, isEndedSubscription } from "@/lib/subscription-cta";
 import { DashboardHomeLayout } from "@/components/dashboard/DashboardHomeShared";
 
 // ─── Subscribed state ────────────────────────────────────────────────────────
@@ -302,9 +302,9 @@ export default function DashboardHome() {
 
   const resolvedState = hasManageableSubscription(subscription)
     ? "subscribed"
-    : !subscription
-      ? "new"
-      : "expired";
+    : isEndedSubscription(subscription)
+      ? "expired"
+      : "new";
 
   const content = (
     <>

@@ -27,6 +27,20 @@ export function hasManageableSubscription(
   return Boolean(status && manageableSubscriptionStatuses.has(status));
 }
 
+const endedSubscriptionStatuses = new Set([
+  "canceled",
+  "cancelled",
+  "expired",
+]);
+
+/** True when auth still has a subscription record but it is no longer manageable. */
+export function isEndedSubscription(
+  subscription: SubscriptionState,
+): boolean {
+  const status = getSubscriptionStatus(subscription);
+  return Boolean(status && endedSubscriptionStatuses.has(status));
+}
+
 export function isStripeSubscription(
   subscription: SubscriptionData | null | undefined,
 ): boolean {

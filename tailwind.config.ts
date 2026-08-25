@@ -66,6 +66,16 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        dash: {
+          ink: "hsl(var(--dash-ink))",
+          "ink-deep": "hsl(var(--dash-ink-deep))",
+          muted: "hsl(var(--dash-muted))",
+          border: "hsl(var(--dash-border))",
+          "border-strong": "hsl(var(--dash-border-strong))",
+          surface: "hsl(var(--dash-surface))",
+          "surface-muted": "hsl(var(--dash-surface-muted))",
+          canvas: "hsl(var(--dash-canvas))",
+        },
       },
       backgroundImage: {
         "gradient-primary": "var(--gradient-primary)",
@@ -75,6 +85,7 @@ export default {
       boxShadow: {
         glow: "var(--shadow-glow)",
         card: "var(--shadow-card)",
+        "dash-card": "var(--dash-shadow-card)",
       },
       borderRadius: {
         lg: "var(--radius)",

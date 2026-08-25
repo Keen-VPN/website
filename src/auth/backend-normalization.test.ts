@@ -85,4 +85,30 @@ describe("normalizeBackendAuthResponse", () => {
       ).toBeUndefined();
     },
   );
+
+  it("keeps canceled/expired subscriptions so renew UI can render", () => {
+    const canceled = normalizeBackendAuthResponse({
+      success: true,
+      subscription: {
+        status: "canceled",
+        plan: "Premium VPN",
+        canManageBilling: false,
+      },
+    });
+    expect(canceled.subscription).toEqual(
+      expect.objectContaining({
+        status: "canceled",
+        plan: "Premium VPN",
+      }),
+    );
+
+    const incomplete = normalizeBackendAuthResponse({
+      success: true,
+      subscription: {
+        status: "incomplete",
+        canManageBilling: false,
+      },
+    });
+    expect(incomplete.subscription).toBeNull();
+  });
 });
