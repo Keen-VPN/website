@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Calendar,
@@ -768,8 +769,8 @@ function InvoiceModal({
       ? `${formatEventDate(event.periodStart).date} – ${formatEventDate(event.periodEnd).date}`
       : null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
@@ -870,7 +871,8 @@ function InvoiceModal({
           </a>
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -899,15 +901,6 @@ function BillingHistoryTab() {
   }
 
   const openInvoice = (event: SubscriptionEvent) => {
-    // Receipt modal is payment-shaped; skip non-payment timeline events.
-    if (
-      event.eventType === 'cancellation' ||
-      event.eventType === 'trial_start' ||
-      event.eventType === 'trial_end' ||
-      event.eventType === 'plan_change'
-    ) {
-      return;
-    }
     setSelected(event);
   };
 
@@ -940,35 +933,20 @@ function BillingHistoryTab() {
             ) : (
               events.map((event) => {
                 const status = getStatusInfo(event.status, 'dashboard');
-                const canOpenReceipt =
-                  event.eventType !== 'cancellation' &&
-                  event.eventType !== 'trial_start' &&
-                  event.eventType !== 'trial_end' &&
-                  event.eventType !== 'plan_change';
                 return (
                   <tr
                     key={event.id}
-                    className={[
-                      'border-b border-[#eef2f7] last:border-0',
-                      canOpenReceipt
-                        ? 'cursor-pointer hover:bg-[#fafbfd]'
-                        : '',
-                    ].join(' ')}
+                    className="cursor-pointer border-b border-[#eef2f7] last:border-0 hover:bg-[#fafbfd]"
                     onClick={() => openInvoice(event)}
                     onKeyDown={(e) => {
-                      if (!canOpenReceipt) return;
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         openInvoice(event);
                       }
                     }}
-                    tabIndex={canOpenReceipt ? 0 : undefined}
-                    role={canOpenReceipt ? 'button' : undefined}
-                    aria-label={
-                      canOpenReceipt
-                        ? `View invoice for ${event.planName}`
-                        : undefined
-                    }
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`View invoice for ${event.planName}`}
                   >
                     <td className="px-11 py-6 text-[#24395f]">
                       {formatEventDate(event.eventDate).date}
@@ -998,9 +976,7 @@ function BillingHistoryTab() {
                         : '—'}
                     </td>
                     <td className="px-3 py-6 text-[#627086]">
-                      {canOpenReceipt ? (
-                        <ChevronRight className="h-5 w-5" aria-hidden />
-                      ) : null}
+                      <ChevronRight className="h-5 w-5" aria-hidden />
                     </td>
                   </tr>
                 );

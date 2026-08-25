@@ -130,7 +130,6 @@ export default function DashboardProfile() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const {
-    user,
     subscription,
     linkedProviders,
     authProvider,
