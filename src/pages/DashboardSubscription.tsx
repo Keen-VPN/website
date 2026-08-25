@@ -27,13 +27,17 @@ import {
   type SubscriptionEvent,
   formatCurrency,
   formatEventDate,
+  getStatusInfo,
 } from '@/lib/subscription-history-api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SubscriptionCancellationControls } from '@/components/SubscriptionCancellationControls';
 import {
   hasManageableSubscription,
   isStripeSubscription,
+  resolveMembershipPlanTier,
+  resolveSubscriptionBillingPeriod,
 } from '@/lib/subscription-cta';
+import type { SubscriptionData } from '@/auth/types';
 
 type TabId = 'subscription' | 'plans' | 'billing';
 type PlanTier = 'premium' | 'team';
@@ -65,6 +69,15 @@ function isAnnualPlan(plan: ApiPlan) {
 
 function getPlanTier(plan: ApiPlan): PlanTier | 'other' {
   const id = plan.id.toLowerCase();
+  // Retired Family catalog IDs should not appear under Individual checkout.
+  // Keep family_plus / familyplus as Business (team).
+  if (
+    id.includes('family') &&
+    !id.includes('family_plus') &&
+    !id.includes('familyplus')
+  ) {
+    return 'other';
+  }
   if (
     plan.isPerSeat ||
     id.includes('team') ||
@@ -75,6 +88,68 @@ function getPlanTier(plan: ApiPlan): PlanTier | 'other' {
     return 'team';
   }
   return 'premium';
+}
+
+function isCurrentCatalogPlan(
+  plan: ApiPlan,
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (!subscription || !hasManageableSubscription(subscription)) return false;
+  if (subscription.planId && plan.id === subscription.planId) return true;
+
+  const subTier = resolveMembershipPlanTier(subscription);
+  const planTier = getPlanTier(plan) === 'team' ? 'business' : 'individual';
+  if (subTier === 'family') return false;
+  if (subTier !== planTier) return false;
+
+  const subPeriod = resolveSubscriptionBillingPeriod(subscription);
+  const planPeriod = isTwoYearApiPlan(plan)
+    ? '2year'
+    : isAnnualPlan(plan)
+      ? 'year'
+      : 'month';
+  return subPeriod === planPeriod;
+}
+
+const BILLING_PERIOD_RANK: Record<'month' | 'year' | '2year', number> = {
+  month: 0,
+  year: 1,
+  '2year': 2,
+};
+
+function planChangeCtaLabel(
+  plan: ApiPlan,
+  subscription: SubscriptionData,
+): string {
+  const targetBusiness = getPlanTier(plan) === 'team';
+  const targetPeriod = isTwoYearApiPlan(plan)
+    ? '2year'
+    : isAnnualPlan(plan)
+      ? 'year'
+      : 'month';
+  const currentBusiness =
+    resolveMembershipPlanTier(subscription) === 'business';
+  const currentPeriod = resolveSubscriptionBillingPeriod(subscription);
+
+  const isUpgrade =
+    (targetBusiness && !currentBusiness) ||
+    (targetBusiness === currentBusiness &&
+      BILLING_PERIOD_RANK[targetPeriod] > BILLING_PERIOD_RANK[currentPeriod]);
+
+  const verb = isUpgrade ? 'Upgrade to' : 'Switch to';
+
+  if (targetBusiness && targetPeriod === 'year') {
+    return `${verb} Business annual`;
+  }
+  if (targetBusiness && targetPeriod === 'month') {
+    return `${verb} Business monthly`;
+  }
+  if (targetBusiness && targetPeriod === '2year') {
+    return `${verb} Business 2-year`;
+  }
+  if (targetPeriod === '2year') return `${verb} 2-year`;
+  if (targetPeriod === 'year') return `${verb} 1-year`;
+  return `${verb} monthly`;
 }
 
 function formatDate(dateString?: string | null) {
@@ -137,14 +212,14 @@ function CurrentPlanTab() {
       : 'bg-[#e6f9f0] text-[#159653]';
 
   const isBusiness =
-    (subscription.plan || '').toLowerCase().includes('business') ||
-    (subscription.plan || '').toLowerCase().includes('team') ||
+    resolveMembershipPlanTier(subscription) === 'business' ||
     (subscription.seatLimit != null && subscription.seatLimit > 1);
 
+  const billingPeriod = resolveSubscriptionBillingPeriod(subscription);
   const periodLabel =
-    subscription.billingPeriod === '2year'
+    billingPeriod === '2year'
       ? '2-year'
-      : subscription.billingPeriod === 'year'
+      : billingPeriod === 'year'
         ? 'Annual'
         : 'Monthly';
 
@@ -152,6 +227,10 @@ function CurrentPlanTab() {
   const autoRenewOn = !subscription.cancelAtPeriodEnd;
   const canOpenStripePortal =
     isStripeSubscription(subscription) && subscription.canManageBilling;
+  const canCancel =
+    isStripeSubscription(subscription) &&
+    subscription.canManageBilling === true &&
+    !subscription.cancelAtPeriodEnd;
 
   return (
     <section className="overflow-hidden rounded-[15px] border border-[#e3e8f0] bg-white shadow-[0px_12px_30px_rgba(15,32,64,0.06)]">
@@ -210,6 +289,11 @@ function CurrentPlanTab() {
               >
                 {autoRenewOn ? 'On' : 'Off'}
               </p>
+              {canCancel ? (
+                <p className="mt-1 text-[13px] text-[#627086]">
+                  Use Turn off auto-renewal below to stop future charges.
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="flex gap-4 lg:px-8">
@@ -270,7 +354,7 @@ function CurrentPlanTab() {
             onCancel={() => void cancelSubscriptionAtPeriodEnd()}
             onManageBilling={() => void openBillingPortal()}
             portalLoading={portalLoading}
-            showManageBilling={canOpenStripePortal}
+            showManageBilling={false}
           />
         </div>
       </div>
@@ -290,7 +374,8 @@ function PlansTab() {
   const { toast } = useToast();
   const { logout, subscription } = useAuth();
   const navigate = useNavigate();
-  const { openBillingPortal, portalLoading } = useSubscriptionBillingActions();
+  const { openBillingPortal, openPlanChangePortal, portalLoading } =
+    useSubscriptionBillingActions();
   const isManageable = hasManageableSubscription(subscription);
   const canOpenStripePortal =
     isStripeSubscription(subscription) && Boolean(subscription?.canManageBilling);
@@ -497,6 +582,12 @@ function PlansTab() {
             footer = 'Protected by our 30-day guarantee.';
           }
 
+          const isCurrentPlan = isCurrentCatalogPlan(plan, subscription);
+
+          if (isManageable && !isCurrentPlan && subscription) {
+            cta = planChangeCtaLabel(plan, subscription);
+          }
+
           return (
             <div
               key={plan.id}
@@ -562,13 +653,28 @@ function PlansTab() {
               <button
                 type="button"
                 onClick={() => {
+                  if (isCurrentPlan) {
+                    if (canOpenStripePortal) {
+                      void openBillingPortal();
+                      return;
+                    }
+                    toast({
+                      title: 'Already subscribed',
+                      description:
+                        subscription?.subscriptionType === 'apple_iap'
+                          ? 'Manage or change your plan in the App Store.'
+                          : 'Open billing to change your plan.',
+                    });
+                    navigate('/subscription');
+                    return;
+                  }
                   if (isManageable && canOpenStripePortal) {
-                    void openBillingPortal();
+                    void openPlanChangePortal();
                     return;
                   }
                   if (isManageable) {
                     toast({
-                      title: 'Already subscribed',
+                      title: 'Change plan',
                       description:
                         subscription?.subscriptionType === 'apple_iap'
                           ? 'Manage or change your plan in the App Store.'
@@ -581,7 +687,11 @@ function PlansTab() {
                 }}
                 disabled={
                   checkoutLoadingId === plan.id ||
-                  (isManageable && canOpenStripePortal && portalLoading)
+                  (isCurrentPlan && canOpenStripePortal && portalLoading) ||
+                  (!isCurrentPlan &&
+                    isManageable &&
+                    canOpenStripePortal &&
+                    portalLoading)
                 }
                 className={[
                   'mt-4 w-full rounded-[8px] py-3 text-[17px] font-semibold transition-opacity',
@@ -591,12 +701,12 @@ function PlansTab() {
                 ].join(' ')}
               >
                 {checkoutLoadingId === plan.id ||
-                (isManageable && canOpenStripePortal && portalLoading) ? (
+                ((isCurrentPlan || (isManageable && !isCurrentPlan)) &&
+                  canOpenStripePortal &&
+                  portalLoading) ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-                ) : isManageable ? (
-                  canOpenStripePortal
-                    ? 'Manage billing'
-                    : 'Already subscribed'
+                ) : isCurrentPlan ? (
+                  canOpenStripePortal ? 'Manage billing' : 'Current plan'
                 ) : (
                   cta
                 )}
@@ -659,98 +769,98 @@ function InvoiceModal({
       : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
-        className="relative max-h-[90vh] w-full max-w-[606px] overflow-y-auto rounded-[16px] bg-white shadow-2xl"
+        className="relative max-h-[92vh] w-full max-w-[606px] overflow-y-auto rounded-t-[16px] bg-white shadow-2xl sm:rounded-[16px]"
       >
         <button
           type="button"
           onClick={onClose}
-          className="flex items-center gap-2 px-9 pt-7 text-[15px] text-[#627086] hover:text-[#0f2040]"
+          className="flex items-center gap-2 px-5 pt-5 text-[14px] text-[#627086] hover:text-[#0f2040] sm:px-9 sm:pt-7 sm:text-[15px]"
         >
           <X className="h-5 w-5" />
           Close invoice and payment details
         </button>
 
-        <h2 className="px-9 pb-8 pt-6 text-[34px] font-bold tracking-[-0.8px] text-[#252525] md:text-[42px]">
+        <h2 className="break-words px-5 pb-6 pt-4 text-[24px] font-bold leading-tight tracking-[-0.5px] text-[#252525] sm:px-9 sm:pb-8 sm:pt-6 sm:text-[34px] sm:tracking-[-0.8px] md:text-[42px]">
           Paid on {paidOn}
         </h2>
 
-        <div className="border-y border-[#e3e8f0] px-9 py-5">
+        <div className="border-y border-[#e3e8f0] px-5 py-5 sm:px-9">
           <p className="text-[13px] font-semibold uppercase tracking-[0.4px] text-[#737373]">
             Summary
           </p>
-          <div className="mt-5 grid grid-cols-[88px_1fr] gap-y-2 text-[16px]">
+          <div className="mt-5 grid grid-cols-[72px_1fr] gap-y-2 text-[15px] sm:grid-cols-[88px_1fr] sm:text-[16px]">
             <span className="text-[#737373]">To</span>
-            <span className="font-medium text-[#303030]">
+            <span className="min-w-0 break-words font-medium text-[#303030]">
               {user?.displayName || user?.email || '—'}
             </span>
             <span className="text-[#737373]">From</span>
             <span className="font-medium text-[#303030]">KeenVPN</span>
             <span className="text-[#737373]">Invoice</span>
-            <span className="font-medium text-[#303030]">
+            <span className="min-w-0 break-all font-medium text-[#303030]">
               #{event.id.slice(0, 12).toUpperCase()}
             </span>
           </div>
         </div>
 
-        <div className="px-9 py-6">
+        <div className="px-5 py-6 sm:px-9">
           <p className="text-[13px] font-semibold uppercase tracking-[0.4px] text-[#737373]">
             Items
           </p>
           {period ? (
-            <p className="mt-4 text-[14px] font-semibold uppercase text-[#737373]">
+            <p className="mt-4 text-[13px] font-semibold uppercase text-[#737373] sm:text-[14px]">
               {period}
             </p>
           ) : null}
-          <div className="mt-3 flex items-start justify-between gap-3 border-b border-[#e3e8f0] pb-5 text-[16px]">
-            <div>
+          <div className="mt-3 flex items-start justify-between gap-3 border-b border-[#e3e8f0] pb-5 text-[15px] sm:text-[16px]">
+            <div className="min-w-0">
               <p className="font-medium text-[#303030]">{event.planName}</p>
               <p className="mt-1 text-[#737373]">Qty 1</p>
             </div>
-            <p className="font-medium text-[#303030]">{amount}</p>
+            <p className="shrink-0 font-medium text-[#303030]">{amount}</p>
           </div>
 
-          <div className="mt-4 space-y-3 text-[16px]">
-            <div className="flex justify-between">
+          <div className="mt-4 space-y-3 text-[15px] sm:text-[16px]">
+            <div className="flex justify-between gap-3">
               <span className="text-[#454545]">Total excluding tax</span>
-              <span className="text-[#454545]">{amount}</span>
+              <span className="shrink-0 text-[#454545]">{amount}</span>
             </div>
-            <div className="flex justify-between border-t border-[#e3e8f0] pt-4">
+            <div className="flex justify-between gap-3 border-t border-[#e3e8f0] pt-4">
               <span className="font-semibold text-[#303030]">Total due</span>
-              <span className="font-semibold text-[#303030]">{amount}</span>
+              <span className="shrink-0 font-semibold text-[#303030]">{amount}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-3">
               <span className="text-[#454545]">Amount paid</span>
-              <span className="text-[#454545]">{amount}</span>
+              <span className="shrink-0 text-[#454545]">{amount}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-3">
               <span className="text-[#454545]">Amount remaining</span>
-              <span className="text-[#454545]">
+              <span className="shrink-0 text-[#454545]">
                 {formatCurrency(0, event.currency || 'USD')}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-[#e3e8f0] px-9 py-6">
+        <div className="border-t border-[#e3e8f0] px-5 py-6 sm:px-9">
           <p className="text-[18px] font-medium text-[#303030]">
             Payment history
           </p>
-          <div className="mt-5 flex items-center justify-between text-[15px]">
-            <div>
+          <div className="mt-5 flex items-center justify-between gap-3 text-[14px] sm:text-[15px]">
+            <div className="min-w-0">
               <p className="font-medium text-[#303030]">{amount}</p>
               <p className="mt-1 text-[#737373]">
                 {event.provider === 'apple_iap' ? 'App Store' : 'Stripe'}
               </p>
             </div>
-            <p className="text-[#737373]">{paidOn}</p>
+            <p className="shrink-0 text-[#737373]">{paidOn}</p>
           </div>
         </div>
 
-        <p className="border-t border-[#e3e8f0] px-9 py-6 text-[15px] text-[#627086]">
+        <p className="border-t border-[#e3e8f0] px-5 py-6 text-[14px] text-[#627086] sm:px-9 sm:text-[15px]">
           Questions? Contact{' '}
           <a
             href="mailto:support@vpnkeen.com"
@@ -765,20 +875,41 @@ function InvoiceModal({
 }
 
 function BillingHistoryTab() {
-  const { events, loading, error } = useSubscriptionHistory({ limit: 25 });
+  const { events, loading, error, refetch, loadMore, pagination } =
+    useSubscriptionHistory({ limit: 25 });
   const [selected, setSelected] = useState<SubscriptionEvent | null>(null);
 
-  if (loading) {
+  if (loading && events.length === 0) {
     return <Skeleton className="h-64 w-full rounded-[15px]" />;
   }
 
-  if (error) {
+  if (error && events.length === 0) {
     return (
       <div className="rounded-[15px] border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-        {error}
+        <p>{error}</p>
+        <button
+          type="button"
+          className="mt-3 font-semibold text-[#0f2040] underline"
+          onClick={() => void refetch()}
+        >
+          Retry
+        </button>
       </div>
     );
   }
+
+  const openInvoice = (event: SubscriptionEvent) => {
+    // Receipt modal is payment-shaped; skip non-payment timeline events.
+    if (
+      event.eventType === 'cancellation' ||
+      event.eventType === 'trial_start' ||
+      event.eventType === 'trial_end' ||
+      event.eventType === 'plan_change'
+    ) {
+      return;
+    }
+    setSelected(event);
+  };
 
   return (
     <>
@@ -807,42 +938,89 @@ function BillingHistoryTab() {
                 </td>
               </tr>
             ) : (
-              events.map((event) => (
-                <tr
-                  key={event.id}
-                  className="cursor-pointer border-b border-[#eef2f7] last:border-0 hover:bg-[#fafbfd]"
-                  onClick={() => setSelected(event)}
-                >
-                  <td className="px-11 py-6 text-[#24395f]">
-                    {formatEventDate(event.eventDate).date}
-                  </td>
-                  <td className="px-6 py-6 font-medium text-[#24395f]">
-                    {event.planName}
-                  </td>
-                  <td className="px-6 py-6 capitalize text-[#24395f]">
-                    {event.provider === 'apple_iap' ? 'App Store' : 'Stripe'}
-                  </td>
-                  <td className="px-6 py-6">
-                    <span className="rounded-full bg-[#e6f9f0] px-2.5 py-0.5 text-[11px] font-semibold text-[#1a9e5a]">
-                      {event.eventType === 'cancellation'
-                        ? 'Cancelled'
-                        : 'Paid'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-6 font-medium text-[#24395f]">
-                    {typeof event.amount === 'number'
-                      ? formatCurrency(event.amount, event.currency || 'USD')
-                      : '—'}
-                  </td>
-                  <td className="px-3 py-6 text-[#627086]">
-                    <ChevronRight className="h-5 w-5" aria-hidden />
-                  </td>
-                </tr>
-              ))
+              events.map((event) => {
+                const status = getStatusInfo(event.status, 'dashboard');
+                const canOpenReceipt =
+                  event.eventType !== 'cancellation' &&
+                  event.eventType !== 'trial_start' &&
+                  event.eventType !== 'trial_end' &&
+                  event.eventType !== 'plan_change';
+                return (
+                  <tr
+                    key={event.id}
+                    className={[
+                      'border-b border-[#eef2f7] last:border-0',
+                      canOpenReceipt
+                        ? 'cursor-pointer hover:bg-[#fafbfd]'
+                        : '',
+                    ].join(' ')}
+                    onClick={() => openInvoice(event)}
+                    onKeyDown={(e) => {
+                      if (!canOpenReceipt) return;
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openInvoice(event);
+                      }
+                    }}
+                    tabIndex={canOpenReceipt ? 0 : undefined}
+                    role={canOpenReceipt ? 'button' : undefined}
+                    aria-label={
+                      canOpenReceipt
+                        ? `View invoice for ${event.planName}`
+                        : undefined
+                    }
+                  >
+                    <td className="px-11 py-6 text-[#24395f]">
+                      {formatEventDate(event.eventDate).date}
+                    </td>
+                    <td className="px-6 py-6 font-medium text-[#24395f]">
+                      {event.planName}
+                    </td>
+                    <td className="px-6 py-6 capitalize text-[#24395f]">
+                      {event.provider === 'apple_iap' ? 'App Store' : 'Stripe'}
+                    </td>
+                    <td className="px-6 py-6">
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                          event.eventType === 'cancellation'
+                            ? 'bg-[#f0f3f8] text-[#627086]'
+                            : status.className
+                        }`}
+                      >
+                        {event.eventType === 'cancellation'
+                          ? 'Cancelled'
+                          : status.label}
+                      </span>
+                    </td>
+                    <td className="px-6 py-6 font-medium text-[#24395f]">
+                      {typeof event.amount === 'number'
+                        ? formatCurrency(event.amount, event.currency || 'USD')
+                        : '—'}
+                    </td>
+                    <td className="px-3 py-6 text-[#627086]">
+                      {canOpenReceipt ? (
+                        <ChevronRight className="h-5 w-5" aria-hidden />
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
+
+      {pagination.hasNextPage ? (
+        <div className="mt-4 flex justify-center">
+          <button
+            type="button"
+            onClick={() => void loadMore()}
+            className="rounded-[8px] border border-[#dbe2ec] bg-white px-4 py-2 text-[13px] font-semibold text-[#0f2040] hover:bg-[#f5f7fb]"
+          >
+            Load more
+          </button>
+        </div>
+      ) : null}
 
       {selected ? (
         <InvoiceModal event={selected} onClose={() => setSelected(null)} />

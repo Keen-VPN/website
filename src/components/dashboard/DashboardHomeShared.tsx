@@ -41,7 +41,7 @@ export function QuickLinkCards({
     },
     {
       title: "Account",
-      desc: "Manage your account details, two-factor authentication.",
+      desc: "Manage your account details and login providers.",
       cta: "Manage account",
       route: accountRoute,
     },

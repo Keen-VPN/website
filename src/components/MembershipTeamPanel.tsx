@@ -30,7 +30,7 @@ interface MembershipTeamPanelProps {
   /** compact = subscription card; full = workspace panel; dashboard = new home UI */
   variant?: "compact" | "full" | "dashboard";
   className?: string;
-  /** When true, render nothing for users who are not on Business / team access. */
+  /** When true, hide loading/ineligible empty states. Service-disabled errors still render. */
   hideIfIneligible?: boolean;
 }
 
@@ -129,10 +129,11 @@ export function MembershipTeamPanel({
   }
 
   if (sharingDisabled) {
-    if (hideIfIneligible) return null;
     return (
       <div className={cn(shellClass, className)}>
-        <p className="text-sm text-destructive">{error}</p>
+        <p className="text-sm text-destructive">
+          {error || "Team sharing is temporarily unavailable. Please contact support."}
+        </p>
       </div>
     );
   }

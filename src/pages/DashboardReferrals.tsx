@@ -36,11 +36,17 @@ function initials(name: string, email: string) {
     .join("");
 }
 
-function statusLabel(status: string) {
+function statusLabel(status: string, rewardedAt: string | null) {
   switch (status) {
     case "REWARDED":
+      return { text: "Rewarded", className: "bg-[#e6f9f0] text-[#1a9e5a]" };
     case "SUBSCRIBED":
-      return { text: "Subscribed", className: "bg-[#e6f9f0] text-[#1a9e5a]" };
+      return rewardedAt
+        ? { text: "Subscribed", className: "bg-[#e6f9f0] text-[#1a9e5a]" }
+        : {
+            text: "Reward pending",
+            className: "bg-[#fff4e5] text-[#c27803]",
+          };
     case "TRIALING":
       return { text: "Free trial", className: "bg-[#f0ebff] text-[#6b46c1]" };
     case "EXPIRED":
@@ -147,6 +153,14 @@ export default function DashboardReferrals() {
           normalizeReferralRows(res.referrals),
         ),
         referralsHasMore: Boolean(res.referralsHasMore),
+        rewardsAwaitingSubscription:
+          typeof res.rewardsAwaitingSubscription === "number"
+            ? res.rewardsAwaitingSubscription
+            : prev.rewardsAwaitingSubscription,
+        canReceiveRewards:
+          typeof res.canReceiveRewards === "boolean"
+            ? res.canReceiveRewards
+            : prev.canReceiveRewards,
       };
     });
   };
@@ -180,7 +194,7 @@ export default function DashboardReferrals() {
   }
 
   const promoMonths =
-    data?.campaign?.rewardMonths ?? data?.standardRewardMonths ?? 3;
+    data?.campaign?.rewardMonths ?? data?.standardRewardMonths ?? 1;
   const promoLabel = formatReferralRewardLabel(promoMonths);
   const hasSession = Boolean(user && getSessionToken());
 
@@ -246,11 +260,11 @@ export default function DashboardReferrals() {
       <div className="mx-auto max-w-[1320px] space-y-5">
         {/* Header */}
         <div>
-          <h1 className="text-[28px] font-bold tracking-[-0.5px] text-[#071f3f] md:text-[32px]">
+          <h1 className="text-[22px] font-bold tracking-[-0.5px] text-[#071f3f] sm:text-[28px] md:text-[32px]">
             Refer a friend and get{" "}
             <span className="text-[#ed7d36]">{promoLabel}</span>
           </h1>
-          <p className="mt-2 max-w-3xl text-[15px] text-[#6b7890] md:text-[16px]">
+          <p className="mt-2 max-w-3xl text-[14px] text-[#6b7890] sm:text-[15px] md:text-[16px]">
             Share KeenVPN with your friends and you&apos;ll both get {promoLabel}{" "}
             when they subscribe to any paid plan.
           </p>
@@ -275,29 +289,29 @@ export default function DashboardReferrals() {
 
         {/* Referral link card */}
         <div className="grid overflow-hidden rounded-[15px] border border-[#e3e8f0] bg-white shadow-[0px_3px_10px_rgba(15,32,64,0.06)] md:grid-cols-[minmax(0,1fr)_350px]">
-          <div className="p-6 md:p-7">
-            <div className="flex items-start gap-4">
-              <div className="flex h-[68px] w-[68px] shrink-0 items-center justify-center rounded-[15px] bg-[#fff1e5]">
-                <Link2 className="h-7 w-7 text-[#ff7900]" />
+          <div className="min-w-0 p-4 sm:p-6 md:p-7">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[15px] bg-[#fff1e5] sm:h-[68px] sm:w-[68px]">
+                <Link2 className="h-6 w-6 text-[#ff7900] sm:h-7 sm:w-7" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[17px] font-bold text-[#0f2040]">
                   Your referral link
                 </p>
-                <p className="mt-1 text-[15px] leading-6 text-[#627086]">
+                <p className="mt-1 text-[14px] leading-6 text-[#627086] sm:text-[15px]">
                   Anyone who signs up with this link is attributed to you. You can
                   share it even before they subscribe.
                 </p>
               </div>
             </div>
-            <div className="mt-5 flex overflow-hidden rounded-[10px] border border-[#dfe5ef] bg-[#fbfcff]">
-              <p className="min-w-0 flex-1 truncate px-4 py-3 text-[15px] font-semibold tracking-[0.3px] text-[#405276]">
+            <div className="mt-5 flex flex-col overflow-hidden rounded-[10px] border border-[#dfe5ef] bg-[#fbfcff] sm:flex-row">
+              <p className="min-w-0 flex-1 break-all px-3 py-3 text-[13px] font-semibold tracking-[0.2px] text-[#405276] sm:truncate sm:break-normal sm:px-4 sm:text-[15px] sm:tracking-[0.3px]">
                 {referralUrl}
               </p>
               <button
                 type="button"
                 onClick={() => void copyLink()}
-                className="flex shrink-0 items-center gap-2 border-l border-[#e3e8f0] bg-white px-5 text-[15px] font-semibold text-[#0f2040] transition-colors hover:bg-[#f7f9fc]"
+                className="flex shrink-0 items-center justify-center gap-2 border-t border-[#e3e8f0] bg-white px-4 py-3 text-[15px] font-semibold text-[#0f2040] transition-colors hover:bg-[#f7f9fc] sm:border-l sm:border-t-0 sm:px-5 sm:py-0"
               >
                 <Copy className="h-5 w-5 text-[#ff7900]" />
                 Copy link
@@ -391,7 +405,7 @@ export default function DashboardReferrals() {
                     </tr>
                   ) : (
                     data.referrals.map((row) => {
-                      const badge = statusLabel(row.status);
+                      const badge = statusLabel(row.status, row.rewardedAt);
                       const date =
                         row.subscribedAt ||
                         row.trialStartedAt ||

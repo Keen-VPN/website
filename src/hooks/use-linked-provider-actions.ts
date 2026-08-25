@@ -173,8 +173,7 @@ export function useLinkedProviderActions({
         if (!result.success) {
           toast({
             title: `${failVerb} failed`,
-            description:
-              result.error ?? "Could not connect account. Please try again.",
+            description: "Could not connect account. Please try again.",
             variant: "destructive",
           });
           return;
@@ -206,7 +205,15 @@ export function useLinkedProviderActions({
       if (!sessionToken) return;
       setUnlinking(provider);
       try {
-        await unlinkProvider(sessionToken, provider);
+        const result = await unlinkProvider(sessionToken, provider);
+        if (!result.success) {
+          toast({
+            title: `${unlinkFail} failed`,
+            description: `Could not unlink your ${providerLabel(provider)} account.`,
+            variant: "destructive",
+          });
+          return;
+        }
         toast({
           title: `Account ${unlinkSuccess}`,
           description: `${providerLabel(provider)} account ${unlinkSuccess} successfully.`,

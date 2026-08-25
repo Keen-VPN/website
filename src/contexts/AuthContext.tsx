@@ -864,11 +864,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           toast({
             title: "Welcome back!",
-            description: "Redirecting to your account...",
+            description: "Redirecting to your dashboard...",
           });
         }
 
-        // After any successful login, always land on account (fallback if app handoff fails).
+        // After any successful login, always land on dashboard (or ASWeb account).
         if (window.location.pathname !== '/account') {
           window.location.href = postLoginUrl();
         }

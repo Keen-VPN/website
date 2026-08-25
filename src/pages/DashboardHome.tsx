@@ -60,7 +60,7 @@ function SubscribedHome() {
     };
   }, [hasSessionToken]);
 
-  const serversLabel = `${serverLocationStats.locations}+ servers`;
+  const serversLabel = `${serverLocationStats.locations}+ server locations`;
 
   return (
     <DashboardHomeLayout

@@ -1,4 +1,4 @@
-import { ChevronDown, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
@@ -32,13 +32,13 @@ export default function DashboardTopBar({
         <button
           type="button"
           onClick={() => navigate("/downloads")}
-          className="hidden h-9 items-center gap-1.5 rounded-[8px] border border-[#dbe2ec] bg-white px-4 text-[13px] font-semibold text-[#43516a] transition-colors hover:bg-[#f5f7fb] sm:flex"
+          className="hidden h-9 items-center rounded-[8px] border border-[#dbe2ec] bg-white px-4 text-[13px] font-semibold text-[#43516a] transition-colors hover:bg-[#f5f7fb] sm:flex"
         >
           Download apps
-          <ChevronDown className="h-3 w-3" />
         </button>
 
         <Button
+          type="button"
           onClick={() => navigate("/subscription?tab=plans")}
           className="h-9 rounded-[8px] bg-[#0f2040] px-3 text-[12px] font-semibold text-white hover:bg-[#0f2040]/90 sm:px-4 sm:text-[13px]"
         >

@@ -15,7 +15,8 @@ const PAGE_TITLES: Record<string, string> = {
 
 export default function DashboardLayout() {
   const location = useLocation();
-  const title = PAGE_TITLES[location.pathname] ?? "Dashboard";
+  const pathname = location.pathname.replace(/\/+$/, "") || "/";
+  const title = PAGE_TITLES[pathname] ?? "Dashboard";
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {

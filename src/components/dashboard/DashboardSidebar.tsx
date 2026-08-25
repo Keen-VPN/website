@@ -12,7 +12,12 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { marketingSiteUrl } from "@/lib/site-urls";
-import { hasManageableSubscription } from "@/lib/subscription-cta";
+import { formatReferralRewardLabel } from "@/lib/referral-campaign-copy";
+import { useReferralPromoMonths } from "@/hooks/use-referral-promo-months";
+import {
+  hasManageableSubscription,
+  resolveMembershipPlanTier,
+} from "@/lib/subscription-cta";
 import { cn } from "@/lib/utils";
 
 function navLinkClass(isActive: boolean) {
@@ -51,6 +56,7 @@ export default function DashboardSidebar({
   const { user, subscription, logout } = useAuth();
   const navigate = useNavigate();
   const [signingOut, setSigningOut] = useState(false);
+  const promoMonths = useReferralPromoMonths();
 
   const email = user?.email ?? "";
   const displayName = user?.displayName?.trim() || "";
@@ -58,8 +64,12 @@ export default function DashboardSidebar({
   const initials = footerInitials(displayName, email);
 
   const planLabel = hasManageableSubscription(subscription)
-    ? "Premium plan"
+    ? resolveMembershipPlanTier(subscription) === "business"
+      ? "Business plan"
+      : "Premium plan"
     : "Free plan";
+
+  const promoLabel = formatReferralRewardLabel(promoMonths);
 
   const linkProps = {
     onClick: () => onNavigate?.(),
@@ -176,7 +186,7 @@ export default function DashboardSidebar({
           Refer &amp; Earn
         </p>
         <p className="mt-1 text-[12px] leading-[19px] text-[#7d899c]">
-          Get up to 3 months free for every friend.
+          Get up to {promoLabel} for every friend.
         </p>
         <button
           type="button"

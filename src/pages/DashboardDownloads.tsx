@@ -6,7 +6,8 @@ import {
   Chrome,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { APP_STORE_URLS } from "@/constants/app-store-urls";
+import { APP_STORE_URLS, toNativeAppStoreSchemeUrl } from "@/constants/app-store-urls";
+import { detectDevice } from "@/lib/device-detection";
 
 interface DownloadItem {
   id: string;
@@ -92,6 +93,16 @@ const SECTIONS: DownloadSection[] = [
 ];
 
 function DownloadRow({ item }: { item: DownloadItem }) {
+  const device = detectDevice();
+  const useNativeScheme =
+    Boolean(item.href) &&
+    ((item.id === "macos" && device === "macos") ||
+      (item.id === "ios" && device === "ios"));
+  const href =
+    item.href && useNativeScheme
+      ? toNativeAppStoreSchemeUrl(item.href, device)
+      : item.href;
+
   return (
     <div className="flex flex-col gap-3 rounded-[10px] border border-[#e3e8f0] bg-[#fafbfd] px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4">
       <div className="flex min-w-0 flex-1 items-center gap-4">
@@ -103,13 +114,13 @@ function DownloadRow({ item }: { item: DownloadItem }) {
           <p className="text-[13px] text-[#627086]">{item.subtitle}</p>
         </div>
       </div>
-      {item.comingSoon || !item.href ? (
+      {item.comingSoon || !href ? (
         <span className="inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] border border-[#dbe2ec] bg-white px-4 text-[13px] font-semibold text-[#627086] sm:self-auto">
           {item.cta}
         </span>
       ) : (
         <a
-          href={item.href}
+          href={href}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] bg-[#0f2040] px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 sm:self-auto"
