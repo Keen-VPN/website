@@ -102,7 +102,8 @@ export function useReferralPromoMonths(): number {
       const cache = cachedPromo;
       const delay =
         cache && cache.sessionKey === session
-          ? Math.max(0, CACHE_TTL_MS - (Date.now() - cache.fetchedAt))
+          ? Math.max(0, CACHE_TTL_MS - (Date.now() - cache.fetchedAt)) ||
+            CACHE_TTL_MS
           : CACHE_TTL_MS;
 
       refreshTimer = setTimeout(() => {
