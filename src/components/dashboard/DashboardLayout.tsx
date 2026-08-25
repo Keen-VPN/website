@@ -1,0 +1,59 @@
+import { useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import DashboardSidebar from "./DashboardSidebar";
+import DashboardTopBar from "./DashboardTopBar";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+
+const PAGE_TITLES: Record<string, string> = {
+  "/home": "Home",
+  "/subscription": "Subscription",
+  "/account": "Account",
+  "/referrals": "Refer",
+  "/perks": "Perks",
+  "/friends": "Friends",
+  "/profile": "Profile",
+  "/downloads": "Downloads",
+  "/keenvpn": "KeenVPN",
+  "/class-action": "Class Action",
+  "/support": "Support",
+};
+
+export default function DashboardLayout() {
+  const location = useLocation();
+  const title = PAGE_TITLES[location.pathname] ?? "Dashboard";
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  return (
+    <div className="flex min-h-screen bg-[#f5f7fb]">
+      {/* Desktop sidebar */}
+      <div className="sticky top-0 hidden h-screen shrink-0 lg:block">
+        <DashboardSidebar className="h-screen shadow-[8px_0px_15px_rgba(15,32,64,0.03)]" />
+      </div>
+
+      {/* Mobile drawer */}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent
+          side="left"
+          className="w-[280px] max-w-[85vw] gap-0 border-[#e7edf5] bg-white p-0 [&>button]:right-3 [&>button]:top-4 [&>button]:text-[#0f2040]"
+        >
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
+          <DashboardSidebar
+            className="h-full w-full border-0"
+            onNavigate={() => setMobileNavOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* Main */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <DashboardTopBar
+          title={title}
+          onOpenNav={() => setMobileNavOpen(true)}
+        />
+        <main className="flex-1 overflow-x-hidden overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}

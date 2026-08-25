@@ -41,7 +41,7 @@ const MagicLinkVerify = () => {
       storeSessionToken(response.sessionToken);
       setState("success");
       setMessage("Signed in successfully. Redirecting...");
-      window.location.href = "/account";
+      window.location.href = "/home";
     };
 
     void run();

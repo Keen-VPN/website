@@ -40,12 +40,15 @@ interface UserInformationCardProps {
   sessionToken: string;
   entrySource?: string;
   onProfileUpdated?: (profile: UserProfileInformationResponse) => void;
+  /** workspace = old account UI; dashboard = new account dashboard cards */
+  variant?: "workspace" | "dashboard";
 }
 
 export function UserInformationCard({
   sessionToken,
   entrySource = "web",
   onProfileUpdated,
+  variant = "workspace",
 }: UserInformationCardProps) {
   const { toast } = useToast();
   const [questions, setQuestions] = useState<ProfileQuestion[]>([]);
@@ -123,79 +126,110 @@ export function UserInformationCard({
     });
   }
 
+  const body = loading ? (
+    <div className="flex items-center gap-2 text-sm text-[#627086]">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      Loading profile questions...
+    </div>
+  ) : loadError ? (
+    <div className="space-y-2">
+      <p className="text-sm text-[#d14343]">{loadError}</p>
+      <Button
+        type="button"
+        variant="link"
+        className="h-auto p-0 text-sm text-[#0f2040]"
+        onClick={() => void loadProfile()}
+      >
+        Retry
+      </Button>
+    </div>
+  ) : (
+    <>
+      {isComplete ? (
+        <p className="mb-4 text-sm text-[#627086]">
+          Thanks — your profile is complete. You can change any answer below at
+          any time.
+        </p>
+      ) : null}
+
+      <div className="space-y-4">
+        {visibleProfileQuestions(questions, answers).map((question) => (
+          <div
+            key={question.key}
+            className={
+              variant === "dashboard"
+                ? "rounded-[10px] border border-[#eef2f7] bg-[#fafbfd] p-4"
+                : workspaceSectionSurface
+            }
+          >
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <Label
+                  className={
+                    variant === "dashboard"
+                      ? "text-[14px] font-semibold leading-snug text-[#0f2040]"
+                      : "text-base leading-snug"
+                  }
+                >
+                  {question.label}
+                </Label>
+                {savingKey === question.key ? (
+                  <Loader2 className="mt-1 h-4 w-4 shrink-0 animate-spin text-[#627086]" />
+                ) : null}
+              </div>
+              <RadioGroup
+                value={answers[question.key] ?? ""}
+                onValueChange={(value) =>
+                  void handleAnswerChange(question.key, value)
+                }
+                className="space-y-2"
+              >
+                {question.options.map((option) => (
+                  <div key={option.value} className="flex items-center gap-2">
+                    <RadioGroupItem
+                      value={option.value}
+                      id={`${question.key}-${option.value}`}
+                      disabled={Boolean(savingKey)}
+                    />
+                    <Label
+                      htmlFor={`${question.key}-${option.value}`}
+                      className="font-normal text-[#43516a]"
+                    >
+                      {option.label}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
+  if (variant === "dashboard") {
+    return (
+      <section className="rounded-[15px] border border-[#e3e8f0] bg-white p-4 shadow-[0px_3px_4px_rgba(15,32,64,0.03)] sm:p-7">
+        <div className="mb-5">
+          <h2 className="text-[16px] font-semibold tracking-[-0.2px] text-[#0f2040]">
+            User information
+          </h2>
+          <p className="mt-1 text-[13px] leading-relaxed text-[#627086]">
+            Optional details to personalize perks, offers, and recommendations.
+            You can skip any question and update your answers later.
+          </p>
+        </div>
+        {body}
+      </section>
+    );
+  }
+
   return (
     <WorkspacePanel
       title="User information"
       description="Optional details to personalize perks, offers, and recommendations. You can skip any question and update your answers later."
     >
-        {loading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading profile questions...
-          </div>
-        ) : loadError ? (
-          <div className="space-y-2">
-            <p className="text-sm text-destructive">{loadError}</p>
-            <Button
-              type="button"
-              variant="link"
-              className="h-auto p-0 text-sm"
-              onClick={() => void loadProfile()}
-            >
-              Retry
-            </Button>
-          </div>
-        ) : (
-          <>
-            {isComplete ? (
-              <p className="text-sm text-muted-foreground">
-                Thanks — your profile is complete. You can change any answer
-                below at any time.
-              </p>
-            ) : null}
-
-            {visibleProfileQuestions(questions, answers).map((question) => (
-              <div
-                key={question.key}
-                className={workspaceSectionSurface}
-              >
-                <div className="space-y-3">
-                <div className="flex items-start justify-between gap-4">
-                  <Label className="text-base leading-snug">
-                    {question.label}
-                  </Label>
-                  {savingKey === question.key ? (
-                    <Loader2 className="mt-1 h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-                  ) : null}
-                </div>
-                <RadioGroup
-                  value={answers[question.key] ?? ""}
-                  onValueChange={(value) =>
-                    void handleAnswerChange(question.key, value)
-                  }
-                  className="space-y-2"
-                >
-                  {question.options.map((option) => (
-                    <div key={option.value} className="flex items-center gap-2">
-                      <RadioGroupItem
-                        value={option.value}
-                        id={`${question.key}-${option.value}`}
-                        disabled={Boolean(savingKey)}
-                      />
-                      <Label
-                        htmlFor={`${question.key}-${option.value}`}
-                        className="font-normal"
-                      >
-                        {option.label}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-                </div>
-              </div>
-            ))}
-          </>
-        )}
+      {body}
     </WorkspacePanel>
   );
 }
