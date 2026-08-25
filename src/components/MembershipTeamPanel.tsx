@@ -139,10 +139,16 @@ export function MembershipTeamPanel({
 
   if (!dashboard) {
     if (!error) return null;
-    if (hideIfIneligible) return null;
     return (
       <div className={cn(shellClass, className)}>
-        <p className="text-sm text-destructive">{error}</p>
+        <p
+          className={cn(
+            "text-sm",
+            isDashboard ? "text-[#d14343]" : "text-destructive",
+          )}
+        >
+          {error}
+        </p>
       </div>
     );
   }
@@ -354,7 +360,16 @@ export function MembershipTeamPanel({
         <p className={cn("text-xs leading-relaxed", mutedText)}>{acceptChargeCopy}</p>
       ) : null}
 
-      {error ? <p className="text-sm text-[#d14343]">{error}</p> : null}
+      {error ? (
+        <p
+          className={cn(
+            "text-sm",
+            isDashboard ? "text-[#d14343]" : "text-destructive",
+          )}
+        >
+          {error}
+        </p>
+      ) : null}
 
       {dashboard.canManageSeats && seats ? (
         <div

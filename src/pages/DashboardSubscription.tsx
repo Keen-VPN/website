@@ -29,6 +29,7 @@ import {
   formatEventDate,
 } from '@/lib/subscription-history-api';
 import { Skeleton } from '@/components/ui/skeleton';
+import { hasManageableSubscription } from '@/lib/subscription-cta';
 
 type TabId = 'subscription' | 'plans' | 'billing';
 type PlanTier = 'premium' | 'team';
@@ -94,7 +95,7 @@ function CurrentPlanTab() {
     return <Skeleton className="h-56 w-full rounded-[15px]" />;
   }
 
-  if (!subscription || subscription.status !== 'active') {
+  if (!subscription || !hasManageableSubscription(subscription)) {
     return (
       <div className="rounded-[15px] border border-[#e3e8f0] bg-white p-8 text-center shadow-[0px_3px_4px_rgba(15,32,64,0.03)]">
         <p className="text-[16px] font-semibold text-[#0f2040]">
@@ -113,6 +114,18 @@ function CurrentPlanTab() {
       </div>
     );
   }
+
+  const status = (subscription.status || '').toLowerCase();
+  const statusLabel =
+    status === 'trialing'
+      ? 'Trialing'
+      : status === 'past_due'
+        ? 'Past due'
+        : 'Active';
+  const statusClass =
+    status === 'past_due'
+      ? 'bg-[#fff4eb] text-[#c05600]'
+      : 'bg-[#e6f9f0] text-[#159653]';
 
   const isBusiness =
     (subscription.plan || '').toLowerCase().includes('business') ||
@@ -145,9 +158,11 @@ function CurrentPlanTab() {
         <h2 className="text-[22px] font-bold tracking-[-0.4px] text-[#0f2040]">
           Current plan
         </h2>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e6f9f0] px-3 py-1.5 text-[13px] font-semibold text-[#159653]">
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold ${statusClass}`}
+        >
           <Check className="h-4 w-4" />
-          Active
+          {statusLabel}
         </span>
       </div>
 
@@ -273,8 +288,10 @@ function PlansTab() {
     null,
   );
   const { toast } = useToast();
-  const { logout } = useAuth();
+  const { logout, subscription } = useAuth();
   const navigate = useNavigate();
+  const { openBillingPortal, portalLoading } = useSubscriptionBillingActions();
+  const isManageable = hasManageableSubscription(subscription);
 
   useEffect(() => {
     let cancelled = false;
@@ -310,6 +327,22 @@ function PlansTab() {
         variant: 'destructive',
       });
       navigate('/signin');
+      return;
+    }
+
+    if (isManageable) {
+      if (subscription?.canManageBilling) {
+        await openBillingPortal();
+        return;
+      }
+      toast({
+        title: 'Already subscribed',
+        description:
+          subscription?.subscriptionType === 'apple_iap'
+            ? 'Manage or change your plan in the App Store.'
+            : 'Open billing to change your plan.',
+      });
+      navigate('/subscription');
       return;
     }
 
@@ -513,8 +546,27 @@ function PlansTab() {
 
               <button
                 type="button"
-                onClick={() => void startCheckout(plan)}
-                disabled={checkoutLoadingId === plan.id}
+                onClick={() => {
+                  if (isManageable && subscription?.canManageBilling) {
+                    void openBillingPortal();
+                    return;
+                  }
+                  if (isManageable) {
+                    toast({
+                      title: 'Already subscribed',
+                      description:
+                        subscription?.subscriptionType === 'apple_iap'
+                          ? 'Manage or change your plan in the App Store.'
+                          : 'Open billing to change your plan.',
+                    });
+                    return;
+                  }
+                  void startCheckout(plan);
+                }}
+                disabled={
+                  checkoutLoadingId === plan.id ||
+                  (isManageable && portalLoading)
+                }
                 className={[
                   'mt-4 w-full rounded-[8px] py-3 text-[17px] font-semibold transition-opacity',
                   featured
@@ -522,8 +574,13 @@ function PlansTab() {
                     : 'border border-[#dbe2ec] bg-white text-[#0f2040] hover:bg-[#f5f7fb]',
                 ].join(' ')}
               >
-                {checkoutLoadingId === plan.id ? (
+                {checkoutLoadingId === plan.id ||
+                (isManageable && portalLoading) ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                ) : isManageable ? (
+                  subscription?.canManageBilling
+                    ? 'Manage billing'
+                    : 'Already subscribed'
                 ) : (
                   cta
                 )}

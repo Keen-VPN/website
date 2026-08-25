@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { marketingSiteUrl } from "@/lib/site-urls";
+import { hasManageableSubscription } from "@/lib/subscription-cta";
 import { cn } from "@/lib/utils";
 
 function navLinkClass(isActive: boolean) {
@@ -53,8 +54,9 @@ export default function DashboardSidebar({
   const primaryLabel = displayName || email || "Account";
   const initials = footerInitials(displayName, email);
 
-  const planLabel =
-    subscription?.status === "active" ? "Premium plan" : "Free plan";
+  const planLabel = hasManageableSubscription(subscription)
+    ? "Premium plan"
+    : "Free plan";
 
   const linkProps = {
     onClick: () => onNavigate?.(),
@@ -89,7 +91,7 @@ export default function DashboardSidebar({
       {/* Nav */}
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-[23px] py-8">
         <NavLink
-          to="/home"
+          to="/dashboard"
           className={({ isActive }) => navLinkClass(isActive)}
           {...linkProps}
         >

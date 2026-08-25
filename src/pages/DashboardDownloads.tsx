@@ -8,20 +8,20 @@ import {
 import type { ReactNode } from "react";
 import { APP_STORE_URLS } from "@/constants/app-store-urls";
 
-type DownloadItem = {
+interface DownloadItem {
   id: string;
   title: string;
   subtitle: string;
   cta: string;
   href: string;
   icon: ReactNode;
-};
+}
 
-type DownloadSection = {
+interface DownloadSection {
   title: string;
   description: string;
   items: DownloadItem[];
-};
+}
 
 const CHROME_EXTENSION_URL =
   "https://chromewebstore.google.com/detail/keenvpn-%E2%80%94-browser-protect/fdmiheabmohipekdgphijdboekojllfh";

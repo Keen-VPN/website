@@ -33,6 +33,7 @@ import GoogleIcon from "@/components/ui/google-icon";
 import { UserInformationCard } from "@/components/UserInformationCard";
 import { getFirebaseAuth, getFirebaseApp } from "@/auth/firebase";
 import { cn } from "@/lib/utils";
+import { hasManageableSubscription } from "@/lib/subscription-cta";
 import {
   cancelAuthEmailChange,
   deleteAccount,
@@ -169,10 +170,13 @@ export default function DashboardProfile() {
   const [unlinking, setUnlinking] = useState<"google" | "apple" | null>(null);
 
   // ── Email preferences ──────────────────────────────────────────────────────
-  const [preferences, setPreferences] =
-    useState<EmailCategoryPreference[]>(PREVIEW_PREFERENCES);
+  const [preferences, setPreferences] = useState<EmailCategoryPreference[]>(
+    [],
+  );
   const [prefsLoading, setPrefsLoading] = useState(Boolean(sessionToken));
   const [prefsSaving, setPrefsSaving] = useState(false);
+  const [prefsLoadError, setPrefsLoadError] = useState<string | null>(null);
+  const [prefsReady, setPrefsReady] = useState(!sessionToken);
 
   // ── Delete account ─────────────────────────────────────────────────────────
   const [deleting, setDeleting] = useState(false);
@@ -199,13 +203,25 @@ export default function DashboardProfile() {
   const loadPreferences = useCallback(async () => {
     if (!sessionToken) {
       setPreferences(PREVIEW_PREFERENCES);
+      setPrefsReady(true);
+      setPrefsLoadError(null);
       setPrefsLoading(false);
       return;
     }
     setPrefsLoading(true);
+    setPrefsLoadError(null);
     const response = await fetchMyEmailCategoryPreferences(sessionToken);
     if (response.success && response.preferences) {
       setPreferences(response.preferences);
+      setPrefsReady(true);
+      setPrefsLoadError(null);
+    } else {
+      setPreferences([]);
+      setPrefsReady(false);
+      setPrefsLoadError(
+        response.error?.trim() ||
+          "Could not load email preferences. Try again.",
+      );
     }
     setPrefsLoading(false);
   }, [sessionToken]);
@@ -467,6 +483,7 @@ export default function DashboardProfile() {
     category: string,
     subscribed: boolean,
   ) {
+    if (!prefsReady || prefsLoadError) return;
     const previous = preferences;
     const next = preferences.map((row) =>
       row.category === category ? { ...row, subscribed } : row,
@@ -502,6 +519,15 @@ export default function DashboardProfile() {
       toast({
         title: "Sign in required",
         description: "Sign in to delete your account.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (hasManageableSubscription(subscription)) {
+      toast({
+        title: "Cancel subscription first",
+        description:
+          "Please cancel your subscription before deleting your account.",
         variant: "destructive",
       });
       return;
@@ -866,6 +892,17 @@ export default function DashboardProfile() {
                 </div>
               ))}
             </div>
+          ) : prefsLoadError ? (
+            <div className="rounded-[10px] border border-[#f0c2c2] bg-[#fff5f5] px-4 py-3">
+              <p className="text-sm text-[#d14343]">{prefsLoadError}</p>
+              <button
+                type="button"
+                className="mt-3 text-[13px] font-semibold text-[#0f2040] underline"
+                onClick={() => void loadPreferences()}
+              >
+                Retry
+              </button>
+            </div>
           ) : (
             <div className="divide-y divide-[#eef2f7]">
               {preferences.map((row) => (
@@ -883,7 +920,7 @@ export default function DashboardProfile() {
                   </div>
                   <ProfileToggle
                     checked={row.subscribed}
-                    disabled={prefsSaving}
+                    disabled={prefsSaving || !prefsReady || Boolean(prefsLoadError)}
                     aria-label={row.label}
                     onCheckedChange={(checked) =>
                       void handleTogglePreference(row.category, checked)
@@ -958,15 +995,22 @@ export default function DashboardProfile() {
                           <li>All associated preferences and settings</li>
                         </ul>
                       </div>
-                      {subscription && subscription.status === "active" ? (
+                      {hasManageableSubscription(subscription) ? (
                         <div className="rounded-[10px] border border-[#f0c2c2] bg-[#fff8f8] p-3">
                           <p className="text-sm font-semibold text-[#0f2040]">
                             You have an active subscription
                           </p>
                           <p className="mt-1 text-xs text-[#43516a]">
-                            Please cancel your subscription before deleting your
+                            Cancel your subscription first, then delete your
                             account to avoid future charges.
                           </p>
+                          <button
+                            type="button"
+                            className="mt-2 text-[12px] font-semibold text-[#0f2040] underline"
+                            onClick={() => navigate("/subscription")}
+                          >
+                            Manage subscription
+                          </button>
                         </div>
                       ) : null}
                     </div>
@@ -978,7 +1022,8 @@ export default function DashboardProfile() {
                   </AlertDialogCancel>
                   <AlertDialogAction
                     onClick={() => void handleDeleteAccount()}
-                    className="h-9 rounded-[8px] bg-[#d14343] text-[13px] font-semibold text-white hover:bg-[#d14343]/90"
+                    disabled={hasManageableSubscription(subscription)}
+                    className="h-9 rounded-[8px] bg-[#d14343] text-[13px] font-semibold text-white hover:bg-[#d14343]/90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Delete Account Permanently
                   </AlertDialogAction>

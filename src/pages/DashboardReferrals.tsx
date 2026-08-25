@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Copy, Gift, Link2, Loader2, Users, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -142,11 +143,13 @@ function statusLabel(status: string) {
 export default function DashboardReferrals() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const dataRef = useRef<DashboardPayload | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     dataRef.current = data;
@@ -163,6 +166,7 @@ export default function DashboardReferrals() {
     }
 
     let cancelled = false;
+    setLoading(true);
     setFetchError(null);
     void fetchReferralDashboard(session, {
       offset: 0,
@@ -201,7 +205,7 @@ export default function DashboardReferrals() {
     return () => {
       cancelled = true;
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, reloadKey]);
 
   const loadMore = async () => {
     const session = getSessionToken();
@@ -269,8 +273,39 @@ export default function DashboardReferrals() {
   const promoMonths =
     data?.campaign?.rewardMonths ?? data?.standardRewardMonths ?? 3;
   const promoLabel = formatReferralRewardLabel(promoMonths);
-  const referralUrl =
-    data?.referralUrl ?? "https://portal.vpnkeen.com/r/your-link";
+
+  if (!data) {
+    return (
+      <div className="p-4 sm:p-6 md:p-10 xl:p-12">
+        <div className="mx-auto max-w-[1320px] space-y-5">
+          <div>
+            <h1 className="text-[28px] font-bold tracking-[-0.5px] text-[#071f3f] md:text-[32px]">
+              Refer a friend
+            </h1>
+            <p className="mt-2 max-w-3xl text-[15px] text-[#6b7890] md:text-[16px]">
+              Share KeenVPN with your friends and earn free months when they
+              subscribe.
+            </p>
+          </div>
+          <div className="rounded-[12px] border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+            <p>{fetchError ?? "Unable to load referral data."}</p>
+            <button
+              type="button"
+              className="mt-3 font-semibold text-[#0f2040] underline"
+              onClick={() => {
+                setLoading(true);
+                setReloadKey((key) => key + 1);
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const referralUrl = data.referralUrl;
 
   return (
     <div className="p-4 sm:p-6 md:p-10 xl:p-12">
@@ -287,9 +322,20 @@ export default function DashboardReferrals() {
           </p>
         </div>
 
-        {fetchError ? (
-          <div className="rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {fetchError}
+        {data.rewardsAwaitingSubscription > 0 && !data.canReceiveRewards ? (
+          <div className="flex flex-col gap-3 rounded-[12px] border border-amber-300 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-amber-900">
+              {data.rewardsAwaitingSubscription === 1
+                ? "A friend subscribed. Start or resume KeenVPN and your referral reward will apply automatically."
+                : `${data.rewardsAwaitingSubscription} friends subscribed. Start or resume KeenVPN and your referral rewards will apply automatically.`}
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate("/subscription?tab=plans")}
+              className="shrink-0 rounded-[8px] bg-[#0f2040] px-4 py-2 text-[13px] font-semibold text-white"
+            >
+              View plans
+            </button>
           </div>
         ) : null}
 
@@ -317,8 +363,7 @@ export default function DashboardReferrals() {
               <button
                 type="button"
                 onClick={() => void copyLink()}
-                disabled={!data?.referralUrl}
-                className="flex shrink-0 items-center gap-2 border-l border-[#e3e8f0] bg-white px-5 text-[15px] font-semibold text-[#0f2040] transition-colors hover:bg-[#f7f9fc] disabled:opacity-50"
+                className="flex shrink-0 items-center gap-2 border-l border-[#e3e8f0] bg-white px-5 text-[15px] font-semibold text-[#0f2040] transition-colors hover:bg-[#f7f9fc]"
               >
                 <Copy className="h-5 w-5 text-[#ff7900]" />
                 Copy link
@@ -341,21 +386,21 @@ export default function DashboardReferrals() {
               icon: <Users className="h-6 w-6 text-[#3b6ae8]" />,
               bg: "bg-[#eef3ff]",
               title: "Invites",
-              value: data?.totalReferrals ?? 0,
+              value: data.totalReferrals,
               label: "Total friends invited",
             },
             {
               icon: <Gift className="h-6 w-6 text-[#17ab66]" />,
               bg: "bg-[#e6f9f0]",
               title: "Rewards",
-              value: data?.rewardsEarned ?? 0,
+              value: data.rewardsEarned,
               label: "Free months earned",
             },
             {
               icon: <Clock className="h-6 w-6 text-[#f3ad00]" />,
               bg: "bg-[#fff4e5]",
               title: "Pending",
-              value: data?.pendingReferrals ?? 0,
+              value: data.pendingReferrals,
               label: "Friends yet to subscribe",
             },
           ].map((stat) => (
@@ -401,7 +446,7 @@ export default function DashboardReferrals() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(data?.referrals ?? []).length === 0 ? (
+                  {data.referrals.length === 0 ? (
                     <tr>
                       <td
                         colSpan={3}
@@ -411,7 +456,7 @@ export default function DashboardReferrals() {
                       </td>
                     </tr>
                   ) : (
-                    (data?.referrals ?? []).map((row) => {
+                    data.referrals.map((row) => {
                       const badge = statusLabel(row.status);
                       const date =
                         row.subscribedAt ||

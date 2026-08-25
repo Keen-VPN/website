@@ -270,7 +270,7 @@ export default function DashboardSupport() {
       <header className="border-b border-[#e5e0d6] bg-[#fffaf5]">
         <div className="flex h-[76px] items-center px-6 sm:px-10 lg:px-12">
           <Link
-            to="/home"
+            to="/dashboard"
             className="inline-flex items-center gap-2"
             aria-label="KeenVPN home"
           >

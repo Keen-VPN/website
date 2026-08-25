@@ -134,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const accountUrl = React.useCallback(
-    () => (isASWebSession() ? '/account?asweb=1' : '/home'),
+    () => (isASWebSession() ? '/account?asweb=1' : '/dashboard'),
     [isASWebSession],
   );
   const postLoginUrl = React.useCallback(() => {

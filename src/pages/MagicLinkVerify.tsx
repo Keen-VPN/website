@@ -41,11 +41,16 @@ const MagicLinkVerify = () => {
       storeSessionToken(response.sessionToken);
       setState("success");
       setMessage("Signed in successfully. Redirecting...");
-      window.location.href = "/home";
+      const isASWebSession =
+        searchParams.get("asweb") === "1" ||
+        sessionStorage.getItem("asweb_session") === "1";
+      window.location.href = isASWebSession
+        ? "/account?asweb=1"
+        : "/dashboard";
     };
 
     void run();
-  }, [token]);
+  }, [token, searchParams]);
 
   return (
     <div className="min-h-screen flex flex-col">

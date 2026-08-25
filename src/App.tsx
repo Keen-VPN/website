@@ -160,7 +160,7 @@ const AccountRoute = () => {
       sessionStorage.getItem("asweb_session") === "1");
 
   if (!keepLegacyAccount) {
-    return <Navigate to="/home" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Account />;
@@ -280,7 +280,11 @@ const App = () => (
                   </ProtectedRoute>
                 }
               >
-                <Route path="/home" element={<DashboardHome />} />
+                <Route
+                  path="/home"
+                  element={<Navigate to="/dashboard" replace />}
+                />
+                <Route path="/dashboard" element={<DashboardHome />} />
                 <Route path="/downloads" element={<DashboardDownloads />} />
                 <Route path="/referrals" element={<DashboardReferrals />} />
                 <Route path="/class-action" element={<DashboardClassAction />} />

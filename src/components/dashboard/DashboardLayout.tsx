@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import DashboardSidebar from "./DashboardSidebar";
 import DashboardTopBar from "./DashboardTopBar";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 const PAGE_TITLES: Record<string, string> = {
-  "/home": "Home",
+  "/dashboard": "Home",
   "/subscription": "Subscription",
   "/account": "Account",
   "/referrals": "Refer",
@@ -22,6 +22,16 @@ export default function DashboardLayout() {
   const location = useLocation();
   const title = PAGE_TITLES[location.pathname] ?? "Dashboard";
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => {
+      if (media.matches) setMobileNavOpen(false);
+    };
+    closeOnDesktop();
+    media.addEventListener("change", closeOnDesktop);
+    return () => media.removeEventListener("change", closeOnDesktop);
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-[#f5f7fb]">

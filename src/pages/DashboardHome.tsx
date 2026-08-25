@@ -10,6 +10,7 @@ import {
 import { serverLocationStats } from "@/constants/server-locations";
 import { MembershipSharingProvider } from "@/contexts/MembershipSharingContext";
 import { MembershipTeamPanel } from "@/components/MembershipTeamPanel";
+import { hasManageableSubscription } from "@/lib/subscription-cta";
 
 // ─── Subscribed state ────────────────────────────────────────────────────────
 
@@ -195,7 +196,6 @@ function SubscribedHome() {
 // ─── New user state ───────────────────────────────────────────────────────────
 
 function NewUserHome() {
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -425,9 +425,11 @@ export default function DashboardHome() {
 
   if (loading) return <HomeLoading />;
 
-  const status = subscription?.status;
-  const resolvedState =
-    status === "active" ? "subscribed" : !subscription ? "new" : "expired";
+  const resolvedState = hasManageableSubscription(subscription)
+    ? "subscribed"
+    : !subscription
+      ? "new"
+      : "expired";
 
   const content = (
     <>

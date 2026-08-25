@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, Menu } from "lucide-react";
+import { ChevronDown, Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
@@ -39,21 +39,12 @@ export default function DashboardTopBar({
         </button>
 
         <Button
-          onClick={() => navigate("/subscription")}
+          onClick={() => navigate("/subscription?tab=plans")}
           className="h-9 rounded-[8px] bg-[#0f2040] px-3 text-[12px] font-semibold text-white hover:bg-[#0f2040]/90 sm:px-4 sm:text-[13px]"
         >
           <span className="sm:hidden">Upgrade</span>
           <span className="hidden sm:inline">Upgrade plan</span>
         </Button>
-
-        <button
-          type="button"
-          className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[#e7edf5] bg-white text-[#0f2040] transition-colors hover:bg-[#f5f7fb] sm:h-10 sm:w-10"
-          aria-label="Notifications"
-        >
-          <Bell className="h-4 w-4 sm:h-[17px] sm:w-[15px]" />
-          <span className="absolute right-[8px] top-[8px] h-[7px] w-[7px] rounded-full bg-[#ed7d36] sm:right-[9px] sm:top-[9px]" />
-        </button>
       </div>
     </header>
   );

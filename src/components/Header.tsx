@@ -108,7 +108,7 @@ const Header = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link to="/home">My Account</Link>
+                    <Link to="/dashboard">My Account</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/referrals">Referrals</Link>
@@ -220,7 +220,7 @@ const Header = () => {
                       className="w-full"
                       asChild
                     >
-                      <Link to="/home">My Account</Link>
+                      <Link to="/dashboard">My Account</Link>
                     </Button>
                     <Button
                       onClick={() => {
