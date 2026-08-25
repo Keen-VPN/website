@@ -486,7 +486,7 @@ export default function MembershipSharingAccept() {
         ) : null}
         {!loading && !accepted && error ? (
           <div className="mt-4 space-y-4">
-            <p className="text-[#d14343]">{error}</p>
+            <p className="text-[#b42318]">{error}</p>
             {reauthReason ? (
               <Button
                 type="button"
@@ -564,7 +564,7 @@ export default function MembershipSharingAccept() {
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 rounded-[8px] border-[#0f2040]/25 text-[#0f2040]"
+                className="h-10 rounded-[8px] border-[#0f2040]/25 bg-white text-[#0f2040] hover:bg-[#f5f7fb] hover:text-[#0f2040]"
                 onClick={handleDecline}
               >
                 Decline for now

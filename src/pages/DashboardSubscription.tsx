@@ -28,19 +28,24 @@ import {
   type SubscriptionEvent,
   formatCurrency,
   formatEventDate,
+  getEventTypeLabel,
   getStatusInfo,
 } from '@/lib/subscription-history-api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SubscriptionCancellationControls } from '@/components/SubscriptionCancellationControls';
-import { SubscriptionEventDetail } from '@/components/SubscriptionEventDetail';
 import { MembershipPlanUpgradeCard } from '@/components/MembershipPlanUpgradeCard';
 import {
   MembershipSharingProvider,
   useMembershipSharingContext,
 } from '@/contexts/MembershipSharingContext';
+import { useAnnualUpgrade } from '@/hooks/use-annual-upgrade';
+import { useTwoYearPlanChange } from '@/hooks/use-plan-change';
 import {
+  canSwitchStripeToTwoYear,
+  canUpgradeStripeToAnnual,
   canUpgradeToBusinessPlan,
   hasManageableSubscription,
+  hasScheduledAnnualBilling,
   isAppleIapSubscription,
   isStripeSubscription,
   resolveMembershipPlanTier,
@@ -58,7 +63,7 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 const FEATURES = [
-  'Connect up to 10 devices simultaneously',
+  'Connect up to 3 devices simultaneously',
   '30-day money-back guarantee',
   '6,400+ servers across 111 countries',
   'Unlimited bandwidth & speed',
@@ -328,9 +333,7 @@ function CurrentPlanTab() {
             <div>
               <p className="text-[16px] text-[#627086]">Devices</p>
               <p className="mt-2 text-[17px] font-bold text-[#0f2040]">
-                {subscription.seatLimit
-                  ? `Up to ${subscription.seatLimit * 5} devices`
-                  : 'Up to 10 devices'}
+                {isBusiness ? '5 devices per seat' : 'Up to 3 devices'}
               </p>
             </div>
           </div>
@@ -407,6 +410,9 @@ function PlansTab() {
     upgradeToBusinessPlan,
     businessUpgradeLoading,
   } = useSubscriptionBillingActions();
+  const { upgrading: upgradingToAnnual, upgradeToAnnual } = useAnnualUpgrade();
+  const { changing: switchingToTwoYear, switchToTwoYear } =
+    useTwoYearPlanChange();
   const { dashboard: membershipDashboard, loading: membershipLoading } =
     useMembershipSharingContext();
   const isManageable = hasManageableSubscription(subscription);
@@ -420,6 +426,15 @@ function PlansTab() {
     Boolean(subscription) &&
     canUpgradeToBusinessPlan(subscription) &&
     !membershipBlocksBusinessUpgrade;
+  const businessUpgradeEligible =
+    Boolean(subscription) && canUpgradeToBusinessPlan(subscription);
+  const businessActionBlocked =
+    membershipLoading && businessUpgradeEligible;
+  const canOneClickAnnual = canUpgradeStripeToAnnual(subscription);
+  const canOneClickTwoYear = canSwitchStripeToTwoYear(subscription);
+  const annualAlreadyScheduled = hasScheduledAnnualBilling(subscription);
+  const planActionBusy =
+    businessUpgradeLoading || upgradingToAnnual || switchingToTwoYear;
 
   useEffect(() => {
     let cancelled = false;
@@ -630,10 +645,28 @@ function PlansTab() {
               cta = isAppleIapSubscription(subscription)
                 ? 'Set up future Business billing'
                 : 'Enable Business for free';
+            } else if (twoYear && canOneClickTwoYear) {
+              cta = 'Switch to 2-year';
+            } else if (annual && !isBusiness && canOneClickAnnual) {
+              cta = 'Upgrade to annual';
+            } else if (annual && !isBusiness && annualAlreadyScheduled) {
+              cta = 'Annual scheduled';
             } else {
               cta = planChangeCtaLabel(plan, subscription);
             }
           }
+
+          const useOneClickAnnual =
+            !isCurrentPlan &&
+            !isBusiness &&
+            annual &&
+            canOneClickAnnual;
+          const useOneClickTwoYear =
+            !isCurrentPlan && twoYear && canOneClickTwoYear;
+          const useFreeBusiness =
+            !isCurrentPlan && isBusiness && canFreeBusinessUpgrade;
+          const businessPlanWaiting =
+            !isCurrentPlan && isBusiness && businessActionBlocked;
 
           return (
             <div
@@ -700,6 +733,7 @@ function PlansTab() {
               <button
                 type="button"
                 onClick={() => {
+                  if (businessPlanWaiting) return;
                   if (isCurrentPlan) {
                     if (canOpenStripePortal) {
                       void openBillingPortal();
@@ -715,14 +749,26 @@ function PlansTab() {
                     navigate('/subscription');
                     return;
                   }
-                  // Match Account/Pricing: eligible Individual → Business is a
-                  // $0 in-place upgrade (or Apple checkout handoff), not portal.
-                  if (
-                    isBusiness &&
-                    canFreeBusinessUpgrade &&
-                    subscription
-                  ) {
+                  // Match Pricing/Account: targeted APIs, not a generic Stripe portal
+                  // (portal defaults to monthly and breaks annual / 2-year upgrades).
+                  if (useFreeBusiness && subscription) {
                     void upgradeToBusinessPlan(plan.id, 1);
+                    return;
+                  }
+                  if (useOneClickTwoYear) {
+                    void switchToTwoYear(plan.id, 'dashboard_plans');
+                    return;
+                  }
+                  if (useOneClickAnnual) {
+                    void upgradeToAnnual('dashboard_plans');
+                    return;
+                  }
+                  if (annual && !isBusiness && annualAlreadyScheduled) {
+                    toast({
+                      title: 'Annual already scheduled',
+                      description:
+                        'Your plan switches to annual at the next billing date.',
+                    });
                     return;
                   }
                   if (isManageable && canOpenStripePortal) {
@@ -744,12 +790,16 @@ function PlansTab() {
                 }}
                 disabled={
                   checkoutLoadingId === plan.id ||
-                  businessUpgradeLoading ||
+                  planActionBusy ||
+                  businessPlanWaiting ||
                   (isCurrentPlan && canOpenStripePortal && portalLoading) ||
                   (!isCurrentPlan &&
                     isManageable &&
                     canOpenStripePortal &&
-                    !canFreeBusinessUpgrade &&
+                    !useFreeBusiness &&
+                    !useOneClickAnnual &&
+                    !useOneClickTwoYear &&
+                    !businessPlanWaiting &&
                     portalLoading)
                 }
                 className={[
@@ -760,11 +810,14 @@ function PlansTab() {
                 ].join(' ')}
               >
                 {checkoutLoadingId === plan.id ||
-                businessUpgradeLoading ||
+                planActionBusy ||
+                businessPlanWaiting ||
                 ((isCurrentPlan ||
                   (isManageable &&
                     !isCurrentPlan &&
-                    !(isBusiness && canFreeBusinessUpgrade))) &&
+                    !useFreeBusiness &&
+                    !useOneClickAnnual &&
+                    !useOneClickTwoYear)) &&
                   canOpenStripePortal &&
                   portalLoading) ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
@@ -813,8 +866,22 @@ function PlansTab() {
   );
 }
 
-function isPaymentReceiptEvent(event: SubscriptionEvent) {
-  return event.eventType === 'purchase' || event.eventType === 'renewal';
+function invoiceHeadline(event: SubscriptionEvent, dateLabel: string) {
+  switch (event.eventType) {
+    case 'purchase':
+    case 'renewal':
+      return `Paid on ${dateLabel}`;
+    case 'trial_start':
+      return `Trial started ${dateLabel}`;
+    case 'trial_end':
+      return `Trial ended ${dateLabel}`;
+    case 'cancellation':
+      return `Cancelled ${dateLabel}`;
+    case 'plan_change':
+      return `Plan changed ${dateLabel}`;
+    default:
+      return `${getEventTypeLabel(event.eventType)} · ${dateLabel}`;
+  }
 }
 
 function InvoiceModal({
@@ -829,11 +896,14 @@ function InvoiceModal({
     typeof event.amount === 'number'
       ? formatCurrency(event.amount, event.currency || 'USD')
       : '—';
-  const paidOn = formatEventDate(event.eventDate).date;
+  const eventDate = formatEventDate(event.eventDate).date;
   const period =
     event.periodStart && event.periodEnd
       ? `${formatEventDate(event.periodStart).date} – ${formatEventDate(event.periodEnd).date}`
       : null;
+  const headline = invoiceHeadline(event, eventDate);
+  const isReceipt =
+    event.eventType === 'purchase' || event.eventType === 'renewal';
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -856,11 +926,11 @@ function InvoiceModal({
         className="flex items-center gap-2 px-5 pt-5 text-[14px] text-[#627086] hover:text-[#0f2040] sm:px-9 sm:pt-7 sm:text-[15px]"
       >
         <X className="h-5 w-5" />
-        Close invoice and payment details
+        {isReceipt ? 'Close invoice and payment details' : 'Close details'}
       </button>
 
       <h2 className="break-words px-5 pb-6 pt-4 text-[24px] font-bold leading-tight tracking-[-0.5px] text-[#252525] sm:px-9 sm:pb-8 sm:pt-6 sm:text-[34px] sm:tracking-[-0.8px] md:text-[42px]">
-        Paid on {paidOn}
+        {headline}
       </h2>
 
       <div className="border-y border-[#e3e8f0] px-5 py-5 sm:px-9">
@@ -874,7 +944,9 @@ function InvoiceModal({
           </span>
           <span className="text-[#737373]">From</span>
           <span className="font-medium text-[#303030]">KeenVPN</span>
-          <span className="text-[#737373]">Invoice</span>
+          <span className="text-[#737373]">
+            {isReceipt ? 'Invoice' : 'Event'}
+          </span>
           <span className="min-w-0 break-all font-medium text-[#303030]">
             #{event.id.slice(0, 12).toUpperCase()}
           </span>
@@ -893,7 +965,10 @@ function InvoiceModal({
         <div className="mt-3 flex items-start justify-between gap-3 border-b border-[#e3e8f0] pb-5 text-[15px] sm:text-[16px]">
           <div className="min-w-0">
             <p className="font-medium text-[#303030]">{event.planName}</p>
-            <p className="mt-1 text-[#737373]">Qty 1</p>
+            <p className="mt-1 text-[#737373]">
+              {getEventTypeLabel(event.eventType)}
+              {isReceipt ? ' · Qty 1' : ''}
+            </p>
           </div>
           <p className="shrink-0 font-medium text-[#303030]">{amount}</p>
         </div>
@@ -929,7 +1004,7 @@ function InvoiceModal({
               {event.provider === 'apple_iap' ? 'App Store' : 'Stripe'}
             </p>
           </div>
-          <p className="shrink-0 text-[#737373]">{paidOn}</p>
+          <p className="shrink-0 text-[#737373]">{eventDate}</p>
         </div>
       </div>
 
@@ -946,20 +1021,19 @@ function InvoiceModal({
   );
 
   return createPortal(
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-4">
       <button
         type="button"
-        aria-label="Close invoice"
+        aria-label="Close"
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
       />
-      {/* Absolute bottom sheet on mobile so content can scroll inside max height */}
       <div
         role="dialog"
         aria-modal="true"
-        className="absolute inset-x-0 bottom-0 z-10 flex max-h-[90dvh] w-full flex-col rounded-t-[16px] bg-white shadow-2xl sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[min(92vh,900px)] sm:w-full sm:max-w-[606px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[16px]"
+        className="relative z-10 flex max-h-[90dvh] w-full min-w-0 flex-col rounded-t-[16px] bg-white shadow-2xl sm:max-h-[min(92dvh,900px)] sm:w-full sm:max-w-[606px] sm:rounded-[16px]"
       >
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           {content}
         </div>
       </div>
@@ -971,11 +1045,7 @@ function InvoiceModal({
 function BillingHistoryTab() {
   const { events, loading, error, refetch, loadMore, pagination } =
     useSubscriptionHistory({ limit: 25 });
-  const [selectedInvoice, setSelectedInvoice] =
-    useState<SubscriptionEvent | null>(null);
-  const [selectedDetail, setSelectedDetail] =
-    useState<SubscriptionEvent | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [selected, setSelected] = useState<SubscriptionEvent | null>(null);
 
   if (loading && events.length === 0) {
     return <Skeleton className="h-64 w-full rounded-[15px]" />;
@@ -995,15 +1065,6 @@ function BillingHistoryTab() {
       </div>
     );
   }
-
-  const openEvent = (event: SubscriptionEvent) => {
-    if (isPaymentReceiptEvent(event)) {
-      setSelectedInvoice(event);
-      return;
-    }
-    setSelectedDetail(event);
-    setDetailOpen(true);
-  };
 
   return (
     <>
@@ -1034,25 +1095,20 @@ function BillingHistoryTab() {
             ) : (
               events.map((event) => {
                 const status = getStatusInfo(event.status, 'dashboard');
-                const isReceipt = isPaymentReceiptEvent(event);
                 return (
                   <tr
                     key={event.id}
                     className="cursor-pointer border-b border-[#eef2f7] last:border-0 hover:bg-[#fafbfd]"
-                    onClick={() => openEvent(event)}
+                    onClick={() => setSelected(event)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        openEvent(event);
+                        setSelected(event);
                       }
                     }}
                     tabIndex={0}
                     role="button"
-                    aria-label={
-                      isReceipt
-                        ? `View invoice for ${event.planName}`
-                        : `View details for ${event.planName}`
-                    }
+                    aria-label={`View details for ${event.planName}`}
                   >
                     <td className="px-11 py-6 text-[#24395f]">
                       {formatEventDate(event.eventDate).date}
@@ -1104,21 +1160,9 @@ function BillingHistoryTab() {
         </div>
       ) : null}
 
-      {selectedInvoice ? (
-        <InvoiceModal
-          event={selectedInvoice}
-          onClose={() => setSelectedInvoice(null)}
-        />
+      {selected ? (
+        <InvoiceModal event={selected} onClose={() => setSelected(null)} />
       ) : null}
-
-      <SubscriptionEventDetail
-        event={selectedDetail}
-        open={detailOpen}
-        onOpenChange={(open) => {
-          setDetailOpen(open);
-          if (!open) setSelectedDetail(null);
-        }}
-      />
     </>
   );
 }

@@ -310,12 +310,10 @@ export default function DashboardHome() {
   const content = (
     <>
       {sessionToken ? (
-        <div className="px-4 pt-4 sm:px-6 sm:pt-6 lg:px-7 lg:pt-7">
-          <ReceivedMembershipInviteBanner
-            sessionToken={sessionToken}
-            variant="dashboard"
-          />
-        </div>
+        <ReceivedMembershipInviteBanner
+          sessionToken={sessionToken}
+          variant="dashboard"
+        />
       ) : null}
       {resolvedState === "subscribed" && <SubscribedHome />}
       {resolvedState === "new" && <NewUserHome />}
