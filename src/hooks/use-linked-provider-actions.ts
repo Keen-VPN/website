@@ -97,20 +97,19 @@ export function useLinkedProviderActions({
                   idToken: oauthIdToken,
                   accessToken: oauthAccessToken,
                 });
+                const app = getFirebaseApp();
+                const tempApp = initializeApp(
+                  app.options,
+                  "temp-link-" + Date.now(),
+                );
+                const tempAuth = getSecondaryAuth(tempApp);
                 try {
-                  const app = getFirebaseApp();
-                  const tempApp = initializeApp(
-                    app.options,
-                    "temp-link-" + Date.now(),
-                  );
-                  const tempAuth = getSecondaryAuth(tempApp);
                   const tempResult = await signInWithCredential(
                     tempAuth,
                     manualCredential,
                   );
                   firebaseIdToken = await tempResult.user.getIdToken();
                   await tempAuth.signOut();
-                  await deleteApp(tempApp);
                 } catch {
                   toast({
                     title: "Error",
@@ -119,6 +118,8 @@ export function useLinkedProviderActions({
                     variant: "destructive",
                   });
                   return;
+                } finally {
+                  await deleteApp(tempApp).catch(() => undefined);
                 }
               } else {
                 toast({
@@ -130,20 +131,19 @@ export function useLinkedProviderActions({
                 return;
               }
             } else {
+              const app = getFirebaseApp();
+              const tempApp = initializeApp(
+                app.options,
+                "temp-link-" + Date.now(),
+              );
+              const tempAuth = getSecondaryAuth(tempApp);
               try {
-                const app = getFirebaseApp();
-                const tempApp = initializeApp(
-                  app.options,
-                  "temp-link-" + Date.now(),
-                );
-                const tempAuth = getSecondaryAuth(tempApp);
                 const tempResult = await signInWithCredential(
                   tempAuth,
                   pendingCredential,
                 );
                 firebaseIdToken = await tempResult.user.getIdToken();
                 await tempAuth.signOut();
-                await deleteApp(tempApp);
               } catch {
                 toast({
                   title: "Error",
@@ -152,6 +152,8 @@ export function useLinkedProviderActions({
                   variant: "destructive",
                 });
                 return;
+              } finally {
+                await deleteApp(tempApp).catch(() => undefined);
               }
             }
           } else if (fbErr?.code === "auth/popup-closed-by-user") {

@@ -283,6 +283,7 @@ function PlansTab() {
   const [plans, setPlans] = useState<ApiPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [plansError, setPlansError] = useState<string | null>(null);
+  const [plansReloadKey, setPlansReloadKey] = useState(0);
   const [checkoutLoadingId, setCheckoutLoadingId] = useState<string | null>(
     null,
   );
@@ -294,25 +295,31 @@ function PlansTab() {
   const canOpenStripePortal =
     isStripeSubscription(subscription) && Boolean(subscription?.canManageBilling);
 
-  const loadPlans = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setPlansError(null);
-    const res = await fetchSubscriptionPlans();
-    if (res.success && res.plans) {
-      setPlans(res.plans);
-      setPlansError(null);
-    } else {
-      setPlans([]);
-      setPlansError(
-        res.error?.trim() || 'Unable to load plans. Please try again.',
-      );
-    }
-    setLoading(false);
-  }, []);
+    void fetchSubscriptionPlans().then((res) => {
+      if (cancelled) return;
+      if (res.success && res.plans) {
+        setPlans(res.plans);
+        setPlansError(null);
+      } else {
+        setPlans([]);
+        setPlansError(
+          res.error?.trim() || 'Unable to load plans. Please try again.',
+        );
+      }
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [plansReloadKey]);
 
-  useEffect(() => {
-    void loadPlans();
-  }, [loadPlans]);
+  const loadPlans = useCallback(() => {
+    setPlansReloadKey((key) => key + 1);
+  }, []);
 
   const tierPlans = useMemo(() => {
     const filtered = plans.filter((p) => getPlanTier(p) === tier);

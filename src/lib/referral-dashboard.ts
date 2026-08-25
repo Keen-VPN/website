@@ -110,6 +110,11 @@ export function appendReferralRows(
   incoming: ReferralRow[],
 ): ReferralRow[] {
   const seen = new Set(existing.map((r) => r.id));
-  const extra = incoming.filter((r) => !seen.has(r.id));
+  const extra: ReferralRow[] = [];
+  for (const row of incoming) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    extra.push(row);
+  }
   return [...existing, ...extra];
 }
