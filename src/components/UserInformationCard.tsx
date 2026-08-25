@@ -126,18 +126,23 @@ export function UserInformationCard({
     });
   }
 
+  const isDashboard = variant === "dashboard";
+  const mutedText = isDashboard ? "text-[#627086]" : "text-muted-foreground";
+  const dangerText = isDashboard ? "text-[#d14343]" : "text-destructive";
+  const primaryText = isDashboard ? "text-[#0f2040]" : "text-foreground";
+
   const body = loading ? (
-    <div className="flex items-center gap-2 text-sm text-[#627086]">
+    <div className={`flex items-center gap-2 text-sm ${mutedText}`}>
       <Loader2 className="h-4 w-4 animate-spin" />
       Loading profile questions...
     </div>
   ) : loadError ? (
     <div className="space-y-2">
-      <p className="text-sm text-[#d14343]">{loadError}</p>
+      <p className={`text-sm ${dangerText}`}>{loadError}</p>
       <Button
         type="button"
         variant="link"
-        className="h-auto p-0 text-sm text-[#0f2040]"
+        className={`h-auto p-0 text-sm ${primaryText}`}
         onClick={() => void loadProfile()}
       >
         Retry
@@ -146,7 +151,7 @@ export function UserInformationCard({
   ) : (
     <>
       {isComplete ? (
-        <p className="mb-4 text-sm text-[#627086]">
+        <p className={`mb-4 text-sm ${mutedText}`}>
           Thanks — your profile is complete. You can change any answer below at
           any time.
         </p>
@@ -174,7 +179,9 @@ export function UserInformationCard({
                   {question.label}
                 </Label>
                 {savingKey === question.key ? (
-                  <Loader2 className="mt-1 h-4 w-4 shrink-0 animate-spin text-[#627086]" />
+                  <Loader2
+                    className={`mt-1 h-4 w-4 shrink-0 animate-spin ${mutedText}`}
+                  />
                 ) : null}
               </div>
               <RadioGroup
@@ -193,7 +200,11 @@ export function UserInformationCard({
                     />
                     <Label
                       htmlFor={`${question.key}-${option.value}`}
-                      className="font-normal text-[#43516a]"
+                      className={
+                        variant === "dashboard"
+                          ? "font-normal text-[#43516a]"
+                          : "font-normal"
+                      }
                     >
                       {option.label}
                     </Label>

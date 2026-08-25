@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Home,
@@ -7,6 +8,7 @@ import {
   User,
   Gift,
   Headphones,
+  LogOut,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { marketingSiteUrl } from "@/lib/site-urls";
@@ -46,8 +48,9 @@ export default function DashboardSidebar({
   className,
   onNavigate,
 }: DashboardSidebarProps) {
-  const { user, subscription } = useAuth();
+  const { user, subscription, logout } = useAuth();
   const navigate = useNavigate();
+  const [signingOut, setSigningOut] = useState(false);
 
   const email = user?.email ?? "";
   const displayName = user?.displayName?.trim() || "";
@@ -198,6 +201,26 @@ export default function DashboardSidebar({
           </p>
           <p className="text-[12px] text-[#627086]">{planLabel}</p>
         </div>
+        <button
+          type="button"
+          aria-label="Sign out"
+          disabled={signingOut}
+          onClick={() => {
+            void (async () => {
+              setSigningOut(true);
+              try {
+                await logout();
+                onNavigate?.();
+                navigate("/signin");
+              } finally {
+                setSigningOut(false);
+              }
+            })();
+          }}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[#e7edf5] text-[#627086] transition-colors hover:bg-[#f5f7fb] hover:text-[#0f2040] disabled:opacity-50"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+        </button>
       </div>
     </aside>
   );

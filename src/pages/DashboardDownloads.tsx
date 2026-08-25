@@ -13,7 +13,8 @@ interface DownloadItem {
   title: string;
   subtitle: string;
   cta: string;
-  href: string;
+  href?: string;
+  comingSoon?: boolean;
   icon: ReactNode;
 }
 
@@ -35,9 +36,9 @@ const SECTIONS: DownloadSection[] = [
       {
         id: "windows",
         title: "Windows",
-        subtitle: "Windows 10 and 11",
-        cta: "Download",
-        href: APP_STORE_URLS.windows,
+        subtitle: "Windows 10 and 11 — installer coming soon",
+        cta: "Coming soon",
+        comingSoon: true,
         icon: <Monitor className="h-5 w-5 text-[#0f2040]" />,
       },
       {
@@ -102,14 +103,20 @@ function DownloadRow({ item }: { item: DownloadItem }) {
           <p className="text-[13px] text-[#627086]">{item.subtitle}</p>
         </div>
       </div>
-      <a
-        href={item.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] bg-[#0f2040] px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 sm:self-auto"
-      >
-        {item.cta}
-      </a>
+      {item.comingSoon || !item.href ? (
+        <span className="inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] border border-[#dbe2ec] bg-white px-4 text-[13px] font-semibold text-[#627086] sm:self-auto">
+          {item.cta}
+        </span>
+      ) : (
+        <a
+          href={item.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] bg-[#0f2040] px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 sm:self-auto"
+        >
+          {item.cta}
+        </a>
+      )}
     </div>
   );
 }

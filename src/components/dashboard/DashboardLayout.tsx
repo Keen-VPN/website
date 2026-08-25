@@ -7,15 +7,10 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Home",
   "/subscription": "Subscription",
-  "/account": "Account",
   "/referrals": "Refer",
-  "/perks": "Perks",
-  "/friends": "Friends",
   "/profile": "Profile",
   "/downloads": "Downloads",
-  "/keenvpn": "KeenVPN",
   "/class-action": "Class Action",
-  "/support": "Support",
 };
 
 export default function DashboardLayout() {

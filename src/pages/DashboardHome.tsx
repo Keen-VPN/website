@@ -88,15 +88,29 @@ function SubscribedHome() {
                   <span className="text-[16px] font-semibold text-[#0f2040]">
                     {subscription?.plan ?? "KeenVPN"}
                   </span>
-                  <span className="rounded-full bg-[#e6f9f0] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#1a9e5a]">
-                    Active
+                  <span
+                    className={
+                      subscription?.status === "past_due"
+                        ? "rounded-full bg-[#fff4eb] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#c05600]"
+                        : "rounded-full bg-[#e6f9f0] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#1a9e5a]"
+                    }
+                  >
+                    {subscription?.status === "past_due"
+                      ? "Past due"
+                      : subscription?.status === "trialing"
+                        ? "Trial"
+                        : "Active"}
                   </span>
                 </div>
-                {renewsDate && (
+                {subscription?.status === "past_due" ? (
+                  <p className="mt-0.5 text-[13px] text-[#c05600]">
+                    Payment failed — update billing to stay protected.
+                  </p>
+                ) : renewsDate ? (
                   <p className="mt-0.5 text-[13px] text-[#627086]">
                     {isExpiring ? "Ends" : "Renews"} {renewsDate}
                   </p>
-                )}
+                ) : null}
               </div>
               <ChevronRight className="h-5 w-5 shrink-0 text-[#627086]" />
             </button>
@@ -106,7 +120,13 @@ function SubscribedHome() {
               {[
                 { label: "Devices", value: devicesLabel },
                 { label: "Servers", value: serversLabel },
-                { label: "Status", value: "Protected" },
+                {
+                  label: "Status",
+                  value:
+                    subscription?.status === "past_due"
+                      ? "Payment due"
+                      : "Protected",
+                },
               ].map((stat) => (
                 <div key={stat.label} className="px-3 py-3 sm:px-6 sm:py-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.6px] text-[#a0aabb]">
@@ -217,7 +237,7 @@ function NewUserHome() {
             Set up your VPN in 3 simple steps
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-4 px-4 pb-6 pt-4 sm:gap-5 sm:px-8 sm:pb-8 sm:pt-5 md:grid-cols-3">
+        <div className="relative grid grid-cols-1 gap-4 px-4 pb-6 pt-4 sm:gap-5 sm:px-8 sm:pb-8 sm:pt-5 md:grid-cols-3">
           {/* Step 1 */}
           <div className="relative flex flex-col items-center rounded-[13px] border border-[#e3e8f0] bg-gradient-to-b from-white to-[#fcfdff] px-5 pb-6 pt-8 text-center shadow-sm">
             <div className="mb-5 flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[#0f2040] shadow-[0px_7px_7px_rgba(47,102,255,0.15)]">
@@ -235,8 +255,8 @@ function NewUserHome() {
             </button>
           </div>
 
-          {/* Arrow */}
-          <div className="absolute left-[calc(33.33%-12px)] top-[calc(50%-14px)] hidden text-[24px] text-[#627086] md:block pointer-events-none" />
+          {/* Arrow between step 1 and 2 */}
+          <ChevronRight className="absolute left-[calc(33.33%-12px)] top-[calc(50%-14px)] hidden h-6 w-6 text-[#627086] pointer-events-none md:block" />
 
           {/* Step 2 */}
           <div className="relative flex flex-col items-center rounded-[13px] border border-[#e3e8f0] bg-gradient-to-b from-white to-[#fcfdff] px-5 pb-6 pt-8 text-center shadow-sm">
@@ -256,6 +276,8 @@ function NewUserHome() {
               Download apps
             </button>
           </div>
+
+          <ChevronRight className="absolute left-[calc(66.66%-12px)] top-[calc(50%-14px)] hidden h-6 w-6 text-[#627086] pointer-events-none md:block" />
 
           {/* Step 3 */}
           <div className="relative flex flex-col items-center rounded-[13px] border border-[#e3e8f0] bg-gradient-to-b from-white to-[#fcfdff] px-5 pb-6 pt-8 text-center shadow-sm">
@@ -362,7 +384,7 @@ function ExpiredHome() {
               title: "Account",
               desc: "Manage your account details, two-factor authentication.",
               cta: "Manage account",
-              route: "/subscription",
+              route: "/profile",
             },
             {
               title: "Help & guides",

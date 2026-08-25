@@ -273,8 +273,26 @@ export default function DashboardReferrals() {
   const promoMonths =
     data?.campaign?.rewardMonths ?? data?.standardRewardMonths ?? 3;
   const promoLabel = formatReferralRewardLabel(promoMonths);
+  const hasSession = Boolean(user && getSessionToken());
 
   if (!data) {
+    if (!hasSession) {
+      return (
+        <div className="p-4 sm:p-6 md:p-10 xl:p-12">
+          <div className="mx-auto max-w-[1320px] space-y-5">
+            <div>
+              <h1 className="text-[28px] font-bold tracking-[-0.5px] text-[#071f3f] md:text-[32px]">
+                Refer a friend
+              </h1>
+              <p className="mt-2 max-w-3xl text-[15px] text-[#6b7890] md:text-[16px]">
+                Sign in to view your referral link and rewards.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="p-4 sm:p-6 md:p-10 xl:p-12">
         <div className="mx-auto max-w-[1320px] space-y-5">

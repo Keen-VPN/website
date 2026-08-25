@@ -33,7 +33,8 @@ import GoogleIcon from "@/components/ui/google-icon";
 import { UserInformationCard } from "@/components/UserInformationCard";
 import { getFirebaseAuth, getFirebaseApp } from "@/auth/firebase";
 import { cn } from "@/lib/utils";
-import { hasManageableSubscription } from "@/lib/subscription-cta";
+import { hasManageableSubscription, canCancelStripeOnWebsite, isAppleIapSubscription } from "@/lib/subscription-cta";
+import { AppleIapSubscriptionsCta } from "@/components/AppleIapSubscriptionsCta";
 import {
   cancelAuthEmailChange,
   deleteAccount,
@@ -434,13 +435,20 @@ export default function DashboardProfile() {
       }
 
       const result = await linkProvider(sessionToken, provider, firebaseIdToken);
-      if (result.success) {
+      if (!result.success) {
         toast({
-          title: "Account connected",
-          description: `${provider === "google" ? "Google" : "Apple"} account connected successfully.`,
+          title: "Connection failed",
+          description:
+            result.error ?? "Could not connect account. Please try again.",
+          variant: "destructive",
         });
-        await refreshLinkedProviders();
+        return;
       }
+      toast({
+        title: "Account connected",
+        description: `${provider === "google" ? "Google" : "Apple"} account connected successfully.`,
+      });
+      await refreshLinkedProviders();
     } catch (error: unknown) {
       const message =
         (error instanceof Error ? error.message : null) ||
@@ -523,11 +531,11 @@ export default function DashboardProfile() {
       });
       return;
     }
-    if (hasManageableSubscription(subscription)) {
+    if (canCancelStripeOnWebsite(subscription)) {
       toast({
         title: "Cancel subscription first",
         description:
-          "Please cancel your subscription before deleting your account.",
+          "Turn off auto-renewal on the Subscription page before deleting your account.",
         variant: "destructive",
       });
       return;
@@ -995,14 +1003,14 @@ export default function DashboardProfile() {
                           <li>All associated preferences and settings</li>
                         </ul>
                       </div>
-                      {hasManageableSubscription(subscription) ? (
+                      {canCancelStripeOnWebsite(subscription) ? (
                         <div className="rounded-[10px] border border-[#f0c2c2] bg-[#fff8f8] p-3">
                           <p className="text-sm font-semibold text-[#0f2040]">
                             You have an active subscription
                           </p>
                           <p className="mt-1 text-xs text-[#43516a]">
-                            Cancel your subscription first, then delete your
-                            account to avoid future charges.
+                            Cancel auto-renewal first, then delete your account
+                            to avoid future charges.
                           </p>
                           <button
                             type="button"
@@ -1011,6 +1019,21 @@ export default function DashboardProfile() {
                           >
                             Manage subscription
                           </button>
+                        </div>
+                      ) : isAppleIapSubscription(subscription) &&
+                        hasManageableSubscription(subscription) &&
+                        !subscription.cancelAtPeriodEnd ? (
+                        <div className="rounded-[10px] border border-[#f0c2c2] bg-[#fff8f8] p-3">
+                          <p className="text-sm font-semibold text-[#0f2040]">
+                            App Store subscription
+                          </p>
+                          <p className="mt-1 text-xs text-[#43516a]">
+                            Cancel auto-renewal in Apple Subscriptions before or
+                            after deleting this account to avoid future charges.
+                          </p>
+                          <div className="mt-3">
+                            <AppleIapSubscriptionsCta />
+                          </div>
                         </div>
                       ) : null}
                     </div>
@@ -1022,7 +1045,7 @@ export default function DashboardProfile() {
                   </AlertDialogCancel>
                   <AlertDialogAction
                     onClick={() => void handleDeleteAccount()}
-                    disabled={hasManageableSubscription(subscription)}
+                    disabled={canCancelStripeOnWebsite(subscription)}
                     className="h-9 rounded-[8px] bg-[#d14343] text-[13px] font-semibold text-white hover:bg-[#d14343]/90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Delete Account Permanently

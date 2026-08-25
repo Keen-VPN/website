@@ -29,7 +29,11 @@ import {
   formatEventDate,
 } from '@/lib/subscription-history-api';
 import { Skeleton } from '@/components/ui/skeleton';
-import { hasManageableSubscription } from '@/lib/subscription-cta';
+import { SubscriptionCancellationControls } from '@/components/SubscriptionCancellationControls';
+import {
+  hasManageableSubscription,
+  isStripeSubscription,
+} from '@/lib/subscription-cta';
 
 type TabId = 'subscription' | 'plans' | 'billing';
 type PlanTier = 'premium' | 'team';
@@ -62,6 +66,7 @@ function isAnnualPlan(plan: ApiPlan) {
 function getPlanTier(plan: ApiPlan): PlanTier | 'other' {
   const id = plan.id.toLowerCase();
   if (
+    plan.isPerSeat ||
     id.includes('team') ||
     id.includes('business') ||
     id.includes('family_plus') ||
@@ -69,8 +74,7 @@ function getPlanTier(plan: ApiPlan): PlanTier | 'other' {
   ) {
     return 'team';
   }
-  if (id.includes('premium')) return 'premium';
-  return 'other';
+  return 'premium';
 }
 
 function formatDate(dateString?: string | null) {
@@ -89,7 +93,12 @@ function monthlyEquivalent(plan: ApiPlan) {
 function CurrentPlanTab() {
   const { subscription, user, loading } = useAuth();
   const navigate = useNavigate();
-  const { openBillingPortal, portalLoading } = useSubscriptionBillingActions();
+  const {
+    openBillingPortal,
+    portalLoading,
+    cancelling,
+    cancelSubscriptionAtPeriodEnd,
+  } = useSubscriptionBillingActions();
 
   if (loading) {
     return <Skeleton className="h-56 w-full rounded-[15px]" />;
@@ -140,17 +149,9 @@ function CurrentPlanTab() {
         : 'Monthly';
 
   const tierLabel = isBusiness ? 'Business' : 'Individual';
-
-  const priceHint =
-    subscription.billingPeriod === 'month'
-      ? '$9.99 / month'
-      : subscription.billingPeriod === 'year'
-        ? '$6.67 / month'
-        : subscription.billingPeriod === '2year'
-          ? '$4.99 / month'
-          : '';
-
   const autoRenewOn = !subscription.cancelAtPeriodEnd;
+  const canOpenStripePortal =
+    isStripeSubscription(subscription) && subscription.canManageBilling;
 
   return (
     <section className="overflow-hidden rounded-[15px] border border-[#e3e8f0] bg-white shadow-[0px_12px_30px_rgba(15,32,64,0.06)]">
@@ -172,21 +173,23 @@ function CurrentPlanTab() {
             KeenVPN - {tierLabel}{' '}
             <span className="text-[#ff7900]">{periodLabel}</span>
           </p>
-          {priceHint ? (
-            <p className="text-[24px] font-bold tracking-[-0.5px] text-[#0f2040] md:text-[30px]">
-              {priceHint.split(' /')[0]}{' '}
-              <span className="text-[15px] font-medium text-[#405276]">
-                / month
-              </span>
-            </p>
-          ) : null}
         </div>
+
+        {status === 'past_due' ? (
+          <div className="mt-5 rounded-[10px] border border-[#f0c2c2] bg-[#fff5f5] px-4 py-3 text-[14px] text-[#d14343]">
+            Payment failed. Update your payment method to keep your VPN access.
+          </div>
+        ) : null}
 
         <div className="grid gap-y-7 py-6 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-[#e3e8f0] lg:py-7">
           <div className="flex gap-4 lg:px-8 lg:first:pl-8">
             <Calendar className="mt-0.5 h-6 w-6 shrink-0 text-[#ff7900]" />
             <div>
-              <p className="text-[16px] text-[#627086]">Next billing date</p>
+              <p className="text-[16px] text-[#627086]">
+                {subscription.cancelAtPeriodEnd
+                  ? 'Ends on'
+                  : 'Next billing date'}
+              </p>
               <p className="mt-2 text-[17px] font-bold text-[#0f2040]">
                 {formatDate(
                   subscription.endDate || subscription.currentPeriodEnd,
@@ -198,31 +201,15 @@ function CurrentPlanTab() {
             <RefreshCw className="mt-0.5 h-6 w-6 shrink-0 text-[#ff7900]" />
             <div className="flex-1">
               <p className="text-[16px] text-[#627086]">Auto-renew</p>
-              <div className="mt-2 flex items-center gap-4">
-                <span
-                  className={
-                    autoRenewOn
-                      ? 'text-[17px] font-bold text-[#159653]'
-                      : 'text-[17px] font-bold text-[#627086]'
-                  }
-                >
-                  {autoRenewOn ? 'On' : 'Off'}
-                </span>
-                <span
-                  className={[
-                    'relative inline-flex h-7 w-[50px] items-center rounded-full',
-                    autoRenewOn ? 'bg-[#16a34a]' : 'bg-[#dbe2ec]',
-                  ].join(' ')}
-                  aria-label={`Auto-renew is ${autoRenewOn ? 'on' : 'off'}`}
-                >
-                  <span
-                    className={[
-                      'inline-block h-6 w-6 rounded-full bg-white shadow-sm',
-                      autoRenewOn ? 'translate-x-[22px]' : 'translate-x-0.5',
-                    ].join(' ')}
-                  />
-                </span>
-              </div>
+              <p
+                className={
+                  autoRenewOn
+                    ? 'mt-2 text-[17px] font-bold text-[#159653]'
+                    : 'mt-2 text-[17px] font-bold text-[#627086]'
+                }
+              >
+                {autoRenewOn ? 'On' : 'Off'}
+              </p>
             </div>
           </div>
           <div className="flex gap-4 lg:px-8">
@@ -260,7 +247,7 @@ function CurrentPlanTab() {
           >
             Manage plan
           </button>
-          {subscription.canManageBilling ? (
+          {canOpenStripePortal ? (
             <button
               type="button"
               onClick={() => void openBillingPortal()}
@@ -275,6 +262,17 @@ function CurrentPlanTab() {
             </button>
           ) : null}
         </div>
+
+        <div className="mt-6 border-t border-[#e3e8f0] pt-6">
+          <SubscriptionCancellationControls
+            subscription={subscription}
+            cancelling={cancelling}
+            onCancel={() => void cancelSubscriptionAtPeriodEnd()}
+            onManageBilling={() => void openBillingPortal()}
+            portalLoading={portalLoading}
+            showManageBilling={canOpenStripePortal}
+          />
+        </div>
       </div>
     </section>
   );
@@ -284,6 +282,7 @@ function PlansTab() {
   const [tier, setTier] = useState<PlanTier>('premium');
   const [plans, setPlans] = useState<ApiPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [plansError, setPlansError] = useState<string | null>(null);
   const [checkoutLoadingId, setCheckoutLoadingId] = useState<string | null>(
     null,
   );
@@ -292,12 +291,22 @@ function PlansTab() {
   const navigate = useNavigate();
   const { openBillingPortal, portalLoading } = useSubscriptionBillingActions();
   const isManageable = hasManageableSubscription(subscription);
+  const canOpenStripePortal =
+    isStripeSubscription(subscription) && Boolean(subscription?.canManageBilling);
 
   useEffect(() => {
     let cancelled = false;
     void fetchSubscriptionPlans().then((res) => {
       if (cancelled) return;
-      if (res.success && res.plans) setPlans(res.plans);
+      if (res.success && res.plans) {
+        setPlans(res.plans);
+        setPlansError(null);
+      } else {
+        setPlans([]);
+        setPlansError(
+          res.error?.trim() || 'Unable to load plans. Please try again.',
+        );
+      }
       setLoading(false);
     });
     return () => {
@@ -327,22 +336,6 @@ function PlansTab() {
         variant: 'destructive',
       });
       navigate('/signin');
-      return;
-    }
-
-    if (isManageable) {
-      if (subscription?.canManageBilling) {
-        await openBillingPortal();
-        return;
-      }
-      toast({
-        title: 'Already subscribed',
-        description:
-          subscription?.subscriptionType === 'apple_iap'
-            ? 'Manage or change your plan in the App Store.'
-            : 'Open billing to change your plan.',
-      });
-      navigate('/subscription');
       return;
     }
 
@@ -393,6 +386,37 @@ function PlansTab() {
           <Skeleton className="h-96 rounded-[15px]" />
           <Skeleton className="h-96 rounded-[15px]" />
         </div>
+      </div>
+    );
+  }
+
+  if (plansError) {
+    return (
+      <div className="rounded-[15px] border border-[#f0c2c2] bg-[#fff5f5] px-6 py-8 text-center">
+        <p className="text-[15px] font-semibold text-[#d14343]">{plansError}</p>
+        <button
+          type="button"
+          className="mt-4 rounded-[8px] bg-[#0f2040] px-4 py-2 text-[13px] font-semibold text-white"
+          onClick={() => {
+            setLoading(true);
+            setPlansError(null);
+            void fetchSubscriptionPlans().then((res) => {
+              if (res.success && res.plans) {
+                setPlans(res.plans);
+                setPlansError(null);
+              } else {
+                setPlans([]);
+                setPlansError(
+                  res.error?.trim() ||
+                    'Unable to load plans. Please try again.',
+                );
+              }
+              setLoading(false);
+            });
+          }}
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -547,7 +571,7 @@ function PlansTab() {
               <button
                 type="button"
                 onClick={() => {
-                  if (isManageable && subscription?.canManageBilling) {
+                  if (isManageable && canOpenStripePortal) {
                     void openBillingPortal();
                     return;
                   }
@@ -559,13 +583,14 @@ function PlansTab() {
                           ? 'Manage or change your plan in the App Store.'
                           : 'Open billing to change your plan.',
                     });
+                    navigate('/subscription');
                     return;
                   }
                   void startCheckout(plan);
                 }}
                 disabled={
                   checkoutLoadingId === plan.id ||
-                  (isManageable && portalLoading)
+                  (isManageable && canOpenStripePortal && portalLoading)
                 }
                 className={[
                   'mt-4 w-full rounded-[8px] py-3 text-[17px] font-semibold transition-opacity',
@@ -575,10 +600,10 @@ function PlansTab() {
                 ].join(' ')}
               >
                 {checkoutLoadingId === plan.id ||
-                (isManageable && portalLoading) ? (
+                (isManageable && canOpenStripePortal && portalLoading) ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                 ) : isManageable ? (
-                  subscription?.canManageBilling
+                  canOpenStripePortal
                     ? 'Manage billing'
                     : 'Already subscribed'
                 ) : (

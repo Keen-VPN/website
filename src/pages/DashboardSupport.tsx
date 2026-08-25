@@ -210,23 +210,6 @@ function SupportFooter() {
         </div>
 
         <div>
-          <p className="text-[13px] font-semibold text-[#0f2040]">Company</p>
-          <p className="mt-3 text-[12px] text-[#627086]">
-            <a href={marketingSiteUrl('/')} className="hover:text-[#0f2040]">
-              About us
-            </a>
-            <span aria-hidden> · </span>
-            <a href={marketingSiteUrl('/')} className="hover:text-[#0f2040]">
-              Careers
-            </a>
-            <span aria-hidden> · </span>
-            <a href={marketingSiteUrl('/')} className="hover:text-[#0f2040]">
-              Blog
-            </a>
-          </p>
-        </div>
-
-        <div>
           <p className="text-[13px] font-semibold text-[#0f2040]">Legal</p>
           <p className="mt-3 text-[12px] text-[#627086]">
             <a
@@ -244,10 +227,10 @@ function SupportFooter() {
             </a>
             <span aria-hidden> · </span>
             <a
-              href={marketingSiteUrl('/terms.html')}
+              href="mailto:support@vpnkeen.com?subject=Refund%20request"
               className="hover:text-[#0f2040]"
             >
-              Refund Policy
+              Refunds
             </a>
           </p>
         </div>
