@@ -67,7 +67,7 @@ interface AuthContextType {
   /** Auth provider as stored by the backend (e.g. "google", "apple"). More reliable than Firebase providerData[0] for linked/merged accounts. */
   authProvider: string | null;
   signIn: (provider?: 'google' | 'apple') => Promise<{ success: boolean; shouldRedirect?: string }>;
-  logout: () => Promise<void>;
+  logout: () => Promise<boolean>;
   refreshSubscription: () => Promise<void>;
   refreshLinkedProviders: () => Promise<void>;
 }
@@ -975,12 +975,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         title: 'Signed out successfully',
         description: 'You have been signed out of your account',
       });
+      return true;
     } catch {
       toast({
         title: 'Sign out failed',
         description: 'Please try again',
         variant: 'destructive',
       });
+      return false;
     }
   }, [toast, setAuthProvider]);
 

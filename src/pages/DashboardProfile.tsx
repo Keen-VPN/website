@@ -5,14 +5,6 @@ import {
   Apple,
   Loader2,
 } from "lucide-react";
-import {
-  linkWithPopup,
-  signInWithCredential,
-  GoogleAuthProvider,
-  OAuthProvider,
-  getAuth as getSecondaryAuth,
-} from "firebase/auth";
-import { initializeApp, deleteApp } from "firebase/app";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -31,20 +23,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import GoogleIcon from "@/components/ui/google-icon";
 import { UserInformationCard } from "@/components/UserInformationCard";
-import { getFirebaseAuth, getFirebaseApp } from "@/auth/firebase";
 import { cn } from "@/lib/utils";
 import { hasManageableSubscription, canCancelStripeOnWebsite, isAppleIapSubscription } from "@/lib/subscription-cta";
 import { AppleIapSubscriptionsCta } from "@/components/AppleIapSubscriptionsCta";
+import { useLinkedProviderActions } from "@/hooks/use-linked-provider-actions";
 import {
   cancelAuthEmailChange,
   deleteAccount,
   fetchMyEmailCategoryPreferences,
   getAuthEmailStatus,
   getSessionToken,
-  linkProvider,
   requestAuthEmailChange,
   resendAuthEmailChange,
-  unlinkProvider,
   updateMyEmailCategoryPreferences,
   type AuthEmailPending,
   type EmailCategoryPreference,
@@ -167,8 +157,16 @@ export default function DashboardProfile() {
   const emailLoadGen = useRef(0);
 
   // ── Connected accounts ─────────────────────────────────────────────────────
-  const [linking, setLinking] = useState<"google" | "apple" | null>(null);
-  const [unlinking, setUnlinking] = useState<"google" | "apple" | null>(null);
+  const {
+    linking,
+    unlinking,
+    linkAccount: handleLink,
+    unlinkAccount: handleUnlink,
+  } = useLinkedProviderActions({
+    sessionToken,
+    onUpdated: refreshLinkedProviders,
+    labels: "connect",
+  });
 
   // ── Email preferences ──────────────────────────────────────────────────────
   const [preferences, setPreferences] = useState<EmailCategoryPreference[]>(
@@ -314,177 +312,6 @@ export default function DashboardProfile() {
       title: "Email change cancelled",
       description: response.message ?? "Your current login email is unchanged.",
     });
-  }
-
-  async function handleLink(provider: "google" | "apple") {
-    if (!sessionToken) {
-      toast({
-        title: "Sign in required",
-        description: "Sign in to connect accounts.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setLinking(provider);
-    try {
-      const auth = getFirebaseAuth();
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        toast({
-          title: "Error",
-          description: "You must be signed in to link accounts.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const authProviderObj =
-        provider === "google"
-          ? new GoogleAuthProvider()
-          : new OAuthProvider("apple.com");
-
-      let firebaseIdToken: string;
-
-      try {
-        const result = await linkWithPopup(currentUser, authProviderObj);
-        firebaseIdToken = await result.user.getIdToken(true);
-      } catch (firebaseError: unknown) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Firebase errors have dynamic structure
-        const fbErr = firebaseError as any;
-        if (fbErr?.code === "auth/credential-already-in-use") {
-          const pendingCredential =
-            provider === "google"
-              ? GoogleAuthProvider.credentialFromError(fbErr)
-              : OAuthProvider.credentialFromError(fbErr);
-
-          if (!pendingCredential) {
-            const oauthIdToken = fbErr?.customData?._tokenResponse?.oauthIdToken;
-            const oauthAccessToken =
-              fbErr?.customData?._tokenResponse?.oauthAccessToken;
-            if (oauthIdToken && provider === "apple") {
-              const manualCredential = new OAuthProvider("apple.com").credential(
-                {
-                  idToken: oauthIdToken,
-                  accessToken: oauthAccessToken,
-                },
-              );
-              try {
-                const app = getFirebaseApp();
-                const tempApp = initializeApp(
-                  app.options,
-                  "temp-link-" + Date.now(),
-                );
-                const tempAuth = getSecondaryAuth(tempApp);
-                const tempResult = await signInWithCredential(
-                  tempAuth,
-                  manualCredential,
-                );
-                firebaseIdToken = await tempResult.user.getIdToken();
-                await tempAuth.signOut();
-                await deleteApp(tempApp);
-              } catch {
-                toast({
-                  title: "Error",
-                  description:
-                    "Could not verify the Apple account. Please try again.",
-                  variant: "destructive",
-                });
-                return;
-              }
-            } else {
-              toast({
-                title: "Error",
-                description:
-                  "Could not retrieve credentials. Please try again.",
-                variant: "destructive",
-              });
-              return;
-            }
-          } else {
-            try {
-              const app = getFirebaseApp();
-              const tempApp = initializeApp(
-                app.options,
-                "temp-link-" + Date.now(),
-              );
-              const tempAuth = getSecondaryAuth(tempApp);
-              const tempResult = await signInWithCredential(
-                tempAuth,
-                pendingCredential,
-              );
-              firebaseIdToken = await tempResult.user.getIdToken();
-              await tempAuth.signOut();
-              await deleteApp(tempApp);
-            } catch {
-              toast({
-                title: "Error",
-                description:
-                  "Could not verify the second account. Please try again.",
-                variant: "destructive",
-              });
-              return;
-            }
-          }
-        } else if (fbErr?.code === "auth/popup-closed-by-user") {
-          return;
-        } else if (fbErr?.code === "auth/provider-already-linked") {
-          firebaseIdToken = await currentUser.getIdToken(true);
-        } else {
-          throw firebaseError;
-        }
-      }
-
-      const result = await linkProvider(sessionToken, provider, firebaseIdToken);
-      if (!result.success) {
-        toast({
-          title: "Connection failed",
-          description:
-            result.error ?? "Could not connect account. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-      toast({
-        title: "Account connected",
-        description: `${provider === "google" ? "Google" : "Apple"} account connected successfully.`,
-      });
-      await refreshLinkedProviders();
-    } catch (error: unknown) {
-      const message =
-        (error instanceof Error ? error.message : null) ||
-        "Failed to connect account";
-      toast({
-        title: "Connection failed",
-        description: message,
-        variant: "destructive",
-      });
-    } finally {
-      setLinking(null);
-    }
-  }
-
-  async function handleUnlink(provider: "google" | "apple") {
-    if (!sessionToken) return;
-    setUnlinking(provider);
-    try {
-      await unlinkProvider(sessionToken, provider);
-      toast({
-        title: "Account disconnected",
-        description: `${provider === "google" ? "Google" : "Apple"} account disconnected successfully.`,
-      });
-      await refreshLinkedProviders();
-    } catch (error: unknown) {
-      const message =
-        (error instanceof Error ? error.message : null) ||
-        "Failed to disconnect account";
-      toast({
-        title: "Disconnect failed",
-        description: message,
-        variant: "destructive",
-      });
-    } finally {
-      setUnlinking(null);
-    }
   }
 
   async function handleTogglePreference(

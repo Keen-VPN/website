@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, ChevronRight, Shield } from "lucide-react";
+import { ChevronRight, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -11,6 +11,7 @@ import { serverLocationStats } from "@/constants/server-locations";
 import { MembershipSharingProvider } from "@/contexts/MembershipSharingContext";
 import { MembershipTeamPanel } from "@/components/MembershipTeamPanel";
 import { hasManageableSubscription } from "@/lib/subscription-cta";
+import { DashboardHomeLayout } from "@/components/dashboard/DashboardHomeShared";
 
 // ─── Subscribed state ────────────────────────────────────────────────────────
 
@@ -62,154 +63,80 @@ function SubscribedHome() {
   const serversLabel = `${serverLocationStats.locations}+ servers`;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-7">
-      {/* Greeting */}
-      <div className="mb-5 sm:mb-6">
-        <h1 className="text-[22px] font-bold tracking-[-0.5px] text-[#071f3f] sm:text-[28px]">
-          Welcome back, {firstName} 👋
-        </h1>
-      </div>
-
-      <div className="flex flex-col gap-5 xl:flex-row">
-        {/* Left column */}
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          {/* Subscription card */}
-          <div className="rounded-[13px] border border-[#e3e8f0] bg-white shadow-[0px_3px_4px_rgba(15,32,64,0.03),0px_16px_19px_rgba(15,32,64,0.06)]">
-            {/* Subscription row */}
-            <button
-              onClick={() => navigate("/subscription")}
-              className="flex w-full items-center gap-4 rounded-t-[13px] px-6 py-[23px] transition-colors hover:bg-[#f5f7fb]"
-            >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f0f3f8]">
-                <Shield className="h-5 w-5 text-[#0f2040]" />
-              </div>
-              <div className="flex-1 text-left">
-                <div className="flex items-center gap-2">
-                  <span className="text-[16px] font-semibold text-[#0f2040]">
-                    {subscription?.plan ?? "KeenVPN"}
-                  </span>
-                  <span
-                    className={
-                      subscription?.status === "past_due"
-                        ? "rounded-full bg-[#fff4eb] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#c05600]"
-                        : "rounded-full bg-[#e6f9f0] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#1a9e5a]"
-                    }
-                  >
-                    {subscription?.status === "past_due"
-                      ? "Past due"
-                      : subscription?.status === "trialing"
-                        ? "Trial"
-                        : "Active"}
-                  </span>
-                </div>
-                {subscription?.status === "past_due" ? (
-                  <p className="mt-0.5 text-[13px] text-[#c05600]">
-                    Payment failed — update billing to stay protected.
-                  </p>
-                ) : renewsDate ? (
-                  <p className="mt-0.5 text-[13px] text-[#627086]">
-                    {isExpiring ? "Ends" : "Renews"} {renewsDate}
-                  </p>
-                ) : null}
-              </div>
-              <ChevronRight className="h-5 w-5 shrink-0 text-[#627086]" />
-            </button>
-
-            {/* Stats row */}
-            <div className="grid grid-cols-3 divide-x divide-[#e3e8f0] border-t border-[#e3e8f0]">
-              {[
-                { label: "Devices", value: devicesLabel },
-                { label: "Servers", value: serversLabel },
-                {
-                  label: "Status",
-                  value:
-                    subscription?.status === "past_due"
-                      ? "Payment due"
-                      : "Protected",
-                },
-              ].map((stat) => (
-                <div key={stat.label} className="px-3 py-3 sm:px-6 sm:py-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.6px] text-[#a0aabb]">
-                    {stat.label}
-                  </p>
-                  <p className="mt-1 text-[14px] font-semibold text-[#071f3f] sm:text-[18px]">
-                    {stat.value}
-                  </p>
-                </div>
-              ))}
-            </div>
+    <DashboardHomeLayout
+      firstName={firstName}
+      navigate={navigate}
+      leftExtra={
+        <MembershipTeamPanel variant="dashboard" hideIfIneligible />
+      }
+    >
+      {/* Subscription card */}
+      <div className="rounded-[13px] border border-[#e3e8f0] bg-white shadow-[0px_3px_4px_rgba(15,32,64,0.03),0px_16px_19px_rgba(15,32,64,0.06)]">
+        {/* Subscription row */}
+        <button
+          onClick={() => navigate("/subscription")}
+          className="flex w-full items-center gap-4 rounded-t-[13px] px-6 py-[23px] transition-colors hover:bg-[#f5f7fb]"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f0f3f8]">
+            <Shield className="h-5 w-5 text-[#0f2040]" />
           </div>
-
-          {/* Class Action row */}
-          <button
-            onClick={() => navigate("/class-action")}
-            className="flex items-center gap-3 rounded-[13px] border border-[#e3e8f0] bg-white px-4 py-4 shadow-[0px_3px_4px_rgba(15,32,64,0.03)] transition-colors hover:bg-[#f5f7fb] sm:gap-4 sm:px-6 sm:py-[22px]"
-          >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f0f3f8] text-xl">
-              📄
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-[15px] font-semibold text-[#0f2040]">
-                Class Action Claims
-              </p>
-              <p className="text-[13px] text-[#627086]">
-                Track and file claims from data-breach settlements
-              </p>
-            </div>
-            <ChevronRight className="h-5 w-5 shrink-0 text-[#627086]" />
-          </button>
-
-          {/* Business team management — only for eligible / member / pending */}
-          <MembershipTeamPanel
-            variant="dashboard"
-            hideIfIneligible
-          />
-        </div>
-
-        {/* Right column — quick links */}
-        <div className="flex w-full shrink-0 flex-col gap-3 xl:w-[310px]">
-          {[
-            {
-              title: "Set up devices",
-              desc: "Get the KeenVPN app for every device you use to browse, work, and stay protected.",
-              cta: "Download apps",
-              route: "/downloads",
-            },
-            {
-              title: "Account",
-              desc: "Manage your account details, two-factor authentication.",
-              cta: "Manage account",
-              route: "/profile",
-            },
-            {
-              title: "Help & guides",
-              desc: "Setup walkthroughs and troubleshooting for every KeenVPN app.",
-              cta: "View guides",
-              route: "/support",
-            },
-          ].map((card) => (
-            <div
-              key={card.title}
-              className="rounded-[13px] border border-[#e3e8f0] bg-white px-5 py-4 shadow-[0px_3px_4px_rgba(15,32,64,0.03)]"
-            >
-              <p className="text-[14px] font-semibold text-[#0f2040]">
-                {card.title}
-              </p>
-              <p className="mt-1 text-[13px] leading-[1.5] text-[#627086]">
-                {card.desc}
-              </p>
-              <button
-                onClick={() => navigate(card.route)}
-                className="mt-3 flex items-center gap-1 text-[13px] font-semibold text-[#ed7d36] transition-opacity hover:opacity-80"
+          <div className="flex-1 text-left">
+            <div className="flex items-center gap-2">
+              <span className="text-[16px] font-semibold text-[#0f2040]">
+                {subscription?.plan ?? "KeenVPN"}
+              </span>
+              <span
+                className={
+                  subscription?.status === "past_due"
+                    ? "rounded-full bg-[#fff4eb] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#c05600]"
+                    : "rounded-full bg-[#e6f9f0] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#1a9e5a]"
+                }
               >
-                {card.cta}
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
+                {subscription?.status === "past_due"
+                  ? "Past due"
+                  : subscription?.status === "trialing"
+                    ? "Trial"
+                    : "Active"}
+              </span>
+            </div>
+            {subscription?.status === "past_due" ? (
+              <p className="mt-0.5 text-[13px] text-[#c05600]">
+                Payment failed — update billing to stay protected.
+              </p>
+            ) : renewsDate ? (
+              <p className="mt-0.5 text-[13px] text-[#627086]">
+                {isExpiring ? "Ends" : "Renews"} {renewsDate}
+              </p>
+            ) : null}
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0 text-[#627086]" />
+        </button>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-3 divide-x divide-[#e3e8f0] border-t border-[#e3e8f0]">
+          {[
+            { label: "Devices", value: devicesLabel },
+            { label: "Servers", value: serversLabel },
+            {
+              label: "Status",
+              value:
+                subscription?.status === "past_due"
+                  ? "Payment due"
+                  : "Protected",
+            },
+          ].map((stat) => (
+            <div key={stat.label} className="px-3 py-3 sm:px-6 sm:py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.6px] text-[#a0aabb]">
+                {stat.label}
+              </p>
+              <p className="mt-1 text-[14px] font-semibold text-[#071f3f] sm:text-[18px]">
+                {stat.value}
+              </p>
             </div>
           ))}
         </div>
       </div>
-    </div>
+    </DashboardHomeLayout>
   );
 }
 
@@ -312,109 +239,35 @@ function ExpiredHome() {
   const firstName = user?.displayName?.split(" ")[0] ?? user?.email ?? "there";
 
   return (
-    <div className="p-4 sm:p-6 lg:p-7">
-      {/* Greeting */}
-      <div className="mb-5 sm:mb-6">
-        <h1 className="text-[22px] font-bold tracking-[-0.5px] text-[#071f3f] sm:text-[28px]">
-          Welcome back, {firstName} 👋
-        </h1>
-      </div>
-
-      <div className="flex flex-col gap-5 xl:flex-row">
-        {/* Left column */}
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          {/* Expired subscription card */}
-          <div className="rounded-[13px] border border-[#e3e8f0] bg-white shadow-[0px_3px_4px_rgba(15,32,64,0.03),0px_16px_19px_rgba(15,32,64,0.06)]">
-            <div className="flex flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:gap-4 sm:px-6 sm:py-[23px]">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fff0f0]">
-                <Shield className="h-5 w-5 text-[#d14343]" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[16px] font-semibold text-[#0f2040]">
-                    {subscription?.plan ?? "KeenVPN"}
-                  </span>
-                  <span className="rounded-full bg-[#fdecea] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#d14343]">
-                    Expired
-                  </span>
-                </div>
-                <p className="mt-0.5 text-[13px] text-[#627086]">
-                  Your subscription has ended. Renew to restore protection.
-                </p>
-              </div>
-              <button
-                onClick={() => navigate("/subscription?tab=plans")}
-                className="shrink-0 rounded-[8px] bg-[#0f2040] px-4 py-2 text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
-              >
-                Subscribe
-              </button>
-            </div>
+    <DashboardHomeLayout firstName={firstName} navigate={navigate}>
+      {/* Expired subscription card */}
+      <div className="rounded-[13px] border border-[#e3e8f0] bg-white shadow-[0px_3px_4px_rgba(15,32,64,0.03),0px_16px_19px_rgba(15,32,64,0.06)]">
+        <div className="flex flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:gap-4 sm:px-6 sm:py-[23px]">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fff0f0]">
+            <Shield className="h-5 w-5 text-[#d14343]" />
           </div>
-
-          {/* Class Action row */}
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[16px] font-semibold text-[#0f2040]">
+                {subscription?.plan ?? "KeenVPN"}
+              </span>
+              <span className="rounded-full bg-[#fdecea] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#d14343]">
+                Expired
+              </span>
+            </div>
+            <p className="mt-0.5 text-[13px] text-[#627086]">
+              Your subscription has ended. Renew to restore protection.
+            </p>
+          </div>
           <button
-            onClick={() => navigate("/class-action")}
-            className="flex items-center gap-4 rounded-[13px] border border-[#e3e8f0] bg-white px-6 py-[22px] shadow-[0px_3px_4px_rgba(15,32,64,0.03)] transition-colors hover:bg-[#f5f7fb]"
+            onClick={() => navigate("/subscription?tab=plans")}
+            className="shrink-0 rounded-[8px] bg-[#0f2040] px-4 py-2 text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
           >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f0f3f8] text-xl">
-              📄
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-[15px] font-semibold text-[#0f2040]">
-                Class Action Claims
-              </p>
-              <p className="text-[13px] text-[#627086]">
-                Track and file claims from data-breach settlements
-              </p>
-            </div>
-            <ChevronRight className="h-5 w-5 shrink-0 text-[#627086]" />
+            Subscribe
           </button>
         </div>
-
-        {/* Right column — quick links */}
-        <div className="flex w-full shrink-0 flex-col gap-3 xl:w-[310px]">
-          {[
-            {
-              title: "Set up devices",
-              desc: "Get the KeenVPN app for every device you use to browse, work, and stay protected.",
-              cta: "Download apps",
-              route: "/downloads",
-            },
-            {
-              title: "Account",
-              desc: "Manage your account details, two-factor authentication.",
-              cta: "Manage account",
-              route: "/profile",
-            },
-            {
-              title: "Help & guides",
-              desc: "Setup walkthroughs and troubleshooting for every KeenVPN app.",
-              cta: "View guides",
-              route: "/support",
-            },
-          ].map((card) => (
-            <div
-              key={card.title}
-              className="rounded-[13px] border border-[#e3e8f0] bg-white px-5 py-4 shadow-[0px_3px_4px_rgba(15,32,64,0.03)]"
-            >
-              <p className="text-[14px] font-semibold text-[#0f2040]">
-                {card.title}
-              </p>
-              <p className="mt-1 text-[13px] leading-[1.5] text-[#627086]">
-                {card.desc}
-              </p>
-              <button
-                onClick={() => navigate(card.route)}
-                className="mt-3 flex items-center gap-1 text-[13px] font-semibold text-[#ed7d36] transition-opacity hover:opacity-80"
-              >
-                {card.cta}
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
       </div>
-    </div>
+    </DashboardHomeLayout>
   );
 }
 

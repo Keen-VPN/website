@@ -7,105 +7,15 @@ import { getSessionToken, fetchReferralDashboard } from "@/auth";
 import {
   formatReferralRewardLabel,
 } from "@/lib/referral-campaign-copy";
+import {
+  REFERRALS_PAGE_SIZE,
+  appendReferralRows,
+  coerceBoolean,
+  coerceCampaign,
+  normalizeReferralRows,
+  type ReferralDashboardPayload,
+} from "@/lib/referral-dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface ReferralRow {
-  id: string;
-  status: string;
-  refereeName: string;
-  refereeEmail: string;
-  signedUpAt: string | null;
-  trialStartedAt: string | null;
-  subscribedAt: string | null;
-  rewardedAt: string | null;
-}
-
-interface ReferralCampaign {
-  id: string;
-  rewardMonths: number;
-  startAt: string;
-  endAt: string;
-  active: boolean;
-}
-
-interface DashboardPayload {
-  referralUrl: string;
-  token: string;
-  totalReferrals: number;
-  rewardsEarned: number;
-  pendingReferrals: number;
-  rewardsAwaitingSubscription: number;
-  canReceiveRewards: boolean;
-  referrals: ReferralRow[];
-  referralsHasMore: boolean;
-  standardRewardMonths?: number;
-  campaign?: ReferralCampaign | null;
-}
-
-const REFERRALS_PAGE_SIZE = 20;
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function coerceString(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
-
-function coerceIsoOrNull(value: unknown): string | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value === "string") return value;
-  return null;
-}
-
-function coerceBoolean(value: unknown, fallback = false): boolean {
-  return typeof value === "boolean" ? value : fallback;
-}
-
-function coerceReferralRow(raw: unknown): ReferralRow | null {
-  if (!isPlainObject(raw)) return null;
-  const id = coerceString(raw["id"]);
-  if (!id) return null;
-  return {
-    id,
-    status: coerceString(raw["status"]),
-    refereeName: coerceString(raw["refereeName"]),
-    refereeEmail: coerceString(raw["refereeEmail"]),
-    signedUpAt: coerceIsoOrNull(raw["signedUpAt"]),
-    trialStartedAt: coerceIsoOrNull(raw["trialStartedAt"]),
-    subscribedAt: coerceIsoOrNull(raw["subscribedAt"]),
-    rewardedAt: coerceIsoOrNull(raw["rewardedAt"]),
-  };
-}
-
-function coerceCampaign(raw: unknown): ReferralCampaign | null {
-  if (!isPlainObject(raw)) return null;
-  const id = coerceString(raw["id"]);
-  const rewardMonths = raw["rewardMonths"];
-  const startAt = coerceString(raw["startAt"]);
-  const endAt = coerceString(raw["endAt"]);
-  if (
-    !id ||
-    typeof rewardMonths !== "number" ||
-    rewardMonths < 1 ||
-    !startAt ||
-    !endAt ||
-    raw["active"] !== true
-  ) {
-    return null;
-  }
-  return { id, rewardMonths, startAt, endAt, active: true };
-}
-
-function normalizeReferralRows(value: unknown): ReferralRow[] {
-  if (!Array.isArray(value)) return [];
-  const out: ReferralRow[] = [];
-  for (const item of value) {
-    const row = coerceReferralRow(item);
-    if (row) out.push(row);
-  }
-  return out;
-}
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -144,11 +54,11 @@ export default function DashboardReferrals() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [data, setData] = useState<DashboardPayload | null>(null);
+  const [data, setData] = useState<ReferralDashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const dataRef = useRef<DashboardPayload | null>(null);
+  const dataRef = useRef<ReferralDashboardPayload | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -227,16 +137,15 @@ export default function DashboardReferrals() {
     }
     setData((prev) => {
       if (!prev) return prev;
-      const seen = new Set(prev.referrals.map((r) => r.id));
-      const extra = normalizeReferralRows(res.referrals).filter(
-        (r) => !seen.has(r.id),
-      );
       return {
         ...prev,
         totalReferrals: res.totalReferrals ?? prev.totalReferrals,
         rewardsEarned: res.rewardsEarned ?? prev.rewardsEarned,
         pendingReferrals: res.pendingReferrals ?? prev.pendingReferrals,
-        referrals: [...prev.referrals, ...extra],
+        referrals: appendReferralRows(
+          prev.referrals,
+          normalizeReferralRows(res.referrals),
+        ),
         referralsHasMore: Boolean(res.referralsHasMore),
       };
     });
@@ -287,6 +196,13 @@ export default function DashboardReferrals() {
               <p className="mt-2 max-w-3xl text-[15px] text-[#6b7890] md:text-[16px]">
                 Sign in to view your referral link and rewards.
               </p>
+              <button
+                type="button"
+                onClick={() => navigate("/signin")}
+                className="mt-4 rounded-[8px] bg-[#0f2040] px-4 py-2 text-[13px] font-semibold text-white"
+              >
+                Sign in
+              </button>
             </div>
           </div>
         </div>

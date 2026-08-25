@@ -209,7 +209,8 @@ export default function DashboardSidebar({
             void (async () => {
               setSigningOut(true);
               try {
-                await logout();
+                const signedOut = await logout();
+                if (!signedOut) return;
                 onNavigate?.();
                 navigate("/signin");
               } finally {

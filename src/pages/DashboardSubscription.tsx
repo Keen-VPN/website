@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Calendar,
@@ -294,25 +294,25 @@ function PlansTab() {
   const canOpenStripePortal =
     isStripeSubscription(subscription) && Boolean(subscription?.canManageBilling);
 
-  useEffect(() => {
-    let cancelled = false;
-    void fetchSubscriptionPlans().then((res) => {
-      if (cancelled) return;
-      if (res.success && res.plans) {
-        setPlans(res.plans);
-        setPlansError(null);
-      } else {
-        setPlans([]);
-        setPlansError(
-          res.error?.trim() || 'Unable to load plans. Please try again.',
-        );
-      }
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
+  const loadPlans = useCallback(async () => {
+    setLoading(true);
+    setPlansError(null);
+    const res = await fetchSubscriptionPlans();
+    if (res.success && res.plans) {
+      setPlans(res.plans);
+      setPlansError(null);
+    } else {
+      setPlans([]);
+      setPlansError(
+        res.error?.trim() || 'Unable to load plans. Please try again.',
+      );
+    }
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    void loadPlans();
+  }, [loadPlans]);
 
   const tierPlans = useMemo(() => {
     const filtered = plans.filter((p) => getPlanTier(p) === tier);
@@ -397,23 +397,7 @@ function PlansTab() {
         <button
           type="button"
           className="mt-4 rounded-[8px] bg-[#0f2040] px-4 py-2 text-[13px] font-semibold text-white"
-          onClick={() => {
-            setLoading(true);
-            setPlansError(null);
-            void fetchSubscriptionPlans().then((res) => {
-              if (res.success && res.plans) {
-                setPlans(res.plans);
-                setPlansError(null);
-              } else {
-                setPlans([]);
-                setPlansError(
-                  res.error?.trim() ||
-                    'Unable to load plans. Please try again.',
-                );
-              }
-              setLoading(false);
-            });
-          }}
+          onClick={() => void loadPlans()}
         >
           Retry
         </button>
