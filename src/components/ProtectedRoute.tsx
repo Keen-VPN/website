@@ -28,7 +28,7 @@ const ProtectedRoute = ({ children, requireSubscription = false }: ProtectedRout
   // backend session token hasn't been persisted yet.
   if (loading && (user ? true : (hasSessionToken || isASWeb))) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f7fb]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );

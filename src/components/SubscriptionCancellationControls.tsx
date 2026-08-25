@@ -154,7 +154,7 @@ export function SubscriptionCancellationControls({
           <AlertDialogTrigger asChild>
             <Button variant="destructive" className="w-full">
               <XCircle className="mr-2 h-4 w-4" />
-              Cancel Subscription
+              Turn off auto-renewal
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>

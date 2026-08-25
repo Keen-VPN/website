@@ -44,8 +44,9 @@ function coerceString(value: unknown, fallback = ""): string {
 
 function coerceIsoOrNull(value: unknown): string | null {
   if (value === null || value === undefined) return null;
-  if (typeof value === "string") return value;
-  return null;
+  if (typeof value !== "string" || !value.trim()) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : value;
 }
 
 /** Accept only real booleans so loaders stay consistent (ignore "false"/1). */
@@ -79,6 +80,7 @@ export function coerceCampaign(raw: unknown): ReferralCampaign | null {
   if (
     !id ||
     typeof rewardMonths !== "number" ||
+    !Number.isInteger(rewardMonths) ||
     rewardMonths < 1 ||
     !startAt ||
     !endAt ||

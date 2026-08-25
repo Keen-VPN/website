@@ -25,9 +25,9 @@ export default function DashboardClassAction() {
         Top-aligned two-column layout: left copy is intentionally shorter;
         the illustration on the right is taller and extends below the notice bar.
       */}
-      <div className="mx-auto flex w-full max-w-[1140px] flex-col gap-10 lg:flex-row lg:items-start lg:gap-12 xl:gap-14">
+      <div className="mx-auto flex w-full max-w-[1140px] flex-col gap-10 xl:flex-row xl:items-start xl:gap-12">
         {/* Left — shorter content stack */}
-        <div className="min-w-0 flex-1 lg:max-w-[520px]">
+        <div className="min-w-0 flex-1 xl:max-w-[520px]">
           <span className="inline-flex items-center gap-2 rounded-full bg-[#fff4eb] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.8px] text-[#ed7d36]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#ed7d36]" />
             Class Action
@@ -76,7 +76,7 @@ export default function DashboardClassAction() {
         </div>
 
         {/* Right — exact Figma illustration; clip JPEG's square black corner fill */}
-        <div className="mx-auto w-full max-w-[440px] shrink-0 overflow-hidden rounded-[28px] lg:mx-0 lg:w-[440px] xl:w-[480px]">
+        <div className="mx-auto w-full max-w-[440px] shrink-0 overflow-hidden rounded-[28px] xl:mx-0 xl:w-[480px] xl:max-w-[480px]">
           <img
             src="/dashboard/class-action-hero.jpg"
             alt="Class Action preview — deadlines, claim status, and settlement alerts"

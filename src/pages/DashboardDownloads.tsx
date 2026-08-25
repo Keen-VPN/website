@@ -6,7 +6,7 @@ import {
   Chrome,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { APP_STORE_URLS } from "@/constants/app-store-urls";
+import { APP_STORE_URLS, toNativeAppStoreSchemeUrl } from "@/constants/app-store-urls";
 
 interface DownloadItem {
   id: string;
@@ -109,7 +109,11 @@ function DownloadRow({ item }: { item: DownloadItem }) {
         </span>
       ) : (
         <a
-          href={item.href}
+          href={
+            item.id === "macos" || item.id === "ios"
+              ? toNativeAppStoreSchemeUrl(item.href)
+              : item.href
+          }
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] bg-[#0f2040] px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 sm:self-auto"

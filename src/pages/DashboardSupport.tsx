@@ -51,19 +51,19 @@ const CATEGORIES: FaqCategory[] = [
     questions: [
       {
         q: 'How do class action alerts work?',
-        a: 'When Class Action claims open in KeenVPN, we surface settlements that may apply to you and help you track deadlines and status. Claims features are rolling out — check the Class Action page for the latest.',
+        a: 'Class Action claims are coming soon in KeenVPN. When they launch, we will surface settlements that may apply to you and help you track deadlines and status from the Class Action page.',
       },
       {
         q: 'How do I know if I qualify for a class action?',
-        a: 'Qualification depends on each settlement’s criteria (for example, when you used a service or whether your data was in a breach). KeenVPN will highlight matches when claims are available for your account.',
+        a: 'Qualification depends on each settlement’s criteria (for example, when you used a service or whether your data was in a breach). When claims launch, KeenVPN will highlight matches for your account.',
       },
       {
         q: 'How do I claim a settlement?',
-        a: 'Each settlement has its own claim steps and deadline. When available, KeenVPN will guide you through discovery, filing, and tracking so you can submit without digging through legal notices alone.',
+        a: 'Each settlement has its own claim steps and deadline. Claim filing inside KeenVPN is coming soon — until then, follow the official settlement instructions if you receive them elsewhere.',
       },
       {
         q: 'Will I get updates about my claim?',
-        a: 'Yes. You can track claim status in the Class Action area, and you can manage Class Action email alerts from Profile → Email Preferences.',
+        a: 'When Class Action launches, you will be able to track claim status in the Class Action area and manage related email alerts from Profile → Email Preferences.',
       },
     ],
   },
@@ -74,7 +74,7 @@ const CATEGORIES: FaqCategory[] = [
     questions: [
       {
         q: 'Which platforms are supported?',
-        a: 'KeenVPN is available for Windows, macOS, iOS, Android, and as a Chrome extension. Visit Downloads in your account dashboard for the latest store and installer links.',
+        a: 'KeenVPN is available for macOS, iOS, Android, and as a Chrome extension. A Windows installer is coming soon. Visit Downloads in your account dashboard for the latest store and installer links.',
       },
       {
         q: 'How do I install KeenVPN on my router?',
@@ -82,7 +82,7 @@ const CATEGORIES: FaqCategory[] = [
       },
       {
         q: 'How do I update the KeenVPN app?',
-        a: 'On iOS and Android, update through the App Store or Google Play. On Windows and macOS, use the in-app update prompt or reinstall from Downloads to get the latest version.',
+        a: 'On iOS and Android, update through the App Store or Google Play. On macOS, use the in-app update prompt or reinstall from Downloads. Windows support is coming soon.',
       },
       {
         q: "Why can't I find KeenVPN in my app store?",
@@ -124,7 +124,7 @@ const CATEGORIES: FaqCategory[] = [
       },
       {
         q: 'How do I cancel my subscription?',
-        a: 'Go to Subscription in your dashboard. Stripe subscribers can manage or cancel billing from there; App Store purchases are cancelled in Apple subscription settings.',
+        a: 'Go to Subscription in your dashboard and use Turn off auto-renewal for Stripe billing. App Store purchases are cancelled in Apple subscription settings; Google Play purchases are cancelled in Google Play → Payments & subscriptions.',
       },
       {
         q: "I haven't received a verification email.",

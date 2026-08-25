@@ -155,6 +155,7 @@ export default function DashboardProfile() {
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailFormError, setEmailFormError] = useState<string | null>(null);
   const emailLoadGen = useRef(0);
+  const prefsLoadGen = useRef(0);
 
   // ── Connected accounts ─────────────────────────────────────────────────────
   const {
@@ -202,14 +203,16 @@ export default function DashboardProfile() {
   const loadPreferences = useCallback(async () => {
     if (!sessionToken) {
       setPreferences(PREVIEW_PREFERENCES);
-      setPrefsReady(true);
+      setPrefsReady(false);
       setPrefsLoadError(null);
       setPrefsLoading(false);
       return;
     }
+    const generation = ++prefsLoadGen.current;
     setPrefsLoading(true);
     setPrefsLoadError(null);
     const response = await fetchMyEmailCategoryPreferences(sessionToken);
+    if (generation !== prefsLoadGen.current) return;
     if (response.success && response.preferences) {
       setPreferences(response.preferences);
       setPrefsReady(true);
@@ -233,6 +236,7 @@ export default function DashboardProfile() {
     }
     return () => {
       emailLoadGen.current += 1;
+      prefsLoadGen.current += 1;
     };
   }, [loadEmail, loadPreferences, refreshLinkedProviders, sessionToken]);
 
@@ -318,15 +322,12 @@ export default function DashboardProfile() {
     category: string,
     subscribed: boolean,
   ) {
-    if (!prefsReady || prefsLoadError) return;
+    if (!sessionToken || !prefsReady || prefsLoadError) return;
     const previous = preferences;
     const next = preferences.map((row) =>
       row.category === category ? { ...row, subscribed } : row,
     );
     setPreferences(next);
-
-    if (!sessionToken) return;
-
     setPrefsSaving(true);
     const payload = Object.fromEntries(
       next.map((row) => [row.category, row.subscribed]),
@@ -394,11 +395,14 @@ export default function DashboardProfile() {
   }
 
   const googleLinked =
-    linkedProviders?.google.linked ??
-    (authProvider === "google" || authProvider === "google.com");
+    (linkedProviders?.google.linked ?? false) ||
+    authProvider === "google" ||
+    authProvider === "google.com";
   const appleLinked =
-    linkedProviders?.apple.linked ??
-    (authProvider === "apple" || authProvider === "apple.com");
+    (linkedProviders?.apple.linked ?? false) ||
+    authProvider === "apple" ||
+    authProvider === "apple.com";
+  const providerBusy = linking !== null || unlinking !== null;
   const googleEmail = linkedProviders?.google.email;
   const appleEmail = linkedProviders?.apple.email;
 
@@ -570,7 +574,7 @@ export default function DashboardProfile() {
                       <button
                         type="button"
                         className={dangerBtnClass}
-                        disabled={unlinking !== null}
+                        disabled={providerBusy}
                       >
                         {unlinking === "google" ? "Disconnecting…" : "Disconnect"}
                       </button>
@@ -600,7 +604,7 @@ export default function DashboardProfile() {
                 <button
                   type="button"
                   className={outlineBtnClass}
-                  disabled={linking !== null}
+                  disabled={providerBusy}
                   onClick={() => void handleLink("google")}
                 >
                   {linking === "google" ? (
@@ -652,7 +656,7 @@ export default function DashboardProfile() {
                       <button
                         type="button"
                         className={dangerBtnClass}
-                        disabled={unlinking !== null}
+                        disabled={providerBusy}
                       >
                         {unlinking === "apple" ? "Disconnecting…" : "Disconnect"}
                       </button>
@@ -682,7 +686,7 @@ export default function DashboardProfile() {
                 <button
                   type="button"
                   className={outlineBtnClass}
-                  disabled={linking !== null}
+                  disabled={providerBusy}
                   onClick={() => void handleLink("apple")}
                 >
                   {linking === "apple" ? (
@@ -755,7 +759,12 @@ export default function DashboardProfile() {
                   </div>
                   <ProfileToggle
                     checked={row.subscribed}
-                    disabled={prefsSaving || !prefsReady || Boolean(prefsLoadError)}
+                    disabled={
+                      !sessionToken ||
+                      prefsSaving ||
+                      !prefsReady ||
+                      Boolean(prefsLoadError)
+                    }
                     aria-label={row.label}
                     onCheckedChange={(checked) =>
                       void handleTogglePreference(row.category, checked)
@@ -849,7 +858,7 @@ export default function DashboardProfile() {
                         </div>
                       ) : isAppleIapSubscription(subscription) &&
                         hasManageableSubscription(subscription) &&
-                        !subscription.cancelAtPeriodEnd ? (
+                        !subscription?.cancelAtPeriodEnd ? (
                         <div className="rounded-[10px] border border-[#f0c2c2] bg-[#fff8f8] p-3">
                           <p className="text-sm font-semibold text-[#0f2040]">
                             App Store subscription

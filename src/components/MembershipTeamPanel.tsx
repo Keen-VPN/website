@@ -129,10 +129,11 @@ export function MembershipTeamPanel({
   }
 
   if (sharingDisabled) {
-    if (hideIfIneligible) return null;
     return (
       <div className={cn(shellClass, className)}>
-        <p className="text-sm text-destructive">{error}</p>
+        <p className="text-sm text-destructive">
+          {error || "Team sharing is temporarily unavailable. Please contact support."}
+        </p>
       </div>
     );
   }
