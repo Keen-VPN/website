@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Home,
@@ -11,12 +11,9 @@ import {
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { fetchReferralDashboard, getSessionToken } from "@/auth";
 import { marketingSiteUrl } from "@/lib/site-urls";
-import {
-  formatReferralRewardLabel,
-} from "@/lib/referral-campaign-copy";
-import { coerceCampaign } from "@/lib/referral-dashboard";
+import { formatReferralRewardLabel } from "@/lib/referral-campaign-copy";
+import { useReferralPromoMonths } from "@/hooks/use-referral-promo-months";
 import {
   hasManageableSubscription,
   resolveMembershipPlanTier,
@@ -59,7 +56,7 @@ export default function DashboardSidebar({
   const { user, subscription, logout } = useAuth();
   const navigate = useNavigate();
   const [signingOut, setSigningOut] = useState(false);
-  const [promoMonths, setPromoMonths] = useState(1);
+  const promoMonths = useReferralPromoMonths();
 
   const email = user?.email ?? "";
   const displayName = user?.displayName?.trim() || "";
@@ -71,25 +68,6 @@ export default function DashboardSidebar({
       ? "Business plan"
       : "Premium plan"
     : "Free plan";
-
-  useEffect(() => {
-    const session = getSessionToken();
-    if (!user || !session) return;
-    let cancelled = false;
-    void fetchReferralDashboard(session, { offset: 0, limit: 1 }).then((res) => {
-      if (cancelled || !res.success) return;
-      const campaign = coerceCampaign(res.campaign);
-      const months =
-        campaign?.rewardMonths ??
-        (typeof res.standardRewardMonths === "number"
-          ? res.standardRewardMonths
-          : 1);
-      setPromoMonths(Math.max(1, Math.floor(months)));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
 
   const promoLabel = formatReferralRewardLabel(promoMonths);
 

@@ -70,9 +70,11 @@ function isAnnualPlan(plan: ApiPlan) {
 function getPlanTier(plan: ApiPlan): PlanTier | 'other' {
   const id = plan.id.toLowerCase();
   // Retired Family catalog IDs should not appear under Individual checkout.
+  // Keep family_plus / familyplus as Business (team).
   if (
-    (id.includes('family') && !id.includes('family_plus') && !id.includes('familyplus')) ||
-    id.startsWith('family_')
+    id.includes('family') &&
+    !id.includes('family_plus') &&
+    !id.includes('familyplus')
   ) {
     return 'other';
   }
@@ -525,27 +527,36 @@ function PlansTab() {
           if (twoYear) {
             title = '2-year plan';
             subtitle = 'Best value. Lock in the lowest monthly price.';
-            cta = 'Upgrade to 2-year';
+            cta = 'Get the 2-year plan';
             footer = 'Best savings with full KeenVPN protection.';
           } else if (annual && isBusiness) {
             title = 'Annual plan';
             subtitle = 'Best value. Lock in the lowest monthly price.';
-            cta = 'Upgrade to annual';
+            cta = 'Get the 1-year plan';
             footer = 'Best savings with full KeenVPN protection.';
           } else if (annual) {
             title = '1-year plan';
             subtitle = 'A lower monthly rate, billed once a year.';
-            cta = 'Upgrade to 1-year';
+            cta = 'Choose 1-year';
             footer = 'Protected by our 30-day guarantee.';
-          } else if (isBusiness) {
-            cta = 'Upgrade to Business';
-          }
-
-          if (isManageable && getPlanTier(plan) === 'team' && !isCurrentCatalogPlan(plan, subscription)) {
-            cta = annual ? 'Upgrade to Business annual' : 'Upgrade to Business';
           }
 
           const isCurrentPlan = isCurrentCatalogPlan(plan, subscription);
+
+          // Subscribers changing plans: shorter term = Switch; longer/tier = Upgrade.
+          if (isManageable && !isCurrentPlan) {
+            if (twoYear) {
+              cta = 'Upgrade to 2-year';
+            } else if (annual && isBusiness) {
+              cta = 'Upgrade to Business annual';
+            } else if (annual) {
+              cta = 'Upgrade to 1-year';
+            } else if (isBusiness) {
+              cta = 'Upgrade to Business';
+            } else {
+              cta = 'Switch to monthly';
+            }
+          }
 
           return (
             <div
@@ -666,10 +677,6 @@ function PlansTab() {
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                 ) : isCurrentPlan ? (
                   canOpenStripePortal ? 'Manage billing' : 'Current plan'
-                ) : isManageable ? (
-                  cta.startsWith('Upgrade') || cta.startsWith('Choose')
-                    ? cta.replace(/^Choose /, 'Upgrade to ')
-                    : cta
                 ) : (
                   cta
                 )}
@@ -947,7 +954,7 @@ function BillingHistoryTab() {
                         className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                           event.eventType === 'cancellation'
                             ? 'bg-[#f0f3f8] text-[#627086]'
-                            : 'bg-[#e6f9f0] text-[#1a9e5a]'
+                            : status.className
                         }`}
                       >
                         {event.eventType === 'cancellation'

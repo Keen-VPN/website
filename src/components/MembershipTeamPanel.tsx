@@ -30,7 +30,7 @@ interface MembershipTeamPanelProps {
   /** compact = subscription card; full = workspace panel; dashboard = new home UI */
   variant?: "compact" | "full" | "dashboard";
   className?: string;
-  /** When true, render nothing for users who are not on Business / team access. */
+  /** When true, hide loading/ineligible empty states. Service-disabled errors still render. */
   hideIfIneligible?: boolean;
 }
 
