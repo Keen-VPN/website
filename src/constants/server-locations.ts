@@ -285,3 +285,17 @@ export const serverLocationStats = {
   locations: serverLocations.length,
   regions: regionOrder.length,
 };
+
+/**
+ * Marketing floor for dashboard home (may exceed map pins listed above).
+ * Keep this the single source for the Home "Servers" stat label.
+ */
+export const DASHBOARD_SERVER_LOCATIONS_CLAIM = 40;
+
+export function getDashboardServersLabel(): string {
+  const count = Math.max(
+    DASHBOARD_SERVER_LOCATIONS_CLAIM,
+    serverLocationStats.locations,
+  );
+  return `${count}+ server locations`;
+}

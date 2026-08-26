@@ -11,6 +11,7 @@ import {
   getSessionToken,
 } from "@/auth/backend";
 import { formatScheduledAnnualBillingDate } from "@/lib/scheduled-annual-billing";
+import { getDashboardServersLabel } from "@/constants/server-locations";
 import { MembershipSharingProvider } from "@/contexts/MembershipSharingContext";
 import { MembershipTeamPanel } from "@/components/MembershipTeamPanel";
 import { ReceivedMembershipInviteBanner } from "@/components/ReceivedMembershipInviteBanner";
@@ -137,7 +138,7 @@ function SubscribedHome() {
     };
   }, [hasSessionToken]);
 
-  const serversLabel = "40+ server locations";
+  const serversLabel = getDashboardServersLabel();
 
   return (
     <DashboardHomeLayout

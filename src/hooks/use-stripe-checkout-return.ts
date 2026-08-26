@@ -25,6 +25,18 @@ function buildDashboardPathAfterStripeReturn(
   return search ? `/dashboard?${search}` : "/dashboard";
 }
 
+function stripSessionIdFromParams(
+  current: URLSearchParams,
+  isASWeb: boolean,
+): URLSearchParams {
+  const next = new URLSearchParams(current);
+  next.delete("session_id");
+  if (isASWeb) {
+    next.set("asweb", "1");
+  }
+  return next;
+}
+
 /** Hydrate subscription after Stripe checkout and clean dashboard return URLs. */
 export function useStripeCheckoutReturn(appStoreUrl?: string) {
   const { loading, user, hasSessionToken, refreshSubscription } = useAuth();
@@ -43,6 +55,7 @@ export function useStripeCheckoutReturn(appStoreUrl?: string) {
   }, [searchParams]);
 
   const processedStripeSessionRef = useRef<string | null>(null);
+  const inFlightHydrationRef = useRef<Promise<void> | null>(null);
   const [checkoutHydrating, setCheckoutHydrating] = useState(hasStripeSessionId);
   const [checkoutHydrated, setCheckoutHydrated] = useState(!hasStripeSessionId);
   const [showPostCheckoutUi, setShowPostCheckoutUi] = useState(() =>
@@ -77,14 +90,20 @@ export function useStripeCheckoutReturn(appStoreUrl?: string) {
           setCheckoutHydrating(false);
           setCheckoutHydrated(true);
           setSearchParams(
-            (current) => {
-              const next = new URLSearchParams(current);
-              next.delete("session_id");
-              if (isASWeb) {
-                next.set("asweb", "1");
-              }
-              return next;
-            },
+            (current) => stripSessionIdFromParams(current, isASWeb),
+            { replace: true },
+          );
+        }
+        return;
+      }
+
+      if (stripeSessionId && inFlightHydrationRef.current) {
+        await inFlightHydrationRef.current;
+        if (!cancelled) {
+          setCheckoutHydrating(false);
+          setCheckoutHydrated(true);
+          setSearchParams(
+            (current) => stripSessionIdFromParams(current, isASWeb),
             { replace: true },
           );
         }
@@ -99,7 +118,7 @@ export function useStripeCheckoutReturn(appStoreUrl?: string) {
         return;
       }
 
-      if (!hasStripeSessionId) {
+      if (!hasStripeSessionId || !stripeSessionId) {
         if (!cancelled) {
           setCheckoutHydrating(false);
           setCheckoutHydrated(true);
@@ -111,40 +130,46 @@ export function useStripeCheckoutReturn(appStoreUrl?: string) {
         setCheckoutHydrating(true);
       }
 
-      if (stripeSessionId) {
-        processedStripeSessionRef.current = stripeSessionId;
-      }
+      const runHydration = async () => {
+        const attempts = 3;
+        const timeoutMs = 4000;
+        const runRefreshWithTimeout = async () => {
+          await Promise.race([
+            refreshSubscription(),
+            new Promise<void>((resolve) => {
+              window.setTimeout(resolve, timeoutMs);
+            }),
+          ]);
+        };
 
-      const attempts = 3;
-      const timeoutMs = 4000;
-      const runRefreshWithTimeout = async () => {
-        await Promise.race([
-          refreshSubscription(),
-          new Promise<void>((resolve) => {
-            window.setTimeout(resolve, timeoutMs);
-          }),
-        ]);
+        for (let attempt = 0; attempt < attempts; attempt += 1) {
+          await runRefreshWithTimeout();
+          if (attempt < attempts - 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 600));
+          }
+        }
+
+        processedStripeSessionRef.current = stripeSessionId;
       };
 
-      for (let attempt = 0; attempt < attempts && !cancelled; attempt += 1) {
-        await runRefreshWithTimeout();
-        if (attempt < attempts - 1) {
-          await new Promise((resolve) => window.setTimeout(resolve, 600));
+      const hydrationPromise = runHydration().finally(() => {
+        if (inFlightHydrationRef.current === hydrationPromise) {
+          inFlightHydrationRef.current = null;
         }
+      });
+      inFlightHydrationRef.current = hydrationPromise;
+
+      try {
+        await hydrationPromise;
+      } catch {
+        /* refresh failures still clear the URL after attempts */
       }
 
       if (!cancelled) {
         setCheckoutHydrating(false);
         setCheckoutHydrated(true);
         setSearchParams(
-          (current) => {
-            const next = new URLSearchParams(current);
-            next.delete("session_id");
-            if (isASWeb) {
-              next.set("asweb", "1");
-            }
-            return next;
-          },
+          (current) => stripSessionIdFromParams(current, isASWeb),
           { replace: true },
         );
       }

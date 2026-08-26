@@ -276,11 +276,24 @@ function CurrentPlanTab() {
       ? 'bg-[#fff4eb] text-[#c05600]'
       : 'bg-[#e6f9f0] text-[#159653]';
 
+  const isSharedMember = isSharedBusinessMember(
+    subscription,
+    membershipDashboard?.role,
+  );
   const isBusiness =
+    isSharedMember ||
     resolveMembershipPlanTier(subscription) === 'business' ||
     (subscription.seatLimit != null && subscription.seatLimit > 1);
 
-  const billingPeriod = resolveSubscriptionBillingPeriod(subscription);
+  const membershipBillingPeriod = (
+    membershipDashboard?.billingPeriod ?? ''
+  ).toLowerCase();
+  const billingPeriod =
+    membershipBillingPeriod === 'year' ||
+    membershipBillingPeriod === '2year' ||
+    membershipBillingPeriod === 'month'
+      ? (membershipBillingPeriod as 'month' | 'year' | '2year')
+      : resolveSubscriptionBillingPeriod(subscription);
   const periodLabel =
     billingPeriod === '2year'
       ? '2-year'
@@ -296,12 +309,17 @@ function CurrentPlanTab() {
     isStripeSubscription(subscription) &&
     subscription.canManageBilling === true &&
     !subscription.cancelAtPeriodEnd;
-  const isSharedMember = isSharedBusinessMember(
-    subscription,
-    membershipDashboard?.role,
-  );
   const teamOwnerEmail =
     membershipDashboard?.membership?.ownerEmail?.trim() || null;
+  const teamBillingEnd =
+    membershipDashboard?.currentPeriodEnd ||
+    subscription.endDate ||
+    subscription.currentPeriodEnd;
+  const planTitle =
+    (isSharedMember &&
+      (membershipDashboard?.planName?.trim() ||
+        membershipDashboard?.membership?.planName?.trim())) ||
+    null;
 
   return (
     <>
@@ -321,8 +339,17 @@ function CurrentPlanTab() {
       <div className="px-6 py-6 md:px-9 md:py-7">
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[#e3e8f0] pb-5">
           <p className="text-[21px] font-bold tracking-[-0.5px] text-[#071f3f] md:text-[24px]">
-            KeenVPN - {tierLabel}{' '}
-            <span className="text-[#ff7900]">{periodLabel}</span>
+            {planTitle ? (
+              <>
+                {planTitle}{' '}
+                <span className="text-[#ff7900]">{periodLabel}</span>
+              </>
+            ) : (
+              <>
+                KeenVPN - {tierLabel}{' '}
+                <span className="text-[#ff7900]">{periodLabel}</span>
+              </>
+            )}
           </p>
         </div>
 
@@ -355,9 +382,7 @@ function CurrentPlanTab() {
                     : 'Next billing date'}
               </p>
               <p className="mt-2 text-[17px] font-bold text-[#0f2040]">
-                {formatDate(
-                  subscription.endDate || subscription.currentPeriodEnd,
-                )}
+                {formatDate(teamBillingEnd)}
               </p>
             </div>
           </div>

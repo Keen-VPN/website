@@ -160,6 +160,22 @@ All colors MUST be HSL.
   }
 }
 
+/* Dashboard shell uses light brand surfaces even though global tokens are dark. */
+html.dashboard-light,
+html.dashboard-light body {
+  background-color: #f5f7fb;
+  color: #0f2040;
+}
+
+/*
+ * Radix RemoveScroll can mis-measure scrollbar width (esp. mobile) and apply a
+ * huge body margin-right that breaks fixed overlays. Prefer zero compensation.
+ */
+body[data-scroll-locked] {
+  margin-right: 0 !important;
+  padding-right: 0 !important;
+}
+
 .server-locations-map {
   background: hsl(var(--background));
 }

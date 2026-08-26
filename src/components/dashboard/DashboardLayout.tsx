@@ -29,8 +29,22 @@ export default function DashboardLayout() {
     return () => media.removeEventListener("change", closeOnDesktop);
   }, []);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    const previousHtmlBg = root.style.backgroundColor;
+    const previousBodyBg = document.body.style.backgroundColor;
+    root.style.backgroundColor = "#f5f7fb";
+    document.body.style.backgroundColor = "#f5f7fb";
+    root.classList.add("dashboard-light");
+    return () => {
+      root.style.backgroundColor = previousHtmlBg;
+      document.body.style.backgroundColor = previousBodyBg;
+      root.classList.remove("dashboard-light");
+    };
+  }, []);
+
   return (
-    <div className="flex min-h-screen bg-[#f5f7fb]">
+    <div className="flex min-h-screen bg-[#f5f7fb] text-[#0f2040]">
       {/* Desktop sidebar */}
       <div className="sticky top-0 hidden h-screen shrink-0 lg:block">
         <DashboardSidebar className="h-screen shadow-[8px_0px_15px_rgba(15,32,64,0.03)]" />

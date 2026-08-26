@@ -1,5 +1,5 @@
 import * as React from "react";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 interface DashboardSlideDialogProps {
@@ -12,8 +12,9 @@ interface DashboardSlideDialogProps {
 }
 
 /**
- * Branded dashboard modal: bottom sheet on mobile, centered dialog on desktop.
- * Uses one Radix dialog + CSS breakpoints so layout never flips after hydration.
+ * Branded dashboard modal without Radix scroll-lock.
+ * Radix body[data-scroll-locked] can apply a bogus margin-right and break
+ * mobile layout; this portal uses a simple overflow lock instead.
  */
 export function DashboardSlideDialog({
   open,
@@ -22,35 +23,52 @@ export function DashboardSlideDialog({
   ariaLabelledBy,
   className,
 }: DashboardSlideDialogProps) {
-  return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay
-          className={cn(
-            "fixed inset-0 z-[200] bg-black/40",
-            "data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-          )}
-        />
-        <DialogPrimitive.Content
-          aria-labelledby={ariaLabelledBy}
-          className={cn(
-            "fixed z-[201] flex w-full min-w-0 max-w-none flex-col bg-white shadow-2xl outline-none",
-            "inset-x-0 bottom-0 max-h-[90dvh] rounded-t-[16px]",
-            "data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-            "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-            "data-[state=closed]:duration-300 data-[state=open]:duration-500",
-            "md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:max-h-[min(92dvh,900px)] md:w-full md:max-w-[606px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[16px]",
-            "md:data-[state=closed]:slide-out-to-bottom-0 md:data-[state=open]:slide-in-from-bottom-0",
-            "md:data-[state=closed]:zoom-out-95 md:data-[state=open]:zoom-in-95",
-            "md:data-[state=closed]:duration-200 md:data-[state=open]:duration-200",
-            className,
-          )}
-        >
-          {children}
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onOpenChange(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, onOpenChange]);
+
+  if (!mounted || !open) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[200]" role="presentation">
+      <button
+        type="button"
+        aria-label="Close dialog"
+        className="absolute inset-0 bg-black/40"
+        onClick={() => onOpenChange(false)}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={ariaLabelledBy}
+        className={cn(
+          "absolute inset-x-0 bottom-0 z-[201] flex max-h-[90dvh] w-full min-w-0 flex-col overflow-hidden rounded-t-[16px] bg-white shadow-2xl outline-none",
+          "md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:max-h-[min(92dvh,900px)] md:w-full md:max-w-[606px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[16px]",
+          className,
+        )}
+      >
+        {children}
+      </div>
+    </div>,
+    document.body,
   );
 }

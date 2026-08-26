@@ -268,11 +268,15 @@ export function useSubscriptionBillingActions(
         options.businessSuccessPath ??
         (onDashboard ? "/dashboard" : "/account");
       const successUrl = new URL(successPath, origin);
-      successUrl.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
       successUrl.searchParams.set("business", "upgraded");
       if (successPath === "/account") {
         successUrl.searchParams.set("tab", "team");
       }
+      // Stripe only substitutes the literal {CHECKOUT_SESSION_ID}; URLSearchParams
+      // would percent-encode the braces and break post-checkout hydration.
+      const successUrlWithSession = `${successUrl.toString()}${
+        successUrl.search ? "&" : "?"
+      }session_id={CHECKOUT_SESSION_ID}`;
       const cancelUrl = onDashboard
         ? `${origin}/subscription?tab=plans`
         : `${origin}/account`;
@@ -284,7 +288,7 @@ export function useSubscriptionBillingActions(
           planId,
           seatCount,
           {
-            successUrl: successUrl.toString(),
+            successUrl: successUrlWithSession,
             cancelUrl,
           },
         );

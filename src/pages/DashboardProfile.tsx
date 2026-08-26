@@ -618,10 +618,10 @@ export default function DashboardProfile() {
                     Are you absolutely sure?
                   </AlertDialogTitle>
                   <AlertDialogDescription asChild>
-                    <div className="space-y-3 text-left text-[14px] leading-relaxed text-[#0f2040]/80">
-                      <p>
+                    <div className="space-y-3 text-left text-[14px] leading-relaxed !text-[#43516a]">
+                      <p className="!text-[#43516a]">
                         This action{" "}
-                        <strong className="font-semibold text-[#0f2040]">
+                        <strong className="font-semibold !text-[#0f2040]">
                           cannot be undone
                         </strong>
                         . Your account and all associated usage data will be
@@ -629,10 +629,10 @@ export default function DashboardProfile() {
                         no refunds will be issued.
                       </p>
                       <div className="rounded-[10px] border border-[#f0c2c2] bg-[#fff5f5] p-3">
-                        <p className="text-sm font-semibold text-[#d14343]">
+                        <p className="text-sm font-semibold !text-[#d14343]">
                           This will delete:
                         </p>
-                        <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-[#43516a]">
+                        <ul className="mt-2 list-inside list-disc space-y-1 text-sm !text-[#43516a]">
                           <li>Your account and profile information</li>
                           <li>All subscription data</li>
                           <li>All associated preferences and settings</li>
@@ -640,16 +640,16 @@ export default function DashboardProfile() {
                       </div>
                       {canCancelStripeOnWebsite(subscription) ? (
                         <div className="rounded-[10px] border border-[#f0c2c2] bg-[#fff8f8] p-3">
-                          <p className="text-sm font-semibold text-[#0f2040]">
+                          <p className="text-sm font-semibold !text-[#0f2040]">
                             You have an active subscription
                           </p>
-                          <p className="mt-1 text-xs text-[#43516a]">
+                          <p className="mt-1 text-xs !text-[#43516a]">
                             Cancel auto-renewal first, then delete your account
                             to avoid future charges.
                           </p>
                           <button
                             type="button"
-                            className="mt-2 text-[12px] font-semibold text-[#0f2040] underline"
+                            className="mt-2 text-[12px] font-semibold !text-[#0f2040] underline"
                             onClick={() => navigate("/subscription")}
                           >
                             Manage subscription
@@ -659,10 +659,10 @@ export default function DashboardProfile() {
                         hasManageableSubscription(subscription) &&
                         !subscription?.cancelAtPeriodEnd ? (
                         <div className="rounded-[10px] border border-[#f0c2c2] bg-[#fff8f8] p-3">
-                          <p className="text-sm font-semibold text-[#0f2040]">
+                          <p className="text-sm font-semibold !text-[#0f2040]">
                             App Store subscription
                           </p>
-                          <p className="mt-1 text-xs text-[#43516a]">
+                          <p className="mt-1 text-xs !text-[#43516a]">
                             Cancel auto-renewal in Apple Subscriptions before or
                             after deleting this account to avoid future charges.
                           </p>
