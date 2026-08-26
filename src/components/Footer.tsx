@@ -1,10 +1,15 @@
 import { Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 import { marketingSiteUrl } from "@/lib/site-urls";
+import { cn } from "@/lib/utils";
 
-const Footer = () => {
+interface FooterProps {
+  className?: string;
+}
+
+const Footer = ({ className }: FooterProps) => {
   return (
-    <footer className="bg-card border-t border-border">
+    <footer className={cn("bg-card border-t border-border", className)}>
       <div className="container mx-auto px-4 py-12">
         <div className="flex justify-between">
           {/* Brand */}

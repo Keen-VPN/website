@@ -152,29 +152,38 @@ export function ContactEmailRequiredDialog({
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
         hideCloseButton
+        className="max-w-[calc(100vw-2rem)] gap-5 border-[#e3e8f0] bg-white p-5 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:max-w-md sm:rounded-[16px] sm:p-6"
         onPointerDownOutside={(event) => event.preventDefault()}
         onEscapeKeyDown={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
       >
-        <DialogHeader>
-          <DialogTitle>Add your email</DialogTitle>
-          <DialogDescription>
+        <DialogHeader className="space-y-2 text-left">
+          <DialogTitle className="text-[18px] font-semibold text-[#0f2040]">
+            Add your email
+          </DialogTitle>
+          <DialogDescription className="text-[13px] leading-relaxed !text-[#627086] sm:text-[14px]">
             Enter an email address where you can receive important KeenVPN
             account and subscription updates.
           </DialogDescription>
         </DialogHeader>
         {statusLoadError ? (
-          <p className="text-sm text-red-500">{statusLoadError}</p>
+          <p className="text-sm text-[#d14343]">{statusLoadError}</p>
         ) : null}
         {pendingVerification ? (
-          <p className="text-sm text-muted-foreground">
-            We sent a verification link to <strong>{email}</strong>. Open that
-            email to finish setting up your account. This window stays open
-            until the address is verified.
+          <p className="rounded-[10px] border border-[#e3e8f0] bg-[#f8fafc] p-3 text-sm !text-[#43516a]">
+            We sent a verification link to{" "}
+            <strong className="font-semibold text-[#0f2040]">{email}</strong>.
+            Open that email to finish setting up your account. This window stays
+            open until the address is verified.
           </p>
         ) : null}
         <div className="space-y-2">
-          <Label htmlFor="contact-email">Email Address</Label>
+          <Label
+            htmlFor="contact-email"
+            className="text-[13px] font-semibold text-[#0f2040]"
+          >
+            Email Address
+          </Label>
           <Input
             id="contact-email"
             type="email"
@@ -186,12 +195,17 @@ export function ContactEmailRequiredDialog({
             placeholder="you@example.com"
             autoComplete="email"
             disabled={formLocked}
+            className="h-11 rounded-[8px] border-[#dbe2ec] bg-white text-[14px] text-[#0f2040] placeholder:text-[#8d9ab1]"
           />
         </div>
-        {error ? <p className="text-sm text-red-500">{error}</p> : null}
+        {error ? <p className="text-sm text-[#d14343]">{error}</p> : null}
         <DialogFooter>
           {statusLoadError ? (
-            <Button onClick={() => void loadStatus()} disabled={statusLoading}>
+            <Button
+              onClick={() => void loadStatus()}
+              disabled={statusLoading}
+              className="h-10 w-full rounded-[8px] bg-[#0f2040] text-[13px] font-semibold text-white hover:bg-[#0f2040]/90 sm:w-auto"
+            >
               {statusLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -202,7 +216,11 @@ export function ContactEmailRequiredDialog({
               )}
             </Button>
           ) : (
-            <Button onClick={() => void handleVerify()} disabled={formLocked}>
+            <Button
+              onClick={() => void handleVerify()}
+              disabled={formLocked}
+              className="h-10 w-full rounded-[8px] bg-[#0f2040] text-[13px] font-semibold text-white hover:bg-[#0f2040]/90 sm:w-auto"
+            >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

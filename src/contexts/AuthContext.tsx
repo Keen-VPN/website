@@ -37,6 +37,7 @@ import {
   clearPostLoginRedirect,
   consumePostLoginRedirect,
 } from "@/auth/post-login-redirect";
+import { peekPendingMembershipInviteAcceptRedirect } from "@/auth/membership-invite-accept-intent";
 import {
   clearStripeCheckoutReturn,
   maybeAutoReturnToKeenVpnAppAfterAuth,
@@ -67,7 +68,7 @@ interface AuthContextType {
   /** Auth provider as stored by the backend (e.g. "google", "apple"). More reliable than Firebase providerData[0] for linked/merged accounts. */
   authProvider: string | null;
   signIn: (provider?: 'google' | 'apple') => Promise<{ success: boolean; shouldRedirect?: string }>;
-  logout: () => Promise<void>;
+  logout: () => Promise<boolean>;
   refreshSubscription: () => Promise<void>;
   refreshLinkedProviders: () => Promise<void>;
 }
@@ -134,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const accountUrl = React.useCallback(
-    () => (isASWebSession() ? '/account?asweb=1' : '/account'),
+    () => (isASWebSession() ? '/account?asweb=1' : '/dashboard'),
     [isASWebSession],
   );
   const postLoginUrl = React.useCallback(() => {
@@ -156,6 +157,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const redirectUrl = consumePostLoginRedirect();
     if (redirectUrl) {
       return redirectUrl;
+    }
+    // If another login handler already consumed `redirect`, still finish a
+    // consented invite accept that was started while signed out.
+    const pendingInviteAcceptUrl = peekPendingMembershipInviteAcceptRedirect();
+    if (pendingInviteAcceptUrl) {
+      return pendingInviteAcceptUrl;
     }
     return accountUrl();
   }, [accountUrl, isASWebSession]);
@@ -864,11 +871,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           toast({
             title: "Welcome back!",
-            description: "Redirecting to your account...",
+            description: "Redirecting to your dashboard...",
           });
         }
 
-        // After any successful login, always land on account (fallback if app handoff fails).
+        // After any successful login, always land on dashboard (or ASWeb account).
         if (window.location.pathname !== '/account') {
           window.location.href = postLoginUrl();
         }
@@ -975,12 +982,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         title: 'Signed out successfully',
         description: 'You have been signed out of your account',
       });
+      return true;
     } catch {
       toast({
         title: 'Sign out failed',
         description: 'Please try again',
         variant: 'destructive',
       });
+      return false;
     }
   }, [toast, setAuthProvider]);
 

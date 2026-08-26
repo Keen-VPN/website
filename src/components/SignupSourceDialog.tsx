@@ -106,67 +106,88 @@ export function SignupSourceDialog({
   return (
     <Dialog open={open} onOpenChange={() => undefined}>
       <DialogContent
-        className="sm:max-w-lg"
+        className="flex max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden border-[#e3e8f0] bg-white p-0 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:max-w-lg sm:rounded-[16px]"
         onPointerDownOutside={(event) => event.preventDefault()}
         onEscapeKeyDown={(event) => event.preventDefault()}
+        hideCloseButton
       >
-        <DialogHeader>
-          <DialogTitle>{question}</DialogTitle>
-          <DialogDescription>
+        <DialogHeader className="space-y-2 border-b border-[#e3e8f0] px-5 py-5 text-left sm:px-6">
+          <DialogTitle className="text-[18px] font-semibold leading-snug text-[#0f2040] sm:text-[20px]">
+            {question}
+          </DialogTitle>
+          <DialogDescription className="text-[13px] leading-relaxed !text-[#627086] sm:text-[14px]">
             This helps us understand which channels bring people to KeenVPN.
             Optional — you can skip and update later in your account.
           </DialogDescription>
         </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading options...
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <RadioGroup
-              value={selectedSource}
-              onValueChange={setSelectedSource}
-              className="max-h-64 space-y-2 overflow-y-auto pr-1"
-            >
-              {options.map((option) => (
-                <div key={option.value} className="flex items-center gap-2">
-                  <RadioGroupItem
-                    value={option.value}
-                    id={`signup-source-${option.value}`}
-                    disabled={saving}
-                  />
-                  <Label htmlFor={`signup-source-${option.value}`} className="font-normal">
-                    {option.label}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          {loading ? (
+            <div className="flex items-center gap-2 py-6 text-sm text-[#627086]">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading options...
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <RadioGroup
+                value={selectedSource}
+                onValueChange={setSelectedSource}
+                className="max-h-[min(40vh,280px)] space-y-2 overflow-y-auto pr-1"
+              >
+                {options.map((option) => (
+                  <div
+                    key={option.value}
+                    className="flex items-center gap-3 rounded-[8px] border border-[#e3e8f0] bg-[#f8fafc] px-3 py-2.5"
+                  >
+                    <RadioGroupItem
+                      value={option.value}
+                      id={`signup-source-${option.value}`}
+                      disabled={saving}
+                      className="border-[#0f2040] text-[#0f2040]"
+                    />
+                    <Label
+                      htmlFor={`signup-source-${option.value}`}
+                      className="flex-1 cursor-pointer font-normal text-[#0f2040]"
+                    >
+                      {option.label}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+
+              {selectedSource === "other" ? (
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="signup-source-other"
+                    className="text-[13px] font-semibold text-[#0f2040]"
+                  >
+                    Please tell us more
                   </Label>
+                  <Input
+                    id="signup-source-other"
+                    value={otherText}
+                    onChange={(event) => setOtherText(event.target.value)}
+                    placeholder="Where did you hear about KeenVPN?"
+                    disabled={saving}
+                    className="h-11 rounded-[8px] border-[#dbe2ec] bg-white text-[14px] text-[#0f2040] placeholder:text-[#8d9ab1]"
+                  />
                 </div>
-              ))}
-            </RadioGroup>
+              ) : null}
 
-            {selectedSource === "other" ? (
-              <div className="space-y-2">
-                <Label htmlFor="signup-source-other">Please tell us more</Label>
-                <Input
-                  id="signup-source-other"
-                  value={otherText}
-                  onChange={(event) => setOtherText(event.target.value)}
-                  placeholder="Where did you hear about KeenVPN?"
-                  disabled={saving}
-                />
-              </div>
-            ) : null}
+              {error ? (
+                <p className="text-sm text-[#d14343]">{error}</p>
+              ) : null}
+            </div>
+          )}
+        </div>
 
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          </div>
-        )}
-
-        <DialogFooter className="gap-2 sm:justify-between">
+        <DialogFooter className="gap-3 border-t border-[#e3e8f0] px-5 py-4 sm:justify-between sm:px-6">
           <Button
             type="button"
             variant="ghost"
             onClick={() => void handleSkip()}
             disabled={loading || saving}
+            className="h-10 rounded-[8px] text-[13px] font-semibold text-[#627086] hover:bg-[#f5f7fb] hover:text-[#0f2040]"
           >
             Skip for now
           </Button>
@@ -174,6 +195,7 @@ export function SignupSourceDialog({
             type="button"
             onClick={() => void handleSubmit()}
             disabled={loading || saving || !selectedSource}
+            className="h-10 rounded-[8px] bg-[#0f2040] px-5 text-[13px] font-semibold text-white hover:bg-[#0f2040]/90"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue"}
           </Button>

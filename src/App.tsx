@@ -33,7 +33,6 @@ const ContextualEmailUnsubscribe = lazy(
   () => import("./pages/ContextualEmailUnsubscribe"),
 );
 const ReferralLanding = lazy(() => import("./pages/ReferralLanding"));
-const Referrals = lazy(() => import("./pages/Referrals"));
 const Friends = lazy(() => import("./pages/Friends"));
 const FriendsAccept = lazy(() => import("./pages/FriendsAccept"));
 const FriendsJoin = lazy(() => import("./pages/FriendsJoin"));
@@ -104,12 +103,24 @@ const AdminSignupSources = lazy(
   () => import("./pages/admin/AdminSignupSources"),
 );
 const AdminWorkflows = lazy(() => import("./pages/admin/AdminWorkflows"));
+const DashboardHome = lazy(() => import("./pages/DashboardHome"));
+const DashboardDownloads = lazy(() => import("./pages/DashboardDownloads"));
+const DashboardReferrals = lazy(() => import("./pages/DashboardReferrals"));
+const DashboardClassAction = lazy(() => import("./pages/DashboardClassAction"));
+const DashboardSubscription = lazy(
+  () => import("./pages/DashboardSubscription"),
+);
+const DashboardProfile = lazy(() => import("./pages/DashboardProfile"));
+const DashboardSupport = lazy(() => import("./pages/DashboardSupport"));
+const DashboardLayout = lazy(
+  () => import("./components/dashboard/DashboardLayout"),
+);
 
 const queryClient = new QueryClient();
 
 const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  <div className="flex min-h-screen items-center justify-center bg-[#f5f7fb]">
+    <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
   </div>
 );
 
@@ -132,6 +143,27 @@ const PricingRoute = () => {
   ) : (
     <MarketingSiteRedirect path="/pricing.html" />
   );
+};
+
+/** Web users land on the new dashboard; keep legacy /account for ASWeb + checkout returns. */
+const AccountRoute = () => {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  const keepLegacyAccount =
+    params.get("asweb") === "1" ||
+    params.has("session_id") ||
+    params.has("tab") ||
+    params.has("email_prefs") ||
+    params.has("billing") ||
+    params.has("business") ||
+    (typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem("asweb_session") === "1");
+
+  if (!keepLegacyAccount) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <Account />;
 };
 
 const App = () => (
@@ -166,10 +198,7 @@ const App = () => (
                 path="/terms"
                 element={<MarketingSiteRedirect path="/terms.html" />}
               />
-              <Route
-                path="/support"
-                element={<MarketingSiteRedirect path="/#faq" />}
-              />
+              <Route path="/support" element={<DashboardSupport />} />
               {/* Public, no auth guard: Play requires this URL to work for users
                   who can no longer sign in or no longer have the app installed. */}
               <Route path="/delete-account" element={<DeleteAccount />} />
@@ -189,14 +218,6 @@ const App = () => (
               />
               <Route path="/email/preferences" element={<EmailPreferences />} />
               <Route path="/r/:token" element={<ReferralLanding />} />
-              <Route
-                path="/referrals"
-                element={
-                  <ProtectedRoute>
-                    <Referrals />
-                  </ProtectedRoute>
-                }
-              />
               <Route
                 path="/friends"
                 element={
@@ -227,7 +248,7 @@ const App = () => (
                 path="/account"
                 element={
                   <ProtectedRoute>
-                    <Account />
+                    <AccountRoute />
                   </ProtectedRoute>
                 }
               />
@@ -251,6 +272,28 @@ const App = () => (
                 path="/account/membership-sharing/accept"
                 element={<MembershipSharingAccept />}
               />
+              {/* Dashboard shell — requires auth */}
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route
+                  path="/home"
+                  element={<Navigate to="/dashboard" replace />}
+                />
+                <Route path="/dashboard" element={<DashboardHome />} />
+                <Route path="/downloads" element={<DashboardDownloads />} />
+                <Route path="/referrals" element={<DashboardReferrals />} />
+                <Route path="/class-action" element={<DashboardClassAction />} />
+                <Route
+                  path="/subscription"
+                  element={<DashboardSubscription />}
+                />
+                <Route path="/profile" element={<DashboardProfile />} />
+              </Route>
               <Route path="/success" element={<PaymentSuccess />} />
               <Route path="/cancel" element={<PaymentCancel />} />
               <Route path="/open-app" element={<OpenApp />} />

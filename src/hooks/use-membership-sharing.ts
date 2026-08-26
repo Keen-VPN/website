@@ -77,6 +77,7 @@ export function useMembershipSharing(sessionToken: string | null) {
   );
   const [loading, setLoading] = useState(Boolean(sessionToken));
   const [submitting, setSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sharingDisabled, setSharingDisabled] = useState(false);
   const [draftSeatCount, setDraftSeatCount] = useState<number | null>(null);
@@ -125,6 +126,7 @@ export function useMembershipSharing(sessionToken: string | null) {
 
   useEffect(() => {
     setSubmitting(false);
+    setSubmittingAction(null);
     void load();
   }, [load]);
 
@@ -133,6 +135,7 @@ export function useMembershipSharing(sessionToken: string | null) {
       if (!sessionToken) return false;
       const requestToken = sessionToken;
       setSubmitting(true);
+      setSubmittingAction("invite");
       setError(null);
       try {
         const res = await inviteMembershipMember(requestToken, email);
@@ -146,6 +149,7 @@ export function useMembershipSharing(sessionToken: string | null) {
       } finally {
         if (activeSessionTokenRef.current === requestToken) {
           setSubmitting(false);
+          setSubmittingAction(null);
         }
       }
     },
@@ -157,6 +161,7 @@ export function useMembershipSharing(sessionToken: string | null) {
       if (!sessionToken) return;
       const requestToken = sessionToken;
       setSubmitting(true);
+      setSubmittingAction(`revoke:${userId}`);
       setError(null);
       try {
         const res = await revokeMembershipMember(requestToken, userId);
@@ -169,6 +174,7 @@ export function useMembershipSharing(sessionToken: string | null) {
       } finally {
         if (activeSessionTokenRef.current === requestToken) {
           setSubmitting(false);
+          setSubmittingAction(null);
         }
       }
     },
@@ -180,6 +186,7 @@ export function useMembershipSharing(sessionToken: string | null) {
       if (!sessionToken) return;
       const requestToken = sessionToken;
       setSubmitting(true);
+      setSubmittingAction(`resend:${inviteId}`);
       setError(null);
       try {
         const res = await resendMembershipInvite(requestToken, inviteId);
@@ -192,6 +199,7 @@ export function useMembershipSharing(sessionToken: string | null) {
       } finally {
         if (activeSessionTokenRef.current === requestToken) {
           setSubmitting(false);
+          setSubmittingAction(null);
         }
       }
     },
@@ -203,6 +211,7 @@ export function useMembershipSharing(sessionToken: string | null) {
       if (!sessionToken) return;
       const requestToken = sessionToken;
       setSubmitting(true);
+      setSubmittingAction(`cancel:${inviteId}`);
       setError(null);
       try {
         const res = await revokeMembershipInvite(requestToken, inviteId);
@@ -215,6 +224,7 @@ export function useMembershipSharing(sessionToken: string | null) {
       } finally {
         if (activeSessionTokenRef.current === requestToken) {
           setSubmitting(false);
+          setSubmittingAction(null);
         }
       }
     },
@@ -225,6 +235,7 @@ export function useMembershipSharing(sessionToken: string | null) {
     if (!sessionToken) return false;
     const requestToken = sessionToken;
     setSubmitting(true);
+    setSubmittingAction("leave");
     setError(null);
     try {
       const res = await leaveMembershipSharing(requestToken);
@@ -238,6 +249,7 @@ export function useMembershipSharing(sessionToken: string | null) {
     } finally {
       if (activeSessionTokenRef.current === requestToken) {
         setSubmitting(false);
+        setSubmittingAction(null);
       }
     }
   }, [sessionToken]);
@@ -246,6 +258,7 @@ export function useMembershipSharing(sessionToken: string | null) {
     if (!sessionToken || draftSeatCount == null) return false;
     const requestToken = sessionToken;
     setSubmitting(true);
+    setSubmittingAction("seats");
     setError(null);
     try {
       const res = await updateMembershipSeatCount(requestToken, draftSeatCount);
@@ -259,6 +272,7 @@ export function useMembershipSharing(sessionToken: string | null) {
     } finally {
       if (activeSessionTokenRef.current === requestToken) {
         setSubmitting(false);
+        setSubmittingAction(null);
       }
     }
   }, [draftSeatCount, load, sessionToken]);
@@ -283,6 +297,7 @@ export function useMembershipSharing(sessionToken: string | null) {
     dashboard,
     loading,
     submitting,
+    submittingAction,
     error,
     sharingDisabled,
     draftSeatCount,

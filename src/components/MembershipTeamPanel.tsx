@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Users } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { AlertTriangle, Loader2, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { fetchSubscriptionPlans } from "@/auth/backend";
@@ -27,14 +38,17 @@ function formatDate(iso: string): string {
 interface MembershipTeamPanelProps {
   /** Kept for call-site compatibility; dashboard state comes from context. */
   sessionToken?: string;
-  /** compact = subscription card; full = workspace panel styling */
-  variant?: "compact" | "full";
+  /** compact = subscription card; full = workspace panel; dashboard = new home UI */
+  variant?: "compact" | "full" | "dashboard";
   className?: string;
+  /** When true, hide loading/ineligible empty states. Service-disabled errors still render. */
+  hideIfIneligible?: boolean;
 }
 
 export function MembershipTeamPanel({
   variant = "compact",
   className,
+  hideIfIneligible = false,
 }: MembershipTeamPanelProps) {
   const { refreshSubscription } = useAuth();
   const [inviteEmail, setInviteEmail] = useState("");
@@ -42,6 +56,7 @@ export function MembershipTeamPanel({
     dashboard,
     loading,
     submitting,
+    submittingAction,
     error,
     sharingDisabled,
     setDraftSeatCount,
@@ -106,11 +121,15 @@ export function MembershipTeamPanel({
   }, [dashboard?.billingPeriod]);
 
   const isCompact = variant === "compact";
-  const shellClass = isCompact
-    ? "space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-4"
-    : cn(workspacePanelSurface, "space-y-4 px-4 py-4 sm:px-5");
+  const isDashboard = variant === "dashboard";
+  const shellClass = isDashboard
+    ? "space-y-4 rounded-[13px] border border-[#e3e8f0] bg-white p-5 shadow-[0px_3px_4px_rgba(15,32,64,0.03),0px_16px_19px_rgba(15,32,64,0.06)] sm:p-6"
+    : isCompact
+      ? "space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-4"
+      : cn(workspacePanelSurface, "space-y-4 px-4 py-4 sm:px-5");
 
   if (loading) {
+    if (hideIfIneligible) return null;
     return (
       <div className={cn(shellClass, className)}>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -124,7 +143,9 @@ export function MembershipTeamPanel({
   if (sharingDisabled) {
     return (
       <div className={cn(shellClass, className)}>
-        <p className="text-sm text-destructive">{error}</p>
+        <p className="text-sm text-destructive">
+          {error || "Team sharing is temporarily unavailable. Please contact support."}
+        </p>
       </div>
     );
   }
@@ -133,7 +154,14 @@ export function MembershipTeamPanel({
     if (!error) return null;
     return (
       <div className={cn(shellClass, className)}>
-        <p className="text-sm text-destructive">{error}</p>
+        <p
+          className={cn(
+            "text-sm",
+            isDashboard ? "text-[#d14343]" : "text-destructive",
+          )}
+        >
+          {error}
+        </p>
       </div>
     );
   }
@@ -141,31 +169,78 @@ export function MembershipTeamPanel({
   if (dashboard.role === "member" && dashboard.membership) {
     return (
       <div className={cn(shellClass, className)}>
+        {isDashboard ? (
+          <div className="mb-1">
+            <h2 className="text-[16px] font-semibold text-[#0f2040]">Team</h2>
+            <p className="mt-1 text-[13px] text-[#627086]">
+              You have shared Business access.
+            </p>
+          </div>
+        ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="min-w-0 text-sm text-muted-foreground">
+          <p
+            className={cn(
+              "min-w-0 text-sm",
+              isDashboard ? "text-[#627086]" : "text-muted-foreground",
+            )}
+          >
             Premium access through {dashboard.membership.ownerEmail}.
           </p>
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            className="shrink-0 self-start sm:self-auto"
-            disabled={submitting}
-            onClick={() => {
-              if (
-                !window.confirm(
-                  "Leave this team? You will lose shared access immediately.",
-                )
-              ) {
-                return;
-              }
-              void handleLeaveMembership();
-            }}
-          >
-            {submitting ? "Leaving…" : "Leave team"}
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                type="button"
+                variant={isDashboard ? "outline" : "destructive"}
+                size="sm"
+                className={cn(
+                  "shrink-0 self-start sm:self-auto",
+                  isDashboard &&
+                    "h-9 w-full rounded-[8px] border border-[#f0b4b4] bg-white text-[13px] font-semibold text-[#d14343] hover:border-[#f0b4b4] hover:bg-[#fff5f5] hover:text-[#d14343] sm:w-auto",
+                )}
+                disabled={submitting}
+              >
+                {submitting ? "Leaving…" : "Leave team"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="gap-5 border-[#e3e8f0] bg-white p-6 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:rounded-[16px]">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2 text-[18px] font-semibold text-[#0f2040]">
+                  <AlertTriangle className="h-5 w-5 shrink-0 text-[#d14343]" />
+                  Leave this team?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-left text-[14px] leading-relaxed text-[#43516a]">
+                  You will lose shared KeenVPN access through{" "}
+                  <strong className="font-semibold text-[#0f2040]">
+                    {dashboard.membership.ownerEmail}
+                  </strong>{" "}
+                  immediately.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="gap-2 sm:gap-3">
+                <AlertDialogCancel className="mt-0 h-9 rounded-[8px] border-[#dbe2ec] bg-white text-[13px] font-semibold text-[#0f2040] hover:bg-[#f5f7fb] hover:text-[#0f2040]">
+                  Stay on team
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => void handleLeaveMembership()}
+                  disabled={submitting}
+                  className="h-9 rounded-[8px] bg-[#d14343] text-[13px] font-semibold text-white hover:bg-[#d14343]/90"
+                >
+                  {submitting ? "Leaving…" : "Leave team"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
-        {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <p
+            className={cn(
+              "mt-2 text-sm",
+              isDashboard ? "text-[#d14343]" : "text-destructive",
+            )}
+          >
+            {error}
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -183,41 +258,85 @@ export function MembershipTeamPanel({
 
     return (
       <div className={cn(shellClass, className)}>
+        {isDashboard ? (
+          <div className="mb-1">
+            <h2 className="text-[16px] font-semibold text-[#0f2040]">Team</h2>
+          </div>
+        ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <p className="min-w-0 text-sm text-muted-foreground">{statusCopy}</p>
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            className="shrink-0 self-start sm:self-auto"
-            disabled={submitting}
-            onClick={() => {
-              if (
-                !window.confirm(
-                  "Cancel joining this team? Your own plan will stay as it is.",
-                )
-              ) {
-                return;
-              }
-              void handleLeaveMembership();
-            }}
+          <p
+            className={cn(
+              "min-w-0 text-sm",
+              isDashboard ? "text-[#627086]" : "text-muted-foreground",
+            )}
           >
-            {submitting ? "Leaving…" : "Cancel"}
-          </Button>
+            {statusCopy}
+          </p>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                type="button"
+                variant={isDashboard ? "outline" : "destructive"}
+                size="sm"
+                className={cn(
+                  "shrink-0 self-start sm:self-auto",
+                  isDashboard &&
+                    "h-9 w-full rounded-[8px] border border-[#f0b4b4] bg-white text-[13px] font-semibold text-[#d14343] hover:border-[#f0b4b4] hover:bg-[#fff5f5] hover:text-[#d14343] sm:w-auto",
+                )}
+                disabled={submitting}
+              >
+                {submitting ? "Leaving…" : "Cancel"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="gap-5 border-[#e3e8f0] bg-white p-6 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:rounded-[16px]">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2 text-[18px] font-semibold text-[#0f2040]">
+                  <AlertTriangle className="h-5 w-5 shrink-0 text-[#ed7d36]" />
+                  Cancel joining this team?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-left text-[14px] leading-relaxed text-[#43516a]">
+                  Your own plan will stay as it is. You can accept the invitation
+                  again later from your email or dashboard if it is still open.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="gap-2 sm:gap-3">
+                <AlertDialogCancel className="mt-0 h-9 rounded-[8px] border-[#dbe2ec] bg-white text-[13px] font-semibold text-[#0f2040] hover:bg-[#f5f7fb] hover:text-[#0f2040]">
+                  Keep invitation
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => void handleLeaveMembership()}
+                  disabled={submitting}
+                  className="h-9 rounded-[8px] bg-[#d14343] text-[13px] font-semibold text-white hover:bg-[#d14343]/90"
+                >
+                  {submitting ? "Leaving…" : "Cancel joining"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
-        {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <p
+            className={cn(
+              "mt-2 text-sm",
+              isDashboard ? "text-[#d14343]" : "text-destructive",
+            )}
+          >
+            {error}
+          </p>
+        ) : null}
       </div>
     );
   }
 
   if (!dashboard.eligible) {
+    if (hideIfIneligible) return null;
     return (
       <div className={cn(shellClass, className)}>
         <p className="text-sm text-muted-foreground">
           Upgrade to Business to invite teammates with their own logins.
         </p>
         <Button asChild variant="outline" size="sm" className="mt-2">
-          <Link to="/pricing">View Business plan</Link>
+          <Link to="/subscription?tab=plans">View Business plan</Link>
         </Button>
       </div>
     );
@@ -248,13 +367,42 @@ export function MembershipTeamPanel({
         : formatChargeAfterPrepaidSeatsCopy(billingCopyInput)
     : null;
 
+  const mutedText = isDashboard ? "text-[#627086]" : "text-muted-foreground";
+  const headingText = isDashboard
+    ? "text-[14px] font-semibold text-[#0f2040]"
+    : "text-sm font-medium";
+  const rowCard = isDashboard
+    ? "rounded-[10px] border border-[#eef2f7] bg-[#fafbfd] p-3 sm:p-3.5"
+    : "rounded-lg border border-border/80 p-3";
+  const outlineBtn = isDashboard
+    ? "h-9 rounded-[8px] border-[#dbe2ec] bg-white text-[13px] font-semibold text-[#0f2040] hover:bg-[#f5f7fb] hover:text-[#0f2040]"
+    : undefined;
+  const primaryBtn = isDashboard
+    ? "h-9 rounded-[8px] bg-[#0f2040] text-[13px] font-semibold text-white hover:bg-[#0f2040]/90"
+    : undefined;
+  const dangerBtn = isDashboard
+    ? "h-9 rounded-[8px] border border-[#f0b4b4] bg-white text-[13px] font-semibold text-[#d14343] hover:border-[#f0b4b4] hover:bg-[#fff5f5] hover:text-[#d14343]"
+    : undefined;
+
   return (
     <div className={cn(shellClass, className)}>
       <div className="flex items-start gap-3">
-        <Users className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-        <div className="space-y-1">
-          <p className="text-sm font-medium">Invite your team</p>
-          <p className="text-xs text-muted-foreground">
+        <Users
+          className={cn(
+            "mt-0.5 h-5 w-5 shrink-0",
+            isDashboard ? "text-[#ed7d36]" : "text-primary",
+          )}
+        />
+        <div className="min-w-0 space-y-1">
+          <p
+            className={cn(
+              "text-sm font-medium",
+              isDashboard && "text-[16px] font-semibold text-[#0f2040]",
+            )}
+          >
+            {isDashboard ? "Team members" : "Invite your team"}
+          </p>
+          <p className={cn("text-xs leading-relaxed", mutedText, isDashboard && "text-[13px]")}>
             {chargeOnAccept
               ? prepaidAvailableSeats > 0
                 ? subscriptionTrialing
@@ -279,22 +427,36 @@ export function MembershipTeamPanel({
       </div>
 
       {acceptChargeCopy ? (
-        <p className="text-xs text-muted-foreground">{acceptChargeCopy}</p>
+        <p className={cn("text-xs leading-relaxed", mutedText)}>{acceptChargeCopy}</p>
       ) : null}
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <p
+          className={cn(
+            "text-sm",
+            isDashboard ? "text-[#d14343]" : "text-destructive",
+          )}
+        >
+          {error}
+        </p>
+      ) : null}
 
       {dashboard.canManageSeats && seats ? (
-        <div className="space-y-2 rounded-md border border-border/80 bg-background/80 p-3">
-          <p className="text-xs font-medium text-muted-foreground">
-            Paid seats
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
+        <div
+          className={cn(
+            "space-y-2 p-3",
+            isDashboard
+              ? "rounded-[10px] border border-[#eef2f7] bg-[#fafbfd]"
+              : "rounded-md border border-border/80 bg-background/80",
+          )}
+        >
+          <p className={cn("text-xs font-medium", mutedText)}>Paid seats</p>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <Button
               type="button"
               variant="outline"
               size="icon"
-              className="h-8 w-8"
+              className={cn("h-8 w-8", outlineBtn)}
               aria-label="Decrease paid seats"
               disabled={submitting || effectiveDraftSeats <= seatFloor}
               onClick={() =>
@@ -305,14 +467,19 @@ export function MembershipTeamPanel({
             >
               −
             </Button>
-            <span className="min-w-[2rem] text-center text-lg font-semibold">
+            <span
+              className={cn(
+                "min-w-[2rem] text-center text-lg font-semibold",
+                isDashboard && "text-[#0f2040]",
+              )}
+            >
               {effectiveDraftSeats}
             </span>
             <Button
               type="button"
               variant="outline"
               size="icon"
-              className="h-8 w-8"
+              className={cn("h-8 w-8", outlineBtn)}
               aria-label="Increase paid seats"
               disabled={submitting || effectiveDraftSeats >= MAX_BUSINESS_SEATS}
               onClick={() =>
@@ -327,8 +494,9 @@ export function MembershipTeamPanel({
               onClick={() => void updateSeats()}
               disabled={submitting || !seatsChanged}
               size="sm"
+              className={cn("w-full sm:w-auto", primaryBtn)}
             >
-              {submitting ? "Updating…" : "Update seats"}
+              {submittingAction === "seats" ? "Updating…" : "Update seats"}
             </Button>
           </div>
         </div>
@@ -338,7 +506,10 @@ export function MembershipTeamPanel({
         <div className="space-y-2">
           <label
             htmlFor={`membership-invite-email-${variant}`}
-            className="text-sm font-medium"
+            className={cn(
+              "text-sm font-medium",
+              isDashboard && "text-[13px] font-semibold text-[#0f2040]",
+            )}
           >
             Invite by email
           </label>
@@ -350,6 +521,11 @@ export function MembershipTeamPanel({
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               disabled={submitting}
+              className={
+                isDashboard
+                  ? "h-10 rounded-[8px] border-[#dbe2ec] bg-white text-[#0f2040] placeholder:text-[#8d9ab1]"
+                  : undefined
+              }
             />
             <Button
               onClick={async () => {
@@ -359,13 +535,14 @@ export function MembershipTeamPanel({
                 if (ok) setInviteEmail("");
               }}
               disabled={submitting || !inviteEmail.trim()}
+              className={cn("w-full shrink-0 sm:w-auto", primaryBtn)}
             >
-              {submitting ? "Sending…" : "Send invite"}
+              {submittingAction === "invite" ? "Sending…" : "Send invite"}
             </Button>
           </div>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">
+        <p className={cn("text-sm", mutedText)}>
           {chargeOnAccept
             ? "Maximum team size reached."
             : "All seats are in use. Remove a member, cancel a pending invite, or add more seats."}
@@ -374,22 +551,33 @@ export function MembershipTeamPanel({
 
       {dashboard.members.length > 0 ? (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium">Active members</h3>
+          <h3 className={headingText}>Active members</h3>
           <ul className="space-y-2">
             {dashboard.members.map((member) => (
               <li
                 key={member.userId}
-                className="flex flex-col gap-2 rounded-lg border border-border/80 p-3 sm:flex-row sm:items-center sm:justify-between"
+                className={cn(
+                  "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between",
+                  rowCard,
+                )}
               >
-                <div>
-                  <p className="font-medium text-sm">{member.email}</p>
-                  <p className="text-xs text-muted-foreground">
+                <div className="min-w-0">
+                  <p
+                    className={cn(
+                      "truncate text-sm font-medium",
+                      isDashboard && "text-[#0f2040]",
+                    )}
+                  >
+                    {member.email}
+                  </p>
+                  <p className={cn("text-xs", mutedText)}>
                     Joined {formatDate(member.joinedAt)}
                   </p>
                 </div>
                 <Button
-                  variant="destructive"
+                  variant={isDashboard ? "outline" : "destructive"}
                   size="sm"
+                  className={cn("w-full sm:w-auto", dangerBtn)}
                   onClick={() => void revokeMember(member.userId)}
                   disabled={submitting}
                 >
@@ -413,10 +601,10 @@ export function MembershipTeamPanel({
           <>
             {openInvites.length > 0 ? (
               <div className="space-y-2">
-                <h3 className="text-sm font-medium">
+                <h3 className={headingText}>
                   Pending invites
                   {chargeOnAccept ? (
-                    <span className="ml-1 font-normal text-muted-foreground">
+                    <span className={cn("ml-1 font-normal", mutedText)}>
                       (sending is free)
                     </span>
                   ) : null}
@@ -425,30 +613,46 @@ export function MembershipTeamPanel({
                   {openInvites.map((pending) => (
                     <li
                       key={pending.id}
-                      className="flex flex-col gap-2 rounded-lg border border-border/80 p-3 sm:flex-row sm:items-center sm:justify-between"
+                      className={cn(
+                        "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between",
+                        rowCard,
+                      )}
                     >
-                      <div>
-                        <p className="font-medium text-sm">{pending.email}</p>
-                        <p className="text-xs text-muted-foreground">
+                      <div className="min-w-0">
+                        <p
+                          className={cn(
+                            "truncate text-sm font-medium",
+                            isDashboard && "text-[#0f2040]",
+                          )}
+                        >
+                          {pending.email}
+                        </p>
+                        <p className={cn("text-xs", mutedText)}>
                           Expires {formatDate(pending.expiresAt)}
                         </p>
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                         <Button
                           variant="outline"
                           size="sm"
+                          className={cn("w-full sm:w-auto", outlineBtn)}
                           onClick={() => void resendInvite(pending.id)}
                           disabled={submitting}
                         >
-                          Resend
+                          {submittingAction === `resend:${pending.id}`
+                            ? "Resending…"
+                            : "Resend"}
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
+                          className={cn("w-full sm:w-auto", outlineBtn)}
                           onClick={() => void cancelInvite(pending.id)}
                           disabled={submitting}
                         >
-                          Cancel
+                          {submittingAction === `cancel:${pending.id}`
+                            ? "Cancelling…"
+                            : "Cancel"}
                         </Button>
                       </div>
                     </li>
@@ -459,16 +663,26 @@ export function MembershipTeamPanel({
 
             {confirmedTransfers.length > 0 ? (
               <div className="space-y-2">
-                <h3 className="text-sm font-medium">Confirmed transfers</h3>
+                <h3 className={headingText}>Confirmed transfers</h3>
                 <ul className="space-y-2">
                   {confirmedTransfers.map((pending) => (
                     <li
                       key={pending.id}
-                      className="flex flex-col gap-2 rounded-lg border border-border/80 p-3 sm:flex-row sm:items-center sm:justify-between"
+                      className={cn(
+                        "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between",
+                        rowCard,
+                      )}
                     >
-                      <div>
-                        <p className="font-medium text-sm">{pending.email}</p>
-                        <p className="text-xs text-muted-foreground">
+                      <div className="min-w-0">
+                        <p
+                          className={cn(
+                            "truncate text-sm font-medium",
+                            isDashboard && "text-[#0f2040]",
+                          )}
+                        >
+                          {pending.email}
+                        </p>
+                        <p className={cn("text-xs", mutedText)}>
                           {pending.billingPending
                             ? "Accepted · completing membership billing"
                             : pending.billingDeferredUntil
@@ -481,6 +695,7 @@ export function MembershipTeamPanel({
                       <Button
                         variant="outline"
                         size="sm"
+                        className={cn("w-full sm:w-auto", outlineBtn)}
                         onClick={() => void cancelInvite(pending.id)}
                         disabled={submitting}
                       >
@@ -497,16 +712,20 @@ export function MembershipTeamPanel({
 
       {dashboard.revokedInvites && dashboard.revokedInvites.length > 0 ? (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium">Cancelled invites</h3>
+          <h3 className={headingText}>Cancelled invites</h3>
           <ul className="space-y-2">
             {dashboard.revokedInvites.map((revoked) => (
-              <li
-                key={revoked.id}
-                className="rounded-lg border border-border/80 p-3"
-              >
-                <p className="text-sm font-medium">{revoked.email}</p>
+              <li key={revoked.id} className={rowCard}>
+                <p
+                  className={cn(
+                    "truncate text-sm font-medium",
+                    isDashboard && "text-[#0f2040]",
+                  )}
+                >
+                  {revoked.email}
+                </p>
                 {revoked.revokedAt ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className={cn("text-xs", mutedText)}>
                     Cancelled {formatDate(revoked.revokedAt)}
                   </p>
                 ) : null}

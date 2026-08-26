@@ -152,28 +152,34 @@ export function SubscriptionCancellationControls({
         ) : null}
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" className="w-full">
+            <Button
+              variant="destructive"
+              className="w-full rounded-[8px] bg-[#d14343] text-white hover:bg-[#d14343]/90"
+            >
               <XCircle className="mr-2 h-4 w-4" />
-              Cancel Subscription
+              Turn off auto-renewal
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent>
+          {/* Branded light surface — matches dashboard / new marketing UI */}
+          <AlertDialogContent className="gap-5 border-[#e3e8f0] bg-white p-6 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:rounded-[16px]">
             <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center">
-                <AlertTriangle className="mr-2 h-5 w-5 text-yellow-500" />
+              <AlertDialogTitle className="flex items-center text-[18px] font-semibold text-[#0f2040]">
+                <AlertTriangle className="mr-2 h-5 w-5 shrink-0 text-[#ed7d36]" />
                 Cancel subscription?
               </AlertDialogTitle>
               <AlertDialogDescription asChild>
-                <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="space-y-2 text-left text-[14px] leading-relaxed text-[#43516a]">
                   <p>
                     This turns off auto-renewal for your KeenVPN subscription.
                     You keep access until the end of your current period.
                   </p>
-                  <p className="font-medium text-foreground">What happens:</p>
-                  <ul className="list-inside list-disc space-y-1">
+                  <p className="font-semibold text-[#0f2040]">What happens:</p>
+                  <ul className="list-inside list-disc space-y-1 text-[#43516a]">
                     <li>
                       Access continues until{" "}
-                      <strong>{endLabel}</strong>
+                      <strong className="font-semibold text-[#0f2040]">
+                        {endLabel}
+                      </strong>
                     </li>
                     <li>You will not be charged again</li>
                     <li>
@@ -183,12 +189,14 @@ export function SubscriptionCancellationControls({
                 </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Keep subscription</AlertDialogCancel>
+            <AlertDialogFooter className="gap-2 sm:gap-3">
+              <AlertDialogCancel className="mt-0 h-9 rounded-[8px] border-[#dbe2ec] bg-white text-[13px] font-semibold text-[#0f2040] hover:bg-[#f5f7fb] hover:text-[#0f2040]">
+                Keep subscription
+              </AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => void onCancel()}
                 disabled={cancelling}
-                className="bg-red-600 hover:bg-red-700"
+                className="h-9 rounded-[8px] bg-[#d14343] text-[13px] font-semibold text-white hover:bg-[#d14343]/90"
               >
                 {cancelling ? (
                   <>

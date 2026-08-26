@@ -27,6 +27,20 @@ export function hasManageableSubscription(
   return Boolean(status && manageableSubscriptionStatuses.has(status));
 }
 
+const endedSubscriptionStatuses = new Set([
+  "canceled",
+  "cancelled",
+  "expired",
+]);
+
+/** True when auth still has a subscription record but it is no longer manageable. */
+export function isEndedSubscription(
+  subscription: SubscriptionState,
+): boolean {
+  const status = getSubscriptionStatus(subscription);
+  return Boolean(status && endedSubscriptionStatuses.has(status));
+}
+
 export function isStripeSubscription(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
@@ -117,6 +131,13 @@ export function hasScheduledAnnualBilling(
     subscription?.scheduledBillingInterval?.to === "year" ||
     subscription?.scheduledPlanChange?.to === "year"
   );
+}
+
+/** True when a switch to 2-year billing is already scheduled at the next renewal. */
+export function hasScheduledTwoYearBilling(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return subscription?.scheduledPlanChange?.to === "2year";
 }
 
 /** Stripe monthly (or trialing monthly) with auto-renewal on — eligible for one-click annual upgrade. */

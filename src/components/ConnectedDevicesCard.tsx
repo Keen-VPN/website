@@ -15,7 +15,14 @@ import { cn } from "@/lib/utils";
 
 interface ConnectedDevicesCardProps {
   sessionToken: string;
+  variant?: "workspace" | "dashboard";
 }
+
+const dashboardCardClass =
+  "rounded-[15px] border border-[#e3e8f0] bg-white p-6 shadow-[0px_3px_4px_rgba(15,32,64,0.03)] sm:p-7";
+
+const dashboardOutlineBtn =
+  "inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] border border-[#0f2040]/25 bg-white px-4 text-[13px] font-semibold text-[#0f2040] transition-colors hover:bg-[#f5f7fb] disabled:cursor-not-allowed disabled:opacity-50";
 
 interface DeviceRow {
   id: string;
@@ -61,7 +68,9 @@ function deviceLabel(device: { label?: string | null; platform?: string | null }
 
 export function ConnectedDevicesCard({
   sessionToken,
+  variant = "workspace",
 }: ConnectedDevicesCardProps) {
+  const isDashboard = variant === "dashboard";
   const [status, setStatus] = useState<DeviceStatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
@@ -141,6 +150,16 @@ export function ConnectedDevicesCard({
   }
 
   if (loading) {
+    if (isDashboard) {
+      return (
+        <section className={dashboardCardClass}>
+          <div className="flex items-center gap-2 text-[13px] text-[#627086]">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading devices…
+          </div>
+        </section>
+      );
+    }
     return (
       <WorkspacePanel title="Connected devices" icon={MonitorSmartphone}>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -156,6 +175,16 @@ export function ConnectedDevicesCard({
   }
 
   if (error && !status) {
+    if (isDashboard) {
+      return (
+        <section className={dashboardCardClass}>
+          <h2 className="text-[16px] font-semibold text-[#0f2040]">
+            Connected devices
+          </h2>
+          <p className="mt-3 text-[13px] text-[#b42318]">{error}</p>
+        </section>
+      );
+    }
     return (
       <WorkspacePanel title="Connected devices" icon={MonitorSmartphone}>
         <p className="text-sm text-destructive">{error}</p>
@@ -165,6 +194,107 @@ export function ConnectedDevicesCard({
 
   if (!status) {
     return null;
+  }
+
+  if (isDashboard) {
+    return (
+      <section className={dashboardCardClass}>
+        <div className="mb-5">
+          <h2 className="text-[16px] font-semibold tracking-[-0.2px] text-[#0f2040]">
+            Connected devices
+          </h2>
+          <p className="mt-1 text-[13px] text-[#627086]">
+            {status.activeCount} of {status.limit} devices connected ·{" "}
+            {status.available} available
+          </p>
+        </div>
+
+        {error ? (
+          <p className="mb-4 text-[13px] text-[#b42318]">{error}</p>
+        ) : null}
+
+        {status.devices.length === 0 ? (
+          <p className="text-[14px] text-[#627086]">
+            No registered devices yet. Devices appear here after you connect
+            from the KeenVPN app.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {status.devices.map((device) => (
+              <li
+                key={device.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[#eef2f7] bg-[#fafbfd] px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-[14px] font-semibold text-[#0f2040]">
+                    {deviceLabel(device)}
+                  </p>
+                  <p className="mt-1 text-[13px] text-[#627086]">
+                    Last seen {formatDate(device.lastSeenAt)}
+                    {device.connected ? " · Connected now" : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={dashboardOutlineBtn}
+                  disabled={submittingId === device.id}
+                  onClick={() => void handleRevoke(device.id)}
+                >
+                  {submittingId === device.id ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      Removing…
+                    </>
+                  ) : (
+                    "Remove"
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {(status.revokedDevices?.length ?? 0) > 0 ? (
+          <div className="mt-6 space-y-3">
+            <p className="text-[14px] font-semibold text-[#0f2040]">
+              Removed devices
+            </p>
+            <ul className="space-y-3">
+              {status.revokedDevices?.map((device) => (
+                <li
+                  key={device.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[#eef2f7] bg-[#fafbfd] px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-semibold text-[#0f2040]">
+                      {deviceLabel(device)}
+                    </p>
+                    <p className="mt-1 text-[13px] text-[#627086]">
+                      Removed {formatDate(device.revokedAt)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className={dashboardOutlineBtn}
+                    disabled={submittingId === device.id}
+                    onClick={() => void handleRestore(device.id)}
+                  >
+                    {submittingId === device.id ? (
+                      <>
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                        Restoring…
+                      </>
+                    ) : (
+                      "Restore"
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </section>
+    );
   }
 
   return (

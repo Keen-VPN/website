@@ -14,6 +14,52 @@ import { canUpgradeStripeToAnnual } from "@/lib/subscription-cta";
 interface UseSubscriptionBillingActionsOptions {
   /** Stripe portal return URL (defaults to current page). */
   returnUrl?: string;
+  /** After in-place Business upgrade, land here instead of auto-detect. */
+  businessSuccessPath?: string;
+}
+
+function isDashboardRoute(pathname: string): boolean {
+  return (
+    pathname === "/dashboard" ||
+    pathname.startsWith("/subscription") ||
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/downloads") ||
+    pathname.startsWith("/referrals") ||
+    pathname.startsWith("/class-action")
+  );
+}
+
+function buildBusinessUpgradeSuccessPath(
+  billingIntervalChange?: {
+    to: "month" | "year";
+    effectiveAt: string;
+  },
+  explicitPath?: string,
+): string {
+  const basePath =
+    explicitPath ??
+    (typeof window !== "undefined" &&
+    isDashboardRoute(window.location.pathname)
+      ? "/dashboard"
+      : "/account");
+
+  const url = new URL(basePath, window.location.origin);
+  url.searchParams.set("business", "upgraded");
+  if (basePath === "/account") {
+    url.searchParams.set("tab", "team");
+  }
+
+  if (billingIntervalChange) {
+    const { to, effectiveAt } = billingIntervalChange;
+    if (to === "month" || to === "year") {
+      url.searchParams.set("billing", to);
+    }
+    if (typeof effectiveAt === "string" && effectiveAt.trim().length > 0) {
+      url.searchParams.set("billingEffectiveAt", effectiveAt);
+    }
+  }
+
+  return `${url.pathname}${url.search}`;
 }
 
 function getAnnualUpgradeIneligibleMessage(
@@ -214,12 +260,37 @@ export function useSubscriptionBillingActions(
         return;
       }
 
+      const origin = window.location.origin;
+      const onDashboard =
+        typeof window !== "undefined" &&
+        isDashboardRoute(window.location.pathname);
+      const successPath =
+        options.businessSuccessPath ??
+        (onDashboard ? "/dashboard" : "/account");
+      const successUrl = new URL(successPath, origin);
+      successUrl.searchParams.set("business", "upgraded");
+      if (successPath === "/account") {
+        successUrl.searchParams.set("tab", "team");
+      }
+      // Stripe only substitutes the literal {CHECKOUT_SESSION_ID}; URLSearchParams
+      // would percent-encode the braces and break post-checkout hydration.
+      const successUrlWithSession = `${successUrl.toString()}${
+        successUrl.search ? "&" : "?"
+      }session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = onDashboard
+        ? `${origin}/subscription?tab=plans`
+        : `${origin}/account`;
+
       try {
         setBusinessUpgradeLoading(true);
         const result = await upgradeSubscriptionToBusiness(
           token,
           planId,
           seatCount,
+          {
+            successUrl: successUrlWithSession,
+            cancelUrl,
+          },
         );
 
         if (result.success) {
@@ -231,22 +302,11 @@ export function useSubscriptionBillingActions(
             return;
           }
 
-          const accountUrl = new URL("/account", window.location.origin);
-          accountUrl.searchParams.set("tab", "team");
-          accountUrl.searchParams.set("business", "upgraded");
-          if (result.billingIntervalChange) {
-            const { to, effectiveAt } = result.billingIntervalChange;
-            if (to === "month" || to === "year") {
-              accountUrl.searchParams.set("billing", to);
-            }
-            if (
-              typeof effectiveAt === "string" &&
-              effectiveAt.trim().length > 0
-            ) {
-              accountUrl.searchParams.set("billingEffectiveAt", effectiveAt);
-            }
-          }
-          window.location.href = `${accountUrl.pathname}${accountUrl.search}`;
+          await refreshSubscription();
+          window.location.href = buildBusinessUpgradeSuccessPath(
+            result.billingIntervalChange,
+            successPath,
+          );
         } else {
           throw new Error(result.error || "Failed to upgrade to Business");
         }
@@ -261,7 +321,12 @@ export function useSubscriptionBillingActions(
         setBusinessUpgradeLoading(false);
       }
     },
-    [requireSessionToken, toast],
+    [
+      options.businessSuccessPath,
+      requireSessionToken,
+      refreshSubscription,
+      toast,
+    ],
   );
 
   return {

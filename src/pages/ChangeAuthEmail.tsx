@@ -1,13 +1,6 @@
 import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import {
   cancelAuthEmailChangeWithToken,
   confirmAuthEmailChange,
@@ -91,22 +84,30 @@ const ChangeAuthEmail = () => {
         : "Verify login email";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-hero px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>
-            {loading ? "Please wait..." : message}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!loading && (
-            <Button asChild className="w-full">
-              <Link to="/account">Go to account</Link>
-            </Button>
+    <div className="flex min-h-screen items-center justify-center bg-[#f5f7fb] px-4 py-10 text-[#0f2040]">
+      <div className="w-full max-w-md rounded-[16px] border border-[#e3e8f0] bg-white p-6 shadow-[0px_12px_30px_rgba(15,32,64,0.08)] sm:p-8">
+        <h1 className="text-[22px] font-semibold tracking-[-0.3px] text-[#0f2040]">
+          {title}
+        </h1>
+        <p className="mt-2 text-[14px] leading-relaxed text-[#627086]">
+          {loading ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Please wait…
+            </span>
+          ) : (
+            message
           )}
-        </CardContent>
-      </Card>
+        </p>
+        {!loading ? (
+          <Link
+            to="/dashboard"
+            className="mt-6 inline-flex h-10 w-full items-center justify-center rounded-[8px] bg-[#0f2040] text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            Go to dashboard
+          </Link>
+        ) : null}
+      </div>
     </div>
   );
 };

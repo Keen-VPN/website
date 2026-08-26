@@ -12,6 +12,12 @@ import {
   getSessionToken,
   isMembershipInviteDetails,
 } from "@/auth/backend";
+import {
+  clearMatchingPendingMembershipInviteAcceptIntent,
+  inviteAcceptIntentMatches,
+  readPendingMembershipInviteAcceptIntent,
+  storePendingMembershipInviteAcceptIntent,
+} from "@/auth/membership-invite-accept-intent";
 import { resetAuthenticationForReauth } from "@/auth/reauth";
 import { buildSignInUrlForCurrentLocation } from "@/auth/post-login-redirect";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,68 +28,10 @@ import {
   resolveNativeAppHandoffDeepLink,
 } from "@/lib/keenvpn-deep-links";
 
-const PENDING_ACCEPT_STORAGE_KEY = "keenvpn_membership_invite_pending_accept";
-
 const CONFIRMATION_COPY =
   "I understand that my company will pay for my KeenVPN subscription. I understand that my company can see my membership status but will never get access to my browsing history or data.";
 
-interface PendingAcceptIntent {
-  token?: string;
-  inviteId?: string;
-  acceptsBusinessBilling: boolean;
-  acknowledgesPrivacy: boolean;
-}
-
 type ReauthReason = "expired_session" | "wrong_account";
-
-function inviteIntentMatches(
-  intent: PendingAcceptIntent | null,
-  token: string,
-  inviteId: string,
-): boolean {
-  if (!intent) return false;
-  if (token && inviteId) return false;
-  if (inviteId) return intent.inviteId === inviteId;
-  if (token) return intent.token === token;
-  return false;
-}
-
-function readPendingAcceptIntent(): PendingAcceptIntent | null {
-  try {
-    const raw = sessionStorage.getItem(PENDING_ACCEPT_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PendingAcceptIntent;
-    const hasToken = typeof parsed?.token === "string";
-    const hasInviteId = typeof parsed?.inviteId === "string";
-    if (
-      hasToken === hasInviteId ||
-      parsed.acceptsBusinessBilling !== true ||
-      parsed.acknowledgesPrivacy !== true
-    ) {
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function storePendingAcceptIntent(intent: PendingAcceptIntent): void {
-  sessionStorage.setItem(PENDING_ACCEPT_STORAGE_KEY, JSON.stringify(intent));
-}
-
-function clearPendingAcceptIntent(): void {
-  sessionStorage.removeItem(PENDING_ACCEPT_STORAGE_KEY);
-}
-
-function clearMatchingPendingAcceptIntent(
-  token: string,
-  inviteId: string,
-): void {
-  if (inviteIntentMatches(readPendingAcceptIntent(), token, inviteId)) {
-    clearPendingAcceptIntent();
-  }
-}
 
 export default function MembershipSharingAccept() {
   const [searchParams] = useSearchParams();
@@ -95,6 +43,7 @@ export default function MembershipSharingAccept() {
     loading: authLoading,
     isAuthenticating,
     hasSessionToken,
+    refreshSubscription,
   } = useAuth();
   const appStoreUrl = useAppStoreUrl();
   const [loading, setLoading] = useState(true);
@@ -188,8 +137,8 @@ export default function MembershipSharingAccept() {
       return;
     }
 
-    const pendingIntent = readPendingAcceptIntent();
-    if (inviteIntentMatches(pendingIntent, token, inviteId)) {
+    const pendingIntent = readPendingMembershipInviteAcceptIntent();
+    if (inviteAcceptIntentMatches(pendingIntent, token, inviteId)) {
       setConfirmationAccepted(true);
     } else {
       setConfirmationAccepted(false);
@@ -233,7 +182,7 @@ export default function MembershipSharingAccept() {
           result.status === 404 ||
           result.status === 410
         ) {
-          clearMatchingPendingAcceptIntent(token, inviteId);
+          clearMatchingPendingMembershipInviteAcceptIntent(token, inviteId);
           setError("This invitation is invalid or has expired.");
           setLoading(false);
           return;
@@ -252,7 +201,7 @@ export default function MembershipSharingAccept() {
         setBillingPending(data.billingPending === true);
         setRequiresAppleCancellation(data.requiresAppleCancellation === true);
         if (data.creditPending === true) {
-          clearMatchingPendingAcceptIntent(token, inviteId);
+          clearMatchingPendingMembershipInviteAcceptIntent(token, inviteId);
           setCreditPending(true);
           setBillingDeferredUntil(data.billingDeferredUntil ?? null);
           setAccepted(true);
@@ -320,7 +269,7 @@ export default function MembershipSharingAccept() {
             // user to sign in with the invited email). Keep the consented
             // intent so the accept resumes after re-auth, mirroring the load
             // path's 401 handling.
-            storePendingAcceptIntent({
+            storePendingMembershipInviteAcceptIntent({
               ...(inviteId ? { inviteId } : { token }),
               acceptsBusinessBilling: true,
               acknowledgesPrivacy: true,
@@ -338,16 +287,17 @@ export default function MembershipSharingAccept() {
           setError(res.error ?? "Could not accept invitation.");
           return;
         }
-        clearMatchingPendingAcceptIntent(token, inviteId);
+        clearMatchingPendingMembershipInviteAcceptIntent(token, inviteId);
         setBillingDeferredUntil(res.billingDeferredUntil ?? null);
         setRequiresAppleCancellation(res.requiresAppleCancellation === true);
         setCreditPending(res.pending === true);
         setAccepted(true);
+        await refreshSubscription();
       } finally {
         setLoading(false);
       }
     },
-    [confirmationAccepted, inviteId, token],
+    [confirmationAccepted, inviteId, refreshSubscription, token],
   );
 
   async function handleAccept() {
@@ -355,7 +305,7 @@ export default function MembershipSharingAccept() {
     if (!sessionToken) {
       // Account banners start authenticated, but the session can expire after
       // this page loads. Preserve only an explicit, consented Accept click.
-      storePendingAcceptIntent({
+      storePendingMembershipInviteAcceptIntent({
         ...(inviteId ? { inviteId } : { token }),
         acceptsBusinessBilling: true,
         acknowledgesPrivacy: true,
@@ -367,7 +317,7 @@ export default function MembershipSharingAccept() {
   }
 
   function handleDecline() {
-    clearMatchingPendingAcceptIntent(token, inviteId);
+    clearMatchingPendingMembershipInviteAcceptIntent(token, inviteId);
     navigate("/account", { replace: true });
   }
 
@@ -400,10 +350,10 @@ export default function MembershipSharingAccept() {
       return;
     }
 
-    const pendingIntent = readPendingAcceptIntent();
+    const pendingIntent = readPendingMembershipInviteAcceptIntent();
     if (
       !pendingIntent ||
-      !inviteIntentMatches(pendingIntent, token, inviteId)
+      !inviteAcceptIntentMatches(pendingIntent, token, inviteId)
     ) {
       return;
     }
@@ -449,15 +399,20 @@ export default function MembershipSharingAccept() {
     );
   };
 
+  const brandButtonClass =
+    "inline-flex h-10 items-center justify-center rounded-[8px] bg-[#0f2040] px-4 text-sm font-medium text-white transition-colors hover:bg-[#0f2040]/90 disabled:pointer-events-none disabled:opacity-50";
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen flex-col bg-[#f5f7fb] text-[#0f2040]">
       <Header />
-      <main className="mx-auto flex max-w-xl flex-col items-center px-4 pt-28 pb-16 text-center sm:pt-32">
-        <h1 className="text-3xl font-semibold">Membership Invitation</h1>
-        {loading ? <p className="mt-4 text-slate-400">Loading…</p> : null}
+      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center px-4 pt-28 pb-16 text-center sm:pt-32">
+        <h1 className="text-3xl font-semibold tracking-[-0.4px] text-[#0f2040]">
+          Membership Invitation
+        </h1>
+        {loading ? <p className="mt-4 text-[#627086]">Loading…</p> : null}
         {!loading && accepted ? (
           <div className="mt-6 w-full max-w-md space-y-4">
-            <p className="text-slate-300">
+            <p className="text-[#43516a]">
               {creditPending && billingDeferredUntil
                 ? `Your transfer is confirmed. Your existing subscription stays active through ${new Date(
                     billingDeferredUntil,
@@ -467,23 +422,35 @@ export default function MembershipSharingAccept() {
                   : "You now have KeenVPN access through your company account."}
             </p>
             {requiresAppleCancellation ? (
-              <p className="rounded-md border border-amber-700/60 bg-amber-950/40 p-3 text-sm text-amber-100">
+              <p className="rounded-[10px] border border-[#f0d9a8] bg-[#fffaf0] p-3 text-sm text-[#8a5a00]">
                 {billingDeferredUntil
                   ? "Turn off App Store auto renewal before that date. Apple does not allow KeenVPN to cancel it for you."
                   : "Turn off App Store auto renewal to avoid being billed twice. Apple does not allow KeenVPN to cancel it for you."}
               </p>
             ) : null}
-            <Button type="button" onClick={openKeenVpnApp}>
+            <button
+              type="button"
+              className={brandButtonClass}
+              onClick={openKeenVpnApp}
+            >
               Open KeenVPN App
-            </Button>
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-10 items-center justify-center rounded-[8px] border border-[#0f2040]/25 bg-white px-4 text-sm font-medium text-[#0f2040] transition-colors hover:bg-[#f5f7fb]"
+              onClick={() => navigate("/dashboard", { replace: true })}
+            >
+              Go to dashboard
+            </button>
           </div>
         ) : null}
         {!loading && !accepted && error ? (
           <div className="mt-4 space-y-4">
-            <p className="text-red-300">{error}</p>
+            <p className="text-[#b42318]">{error}</p>
             {reauthReason ? (
               <Button
                 type="button"
+                className="h-10 rounded-[8px] bg-[#0f2040] text-white hover:bg-[#0f2040]/90"
                 onClick={handleReauthenticate}
                 disabled={reauthenticating}
               >
@@ -494,25 +461,33 @@ export default function MembershipSharingAccept() {
                     : "Sign in again"}
               </Button>
             ) : acceptRetryAvailable ? (
-              <Button type="button" onClick={() => void handleAccept()}>
+              <Button
+                type="button"
+                className="h-10 rounded-[8px] bg-[#0f2040] text-white hover:bg-[#0f2040]/90"
+                onClick={() => void handleAccept()}
+              >
                 Try accepting again
               </Button>
             ) : loadRetryAvailable ? (
-              <Button type="button" onClick={handleRetryLoad}>
+              <Button
+                type="button"
+                className="h-10 rounded-[8px] bg-[#0f2040] text-white hover:bg-[#0f2040]/90"
+                onClick={handleRetryLoad}
+              >
                 Try again
               </Button>
             ) : null}
           </div>
         ) : null}
         {!loading && !accepted && !error ? (
-          <div className="mt-6 w-full max-w-md space-y-4 text-slate-300">
+          <div className="mt-6 w-full max-w-md space-y-4 text-[#43516a]">
             <p>
               {ownerEmail
                 ? `${ownerEmail} invited you to use KeenVPN on their company account.`
                 : "You have been invited to use KeenVPN on a company account."}
             </p>
             {inviteEmail ? (
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-[#627086]">
                 {signedInAsInvitee ? (
                   <>
                     You are signed in as <strong>{inviteEmail}</strong>.
@@ -529,7 +504,7 @@ export default function MembershipSharingAccept() {
                 )}
               </p>
             ) : null}
-            <div className="rounded-md border border-slate-700 bg-slate-900 p-4 text-left text-sm">
+            <div className="rounded-[10px] border border-[#e3e8f0] bg-white p-4 text-left text-sm text-[#0f2040] shadow-[0px_3px_4px_rgba(15,32,64,0.03)]">
               <label
                 htmlFor="accept-company-membership"
                 className="flex items-start gap-3"
@@ -546,24 +521,30 @@ export default function MembershipSharingAccept() {
               </label>
             </div>
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
-              <Button type="button" variant="outline" onClick={handleDecline}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 rounded-[8px] border-[#0f2040]/25 bg-white text-[#0f2040] hover:bg-[#f5f7fb] hover:text-[#0f2040]"
+                onClick={handleDecline}
+              >
                 Decline for now
               </Button>
               <Button
+                className="h-10 rounded-[8px] bg-[#0f2040] text-white hover:bg-[#0f2040]/90"
                 onClick={() => void handleAccept()}
                 disabled={loading || !confirmationAccepted}
               >
                 {billingPending ? "Complete invitation" : "Accept invitation"}
               </Button>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-[#627086]">
               Declining for now does not cancel the invitation. You can use the
               link in your email to review and accept it before it expires.
             </p>
           </div>
         ) : null}
       </main>
-      <Footer />
+      <Footer className="mt-auto border-[#1a3055] bg-[#0f2040] text-white [&_.text-foreground]:text-white [&_.text-muted-foreground]:text-[#b8c4d9] [&_.text-xl]:text-white [&_a:hover]:text-white" />
     </div>
   );
 }
