@@ -185,8 +185,11 @@ export function ReceivedMembershipInviteBanner({
   variant = "default",
 }: ReceivedMembershipInviteBannerProps) {
   const navigate = useNavigate();
-  const { dashboard: membershipDashboard, loading: membershipLoading } =
-    useMembershipSharingContext();
+  const {
+    dashboard: membershipDashboard,
+    loading: membershipLoading,
+    error: membershipError,
+  } = useMembershipSharingContext();
   const [invites, setInvites] = useState<ReceivedMembershipInvite[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -200,6 +203,7 @@ export function ReceivedMembershipInviteBanner({
   const alreadyOnTeam =
     membershipDashboard?.role === "member" ||
     membershipDashboard?.role === "transfer_pending";
+  const membershipRoleReady = Boolean(membershipDashboard) && !membershipLoading;
 
   const retry = useCallback(() => {
     setRetryCount((count) => count + 1);
@@ -207,14 +211,29 @@ export function ReceivedMembershipInviteBanner({
 
   // If Accept was clicked while signed out but login dropped onto Home/Account,
   // resume the invite page so auto-accept can finish. Never hijack ASWeb
-  // /account?asweb=1 — that page must keep app handoff. Wait for membership
-  // role so a stale intent cannot redirect someone who already joined.
+  // /account?asweb=1 — that page must keep app handoff. Wait for a successful
+  // membership role load so a stale intent cannot redirect on request failure.
   useEffect(() => {
-    if (isASWebSession || membershipLoading || alreadyOnTeam) return;
+    if (
+      isASWebSession ||
+      membershipLoading ||
+      membershipError ||
+      !membershipRoleReady ||
+      alreadyOnTeam
+    ) {
+      return;
+    }
     const pendingAcceptPath = peekPendingMembershipInviteAcceptRedirect();
     if (!pendingAcceptPath) return;
     navigate(pendingAcceptPath, { replace: true });
-  }, [alreadyOnTeam, isASWebSession, membershipLoading, navigate]);
+  }, [
+    alreadyOnTeam,
+    isASWebSession,
+    membershipError,
+    membershipLoading,
+    membershipRoleReady,
+    navigate,
+  ]);
 
   useEffect(() => {
     if (alreadyOnTeam) {
@@ -275,8 +294,13 @@ export function ReceivedMembershipInviteBanner({
     return null;
   }
 
-  // Avoid flashing the review banner while we resume a consented Accept.
-  if (!isASWebSession && peekPendingMembershipInviteAcceptRedirect()) {
+  // Avoid flashing the review banner only when we are about to resume accept.
+  if (
+    !isASWebSession &&
+    membershipRoleReady &&
+    !membershipError &&
+    peekPendingMembershipInviteAcceptRedirect()
+  ) {
     return null;
   }
 
