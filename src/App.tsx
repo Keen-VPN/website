@@ -111,6 +111,7 @@ const DashboardSubscription = lazy(
   () => import("./pages/DashboardSubscription"),
 );
 const DashboardProfile = lazy(() => import("./pages/DashboardProfile"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const DashboardAiAssistant = lazy(
   () => import("./pages/DashboardAiAssistant"),
 );
@@ -298,6 +299,10 @@ const App = () => (
                 />
                 <Route path="/profile" element={<DashboardProfile />} />
               </Route>
+              {/* MCP OAuth consent (KVPN-506). Not inside the dashboard shell:
+                  it is a full-page decision, and it is reached mid-redirect from
+                  an assistant rather than from the app's own navigation. */}
+              <Route path="/oauth/consent" element={<OAuthConsent />} />
               <Route path="/success" element={<PaymentSuccess />} />
               <Route path="/cancel" element={<PaymentCancel />} />
               <Route path="/open-app" element={<OpenApp />} />
