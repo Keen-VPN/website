@@ -11,10 +11,12 @@ interface DashboardSlideDialogProps {
   className?: string;
 }
 
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 /**
- * Branded dashboard modal without Radix scroll-lock.
- * Radix body[data-scroll-locked] can apply a bogus margin-right and break
- * mobile layout; this portal uses a simple overflow lock instead.
+ * Branded dashboard modal without Radix scroll-lock (avoids broken body
+ * margin-right on mobile). Implements focus trap + restore manually.
  */
 export function DashboardSlideDialog({
   open,
@@ -24,6 +26,8 @@ export function DashboardSlideDialog({
   className,
 }: DashboardSlideDialogProps) {
   const [mounted, setMounted] = React.useState(false);
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const previousFocusRef = React.useRef<HTMLElement | null>(null);
 
   React.useEffect(() => {
     setMounted(true);
@@ -32,17 +36,64 @@ export function DashboardSlideDialog({
   React.useEffect(() => {
     if (!open) return;
 
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onOpenChange(false);
+    const focusFirst = () => {
+      const root = contentRef.current;
+      if (!root) return;
+      const focusables = root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+      const target = focusables[0] ?? root;
+      target.focus();
     };
+    const focusTimer = window.setTimeout(focusFirst, 0);
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onOpenChange(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const root = contentRef.current;
+      if (!root) return;
+      const focusables = Array.from(
+        root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      ).filter((el) => !el.hasAttribute("disabled") && el.tabIndex !== -1);
+      if (focusables.length === 0) {
+        event.preventDefault();
+        root.focus();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey) {
+        if (active === first || !root.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !root.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
     window.addEventListener("keydown", onKeyDown);
 
     return () => {
+      window.clearTimeout(focusTimer);
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
+      previousFocusRef.current?.focus?.();
+      previousFocusRef.current = null;
     };
   }, [open, onOpenChange]);
 
@@ -52,14 +103,17 @@ export function DashboardSlideDialog({
     <div className="fixed inset-0 z-[200]" role="presentation">
       <button
         type="button"
+        tabIndex={-1}
         aria-label="Close dialog"
         className="absolute inset-0 bg-black/40"
         onClick={() => onOpenChange(false)}
       />
       <div
+        ref={contentRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={ariaLabelledBy}
+        tabIndex={-1}
         className={cn(
           "absolute inset-x-0 bottom-0 z-[201] flex max-h-[90dvh] w-full min-w-0 flex-col overflow-hidden rounded-t-[16px] bg-white shadow-2xl outline-none",
           "md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:max-h-[min(92dvh,900px)] md:w-full md:max-w-[606px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[16px]",

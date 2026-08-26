@@ -106,7 +106,7 @@ export function SignupSourceDialog({
   return (
     <Dialog open={open} onOpenChange={() => undefined}>
       <DialogContent
-        className="max-h-[min(90dvh,720px)] gap-0 overflow-hidden border-[#e3e8f0] bg-white p-0 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:max-w-lg sm:rounded-[16px]"
+        className="flex max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden border-[#e3e8f0] bg-white p-0 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:max-w-lg sm:rounded-[16px]"
         onPointerDownOutside={(event) => event.preventDefault()}
         onEscapeKeyDown={(event) => event.preventDefault()}
         hideCloseButton

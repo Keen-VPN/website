@@ -315,11 +315,16 @@ function CurrentPlanTab() {
     membershipDashboard?.currentPeriodEnd ||
     subscription.endDate ||
     subscription.currentPeriodEnd;
-  const planTitle =
-    (isSharedMember &&
-      (membershipDashboard?.planName?.trim() ||
-        membershipDashboard?.membership?.planName?.trim())) ||
-    null;
+  const planTitle = isSharedMember
+    ? (
+        membershipDashboard?.planName?.trim() ||
+        membershipDashboard?.membership?.planName?.trim() ||
+        null
+      )?.replace(
+        /\s*[–—-]\s*(monthly|annual|yearly|1[\s-]?year|2[\s-]?years?)\s*$/i,
+        "",
+      ) || null
+    : null;
 
   return (
     <>

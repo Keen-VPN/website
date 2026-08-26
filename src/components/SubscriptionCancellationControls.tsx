@@ -160,6 +160,7 @@ export function SubscriptionCancellationControls({
               Turn off auto-renewal
             </Button>
           </AlertDialogTrigger>
+          {/* Branded light surface — matches dashboard / new marketing UI */}
           <AlertDialogContent className="gap-5 border-[#e3e8f0] bg-white p-6 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:rounded-[16px]">
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center text-[18px] font-semibold text-[#0f2040]">

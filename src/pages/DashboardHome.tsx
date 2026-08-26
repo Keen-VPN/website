@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronRight, Shield, Smartphone } from "lucide-react";
+import { CheckCircle2, ChevronRight, Shield, Smartphone, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAppStoreUrl } from "@/hooks/use-app-store-url";
@@ -41,51 +41,82 @@ function PaymentCompleteBanner({
   const isDeepLinkSupported = useMemo(() => isAppDeepLinkSupported(), []);
   const unsupportedDeviceName = useMemo(() => getUnsupportedDeviceName(), []);
 
+  const handleDownload = () => {
+    openKeenVpnAppStore(resolveAppStoreUrl(appStoreUrl));
+    onDismiss();
+  };
+
   return (
-    <div className="mx-4 mb-4 rounded-[13px] border border-[#dbeafe] bg-[#f5f9ff] px-5 py-5 sm:mx-6 sm:px-6 lg:mx-7">
-      <div className="text-center">
-        <h3 className="text-[17px] font-semibold text-[#0f2040]">
-          Payment complete
-        </h3>
-        <p className="mt-1 text-[14px] text-[#627086]">
-          Thanks for trying KeenVPN. Your subscription is active.{" "}
-          {isASWeb
-            ? "Return to the app and connect to KeenVPN."
-            : isDeepLinkSupported
-              ? "Download KeenVPN to connect on this device."
-              : `Install KeenVPN on your ${unsupportedDeviceName} to connect.`}
-        </p>
-      </div>
-      <div className="mt-4 flex flex-col items-center gap-3">
-        {isASWeb ? (
-          <>
+    <div className="mx-4 mb-4 overflow-hidden rounded-[13px] bg-[#eef8f2] px-4 py-4 sm:mx-6 sm:px-5 lg:mx-7">
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#159653]/15">
+          <CheckCircle2 className="h-4 w-4 text-[#159653]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-[15px] font-semibold text-[#0f2040]">
+                You&apos;re all set
+              </h3>
+              <p className="mt-0.5 text-[13px] leading-relaxed text-[#43516a]">
+                {isASWeb
+                  ? "Your subscription is active. Return to the app to connect."
+                  : isDeepLinkSupported
+                    ? "Your subscription is active. Download the app to connect on this device."
+                    : `Your subscription is active. Install KeenVPN on your ${unsupportedDeviceName} to connect.`}
+              </p>
+            </div>
             <button
               type="button"
-              className="inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-[8px] bg-[#0f2040] px-5 py-3 text-[14px] font-semibold text-white hover:bg-[#0f2040]/90"
-              onClick={onReturnToApp}
-            >
-              <Smartphone className="h-5 w-5" />
-              {RETURN_TO_APP_LABEL}
-            </button>
-            <button
-              type="button"
-              className="text-[13px] font-medium text-[#627086] hover:text-[#0f2040]"
+              aria-label="Dismiss"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-[#627086] hover:bg-white/70 hover:text-[#0f2040]"
               onClick={onDismiss}
             >
-              Continue on web
+              <X className="h-4 w-4" />
             </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            className="inline-flex w-full max-w-sm items-center justify-center rounded-[8px] bg-[#0f2040] px-5 py-3 text-[14px] font-semibold text-white hover:bg-[#0f2040]/90"
-            onClick={() =>
-              openKeenVpnAppStore(resolveAppStoreUrl(appStoreUrl))
-            }
-          >
-            {getAppStoreInstallButtonLabel()}
-          </button>
-        )}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {isASWeb ? (
+              <>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 rounded-[8px] bg-[#0f2040] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#0f2040]/90"
+                  onClick={() => {
+                    onReturnToApp();
+                    onDismiss();
+                  }}
+                >
+                  <Smartphone className="h-4 w-4" />
+                  {RETURN_TO_APP_LABEL}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-[8px] px-3 py-2 text-[13px] font-medium text-[#627086] hover:text-[#0f2040]"
+                  onClick={onDismiss}
+                >
+                  Continue on web
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-[8px] bg-[#0f2040] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#0f2040]/90"
+                  onClick={handleDownload}
+                >
+                  {getAppStoreInstallButtonLabel()}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-[8px] px-3 py-2 text-[13px] font-medium text-[#627086] hover:text-[#0f2040]"
+                  onClick={onDismiss}
+                >
+                  Got it
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
