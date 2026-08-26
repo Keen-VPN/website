@@ -80,12 +80,19 @@ export function AuthEmailCard({
     };
   }, [loadStatus]);
 
+  const savingRef = useRef(saving);
+  savingRef.current = saving;
+
   function closeEditModal() {
-    if (saving) return;
+    if (savingRef.current) return;
     setEditing(false);
     setFormError(null);
     setNewEmail("");
   }
+
+  const handleEditOpenChange = useCallback((nextOpen: boolean) => {
+    if (!nextOpen) closeEditModal();
+  }, []);
 
   async function handleRequestChange(event: React.FormEvent) {
     event.preventDefault();
@@ -180,9 +187,7 @@ export function AuthEmailCard({
     const changeEmailModal = (
       <DashboardSlideDialog
         open={editing}
-        onOpenChange={(open) => {
-          if (!open) closeEditModal();
-        }}
+        onOpenChange={handleEditOpenChange}
         ariaLabelledBy="change-email-title"
         className="sm:max-w-[480px]"
       >

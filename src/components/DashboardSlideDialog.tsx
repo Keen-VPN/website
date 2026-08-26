@@ -17,6 +17,9 @@ const FOCUSABLE_SELECTOR =
 /**
  * Branded dashboard modal without Radix scroll-lock (avoids broken body
  * margin-right on mobile). Implements focus trap + restore manually.
+ *
+ * Focus lifecycle depends only on `open` so parent re-renders (e.g. typing in
+ * AuthEmailCard) do not steal focus mid-keystroke.
  */
 export function DashboardSlideDialog({
   open,
@@ -28,6 +31,11 @@ export function DashboardSlideDialog({
   const [mounted, setMounted] = React.useState(false);
   const contentRef = React.useRef<HTMLDivElement>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
+  const onOpenChangeRef = React.useRef(onOpenChange);
+
+  React.useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
 
   React.useEffect(() => {
     setMounted(true);
@@ -44,19 +52,24 @@ export function DashboardSlideDialog({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    const focusFirst = () => {
+    const focusInitial = () => {
       const root = contentRef.current;
       if (!root) return;
-      const focusables = root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-      const target = focusables[0] ?? root;
-      target.focus();
+      // Prefer an editable field (e.g. new email) over Close / Cancel buttons.
+      const preferred =
+        root.querySelector<HTMLElement>(
+          'input:not([readonly]):not([disabled]), textarea:not([readonly]):not([disabled])',
+        ) ??
+        root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)[0] ??
+        root;
+      preferred.focus();
     };
-    const focusTimer = window.setTimeout(focusFirst, 0);
+    const focusTimer = window.setTimeout(focusInitial, 0);
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onOpenChange(false);
+        onOpenChangeRef.current(false);
         return;
       }
       if (event.key !== "Tab") return;
@@ -95,7 +108,7 @@ export function DashboardSlideDialog({
       previousFocusRef.current?.focus?.();
       previousFocusRef.current = null;
     };
-  }, [open, onOpenChange]);
+  }, [open]);
 
   if (!mounted || !open) return null;
 
@@ -106,7 +119,7 @@ export function DashboardSlideDialog({
         tabIndex={-1}
         aria-label="Close dialog"
         className="absolute inset-0 bg-black/40"
-        onClick={() => onOpenChange(false)}
+        onClick={() => onOpenChangeRef.current(false)}
       />
       <div
         ref={contentRef}

@@ -321,7 +321,7 @@ function CurrentPlanTab() {
         membershipDashboard?.membership?.planName?.trim() ||
         null
       )?.replace(
-        /\s*[–—-]\s*(monthly|annual|yearly|1[\s-]?year|2[\s-]?years?)\s*$/i,
+        /\s*(?:[–—-]\s*)?(monthly|annual|yearly|\d+\s*[- ]?\s*years?)\s*$/i,
         "",
       ) || null
     : null;
