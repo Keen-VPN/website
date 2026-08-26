@@ -525,19 +525,13 @@ export default function DashboardProfile() {
               title="AI assistants"
               description="Connect an AI assistant to KeenVPN so it can use your perks and recommendations. Disconnect any time."
             />
-            <AiConnectionsPanel sessionToken={sessionToken} />
+            <AiConnectionsPanel sessionToken={sessionToken} embedded />
           </section>
         ) : null}
 
-        {sessionToken ? (
-          <section className={cardClass}>
-            <SectionHeader
-              title="AI Assistant"
-              description="Ask KeenVPN to help you complete partner applications."
-            />
-            <AiAssistantCard sessionToken={sessionToken} />
-          </section>
-        ) : null}
+        {/* Brings its own WorkspacePanel chrome and title, so it is not wrapped in a
+            section/SectionHeader the way AiConnectionsPanel is - that double-decorated it. */}
+        {sessionToken ? <AiAssistantCard sessionToken={sessionToken} /> : null}
 
         {/* Email Preferences */}
         <section className={cardClass}>
