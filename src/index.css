@@ -103,6 +103,37 @@ All colors MUST be HSL.
       0px 16px 19px hsl(217 62% 15% / 0.06);
   }
 
+  /*
+   * The app's base theme is dark (:root above), but the dashboard redesign
+   * hardcodes a light palette (bg-white, #0f2040). Any component that resolves
+   * theme tokens instead of those hex values - the AI Assistant card and the
+   * rest of what was lifted off the legacy /account page - therefore renders a
+   * dark card inside a white dashboard.
+   *
+   * This scope re-points the tokens at the dashboard's own colours, so those
+   * components fit without being rewritten and without changing how they look
+   * on /account, which is still dark.
+   */
+  .dashboard-surface {
+    --background: 0 0% 100%;
+    --foreground: 219 62% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 219 62% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 219 62% 15%;
+    --muted: 220 43% 97%;
+    --muted-foreground: 218 15% 45%;
+    --border: 216 33% 92%;
+    --input: 216 33% 92%;
+    --primary: 219 62% 15%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 43% 97%;
+    --secondary-foreground: 219 62% 15%;
+    --accent: 220 43% 97%;
+    --accent-foreground: 219 62% 15%;
+    --ring: 219 62% 15%;
+  }
+
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
