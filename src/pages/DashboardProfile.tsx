@@ -24,8 +24,6 @@ import GoogleIcon from "@/components/ui/google-icon";
 import { UserInformationCard } from "@/components/UserInformationCard";
 import { ConnectedDevicesCard } from "@/components/ConnectedDevicesCard";
 import { AuthEmailCard } from "@/components/AuthEmailCard";
-import { AiConnectionsPanel } from "@/components/AiConnectionsPanel";
-import { AiAssistantCard } from "@/components/AiAssistantCard";
 import { cn } from "@/lib/utils";
 import { hasManageableSubscription, canCancelStripeOnWebsite, isAppleIapSubscription } from "@/lib/subscription-cta";
 import { AppleIapSubscriptionsCta } from "@/components/AppleIapSubscriptionsCta";
@@ -513,25 +511,8 @@ export default function DashboardProfile() {
           />
         ) : null}
 
-        {/* Carried over from the legacy /account page, which the dashboard redesign
-            orphaned: /account now redirects to /dashboard and no dashboard page mounted
-            AccountWorkspace, so these had no route at all. AiConnectionsPanel in particular
-            is the only UI for KVPN-506 — without it a member cannot connect or revoke an
-            assistant. Each takes only a session token and pulls its own data.
-            Secure Vault and Workflows are still orphaned; see KVPN-554 / KVPN-615. */}
-        {sessionToken ? (
-          <section className={cardClass}>
-            <SectionHeader
-              title="AI assistants"
-              description="Connect an AI assistant to KeenVPN so it can use your perks and recommendations. Disconnect any time."
-            />
-            <AiConnectionsPanel sessionToken={sessionToken} embedded />
-          </section>
-        ) : null}
-
-        {/* Brings its own WorkspacePanel chrome and title, so it is not wrapped in a
-            section/SectionHeader the way AiConnectionsPanel is - that double-decorated it. */}
-        {sessionToken ? <AiAssistantCard sessionToken={sessionToken} /> : null}
+        {/* AI assistants and the AI Assistant chat moved to Products -> AI Assistant
+            (/ai-assistant). They are a product surface, not account settings. */}
 
         {/* Email Preferences */}
         <section className={cardClass}>

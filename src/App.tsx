@@ -111,6 +111,9 @@ const DashboardSubscription = lazy(
   () => import("./pages/DashboardSubscription"),
 );
 const DashboardProfile = lazy(() => import("./pages/DashboardProfile"));
+const DashboardAiAssistant = lazy(
+  () => import("./pages/DashboardAiAssistant"),
+);
 const DashboardSupport = lazy(() => import("./pages/DashboardSupport"));
 const DashboardLayout = lazy(
   () => import("./components/dashboard/DashboardLayout"),
@@ -288,6 +291,7 @@ const App = () => (
                 <Route path="/downloads" element={<DashboardDownloads />} />
                 <Route path="/referrals" element={<DashboardReferrals />} />
                 <Route path="/class-action" element={<DashboardClassAction />} />
+                <Route path="/ai-assistant" element={<DashboardAiAssistant />} />
                 <Route
                   path="/subscription"
                   element={<DashboardSubscription />}
