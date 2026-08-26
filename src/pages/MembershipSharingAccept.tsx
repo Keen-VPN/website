@@ -14,7 +14,6 @@ import {
 } from "@/auth/backend";
 import {
   clearMatchingPendingMembershipInviteAcceptIntent,
-  clearPendingMembershipInviteAcceptIntent,
   inviteAcceptIntentMatches,
   readPendingMembershipInviteAcceptIntent,
   storePendingMembershipInviteAcceptIntent,
@@ -44,6 +43,7 @@ export default function MembershipSharingAccept() {
     loading: authLoading,
     isAuthenticating,
     hasSessionToken,
+    refreshSubscription,
   } = useAuth();
   const appStoreUrl = useAppStoreUrl();
   const [loading, setLoading] = useState(true);
@@ -292,11 +292,12 @@ export default function MembershipSharingAccept() {
         setRequiresAppleCancellation(res.requiresAppleCancellation === true);
         setCreditPending(res.pending === true);
         setAccepted(true);
+        await refreshSubscription();
       } finally {
         setLoading(false);
       }
     },
-    [confirmationAccepted, inviteId, token],
+    [confirmationAccepted, inviteId, refreshSubscription, token],
   );
 
   async function handleAccept() {
@@ -316,7 +317,7 @@ export default function MembershipSharingAccept() {
   }
 
   function handleDecline() {
-    clearPendingMembershipInviteAcceptIntent();
+    clearMatchingPendingMembershipInviteAcceptIntent(token, inviteId);
     navigate("/account", { replace: true });
   }
 
@@ -433,6 +434,13 @@ export default function MembershipSharingAccept() {
               onClick={openKeenVpnApp}
             >
               Open KeenVPN App
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-10 items-center justify-center rounded-[8px] border border-[#0f2040]/25 bg-white px-4 text-sm font-medium text-[#0f2040] transition-colors hover:bg-[#f5f7fb]"
+              onClick={() => navigate("/dashboard", { replace: true })}
+            >
+              Go to dashboard
             </button>
           </div>
         ) : null}

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY,
+  PENDING_MEMBERSHIP_INVITE_ACCEPT_TTL_MS,
   buildMembershipInviteAcceptPath,
   clearPendingMembershipInviteAcceptIntent,
   peekPendingMembershipInviteAcceptRedirect,
@@ -68,11 +69,41 @@ describe("membership invite accept intent", () => {
         token: "invite-token",
         acceptsBusinessBilling: true,
         acknowledgesPrivacy: false,
+        createdAt: Date.now(),
       }),
     );
 
     expect(readPendingMembershipInviteAcceptIntent(storage)).toBeNull();
     expect(peekPendingMembershipInviteAcceptRedirect(storage)).toBeNull();
+  });
+
+  it("rejects expired intents", () => {
+    const storage = createStorage();
+    storage.setItem(
+      PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY,
+      JSON.stringify({
+        token: "invite-token",
+        acceptsBusinessBilling: true,
+        acknowledgesPrivacy: true,
+        createdAt: Date.now() - PENDING_MEMBERSHIP_INVITE_ACCEPT_TTL_MS - 1,
+      }),
+    );
+
+    expect(readPendingMembershipInviteAcceptIntent(storage)).toBeNull();
+  });
+
+  it("rejects legacy intents without createdAt", () => {
+    const storage = createStorage();
+    storage.setItem(
+      PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY,
+      JSON.stringify({
+        token: "invite-token",
+        acceptsBusinessBilling: true,
+        acknowledgesPrivacy: true,
+      }),
+    );
+
+    expect(readPendingMembershipInviteAcceptIntent(storage)).toBeNull();
   });
 
   it("clears stored intent", () => {

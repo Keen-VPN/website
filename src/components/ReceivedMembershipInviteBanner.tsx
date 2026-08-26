@@ -8,6 +8,7 @@ import {
 import { peekPendingMembershipInviteAcceptRedirect } from "@/auth/membership-invite-accept-intent";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
 import { resetAuthenticationForReauth } from "@/auth/reauth";
 import { buildSignInUrlForCurrentLocation } from "@/auth/post-login-redirect";
 import { cn } from "@/lib/utils";
@@ -184,6 +185,8 @@ export function ReceivedMembershipInviteBanner({
   variant = "default",
 }: ReceivedMembershipInviteBannerProps) {
   const navigate = useNavigate();
+  const { dashboard: membershipDashboard, loading: membershipLoading } =
+    useMembershipSharingContext();
   const [invites, setInvites] = useState<ReceivedMembershipInvite[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -191,19 +194,35 @@ export function ReceivedMembershipInviteBanner({
   const [reauthenticating, setReauthenticating] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
+  const isASWebSession =
+    new URLSearchParams(window.location.search).get("asweb") === "1" ||
+    sessionStorage.getItem("asweb_session") === "1";
+  const alreadyOnTeam =
+    membershipDashboard?.role === "member" ||
+    membershipDashboard?.role === "transfer_pending";
+
   const retry = useCallback(() => {
     setRetryCount((count) => count + 1);
   }, []);
 
   // If Accept was clicked while signed out but login dropped onto Home/Account,
-  // resume the invite page so auto-accept can finish.
+  // resume the invite page so auto-accept can finish. Never hijack ASWeb
+  // /account?asweb=1 — that page must keep app handoff.
   useEffect(() => {
+    if (isASWebSession || alreadyOnTeam) return;
     const pendingAcceptPath = peekPendingMembershipInviteAcceptRedirect();
     if (!pendingAcceptPath) return;
     navigate(pendingAcceptPath, { replace: true });
-  }, [navigate]);
+  }, [alreadyOnTeam, isASWebSession, navigate]);
 
   useEffect(() => {
+    if (alreadyOnTeam) {
+      setInvites([]);
+      setError(null);
+      setReady(true);
+      return;
+    }
+
     let cancelled = false;
     setReady(false);
     setError(null);
@@ -230,7 +249,7 @@ export function ReceivedMembershipInviteBanner({
     return () => {
       cancelled = true;
     };
-  }, [retryCount, sessionToken]);
+  }, [alreadyOnTeam, retryCount, sessionToken]);
 
   const reauthenticate = useCallback(async () => {
     setReauthenticating(true);
@@ -245,8 +264,18 @@ export function ReceivedMembershipInviteBanner({
     window.location.href = buildSignInUrlForCurrentLocation();
   }, []);
 
+  // Wait for membership role before showing invite CTAs so accepted members
+  // do not briefly see "Review invitation" after joining.
+  if (membershipLoading && !membershipDashboard) {
+    return null;
+  }
+
+  if (alreadyOnTeam) {
+    return null;
+  }
+
   // Avoid flashing the review banner while we resume a consented Accept.
-  if (peekPendingMembershipInviteAcceptRedirect()) {
+  if (!isASWebSession && peekPendingMembershipInviteAcceptRedirect()) {
     return null;
   }
 

@@ -12,10 +12,11 @@ import {
 } from "@/auth/backend";
 import { formatScheduledAnnualBillingDate } from "@/lib/scheduled-annual-billing";
 import { getDashboardServersLabel } from "@/constants/server-locations";
-import { MembershipSharingProvider } from "@/contexts/MembershipSharingContext";
+import { MembershipSharingProvider, useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
 import { MembershipTeamPanel } from "@/components/MembershipTeamPanel";
 import { ReceivedMembershipInviteBanner } from "@/components/ReceivedMembershipInviteBanner";
 import { hasManageableSubscription, isEndedSubscription } from "@/lib/subscription-cta";
+import type { SubscriptionData } from "@/auth/types";
 import { DashboardHomeLayout } from "@/components/dashboard/DashboardHomeShared";
 import {
   getAppStoreInstallButtonLabel,
@@ -445,13 +446,52 @@ export default function DashboardHome() {
 
   if (loading || checkoutHydrating) return <HomeLoading />;
 
-  const resolvedState = hasManageableSubscription(subscription)
+  return (
+    <MembershipSharingProvider sessionToken={sessionToken}>
+      <DashboardHomeContent
+        sessionToken={sessionToken}
+        subscription={subscription}
+        showPaymentCompleteBanner={showPaymentCompleteBanner}
+        isASWeb={isASWeb}
+        dismissPostCheckoutUi={dismissPostCheckoutUi}
+        returnToApp={returnToApp}
+      />
+    </MembershipSharingProvider>
+  );
+}
+
+function DashboardHomeContent({
+  sessionToken,
+  subscription,
+  showPaymentCompleteBanner,
+  isASWeb,
+  dismissPostCheckoutUi,
+  returnToApp,
+}: {
+  sessionToken: string | null;
+  subscription: SubscriptionData | null;
+  showPaymentCompleteBanner: boolean;
+  isASWeb: boolean;
+  dismissPostCheckoutUi: () => void;
+  returnToApp: (token: string | null) => void;
+}) {
+  const { dashboard: membershipDashboard, loading: membershipLoading } =
+    useMembershipSharingContext();
+  const onTeam =
+    membershipDashboard?.role === "member" ||
+    membershipDashboard?.role === "transfer_pending";
+
+  if (membershipLoading && !membershipDashboard) {
+    return <HomeLoading />;
+  }
+
+  const resolvedState = hasManageableSubscription(subscription) || onTeam
     ? "subscribed"
     : isEndedSubscription(subscription)
       ? "expired"
       : "new";
 
-  const content = (
+  return (
     <>
       {showPaymentCompleteBanner ? (
         <PaymentCompleteBanner
@@ -470,11 +510,5 @@ export default function DashboardHome() {
       {resolvedState === "new" && <NewUserHome />}
       {resolvedState === "expired" && <ExpiredHome />}
     </>
-  );
-
-  return (
-    <MembershipSharingProvider sessionToken={sessionToken}>
-      {content}
-    </MembershipSharingProvider>
   );
 }

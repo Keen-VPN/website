@@ -100,7 +100,7 @@ const Header = () => {
                     <User className="mr-2 h-4 w-4 shrink-0" />
                     <span className="truncate">{user.email}</span>
                     {subscription?.status === "active" && (
-                      <span className="ml-2 shrink-0 rounded-full bg-[#E85C04] px-2 py-0.5 text-xs font-medium text-white">
+                      <span className="ml-2 shrink-0 rounded-full bg-[#E85C04] px-2 py-0.5 text-xs font-medium text-[#081020]">
                         Premium
                       </span>
                     )}
@@ -209,7 +209,7 @@ const Header = () => {
                         {user.email}
                       </span>
                       {subscription?.status === "active" && (
-                        <span className="shrink-0 rounded-full bg-[#E85C04] px-2 py-0.5 text-xs font-medium text-white">
+                        <span className="shrink-0 rounded-full bg-[#E85C04] px-2 py-0.5 text-xs font-medium text-[#081020]">
                           Premium
                         </span>
                       )}

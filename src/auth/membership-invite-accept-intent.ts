@@ -1,16 +1,28 @@
-/** Survives OAuth/OTP round-trips when the post-login `redirect` query is dropped. */
+/** Tab-scoped resume intent for consented invite Accept → sign-in. */
 export const PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY =
   "keenvpn_membership_invite_pending_accept";
+
+/** Abandoned Accept→sign-in flows expire so later logins are not hijacked. */
+export const PENDING_MEMBERSHIP_INVITE_ACCEPT_TTL_MS = 2 * 60 * 60 * 1000;
 
 export interface PendingMembershipInviteAcceptIntent {
   token?: string;
   inviteId?: string;
   acceptsBusinessBilling: boolean;
   acknowledgesPrivacy: boolean;
+  /** Epoch ms when Accept was clicked; used for expiry cleanup. */
+  createdAt?: number;
 }
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function defaultIntentStorage(): Pick<
+  Storage,
+  "getItem" | "setItem" | "removeItem"
+> {
+  return sessionStorage;
 }
 
 export function buildMembershipInviteAcceptPath(intent: {
@@ -43,6 +55,7 @@ export function inviteAcceptIntentMatches(
 
 function parsePendingMembershipInviteAcceptIntent(
   raw: string | null,
+  nowMs = Date.now(),
 ): PendingMembershipInviteAcceptIntent | null {
   if (!raw) return null;
   try {
@@ -60,71 +73,92 @@ function parsePendingMembershipInviteAcceptIntent(
     ) {
       return null;
     }
+
+    const createdAt =
+      typeof parsed.createdAt === "number" && Number.isFinite(parsed.createdAt)
+        ? parsed.createdAt
+        : null;
+    // Legacy entries without createdAt are treated as expired so abandoned
+    // origin-wide localStorage intents cannot redirect later logins forever.
+    if (
+      createdAt === null ||
+      nowMs - createdAt > PENDING_MEMBERSHIP_INVITE_ACCEPT_TTL_MS
+    ) {
+      return null;
+    }
+
     return {
       ...(token ? { token } : {}),
       ...(inviteId ? { inviteId } : {}),
       acceptsBusinessBilling: true,
       acknowledgesPrivacy: true,
+      createdAt,
     };
   } catch {
     return null;
   }
 }
 
+function clearLegacyLocalStorageIntent(): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.removeItem(PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY);
+  } catch {
+    // Ignore private-mode / quota failures.
+  }
+}
+
 export function readPendingMembershipInviteAcceptIntent(
-  storage: Pick<Storage, "getItem" | "setItem" | "removeItem"> = localStorage,
+  storage: Pick<
+    Storage,
+    "getItem" | "setItem" | "removeItem"
+  > = defaultIntentStorage(),
 ): PendingMembershipInviteAcceptIntent | null {
   const fromPrimary = parsePendingMembershipInviteAcceptIntent(
     storage.getItem(PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY),
   );
   if (fromPrimary) return fromPrimary;
 
-  // Migrate mid-flow intents written before localStorage was adopted.
-  if (typeof sessionStorage === "undefined") return null;
+  // Drop stale/invalid primary entries and any leftover origin-wide copies.
   try {
-    const legacy = parsePendingMembershipInviteAcceptIntent(
-      sessionStorage.getItem(PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY),
-    );
-    if (!legacy) return null;
-    storePendingMembershipInviteAcceptIntent(legacy, storage);
-    sessionStorage.removeItem(PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY);
-    return legacy;
+    storage.removeItem(PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY);
   } catch {
-    return null;
+    // Ignore.
   }
+  clearLegacyLocalStorageIntent();
+  return null;
 }
 
 export function storePendingMembershipInviteAcceptIntent(
   intent: PendingMembershipInviteAcceptIntent,
-  storage: Pick<Storage, "setItem" | "removeItem"> = localStorage,
+  storage: Pick<Storage, "setItem" | "removeItem"> = defaultIntentStorage(),
 ): void {
-  storage.setItem(PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY, JSON.stringify(intent));
-  if (typeof sessionStorage !== "undefined") {
-    try {
-      sessionStorage.removeItem(PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY);
-    } catch {
-      // Ignore quota / private-mode failures on the legacy key.
-    }
-  }
+  const payload: PendingMembershipInviteAcceptIntent = {
+    ...intent,
+    createdAt:
+      typeof intent.createdAt === "number" && Number.isFinite(intent.createdAt)
+        ? intent.createdAt
+        : Date.now(),
+  };
+  storage.setItem(PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY, JSON.stringify(payload));
+  // Prefer tab-scoped sessionStorage; never leave a durable localStorage copy.
+  clearLegacyLocalStorageIntent();
 }
 
 export function clearPendingMembershipInviteAcceptIntent(
-  storage: Pick<Storage, "removeItem"> = localStorage,
+  storage: Pick<Storage, "removeItem"> = defaultIntentStorage(),
 ): void {
   storage.removeItem(PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY);
-  if (typeof sessionStorage !== "undefined") {
-    try {
-      sessionStorage.removeItem(PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY);
-    } catch {
-      // Ignore.
-    }
-  }
+  clearLegacyLocalStorageIntent();
 }
 
 export function clearMatchingPendingMembershipInviteAcceptIntent(
   token: string,
   inviteId: string,
-  storage: Pick<Storage, "getItem" | "setItem" | "removeItem"> = localStorage,
+  storage: Pick<
+    Storage,
+    "getItem" | "setItem" | "removeItem"
+  > = defaultIntentStorage(),
 ): void {
   if (
     inviteAcceptIntentMatches(
@@ -139,7 +173,10 @@ export function clearMatchingPendingMembershipInviteAcceptIntent(
 
 /** Prefer this when the normal post-login redirect was lost or double-consumed. */
 export function peekPendingMembershipInviteAcceptRedirect(
-  storage: Pick<Storage, "getItem" | "setItem" | "removeItem"> = localStorage,
+  storage: Pick<
+    Storage,
+    "getItem" | "setItem" | "removeItem"
+  > = defaultIntentStorage(),
 ): string | null {
   const intent = readPendingMembershipInviteAcceptIntent(storage);
   if (!intent) return null;
