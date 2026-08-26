@@ -37,6 +37,7 @@ import {
   clearPostLoginRedirect,
   consumePostLoginRedirect,
 } from "@/auth/post-login-redirect";
+import { peekPendingMembershipInviteAcceptRedirect } from "@/auth/membership-invite-accept-intent";
 import {
   clearStripeCheckoutReturn,
   maybeAutoReturnToKeenVpnAppAfterAuth,
@@ -156,6 +157,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const redirectUrl = consumePostLoginRedirect();
     if (redirectUrl) {
       return redirectUrl;
+    }
+    // If another login handler already consumed `redirect`, still finish a
+    // consented invite accept that was started while signed out.
+    const pendingInviteAcceptUrl = peekPendingMembershipInviteAcceptRedirect();
+    if (pendingInviteAcceptUrl) {
+      return pendingInviteAcceptUrl;
     }
     return accountUrl();
   }, [accountUrl, isASWebSession]);

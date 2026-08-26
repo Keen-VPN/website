@@ -26,6 +26,7 @@ import {
   useDebounce,
   verifyEmailOtp,
 } from "@/auth";
+import { peekPendingMembershipInviteAcceptRedirect } from "@/auth/membership-invite-accept-intent";
 import { recordSignupStarted } from "@/auth/backend";
 import GoogleIcon from "@/components/ui/google-icon";
 import AuthProductPreview from "@/components/auth/AuthProductPreview";
@@ -95,6 +96,10 @@ const SignIn = () => {
     if (redirectUrl) {
       return redirectUrl;
     }
+    const pendingInviteAcceptUrl = peekPendingMembershipInviteAcceptRedirect();
+    if (pendingInviteAcceptUrl) {
+      return pendingInviteAcceptUrl;
+    }
     return "/dashboard";
   }, []);
 
@@ -128,6 +133,12 @@ const SignIn = () => {
         const redirectUrl = consumePostLoginRedirect();
         if (redirectUrl) {
           window.location.href = redirectUrl;
+          return;
+        }
+        const pendingInviteAcceptUrl =
+          peekPendingMembershipInviteAcceptRedirect();
+        if (pendingInviteAcceptUrl) {
+          window.location.href = pendingInviteAcceptUrl;
           return;
         }
         window.location.href = "/dashboard";

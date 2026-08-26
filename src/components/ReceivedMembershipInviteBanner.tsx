@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Mail } from "lucide-react";
 import {
   fetchReceivedMembershipInvites,
   type ReceivedMembershipInvite,
 } from "@/auth/backend";
+import { peekPendingMembershipInviteAcceptRedirect } from "@/auth/membership-invite-accept-intent";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { resetAuthenticationForReauth } from "@/auth/reauth";
@@ -182,6 +183,7 @@ export function ReceivedMembershipInviteBanner({
   sessionToken,
   variant = "default",
 }: ReceivedMembershipInviteBannerProps) {
+  const navigate = useNavigate();
   const [invites, setInvites] = useState<ReceivedMembershipInvite[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -192,6 +194,14 @@ export function ReceivedMembershipInviteBanner({
   const retry = useCallback(() => {
     setRetryCount((count) => count + 1);
   }, []);
+
+  // If Accept was clicked while signed out but login dropped onto Home/Account,
+  // resume the invite page so auto-accept can finish.
+  useEffect(() => {
+    const pendingAcceptPath = peekPendingMembershipInviteAcceptRedirect();
+    if (!pendingAcceptPath) return;
+    navigate(pendingAcceptPath, { replace: true });
+  }, [navigate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -234,6 +244,11 @@ export function ReceivedMembershipInviteBanner({
     }
     window.location.href = buildSignInUrlForCurrentLocation();
   }, []);
+
+  // Avoid flashing the review banner while we resume a consented Accept.
+  if (peekPendingMembershipInviteAcceptRedirect()) {
+    return null;
+  }
 
   if (!ready) return null;
   if (!error && invites.length === 0) return null;

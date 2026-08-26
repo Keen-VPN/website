@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Users } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { AlertTriangle, Loader2, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { fetchSubscriptionPlans } from "@/auth/backend";
@@ -175,31 +186,61 @@ export function MembershipTeamPanel({
           >
             Premium access through {dashboard.membership.ownerEmail}.
           </p>
-          <Button
-            type="button"
-            variant={isDashboard ? "outline" : "destructive"}
-            size="sm"
-            className={cn(
-              "shrink-0 self-start sm:self-auto",
-              isDashboard &&
-                "w-full rounded-[8px] border border-[#f0b4b4] bg-white text-[13px] font-semibold text-[#d14343] hover:bg-[#fff5f5] sm:w-auto",
-            )}
-            disabled={submitting}
-            onClick={() => {
-              if (
-                !window.confirm(
-                  "Leave this team? You will lose shared access immediately.",
-                )
-              ) {
-                return;
-              }
-              void handleLeaveMembership();
-            }}
-          >
-            {submitting ? "Leaving…" : "Leave team"}
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                type="button"
+                variant={isDashboard ? "outline" : "destructive"}
+                size="sm"
+                className={cn(
+                  "shrink-0 self-start sm:self-auto",
+                  isDashboard &&
+                    "h-9 w-full rounded-[8px] border border-[#f0b4b4] bg-white text-[13px] font-semibold text-[#d14343] hover:border-[#f0b4b4] hover:bg-[#fff5f5] hover:text-[#d14343] sm:w-auto",
+                )}
+                disabled={submitting}
+              >
+                {submitting ? "Leaving…" : "Leave team"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="gap-5 border-[#e3e8f0] bg-white p-6 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:rounded-[16px]">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2 text-[18px] font-semibold text-[#0f2040]">
+                  <AlertTriangle className="h-5 w-5 shrink-0 text-[#d14343]" />
+                  Leave this team?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-left text-[14px] leading-relaxed text-[#43516a]">
+                  You will lose shared KeenVPN access through{" "}
+                  <strong className="font-semibold text-[#0f2040]">
+                    {dashboard.membership.ownerEmail}
+                  </strong>{" "}
+                  immediately.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="gap-2 sm:gap-3">
+                <AlertDialogCancel className="mt-0 h-9 rounded-[8px] border-[#dbe2ec] bg-white text-[13px] font-semibold text-[#0f2040] hover:bg-[#f5f7fb] hover:text-[#0f2040]">
+                  Stay on team
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => void handleLeaveMembership()}
+                  disabled={submitting}
+                  className="h-9 rounded-[8px] bg-[#d14343] text-[13px] font-semibold text-white hover:bg-[#d14343]/90"
+                >
+                  {submitting ? "Leaving…" : "Leave team"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
-        {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <p
+            className={cn(
+              "mt-2 text-sm",
+              isDashboard ? "text-[#d14343]" : "text-destructive",
+            )}
+          >
+            {error}
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -231,31 +272,58 @@ export function MembershipTeamPanel({
           >
             {statusCopy}
           </p>
-          <Button
-            type="button"
-            variant={isDashboard ? "outline" : "destructive"}
-            size="sm"
-            className={cn(
-              "shrink-0 self-start sm:self-auto",
-              isDashboard &&
-                "w-full rounded-[8px] border border-[#f0b4b4] bg-white text-[13px] font-semibold text-[#d14343] hover:bg-[#fff5f5] sm:w-auto",
-            )}
-            disabled={submitting}
-            onClick={() => {
-              if (
-                !window.confirm(
-                  "Cancel joining this team? Your own plan will stay as it is.",
-                )
-              ) {
-                return;
-              }
-              void handleLeaveMembership();
-            }}
-          >
-            {submitting ? "Leaving…" : "Cancel"}
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                type="button"
+                variant={isDashboard ? "outline" : "destructive"}
+                size="sm"
+                className={cn(
+                  "shrink-0 self-start sm:self-auto",
+                  isDashboard &&
+                    "h-9 w-full rounded-[8px] border border-[#f0b4b4] bg-white text-[13px] font-semibold text-[#d14343] hover:border-[#f0b4b4] hover:bg-[#fff5f5] hover:text-[#d14343] sm:w-auto",
+                )}
+                disabled={submitting}
+              >
+                {submitting ? "Leaving…" : "Cancel"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="gap-5 border-[#e3e8f0] bg-white p-6 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:rounded-[16px]">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2 text-[18px] font-semibold text-[#0f2040]">
+                  <AlertTriangle className="h-5 w-5 shrink-0 text-[#ed7d36]" />
+                  Cancel joining this team?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-left text-[14px] leading-relaxed text-[#43516a]">
+                  Your own plan will stay as it is. You can accept the invitation
+                  again later from your email or dashboard if it is still open.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="gap-2 sm:gap-3">
+                <AlertDialogCancel className="mt-0 h-9 rounded-[8px] border-[#dbe2ec] bg-white text-[13px] font-semibold text-[#0f2040] hover:bg-[#f5f7fb] hover:text-[#0f2040]">
+                  Keep invitation
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => void handleLeaveMembership()}
+                  disabled={submitting}
+                  className="h-9 rounded-[8px] bg-[#d14343] text-[13px] font-semibold text-white hover:bg-[#d14343]/90"
+                >
+                  {submitting ? "Leaving…" : "Cancel joining"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
-        {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <p
+            className={cn(
+              "mt-2 text-sm",
+              isDashboard ? "text-[#d14343]" : "text-destructive",
+            )}
+          >
+            {error}
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -307,13 +375,13 @@ export function MembershipTeamPanel({
     ? "rounded-[10px] border border-[#eef2f7] bg-[#fafbfd] p-3 sm:p-3.5"
     : "rounded-lg border border-border/80 p-3";
   const outlineBtn = isDashboard
-    ? "h-9 rounded-[8px] border-[#dbe2ec] bg-white text-[13px] font-semibold text-[#0f2040] hover:bg-[#f5f7fb]"
+    ? "h-9 rounded-[8px] border-[#dbe2ec] bg-white text-[13px] font-semibold text-[#0f2040] hover:bg-[#f5f7fb] hover:text-[#0f2040]"
     : undefined;
   const primaryBtn = isDashboard
     ? "h-9 rounded-[8px] bg-[#0f2040] text-[13px] font-semibold text-white hover:bg-[#0f2040]/90"
     : undefined;
   const dangerBtn = isDashboard
-    ? "h-9 rounded-[8px] border border-[#f0b4b4] bg-white text-[13px] font-semibold text-[#d14343] hover:bg-[#fff5f5]"
+    ? "h-9 rounded-[8px] border border-[#f0b4b4] bg-white text-[13px] font-semibold text-[#d14343] hover:border-[#f0b4b4] hover:bg-[#fff5f5] hover:text-[#d14343]"
     : undefined;
 
   return (

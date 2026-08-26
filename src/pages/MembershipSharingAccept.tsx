@@ -12,6 +12,13 @@ import {
   getSessionToken,
   isMembershipInviteDetails,
 } from "@/auth/backend";
+import {
+  clearMatchingPendingMembershipInviteAcceptIntent,
+  clearPendingMembershipInviteAcceptIntent,
+  inviteAcceptIntentMatches,
+  readPendingMembershipInviteAcceptIntent,
+  storePendingMembershipInviteAcceptIntent,
+} from "@/auth/membership-invite-accept-intent";
 import { resetAuthenticationForReauth } from "@/auth/reauth";
 import { buildSignInUrlForCurrentLocation } from "@/auth/post-login-redirect";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,68 +29,10 @@ import {
   resolveNativeAppHandoffDeepLink,
 } from "@/lib/keenvpn-deep-links";
 
-const PENDING_ACCEPT_STORAGE_KEY = "keenvpn_membership_invite_pending_accept";
-
 const CONFIRMATION_COPY =
   "I understand that my company will pay for my KeenVPN subscription. I understand that my company can see my membership status but will never get access to my browsing history or data.";
 
-interface PendingAcceptIntent {
-  token?: string;
-  inviteId?: string;
-  acceptsBusinessBilling: boolean;
-  acknowledgesPrivacy: boolean;
-}
-
 type ReauthReason = "expired_session" | "wrong_account";
-
-function inviteIntentMatches(
-  intent: PendingAcceptIntent | null,
-  token: string,
-  inviteId: string,
-): boolean {
-  if (!intent) return false;
-  if (token && inviteId) return false;
-  if (inviteId) return intent.inviteId === inviteId;
-  if (token) return intent.token === token;
-  return false;
-}
-
-function readPendingAcceptIntent(): PendingAcceptIntent | null {
-  try {
-    const raw = sessionStorage.getItem(PENDING_ACCEPT_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PendingAcceptIntent;
-    const hasToken = typeof parsed?.token === "string";
-    const hasInviteId = typeof parsed?.inviteId === "string";
-    if (
-      hasToken === hasInviteId ||
-      parsed.acceptsBusinessBilling !== true ||
-      parsed.acknowledgesPrivacy !== true
-    ) {
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function storePendingAcceptIntent(intent: PendingAcceptIntent): void {
-  sessionStorage.setItem(PENDING_ACCEPT_STORAGE_KEY, JSON.stringify(intent));
-}
-
-function clearPendingAcceptIntent(): void {
-  sessionStorage.removeItem(PENDING_ACCEPT_STORAGE_KEY);
-}
-
-function clearMatchingPendingAcceptIntent(
-  token: string,
-  inviteId: string,
-): void {
-  if (inviteIntentMatches(readPendingAcceptIntent(), token, inviteId)) {
-    clearPendingAcceptIntent();
-  }
-}
 
 export default function MembershipSharingAccept() {
   const [searchParams] = useSearchParams();
@@ -188,8 +137,8 @@ export default function MembershipSharingAccept() {
       return;
     }
 
-    const pendingIntent = readPendingAcceptIntent();
-    if (inviteIntentMatches(pendingIntent, token, inviteId)) {
+    const pendingIntent = readPendingMembershipInviteAcceptIntent();
+    if (inviteAcceptIntentMatches(pendingIntent, token, inviteId)) {
       setConfirmationAccepted(true);
     } else {
       setConfirmationAccepted(false);
@@ -233,7 +182,7 @@ export default function MembershipSharingAccept() {
           result.status === 404 ||
           result.status === 410
         ) {
-          clearMatchingPendingAcceptIntent(token, inviteId);
+          clearMatchingPendingMembershipInviteAcceptIntent(token, inviteId);
           setError("This invitation is invalid or has expired.");
           setLoading(false);
           return;
@@ -252,7 +201,7 @@ export default function MembershipSharingAccept() {
         setBillingPending(data.billingPending === true);
         setRequiresAppleCancellation(data.requiresAppleCancellation === true);
         if (data.creditPending === true) {
-          clearMatchingPendingAcceptIntent(token, inviteId);
+          clearMatchingPendingMembershipInviteAcceptIntent(token, inviteId);
           setCreditPending(true);
           setBillingDeferredUntil(data.billingDeferredUntil ?? null);
           setAccepted(true);
@@ -320,7 +269,7 @@ export default function MembershipSharingAccept() {
             // user to sign in with the invited email). Keep the consented
             // intent so the accept resumes after re-auth, mirroring the load
             // path's 401 handling.
-            storePendingAcceptIntent({
+            storePendingMembershipInviteAcceptIntent({
               ...(inviteId ? { inviteId } : { token }),
               acceptsBusinessBilling: true,
               acknowledgesPrivacy: true,
@@ -338,7 +287,7 @@ export default function MembershipSharingAccept() {
           setError(res.error ?? "Could not accept invitation.");
           return;
         }
-        clearMatchingPendingAcceptIntent(token, inviteId);
+        clearMatchingPendingMembershipInviteAcceptIntent(token, inviteId);
         setBillingDeferredUntil(res.billingDeferredUntil ?? null);
         setRequiresAppleCancellation(res.requiresAppleCancellation === true);
         setCreditPending(res.pending === true);
@@ -355,7 +304,7 @@ export default function MembershipSharingAccept() {
     if (!sessionToken) {
       // Account banners start authenticated, but the session can expire after
       // this page loads. Preserve only an explicit, consented Accept click.
-      storePendingAcceptIntent({
+      storePendingMembershipInviteAcceptIntent({
         ...(inviteId ? { inviteId } : { token }),
         acceptsBusinessBilling: true,
         acknowledgesPrivacy: true,
@@ -367,7 +316,7 @@ export default function MembershipSharingAccept() {
   }
 
   function handleDecline() {
-    clearMatchingPendingAcceptIntent(token, inviteId);
+    clearPendingMembershipInviteAcceptIntent();
     navigate("/account", { replace: true });
   }
 
@@ -400,10 +349,10 @@ export default function MembershipSharingAccept() {
       return;
     }
 
-    const pendingIntent = readPendingAcceptIntent();
+    const pendingIntent = readPendingMembershipInviteAcceptIntent();
     if (
       !pendingIntent ||
-      !inviteIntentMatches(pendingIntent, token, inviteId)
+      !inviteAcceptIntentMatches(pendingIntent, token, inviteId)
     ) {
       return;
     }

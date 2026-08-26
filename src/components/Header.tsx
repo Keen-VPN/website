@@ -100,7 +100,7 @@ const Header = () => {
                     <User className="mr-2 h-4 w-4 shrink-0" />
                     <span className="truncate">{user.email}</span>
                     {subscription?.status === "active" && (
-                      <span className="ml-2 shrink-0 rounded-full bg-[#ed7d36] px-2 py-0.5 text-xs font-medium text-white">
+                      <span className="ml-2 shrink-0 rounded-full bg-[#E85C04] px-2 py-0.5 text-xs font-medium text-white">
                         Premium
                       </span>
                     )}
@@ -209,7 +209,7 @@ const Header = () => {
                         {user.email}
                       </span>
                       {subscription?.status === "active" && (
-                        <span className="shrink-0 rounded-full bg-[#ed7d36] px-2 py-0.5 text-xs font-medium text-white">
+                        <span className="shrink-0 rounded-full bg-[#E85C04] px-2 py-0.5 text-xs font-medium text-white">
                           Premium
                         </span>
                       )}
@@ -285,7 +285,7 @@ const Header = () => {
                       navigate("/signin");
                       setIsMenuOpen(false);
                     }}
-                    className="inline-flex h-10 w-full items-center justify-center rounded-[8px] border border-white/40 bg-transparent px-4 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                    className="inline-flex h-10 w-full items-center justify-center rounded-[8px] border border-white/40 bg-transparent px-4 text-sm font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
                   >
                     Sign In
                   </button>

@@ -164,6 +164,16 @@ export {
 } from './post-login-redirect';
 
 export {
+  PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY,
+  buildMembershipInviteAcceptPath,
+  clearPendingMembershipInviteAcceptIntent,
+  peekPendingMembershipInviteAcceptRedirect,
+  readPendingMembershipInviteAcceptIntent,
+  storePendingMembershipInviteAcceptIntent,
+} from './membership-invite-accept-intent';
+export type { PendingMembershipInviteAcceptIntent } from './membership-invite-accept-intent';
+
+export {
   RETENTION_WINBACK_TOKEN_STORAGE_KEY,
   clearRetentionWinbackTokenStorage,
   getRetentionWinbackTokenFromStorage,
