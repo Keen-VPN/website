@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   Home,
   Gavel,
+  Sparkles,
   CreditCard,
   Download,
   User,
@@ -125,6 +126,15 @@ export default function DashboardSidebar({
         >
           <Gavel className="h-4 w-4 shrink-0" />
           Class Action
+        </NavLink>
+
+        <NavLink
+          to="/ai-assistant"
+          className={({ isActive }) => navLinkClass(isActive)}
+          {...linkProps}
+        >
+          <Sparkles className="h-4 w-4 shrink-0" />
+          AI Assistant
         </NavLink>
 
         <div className="mb-1 mt-3 px-[9px]">
