@@ -449,10 +449,13 @@ export default function MembershipSharingAccept() {
     );
   };
 
+  const brandButtonClass =
+    "inline-flex h-10 items-center justify-center rounded-[8px] bg-[#0f2040] px-4 text-sm font-medium text-white transition-colors hover:bg-[#0f2040]/90 disabled:pointer-events-none disabled:opacity-50";
+
   return (
-    <div className="min-h-screen bg-[#f5f7fb] text-[#0f2040]">
+    <div className="flex min-h-screen flex-col bg-[#f5f7fb] text-[#0f2040]">
       <Header />
-      <main className="mx-auto flex max-w-xl flex-col items-center px-4 pt-28 pb-16 text-center sm:pt-32">
+      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center px-4 pt-28 pb-16 text-center sm:pt-32">
         <h1 className="text-3xl font-semibold tracking-[-0.4px] text-[#0f2040]">
           Membership Invitation
         </h1>
@@ -475,13 +478,13 @@ export default function MembershipSharingAccept() {
                   : "Turn off App Store auto renewal to avoid being billed twice. Apple does not allow KeenVPN to cancel it for you."}
               </p>
             ) : null}
-            <Button
+            <button
               type="button"
-              className="h-10 rounded-[8px] bg-[#0f2040] text-white hover:bg-[#0f2040]/90"
+              className={brandButtonClass}
               onClick={openKeenVpnApp}
             >
               Open KeenVPN App
-            </Button>
+            </button>
           </div>
         ) : null}
         {!loading && !accepted && error ? (
@@ -584,7 +587,7 @@ export default function MembershipSharingAccept() {
           </div>
         ) : null}
       </main>
-      <Footer />
+      <Footer className="mt-auto border-[#1a3055] bg-[#0f2040] text-white [&_.text-foreground]:text-white [&_.text-muted-foreground]:text-[#b8c4d9] [&_.text-xl]:text-white [&_a:hover]:text-white" />
     </div>
   );
 }

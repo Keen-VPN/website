@@ -93,18 +93,18 @@ const Header = () => {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="border-accent/50 hover:bg-accent/10 hover:border-accent"
+                  <button
+                    type="button"
+                    className="inline-flex h-10 max-w-[min(100%,280px)] items-center rounded-[8px] border border-[#0f2040]/20 bg-[#0f2040] px-4 text-sm font-medium text-white transition-colors hover:bg-[#0f2040]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f2040]/30 focus-visible:ring-offset-2"
                   >
-                    <User className="w-4 h-4 mr-2" />
-                    {user.email}
+                    <User className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="truncate">{user.email}</span>
                     {subscription?.status === "active" && (
-                      <span className="ml-2 px-2 py-0.5 bg-primary text-primary-foreground text-xs rounded-full font-medium">
+                      <span className="ml-2 shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-xs font-medium text-white">
                         Premium
                       </span>
                     )}
-                  </Button>
+                  </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
@@ -203,11 +203,13 @@ const Header = () => {
               <div className="flex flex-col space-y-2 pt-4">
                 {user ? (
                   <>
-                    <div className="flex items-center space-x-2 p-2 bg-accent/10 rounded-lg border border-accent/20">
-                      <User className="w-4 h-4 text-accent" />
-                      <span className="text-sm font-medium">{user.email}</span>
+                    <div className="flex items-center space-x-2 rounded-[8px] border border-[#0f2040]/20 bg-[#0f2040] p-2 text-white">
+                      <User className="h-4 w-4 shrink-0 text-white/90" />
+                      <span className="min-w-0 truncate text-sm font-medium">
+                        {user.email}
+                      </span>
                       {subscription?.status === "active" && (
-                        <span className="px-2 py-0.5 bg-primary text-primary-foreground text-xs rounded-full font-medium">
+                        <span className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-xs font-medium text-white">
                           Premium
                         </span>
                       )}

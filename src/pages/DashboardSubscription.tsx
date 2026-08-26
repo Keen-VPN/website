@@ -171,6 +171,48 @@ function planChangeCtaLabel(
   return `${verb} monthly`;
 }
 
+function isSharedBusinessMember(
+  subscription: SubscriptionData | null | undefined,
+  membershipRole: string | undefined,
+): boolean {
+  return (
+    membershipRole === 'member' || subscription?.accessRole === 'member'
+  );
+}
+
+function SharedBusinessMemberPlansNotice({
+  ownerEmail,
+  onGoToDashboard,
+}: {
+  ownerEmail?: string | null;
+  onGoToDashboard: () => void;
+}) {
+  return (
+    <div className="rounded-[15px] border border-[#e3e8f0] bg-white p-8 text-center shadow-[0px_3px_4px_rgba(15,32,64,0.03)] sm:p-10">
+      <p className="text-[18px] font-semibold text-[#0f2040]">
+        Plan managed by your team
+      </p>
+      <p className="mx-auto mt-3 max-w-md text-[14px] leading-relaxed text-[#627086]">
+        {ownerEmail
+          ? `Your KeenVPN Business access is paid for by ${ownerEmail}. Plan changes and billing are handled by your team admin — not from this account.`
+          : 'Your KeenVPN Business access is paid for by your company. Plan changes and billing are handled by your team admin — not from this account.'}
+      </p>
+      <button
+        type="button"
+        onClick={onGoToDashboard}
+        className="mt-6 rounded-[8px] bg-[#0f2040] px-5 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+      >
+        Go to Dashboard
+      </button>
+      <p className="mt-4 text-[13px] text-[#627086]">
+        To leave this team, use{' '}
+        <span className="font-semibold text-[#0f2040]">Leave team</span> on your
+        dashboard.
+      </p>
+    </div>
+  );
+}
+
 function formatDate(dateString?: string | null) {
   if (!dateString) return '—';
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -187,6 +229,7 @@ function monthlyEquivalent(plan: ApiPlan) {
 function CurrentPlanTab() {
   const { subscription, user, loading, hasSessionToken } = useAuth();
   const navigate = useNavigate();
+  const { dashboard: membershipDashboard } = useMembershipSharingContext();
   const {
     openBillingPortal,
     portalLoading,
@@ -253,6 +296,12 @@ function CurrentPlanTab() {
     isStripeSubscription(subscription) &&
     subscription.canManageBilling === true &&
     !subscription.cancelAtPeriodEnd;
+  const isSharedMember = isSharedBusinessMember(
+    subscription,
+    membershipDashboard?.role,
+  );
+  const teamOwnerEmail =
+    membershipDashboard?.membership?.ownerEmail?.trim() || null;
 
   return (
     <>
@@ -277,9 +326,20 @@ function CurrentPlanTab() {
           </p>
         </div>
 
-        {status === 'past_due' ? (
+        {status === 'past_due' && !isSharedMember ? (
           <div className="mt-5 rounded-[10px] border border-[#f0c2c2] bg-[#fff5f5] px-4 py-3 text-[14px] text-[#d14343]">
             Payment failed. Update your payment method to keep your VPN access.
+          </div>
+        ) : null}
+
+        {isSharedMember ? (
+          <div className="mt-5 rounded-[10px] border border-[#dbeafe] bg-[#f5f9ff] px-4 py-3 text-[14px] text-[#43516a]">
+            <p className="font-semibold text-[#0f2040]">Team access</p>
+            <p className="mt-1">
+              {teamOwnerEmail
+                ? `Premium access through ${teamOwnerEmail}. Billing is managed by your team admin.`
+                : 'Premium access through your company account. Billing is managed by your team admin.'}
+            </p>
           </div>
         ) : null}
 
@@ -288,9 +348,11 @@ function CurrentPlanTab() {
             <Calendar className="mt-0.5 h-6 w-6 shrink-0 text-[#ff7900]" />
             <div>
               <p className="text-[16px] text-[#627086]">
-                {subscription.cancelAtPeriodEnd
-                  ? 'Ends on'
-                  : 'Next billing date'}
+                {isSharedMember
+                  ? 'Team billing cycle'
+                  : subscription.cancelAtPeriodEnd
+                    ? 'Ends on'
+                    : 'Next billing date'}
               </p>
               <p className="mt-2 text-[17px] font-bold text-[#0f2040]">
                 {formatDate(
@@ -305,12 +367,18 @@ function CurrentPlanTab() {
               <p className="text-[16px] text-[#627086]">Auto-renew</p>
               <p
                 className={
-                  autoRenewOn
-                    ? 'mt-2 text-[17px] font-bold text-[#159653]'
-                    : 'mt-2 text-[17px] font-bold text-[#627086]'
+                  isSharedMember
+                    ? 'mt-2 text-[17px] font-bold text-[#0f2040]'
+                    : autoRenewOn
+                      ? 'mt-2 text-[17px] font-bold text-[#159653]'
+                      : 'mt-2 text-[17px] font-bold text-[#627086]'
                 }
               >
-                {autoRenewOn ? 'On' : 'Off'}
+                {isSharedMember
+                  ? 'Managed by team admin'
+                  : autoRenewOn
+                    ? 'On'
+                    : 'Off'}
               </p>
               {canCancel ? (
                 <p className="mt-1 text-[13px] text-[#627086]">
@@ -324,11 +392,17 @@ function CurrentPlanTab() {
             <div>
               <p className="text-[16px] text-[#627086]">Payment method</p>
               <p className="mt-2 text-[17px] font-bold text-[#0f2040]">
-                {subscription.subscriptionType === 'apple_iap'
-                  ? 'App Store billing'
-                  : 'Stripe billing'}
+                {isSharedMember
+                  ? 'Paid by your company'
+                  : subscription.subscriptionType === 'apple_iap'
+                    ? 'App Store billing'
+                    : 'Stripe billing'}
               </p>
-              {user?.email ? (
+              {isSharedMember && teamOwnerEmail ? (
+                <p className="mt-1 text-[14px] text-[#627086]">
+                  Admin: {teamOwnerEmail}
+                </p>
+              ) : user?.email ? (
                 <p className="mt-1 text-[14px] text-[#627086]">{user.email}</p>
               ) : null}
             </div>
@@ -345,43 +419,70 @@ function CurrentPlanTab() {
         </div>
 
         <div className="flex flex-wrap justify-center gap-4 border-t border-[#e3e8f0] pt-7">
-          <button
-            type="button"
-            onClick={() => navigate('/subscription?tab=plans')}
-            className="rounded-[9px] bg-[#0f2040] px-7 py-3.5 text-[16px] font-semibold text-white transition-opacity hover:opacity-90"
-          >
-            Manage plan
-          </button>
-          {canOpenStripePortal ? (
-            <button
-              type="button"
-              onClick={() => void openBillingPortal()}
-              disabled={portalLoading}
-              className="rounded-[9px] border border-[#cfd9e8] bg-white px-7 py-3.5 text-[16px] font-semibold text-[#0f2040] transition-colors hover:bg-[#f7f9fc]"
-            >
-              {portalLoading ? (
-                <Loader2 className="inline h-4 w-4 animate-spin" />
-              ) : (
-                'Change payment method'
-              )}
-            </button>
-          ) : null}
+          {isSharedMember ? (
+            <div className="max-w-lg text-center">
+              <p className="text-[14px] leading-relaxed text-[#627086]">
+                Contact your team admin
+                {teamOwnerEmail ? (
+                  <>
+                    {' '}
+                    (<span className="font-medium text-[#0f2040]">{teamOwnerEmail}</span>)
+                  </>
+                ) : null}{' '}
+                for plan or billing changes. To leave this team, go to your
+                dashboard.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="mt-4 rounded-[9px] bg-[#0f2040] px-7 py-3.5 text-[16px] font-semibold text-white transition-opacity hover:opacity-90"
+              >
+                Go to Dashboard
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => navigate('/subscription?tab=plans')}
+                className="rounded-[9px] bg-[#0f2040] px-7 py-3.5 text-[16px] font-semibold text-white transition-opacity hover:opacity-90"
+              >
+                Manage plan
+              </button>
+              {canOpenStripePortal ? (
+                <button
+                  type="button"
+                  onClick={() => void openBillingPortal()}
+                  disabled={portalLoading}
+                  className="rounded-[9px] border border-[#cfd9e8] bg-white px-7 py-3.5 text-[16px] font-semibold text-[#0f2040] transition-colors hover:bg-[#f7f9fc]"
+                >
+                  {portalLoading ? (
+                    <Loader2 className="inline h-4 w-4 animate-spin" />
+                  ) : (
+                    'Change payment method'
+                  )}
+                </button>
+              ) : null}
+            </>
+          )}
         </div>
 
-        <div className="mt-6 border-t border-[#e3e8f0] pt-6">
-          <SubscriptionCancellationControls
-            subscription={subscription}
-            cancelling={cancelling}
-            onCancel={() => void cancelSubscriptionAtPeriodEnd()}
-            onManageBilling={() => void openBillingPortal()}
-            portalLoading={portalLoading}
-            showManageBilling={false}
-          />
-        </div>
+        {!isSharedMember ? (
+          <div className="mt-6 border-t border-[#e3e8f0] pt-6">
+            <SubscriptionCancellationControls
+              subscription={subscription}
+              cancelling={cancelling}
+              onCancel={() => void cancelSubscriptionAtPeriodEnd()}
+              onManageBilling={() => void openBillingPortal()}
+              portalLoading={portalLoading}
+              showManageBilling={false}
+            />
+          </div>
+        ) : null}
       </div>
     </section>
 
-    {subscription ? (
+    {subscription && !isSharedMember ? (
       <div className="mt-5">
         <MembershipPlanUpgradeCard
           subscription={subscription}
@@ -446,6 +547,12 @@ function PlansTab() {
     isIndividualSubscriber && canSwitchStripeToTwoYear(subscription);
   const annualAlreadyScheduled = hasScheduledAnnualBilling(subscription);
   const twoYearAlreadyScheduled = hasScheduledTwoYearBilling(subscription);
+  const isSharedMember = isSharedBusinessMember(
+    subscription,
+    membershipDashboard?.role,
+  );
+  const teamOwnerEmail =
+    membershipDashboard?.membership?.ownerEmail?.trim() || null;
 
   useEffect(() => {
     if (
@@ -564,6 +671,15 @@ function PlansTab() {
           <Skeleton className="h-96 rounded-[15px]" />
         </div>
       </div>
+    );
+  }
+
+  if (isSharedMember) {
+    return (
+      <SharedBusinessMemberPlansNotice
+        ownerEmail={teamOwnerEmail}
+        onGoToDashboard={() => navigate('/dashboard')}
+      />
     );
   }
 
@@ -772,6 +888,33 @@ function PlansTab() {
                 type="button"
                 onClick={() => {
                   if (businessPlanWaiting || isAnotherPlanLoading) return;
+
+                  const token = getSessionToken();
+                  if (!token) {
+                    toast({
+                      title: 'Session expired',
+                      description: 'Please sign in again.',
+                      variant: 'destructive',
+                    });
+                    return;
+                  }
+
+                  const currentTier = resolveMembershipPlanTier(subscription);
+                  const targetTier = getPlanTier(plan);
+                  if (
+                    currentTier === 'business' &&
+                    targetTier === 'premium' &&
+                    !isCurrentPlan
+                  ) {
+                    toast({
+                      title: 'Individual plans unavailable',
+                      description:
+                        'Business subscriptions cannot switch to Individual in self-serve billing. Manage your Business plan from the Business tab, or contact support if you need to move to Individual.',
+                      variant: 'destructive',
+                    });
+                    return;
+                  }
+
                   setActiveLoadingPlanId(plan.id);
                   if (isCurrentPlan) {
                     if (canOpenStripePortal) {

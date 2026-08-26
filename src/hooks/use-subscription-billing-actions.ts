@@ -268,6 +268,7 @@ export function useSubscriptionBillingActions(
         options.businessSuccessPath ??
         (onDashboard ? "/dashboard" : "/account");
       const successUrl = new URL(successPath, origin);
+      successUrl.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
       successUrl.searchParams.set("business", "upgraded");
       if (successPath === "/account") {
         successUrl.searchParams.set("tab", "team");

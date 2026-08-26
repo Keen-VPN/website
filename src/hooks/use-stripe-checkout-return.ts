@@ -76,6 +76,17 @@ export function useStripeCheckoutReturn(appStoreUrl?: string) {
         if (!cancelled) {
           setCheckoutHydrating(false);
           setCheckoutHydrated(true);
+          setSearchParams(
+            (current) => {
+              const next = new URLSearchParams(current);
+              next.delete("session_id");
+              if (isASWeb) {
+                next.set("asweb", "1");
+              }
+              return next;
+            },
+            { replace: true },
+          );
         }
         return;
       }

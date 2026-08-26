@@ -10,7 +10,7 @@ import {
   fetchDeviceConnectionsStatus,
   getSessionToken,
 } from "@/auth/backend";
-import { serverLocationStats } from "@/constants/server-locations";
+import { formatScheduledAnnualBillingDate } from "@/lib/scheduled-annual-billing";
 import { MembershipSharingProvider } from "@/contexts/MembershipSharingContext";
 import { MembershipTeamPanel } from "@/components/MembershipTeamPanel";
 import { ReceivedMembershipInviteBanner } from "@/components/ReceivedMembershipInviteBanner";
@@ -137,7 +137,7 @@ function SubscribedHome() {
     };
   }, [hasSessionToken]);
 
-  const serversLabel = `${serverLocationStats.locations}+ server locations`;
+  const serversLabel = "40+ server locations";
 
   return (
     <DashboardHomeLayout
@@ -371,17 +371,6 @@ function HomeLoading() {
 
 // ─── Main export — picks the right state ─────────────────────────────────────
 
-function formatScheduledBillingDate(value: string | null): string | null {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(date);
-}
-
 export default function DashboardHome() {
   const { loading, subscription, hasSessionToken } = useAuth();
   const sessionToken = hasSessionToken ? getSessionToken() : null;
@@ -403,7 +392,7 @@ export default function DashboardHome() {
     businessUpgradeHandledRef.current = true;
 
     const scheduledBillingPeriod = searchParams.get("billing");
-    const scheduledBillingDate = formatScheduledBillingDate(
+    const scheduledBillingDate = formatScheduledAnnualBillingDate(
       searchParams.get("billingEffectiveAt"),
     );
     toast({

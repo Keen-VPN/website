@@ -45,6 +45,7 @@ export function MembershipTeamPanel({
     dashboard,
     loading,
     submitting,
+    submittingAction,
     error,
     sharingDisabled,
     setDraftSeatCount,
@@ -427,7 +428,7 @@ export function MembershipTeamPanel({
               size="sm"
               className={cn("w-full sm:w-auto", primaryBtn)}
             >
-              {submitting ? "Updating…" : "Update seats"}
+              {submittingAction === "seats" ? "Updating…" : "Update seats"}
             </Button>
           </div>
         </div>
@@ -454,7 +455,7 @@ export function MembershipTeamPanel({
               disabled={submitting}
               className={
                 isDashboard
-                  ? "h-10 rounded-[8px] border-[#dbe2ec] bg-white"
+                  ? "h-10 rounded-[8px] border-[#dbe2ec] bg-white text-[#0f2040] placeholder:text-[#8d9ab1]"
                   : undefined
               }
             />
@@ -468,7 +469,7 @@ export function MembershipTeamPanel({
               disabled={submitting || !inviteEmail.trim()}
               className={cn("w-full shrink-0 sm:w-auto", primaryBtn)}
             >
-              {submitting ? "Sending…" : "Send invite"}
+              {submittingAction === "invite" ? "Sending…" : "Send invite"}
             </Button>
           </div>
         </div>
@@ -570,7 +571,9 @@ export function MembershipTeamPanel({
                           onClick={() => void resendInvite(pending.id)}
                           disabled={submitting}
                         >
-                          Resend
+                          {submittingAction === `resend:${pending.id}`
+                            ? "Resending…"
+                            : "Resend"}
                         </Button>
                         <Button
                           variant="outline"
@@ -579,7 +582,9 @@ export function MembershipTeamPanel({
                           onClick={() => void cancelInvite(pending.id)}
                           disabled={submitting}
                         >
-                          Cancel
+                          {submittingAction === `cancel:${pending.id}`
+                            ? "Cancelling…"
+                            : "Cancel"}
                         </Button>
                       </div>
                     </li>

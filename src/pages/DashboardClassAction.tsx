@@ -76,11 +76,11 @@ export default function DashboardClassAction() {
         </div>
 
         {/* Right — exact Figma illustration; clip JPEG's square black corner fill */}
-        <div className="mx-auto w-full max-w-[440px] shrink-0 overflow-hidden rounded-[28px] xl:mx-0 xl:w-[480px] xl:max-w-[480px]">
+        <div className="mx-auto w-full max-w-[440px] shrink-0 overflow-hidden rounded-[28px] bg-[#f5f7fb] ring-1 ring-[#e7edf5] xl:mx-0 xl:w-[480px] xl:max-w-[480px]">
           <img
             src="/dashboard/class-action-hero.jpg"
             alt="Class Action preview — deadlines, claim status, and settlement alerts"
-            className="block h-auto w-full select-none"
+            className="block h-auto w-full scale-[1.015] select-none"
             width={865}
             height={1024}
             draggable={false}
