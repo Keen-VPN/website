@@ -119,4 +119,19 @@ describe("membership invite accept intent", () => {
     clearPendingMembershipInviteAcceptIntent(storage);
     expect(peekPendingMembershipInviteAcceptRedirect(storage)).toBeNull();
   });
+
+  it("keeps an intent when localStorage is the primary store override", () => {
+    storePendingMembershipInviteAcceptIntent(
+      {
+        token: "invite-token",
+        acceptsBusinessBilling: true,
+        acknowledgesPrivacy: true,
+      },
+      localStorage,
+    );
+
+    expect(peekPendingMembershipInviteAcceptRedirect(localStorage)).toBe(
+      "/account/membership-sharing/accept?token=invite-token",
+    );
+  });
 });

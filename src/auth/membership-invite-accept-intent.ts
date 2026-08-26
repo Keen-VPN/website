@@ -142,7 +142,10 @@ export function storePendingMembershipInviteAcceptIntent(
   };
   storage.setItem(PENDING_MEMBERSHIP_INVITE_ACCEPT_KEY, JSON.stringify(payload));
   // Prefer tab-scoped sessionStorage; never leave a durable localStorage copy.
-  clearLegacyLocalStorageIntent();
+  // Skip when tests/callers pass localStorage as the primary store.
+  if (typeof localStorage === "undefined" || storage !== localStorage) {
+    clearLegacyLocalStorageIntent();
+  }
 }
 
 export function clearPendingMembershipInviteAcceptIntent(

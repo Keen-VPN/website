@@ -207,13 +207,14 @@ export function ReceivedMembershipInviteBanner({
 
   // If Accept was clicked while signed out but login dropped onto Home/Account,
   // resume the invite page so auto-accept can finish. Never hijack ASWeb
-  // /account?asweb=1 — that page must keep app handoff.
+  // /account?asweb=1 — that page must keep app handoff. Wait for membership
+  // role so a stale intent cannot redirect someone who already joined.
   useEffect(() => {
-    if (isASWebSession || alreadyOnTeam) return;
+    if (isASWebSession || membershipLoading || alreadyOnTeam) return;
     const pendingAcceptPath = peekPendingMembershipInviteAcceptRedirect();
     if (!pendingAcceptPath) return;
     navigate(pendingAcceptPath, { replace: true });
-  }, [alreadyOnTeam, isASWebSession, navigate]);
+  }, [alreadyOnTeam, isASWebSession, membershipLoading, navigate]);
 
   useEffect(() => {
     if (alreadyOnTeam) {
