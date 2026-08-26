@@ -101,7 +101,12 @@ export default function DashboardAiAssistant() {
               <AiConnectionsPanel sessionToken={sessionToken} embedded />
             </section>
 
-            <AiAssistantCard sessionToken={sessionToken} />
+            {/* The card resolves theme tokens, which are dark at :root; this scope
+                re-points them at the dashboard palette so it does not render a
+                navy panel inside a white page. */}
+            <div className="dashboard-surface">
+              <AiAssistantCard sessionToken={sessionToken} />
+            </div>
           </>
         ) : (
           <section className={cardClass}>
