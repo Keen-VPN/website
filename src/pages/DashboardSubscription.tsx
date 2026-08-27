@@ -847,6 +847,8 @@ function PlansTab() {
           const useFreeBusiness =
             !isCurrentPlan && isBusiness && canFreeBusinessUpgrade;
           const existingBusinessOwner =
+            hasManageableSubscription(subscription) &&
+            subscription.cancelAtPeriodEnd !== true &&
             resolveMembershipPlanTier(subscription) === 'business' &&
             isStripeSubscription(subscription) &&
             subscription?.canManageBilling === true;
@@ -986,10 +988,11 @@ function PlansTab() {
                     navigate('/subscription');
                     return;
                   }
-                  if (
-                    (useFreeBusiness || useBusinessTermChange) &&
-                    subscription
-                  ) {
+                  if (useFreeBusiness && subscription) {
+                    void upgradeToBusinessPlan(plan.id, 1);
+                    return;
+                  }
+                  if (useBusinessTermChange && subscription) {
                     const seatCount = Math.max(
                       subscription.seatLimit ??
                         plan.defaultSeats ??
