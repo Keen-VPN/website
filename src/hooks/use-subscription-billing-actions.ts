@@ -31,7 +31,7 @@ function isDashboardRoute(pathname: string): boolean {
 
 function buildBusinessUpgradeSuccessPath(
   billingIntervalChange?: {
-    to: "month" | "year";
+    to: "month" | "year" | "2year";
     effectiveAt: string;
   },
   explicitPath?: string,
@@ -51,7 +51,7 @@ function buildBusinessUpgradeSuccessPath(
 
   if (billingIntervalChange) {
     const { to, effectiveAt } = billingIntervalChange;
-    if (to === "month" || to === "year") {
+    if (to === "month" || to === "year" || to === "2year") {
       url.searchParams.set("billing", to);
     }
     if (typeof effectiveAt === "string" && effectiveAt.trim().length > 0) {

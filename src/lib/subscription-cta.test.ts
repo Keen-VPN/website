@@ -5,6 +5,7 @@ import {
   canUpgradeStripeToAnnual,
   canUpgradeToBusinessPlan,
   hasScheduledAnnualBilling,
+  hasScheduledTwoYearBilling,
   isTwoYearSubscription,
   resolveMembershipPlanTier,
   resolveSubscriptionBillingPeriod,
@@ -202,5 +203,20 @@ describe("membership plan tier helpers", () => {
 
     expect(hasScheduledAnnualBilling(scheduled)).toBe(true);
     expect(canUpgradeStripeToAnnual(scheduled)).toBe(false);
+  });
+
+  it("recognizes a scheduled Business 2-year billing interval", () => {
+    const scheduled = stripeSub({
+      plan: "KeenVPN Business - Annual",
+      planId: "team_yearly",
+      billingPeriod: "year",
+      scheduledBillingInterval: {
+        from: "year",
+        to: "2year",
+        effectiveAt: "2027-08-27T00:00:00.000Z",
+      },
+    });
+
+    expect(hasScheduledTwoYearBilling(scheduled)).toBe(true);
   });
 });
