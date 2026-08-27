@@ -201,7 +201,11 @@ const Pricing = () => {
     resolveSubscriptionBillingPeriod(subscription);
   const selectedBusinessPeriod =
     businessPlanSelection?.billingPeriod ??
-    (billingPeriod === "annual" ? "year" : "month");
+    (billingPeriod === "twoYear"
+      ? "2year"
+      : billingPeriod === "annual"
+        ? "year"
+        : "month");
   const schedulesBusinessIntervalChange =
     showMembershipPlanUpgrade &&
     currentSubscriptionPeriod !== selectedBusinessPeriod;
@@ -529,9 +533,11 @@ const Pricing = () => {
                       ) : schedulesBusinessIntervalChange ? (
                         <p className="mb-3 text-xs text-muted-foreground">
                           Business activates now for $0.{" "}
-                          {selectedBusinessPeriod === "year"
-                            ? "Annual"
-                            : "Monthly"}{" "}
+                          {selectedBusinessPeriod === "2year"
+                            ? "2-year"
+                            : selectedBusinessPeriod === "year"
+                              ? "Annual"
+                              : "Monthly"}{" "}
                           billing starts
                           {paidThroughLabel
                             ? ` on ${paidThroughLabel}`
@@ -560,7 +566,13 @@ const Pricing = () => {
                         ) : isAppleBusinessMigration ? (
                           "Set up future Business billing"
                         ) : schedulesBusinessIntervalChange ? (
-                          `Enable Business — ${selectedBusinessPeriod}ly at renewal`
+                          `Enable Business — ${
+                            selectedBusinessPeriod === "2year"
+                              ? "2-year"
+                              : selectedBusinessPeriod === "year"
+                                ? "annual"
+                                : "monthly"
+                          } billing at renewal`
                         ) : (
                           "Enable Business for free"
                         )}
@@ -936,7 +948,13 @@ const Pricing = () => {
                   ) : isAppleBusinessMigration ? (
                     "Set up future Business billing"
                   ) : schedulesBusinessIntervalChange ? (
-                    `Enable Business — ${selectedBusinessPeriod}ly at renewal`
+                    `Enable Business — ${
+                      selectedBusinessPeriod === "2year"
+                        ? "2-year"
+                        : selectedBusinessPeriod === "year"
+                          ? "annual"
+                          : "monthly"
+                    } billing at renewal`
                   ) : (
                     "Enable Business for free"
                   )}

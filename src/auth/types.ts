@@ -7,8 +7,8 @@ export interface AnnualSavingsData {
 }
 
 export interface ScheduledBillingInterval {
-  from: "month" | "year";
-  to: "month" | "year";
+  from: "month" | "year" | "2year";
+  to: "month" | "year" | "2year";
   /** ISO timestamp when known; empty string when the backend omitted it. */
   effectiveAt: string;
 }

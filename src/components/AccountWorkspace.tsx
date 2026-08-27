@@ -215,10 +215,15 @@ export function AccountWorkspace({
         title: "Business plan updated",
         description:
           (scheduledBillingPeriod === "year" ||
-            scheduledBillingPeriod === "month") &&
+            scheduledBillingPeriod === "month" ||
+            scheduledBillingPeriod === "2year") &&
           scheduledBillingDate
             ? `Business is active with no upgrade charge. ${
-                scheduledBillingPeriod === "year" ? "Annual" : "Monthly"
+                scheduledBillingPeriod === "2year"
+                  ? "2-year"
+                  : scheduledBillingPeriod === "year"
+                    ? "Annual"
+                    : "Monthly"
               } billing starts on ${scheduledBillingDate}, after your current paid period ends.`
             : "Business is enabled. Invite teammates in the Team section; their existing paid time is always used first.",
       });

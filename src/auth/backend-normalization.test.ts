@@ -5,6 +5,28 @@ import {
 } from "@/auth/backend";
 
 describe("normalizeBackendAuthResponse", () => {
+  it("preserves a scheduled Business 2-year billing interval", () => {
+    const raw: RawBackendAuthResponse = {
+      success: true,
+      subscription: {
+        status: "active",
+        scheduledBillingInterval: {
+          from: "year",
+          to: "2year",
+          effectiveAt: "2027-08-27T00:00:00.000Z",
+        },
+      },
+    };
+
+    expect(
+      normalizeBackendAuthResponse(raw).subscription?.scheduledBillingInterval,
+    ).toEqual({
+      from: "year",
+      to: "2year",
+      effectiveAt: "2027-08-27T00:00:00.000Z",
+    });
+  });
+
   it("preserves the canonical two-year period and scheduled plan details", () => {
     const raw: RawBackendAuthResponse = {
       success: true,

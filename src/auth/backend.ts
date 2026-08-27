@@ -211,15 +211,18 @@ export function normalizeBackendAuthResponse(
     const from = scheduled.from;
     const to = scheduled.to;
     const effectiveAt = scheduled.effectiveAt;
+    const supportedBillingPeriods = new Set(["month", "year", "2year"]);
     if (
-      (from === "month" || from === "year") &&
-      (to === "month" || to === "year")
+      typeof from === "string" &&
+      supportedBillingPeriods.has(from) &&
+      typeof to === "string" &&
+      supportedBillingPeriods.has(to)
     ) {
       // Keep from/to even when effectiveAt is missing so annual-upgrade CTAs
       // stay hidden; notice copy falls back when the date is empty/invalid.
       normalizedSubscription.scheduledBillingInterval = {
-        from,
-        to,
+        from: from as "month" | "year" | "2year",
+        to: to as "month" | "year" | "2year",
         effectiveAt: typeof effectiveAt === "string" ? effectiveAt : "",
       };
     }
@@ -2682,8 +2685,8 @@ export async function upgradeSubscriptionToBusiness(
   planId?: string;
   seatLimit?: number;
   billingIntervalChange?: {
-    from: "month" | "year";
-    to: "month" | "year";
+    from: "month" | "year" | "2year";
+    to: "month" | "year" | "2year";
     effectiveAt: string;
   };
   message?: string;
@@ -2720,8 +2723,8 @@ export async function upgradeSubscriptionToBusiness(
       planId?: string;
       seatLimit?: number;
       billingIntervalChange?: {
-        from: "month" | "year";
-        to: "month" | "year";
+        from: "month" | "year" | "2year";
+        to: "month" | "year" | "2year";
         effectiveAt: string;
       };
       message?: string;

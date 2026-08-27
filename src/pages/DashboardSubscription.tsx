@@ -24,7 +24,6 @@ import {
 } from '@/auth/backend';
 import { ApiPlan, getApiPlanPaidMonths, isTwoYearApiPlan } from '@/lib/pricing';
 import {
-  type SubscriptionEvent,
   formatCurrency,
   formatEventDate,
   fetchSubscriptionEventDetail,
@@ -630,7 +629,7 @@ function PlansTab() {
 
   const tierPlans = useMemo(() => {
     const filtered = plans.filter((p) => getPlanTier(p) === tier);
-    // Individual: Monthly, 2-year, 1-year. Business: Monthly, Annual.
+    // Both tiers: Monthly, 2-year (when configured), then 1-year.
     return [...filtered].sort((a, b) => {
       const rank = (p: ApiPlan) =>
         isTwoYearApiPlan(p) ? 1 : isAnnualPlan(p) ? 2 : 0;
@@ -640,6 +639,7 @@ function PlansTab() {
   const monthlyPlan = tierPlans.find(
     (plan) => !isAnnualPlan(plan) && !isTwoYearApiPlan(plan),
   );
+  const tierHasTwoYear = tierPlans.some(isTwoYearApiPlan);
 
   const startCheckout = async (plan: ApiPlan) => {
     const sessionToken = getSessionToken();
@@ -769,8 +769,8 @@ function PlansTab() {
           const twoYear = isTwoYearApiPlan(plan);
           const annual = isAnnualPlan(plan);
           const isBusiness = tier === 'team';
-          // Featured: Individual 2-year, or Business annual
-          const featured = twoYear || (isBusiness && annual);
+          // The longest available term is the single featured value card.
+          const featured = twoYear || (isBusiness && annual && !tierHasTwoYear);
           const monthly = monthlyEquivalent(plan);
           const coveredMonths = getApiPlanPaidMonths(plan);
           const standardTermPrice = monthlyPlan
@@ -846,6 +846,32 @@ function PlansTab() {
             isIndividualSubscriber;
           const useFreeBusiness =
             !isCurrentPlan && isBusiness && canFreeBusinessUpgrade;
+          const existingBusinessOwner =
+            hasManageableSubscription(subscription) &&
+            subscription.cancelAtPeriodEnd !== true &&
+            resolveMembershipPlanTier(subscription) === 'business' &&
+            isStripeSubscription(subscription) &&
+            subscription?.canManageBilling === true;
+          const useBusinessTermChange =
+            !isCurrentPlan && isBusiness && existingBusinessOwner;
+          const targetBusinessPeriod = twoYear
+            ? '2year'
+            : annual
+              ? 'year'
+              : 'month';
+          const businessTermAlreadyScheduled =
+            useBusinessTermChange &&
+            subscription?.scheduledBillingInterval?.to ===
+              targetBusinessPeriod;
+          if (businessTermAlreadyScheduled) {
+            cta = `${
+              targetBusinessPeriod === '2year'
+                ? '2-year'
+                : targetBusinessPeriod === 'year'
+                  ? 'Annual'
+                  : 'Monthly'
+            } scheduled`;
+          }
           const businessPlanWaiting =
             !isCurrentPlan && isBusiness && businessActionBlocked;
           const isThisPlanLoading = activeLoadingPlanId === plan.id;
@@ -966,6 +992,17 @@ function PlansTab() {
                     void upgradeToBusinessPlan(plan.id, 1);
                     return;
                   }
+                  if (useBusinessTermChange && subscription) {
+                    const seatCount = Math.max(
+                      subscription.seatLimit ??
+                        plan.defaultSeats ??
+                        plan.minSeats ??
+                        2,
+                      2,
+                    );
+                    void upgradeToBusinessPlan(plan.id, seatCount);
+                    return;
+                  }
                   if (useOneClickTwoYear) {
                     void switchToTwoYear(plan.id, 'dashboard_plans');
                     return;
@@ -1013,6 +1050,7 @@ function PlansTab() {
                 disabled={
                   isAnotherPlanLoading ||
                   businessPlanWaiting ||
+                  businessTermAlreadyScheduled ||
                   (twoYearAlreadyScheduled && twoYear && !isCurrentPlan) ||
                   (annualAlreadyScheduled &&
                     annual &&
@@ -1085,7 +1123,7 @@ function isReceiptEvent(event: SubscriptionEvent): boolean {
   return event.eventType === 'purchase' || event.eventType === 'renewal';
 }
 
-function invoiceHeadline(event: SubscriptionEvent, dateLabel: string) {
+function invoiceHeadline(_event: SubscriptionEvent, dateLabel: string) {
   return `Paid on ${dateLabel}`;
 }
 

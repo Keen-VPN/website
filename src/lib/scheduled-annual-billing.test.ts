@@ -22,8 +22,24 @@ describe("getScheduledAnnualBillingCopy", () => {
         },
       }),
     );
+    expect(copy).toContain("You're on monthly until");
     expect(copy).toContain("Annual billing starts then");
     expect(copy).not.toContain("current period ends");
+  });
+
+  it("describes a 2-year to annual schedule without calling the current term monthly", () => {
+    const copy = getScheduledAnnualBillingCopy(
+      sub({
+        scheduledBillingInterval: {
+          from: "2year",
+          to: "year",
+          effectiveAt: "2026-08-27T00:00:00.000Z",
+        },
+      }),
+    );
+    expect(copy).toContain("You're on 2-year until");
+    expect(copy).toContain("Annual billing starts then");
+    expect(copy).not.toContain("You're on monthly");
   });
 
   it("falls back when effectiveAt is empty", () => {
