@@ -10,11 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { BACKEND_URL } from "@/auth/backend";
 import {
   clearReferralTokenStorage,
   setReferralTokenStorage,
 } from "@/auth/referral-token";
+import { resolveInviteToken } from "@/lib/invite-resolve";
 import { formatReferralRewardLabel } from "@/lib/referral-campaign-copy";
 
 const ReferralLanding = () => {
@@ -45,51 +45,20 @@ const ReferralLanding = () => {
 
     let cancelled = false;
 
-    void fetch(`${BACKEND_URL}/referral/resolve/${encodeURIComponent(token)}`)
-      .then(async (res) => {
-        const data = (await res.json().catch(() => ({}))) as {
-          valid?: boolean;
-          referrerName?: string;
-          campaign?: {
-            active?: boolean;
-            rewardMonths?: number;
-          } | null;
-        };
-        if (cancelled) return;
-        if (!res.ok) {
-          setResolveFailed(true);
-          setLoading(false);
-          return;
-        }
-        if (typeof data.valid !== "boolean") {
-          setResolveFailed(true);
-          setLoading(false);
-          return;
-        }
-        if (data.valid === false) {
-          // Storage already cleared at effect start; no token was written for invalid invites.
-          setInviteInvalid(true);
-        } else {
-          setReferralTokenStorage(token);
-          if (data.referrerName) {
-            setReferrerName(data.referrerName);
-          }
-          if (
-            data.campaign?.active === true &&
-            typeof data.campaign.rewardMonths === "number" &&
-            data.campaign.rewardMonths >= 1
-          ) {
-            setRewardMonths(data.campaign.rewardMonths);
-          }
-        }
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setResolveFailed(true);
-          setLoading(false);
-        }
-      });
+    void resolveInviteToken(token).then((resolution) => {
+      if (cancelled) return;
+      if (resolution.status === "failed") {
+        setResolveFailed(true);
+      } else if (resolution.status === "invalid") {
+        // Storage already cleared at effect start; no token was written for invalid invites.
+        setInviteInvalid(true);
+      } else {
+        setReferralTokenStorage(token);
+        setReferrerName(resolution.invite.referrerName);
+        setRewardMonths(resolution.invite.rewardMonths);
+      }
+      setLoading(false);
+    });
 
     return () => {
       cancelled = true;
