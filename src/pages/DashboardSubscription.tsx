@@ -413,7 +413,7 @@ function CurrentPlanTab() {
                   subscription={subscription}
                   cancelling={cancelling}
                   portalLoading={portalLoading}
-                  onCancel={() => void cancelSubscriptionAtPeriodEnd()}
+                  onCancel={() => cancelSubscriptionAtPeriodEnd()}
                   onManageBilling={() => void openBillingPortal()}
                 />
               ) : null}
@@ -504,7 +504,7 @@ function CurrentPlanTab() {
             <SubscriptionCancellationControls
               subscription={subscription}
               cancelling={cancelling}
-              onCancel={() => void cancelSubscriptionAtPeriodEnd()}
+              onCancel={() => cancelSubscriptionAtPeriodEnd()}
               onManageBilling={() => void openBillingPortal()}
               portalLoading={portalLoading}
               showManageBilling={false}
