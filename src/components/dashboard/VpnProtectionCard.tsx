@@ -133,24 +133,20 @@ export function VpnProtectionCard({
       return;
     }
 
-    const generation = requestGenerationRef.current + 1;
-    requestGenerationRef.current = generation;
-
-    void refreshStatus(generation, { showLoading: true });
-
-    const intervalId = window.setInterval(() => {
-      void refreshStatus(generation);
-    }, VPN_STATUS_POLL_MS);
-
-    const onFocus = () => {
-      void refreshStatus(generation);
+    const refresh = () => {
+      void refreshStatus(++requestGenerationRef.current);
     };
-    window.addEventListener("focus", onFocus);
+
+    void refreshStatus(++requestGenerationRef.current, { showLoading: true });
+
+    const intervalId = window.setInterval(refresh, VPN_STATUS_POLL_MS);
+
+    window.addEventListener("focus", refresh);
 
     return () => {
       requestGenerationRef.current += 1;
       window.clearInterval(intervalId);
-      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("focus", refresh);
     };
   }, [sessionToken, refreshStatus]);
 

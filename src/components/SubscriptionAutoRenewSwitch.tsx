@@ -79,7 +79,14 @@ export function SubscriptionAutoRenewSwitch({
         className="mt-1 data-[state=checked]:bg-[#159653] data-[state=unchecked]:bg-[#dbe2ec]"
       />
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          if (!cancelling) {
+            setConfirmOpen(open);
+          }
+        }}
+      >
         <AlertDialogContent className="gap-5 border-[#e3e8f0] bg-white p-6 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:rounded-[16px]">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center text-[18px] font-semibold text-[#0f2040]">
@@ -104,9 +111,11 @@ export function SubscriptionAutoRenewSwitch({
               Keep auto-renewal on
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                setConfirmOpen(false);
-                void onCancel();
+              onClick={(event) => {
+                event.preventDefault();
+                void Promise.resolve(onCancel()).finally(() => {
+                  setConfirmOpen(false);
+                });
               }}
               disabled={cancelling}
               className="h-9 rounded-[8px] bg-[#d14343] text-[13px] font-semibold text-white hover:bg-[#d14343]/90"
