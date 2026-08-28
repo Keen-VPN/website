@@ -35,6 +35,7 @@ import {
 } from '@/lib/subscription-history-api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SubscriptionCancellationControls } from '@/components/SubscriptionCancellationControls';
+import { SubscriptionAutoRenewSwitch } from '@/components/SubscriptionAutoRenewSwitch';
 import { MembershipPlanUpgradeCard } from '@/components/MembershipPlanUpgradeCard';
 import { DashboardSlideDialog } from '@/components/DashboardSlideDialog';
 import {
@@ -304,10 +305,6 @@ function CurrentPlanTab() {
   const autoRenewOn = !subscription.cancelAtPeriodEnd;
   const canOpenStripePortal =
     isStripeSubscription(subscription) && subscription.canManageBilling;
-  const canCancel =
-    isStripeSubscription(subscription) &&
-    subscription.canManageBilling === true &&
-    !subscription.cancelAtPeriodEnd;
   const teamOwnerEmail =
     membershipDashboard?.membership?.ownerEmail?.trim() || null;
   const teamBillingEnd =
@@ -392,27 +389,33 @@ function CurrentPlanTab() {
           </div>
           <div className="flex gap-4 lg:px-8">
             <RefreshCw className="mt-0.5 h-6 w-6 shrink-0 text-[#ff7900]" />
-            <div className="flex-1">
-              <p className="text-[16px] text-[#627086]">Auto-renew</p>
-              <p
-                className={
-                  isSharedMember
-                    ? 'mt-2 text-[17px] font-bold text-[#0f2040]'
+            <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+              <div>
+                <p className="text-[16px] text-[#627086]">Auto-renew</p>
+                <p
+                  className={
+                    isSharedMember
+                      ? 'mt-2 text-[17px] font-bold text-[#0f2040]'
+                      : autoRenewOn
+                        ? 'mt-2 text-[17px] font-bold text-[#159653]'
+                        : 'mt-2 text-[17px] font-bold text-[#627086]'
+                  }
+                >
+                  {isSharedMember
+                    ? 'Managed by team admin'
                     : autoRenewOn
-                      ? 'mt-2 text-[17px] font-bold text-[#159653]'
-                      : 'mt-2 text-[17px] font-bold text-[#627086]'
-                }
-              >
-                {isSharedMember
-                  ? 'Managed by team admin'
-                  : autoRenewOn
-                    ? 'On'
-                    : 'Off'}
-              </p>
-              {canCancel ? (
-                <p className="mt-1 text-[13px] text-[#627086]">
-                  Use Turn off auto-renewal below to stop future charges.
+                      ? 'On'
+                      : 'Off'}
                 </p>
+              </div>
+              {!isSharedMember ? (
+                <SubscriptionAutoRenewSwitch
+                  subscription={subscription}
+                  cancelling={cancelling}
+                  portalLoading={portalLoading}
+                  onCancel={() => cancelSubscriptionAtPeriodEnd()}
+                  onManageBilling={() => void openBillingPortal()}
+                />
               ) : null}
             </div>
           </div>
@@ -501,10 +504,11 @@ function CurrentPlanTab() {
             <SubscriptionCancellationControls
               subscription={subscription}
               cancelling={cancelling}
-              onCancel={() => void cancelSubscriptionAtPeriodEnd()}
+              onCancel={() => cancelSubscriptionAtPeriodEnd()}
               onManageBilling={() => void openBillingPortal()}
               portalLoading={portalLoading}
               showManageBilling={false}
+              showCancelButton={false}
             />
           </div>
         ) : null}

@@ -7,7 +7,8 @@ export const APP_STORE_URLS = {
   macos: "https://apps.apple.com/us/app/keenvpn-secure-vpn/id6751677565",
   android:
     "https://play.google.com/store/apps/details?id=com.keenvpnapp.app",
-  windows: "https://vpnkeen.com",
+  windows:
+    "https://apps.microsoft.com/store/detail/9NZZ9WCFKKBG?cid=DevShareMCLPCS",
   fallback: "https://vpnkeen.com",
 } as const;
 

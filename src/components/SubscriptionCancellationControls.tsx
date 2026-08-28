@@ -37,6 +37,7 @@ interface SubscriptionCancellationControlsProps {
   onManageBilling?: () => void | Promise<void>;
   portalLoading?: boolean;
   showManageBilling?: boolean;
+  showCancelButton?: boolean;
 }
 
 /**
@@ -50,6 +51,7 @@ export function SubscriptionCancellationControls({
   onManageBilling,
   portalLoading = false,
   showManageBilling = true,
+  showCancelButton = true,
 }: SubscriptionCancellationControlsProps) {
   const isStripe = isStripeSubscription(subscription);
   const canCancelStripe = canCancelStripeOnWebsite(subscription);
@@ -129,7 +131,7 @@ export function SubscriptionCancellationControls({
     );
   }
 
-  if (canCancelStripe) {
+  if (canCancelStripe && showCancelButton) {
     return (
       <div className="space-y-3">
         {showManageBilling && onManageBilling ? (
