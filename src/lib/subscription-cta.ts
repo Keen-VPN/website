@@ -32,10 +32,18 @@ export function hasActiveVpnAccess(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
   if (!subscription || isEndedSubscription(subscription)) return false;
-  if (hasManageableSubscription(subscription)) return true;
-  return (
-    subscription.accessRole === "member" || subscription.accessRole === "linked"
-  );
+
+  const status = getSubscriptionStatus(subscription);
+  const isProvisioned = status === "active" || status === "trialing";
+
+  if (
+    subscription.accessRole === "member" ||
+    subscription.accessRole === "linked"
+  ) {
+    return isProvisioned;
+  }
+
+  return hasManageableSubscription(subscription);
 }
 
 const endedSubscriptionStatuses = new Set([
