@@ -21,10 +21,26 @@ function billingTermLabel(
   return "monthly";
 }
 
+function resolveScheduledBillingInterval(
+  subscription: SubscriptionData | null | undefined,
+): SubscriptionData["scheduledBillingInterval"] {
+  const scheduled = subscription?.scheduledBillingInterval;
+  if (scheduled) return scheduled;
+
+  const planChange = subscription?.scheduledPlanChange;
+  if (!planChange) return null;
+
+  return {
+    from: planChange.from,
+    to: planChange.to,
+    effectiveAt: planChange.effectiveAt,
+  };
+}
+
 export function getScheduledAnnualBillingCopy(
   subscription: SubscriptionData | null | undefined,
 ): string {
-  const scheduled = subscription?.scheduledBillingInterval;
+  const scheduled = resolveScheduledBillingInterval(subscription);
   const fromLabel = billingTermLabel(scheduled?.from);
   const toLabel = billingTermLabel(scheduled?.to ?? "year");
   const toTitle = toLabel === "2-year" ? "2-year" : toLabel === "annual" ? "Annual" : "Monthly";

@@ -7,7 +7,7 @@ import {
   type VpnConnectionStatusData,
 } from "@/auth/backend";
 import {
-  hasManageableSubscription,
+  hasActiveVpnAccess,
   isEndedSubscription,
 } from "@/lib/subscription-cta";
 
@@ -39,6 +39,7 @@ function resolveProtectionCopy(subscription: SubscriptionData | null) {
   if (!subscription || isEndedSubscription(subscription)) {
     return {
       protected: false,
+      pastDue: false,
       title: "Not protected",
       description:
         "Subscribe to KeenVPN to encrypt your traffic and use our global server network.",
@@ -48,15 +49,17 @@ function resolveProtectionCopy(subscription: SubscriptionData | null) {
   if (subscription.status === "past_due") {
     return {
       protected: false,
+      pastDue: true,
       title: "Payment required",
       description:
         "Your subscription payment failed. Update billing to restore protection.",
     };
   }
 
-  if (!hasManageableSubscription(subscription)) {
+  if (!hasActiveVpnAccess(subscription)) {
     return {
       protected: false,
+      pastDue: false,
       title: "Not protected",
       description:
         "Choose a KeenVPN plan to activate encryption, DNS protection, and device coverage.",
@@ -65,6 +68,7 @@ function resolveProtectionCopy(subscription: SubscriptionData | null) {
 
   return {
     protected: true,
+    pastDue: false,
     title: "Your plan is active",
     description:
       "Your KeenVPN plan is active. Connect from the app to route traffic through our encrypted network.",
@@ -76,9 +80,9 @@ function protectionBadges(live: VpnConnectionStatusData | null): string[] {
     return [];
   }
   const badges: string[] = [];
-  if (live?.protections.killSwitch) badges.push("Kill switch on");
-  if (live?.protections.dnsProtection) badges.push("DNS protection on");
-  if (live?.protections.trackerBlocking) badges.push("Tracker blocking on");
+  if (live?.protections?.killSwitch) badges.push("Kill switch on");
+  if (live?.protections?.dnsProtection) badges.push("DNS protection on");
+  if (live?.protections?.trackerBlocking) badges.push("Tracker blocking on");
   return badges;
 }
 
@@ -165,7 +169,7 @@ export function VpnProtectionCard({
     },
     {
       label: "Encryption",
-      value: browserProtected ? (liveStatus?.encryption ?? "AES-256") : "AES-256",
+      value: browserProtected ? (liveStatus?.encryption ?? "AES-256") : "—",
     },
     {
       label: "Protocol",
@@ -272,6 +276,14 @@ export function VpnProtectionCard({
               Connect in the app to activate kill switch, DNS, and tracker
               blocking on a VPN session.
             </p>
+          ) : copy.pastDue ? (
+            <button
+              type="button"
+              onClick={() => navigate("/subscription")}
+              className="mt-5 inline-flex h-10 items-center justify-center rounded-[8px] bg-[#0f2040] px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              Update billing
+            </button>
           ) : (
             <button
               type="button"

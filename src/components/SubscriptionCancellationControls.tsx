@@ -19,21 +19,12 @@ import {
   hasManageableSubscription,
   isStripeSubscription,
 } from "@/lib/subscription-cta";
-function formatDate(dateString: string | undefined): string {
-  if (!dateString) return "the end of your billing period";
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return dateString;
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
+import { formatSubscriptionEndDate } from "@/lib/format-subscription-date";
 
 interface SubscriptionCancellationControlsProps {
   subscription: SubscriptionData;
   cancelling: boolean;
-  onCancel: () => void | Promise<void>;
+  onCancel: () => boolean | undefined | Promise<boolean | undefined>;
   onManageBilling?: () => void | Promise<void>;
   portalLoading?: boolean;
   showManageBilling?: boolean;
@@ -57,7 +48,7 @@ export function SubscriptionCancellationControls({
   const canCancelStripe = canCancelStripeOnWebsite(subscription);
   const isApple = subscription.subscriptionType === "apple_iap";
   const manageable = hasManageableSubscription(subscription);
-  const endLabel = formatDate(subscription.endDate);
+  const endLabel = formatSubscriptionEndDate(subscription.endDate);
 
   const autoRenewalOffNotice = (
     <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900/50 dark:bg-yellow-950/30">

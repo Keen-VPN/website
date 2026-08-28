@@ -389,7 +389,7 @@ function CurrentPlanTab() {
           </div>
           <div className="flex gap-4 lg:px-8">
             <RefreshCw className="mt-0.5 h-6 w-6 shrink-0 text-[#ff7900]" />
-            <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
               <div>
                 <p className="text-[16px] text-[#627086]">Auto-renew</p>
                 <p
@@ -851,11 +851,12 @@ function PlansTab() {
           const useFreeBusiness =
             !isCurrentPlan && isBusiness && canFreeBusinessUpgrade;
           const existingBusinessOwner =
+            subscription != null &&
             hasManageableSubscription(subscription) &&
             subscription.cancelAtPeriodEnd !== true &&
             resolveMembershipPlanTier(subscription) === 'business' &&
             isStripeSubscription(subscription) &&
-            subscription?.canManageBilling === true;
+            subscription.canManageBilling === true;
           const useBusinessTermChange =
             !isCurrentPlan && isBusiness && existingBusinessOwner;
           const targetBusinessPeriod = twoYear
@@ -865,8 +866,9 @@ function PlansTab() {
               : 'month';
           const businessTermAlreadyScheduled =
             useBusinessTermChange &&
-            subscription?.scheduledBillingInterval?.to ===
-              targetBusinessPeriod;
+            (subscription?.scheduledBillingInterval?.to ===
+              targetBusinessPeriod ||
+              subscription?.scheduledPlanChange?.to === targetBusinessPeriod);
           if (businessTermAlreadyScheduled) {
             cta = `${
               targetBusinessPeriod === '2year'
@@ -997,12 +999,10 @@ function PlansTab() {
                     return;
                   }
                   if (useBusinessTermChange && subscription) {
+                    const minSeats = plan.minSeats ?? 2;
                     const seatCount = Math.max(
-                      subscription.seatLimit ??
-                        plan.defaultSeats ??
-                        plan.minSeats ??
-                        2,
-                      2,
+                      subscription.seatLimit ?? plan.defaultSeats ?? minSeats,
+                      minSeats,
                     );
                     void upgradeToBusinessPlan(plan.id, seatCount);
                     return;

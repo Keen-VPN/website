@@ -113,10 +113,10 @@ export function useSubscriptionBillingActions(
     return token;
   }, [toast]);
 
-  const cancelSubscriptionAtPeriodEnd = useCallback(async () => {
+  const cancelSubscriptionAtPeriodEnd = useCallback(async (): Promise<boolean> => {
     const token = requireSessionToken();
     if (!token) {
-      return;
+      return false;
     }
 
     try {
@@ -130,6 +130,7 @@ export function useSubscriptionBillingActions(
             "Your subscription stays active until the end of your billing period.",
         });
         await refreshSubscription();
+        return true;
       } else {
         throw new Error(result.error || "Failed to cancel subscription");
       }
@@ -140,6 +141,7 @@ export function useSubscriptionBillingActions(
           error instanceof Error ? error.message : "Please try again",
         variant: "destructive",
       });
+      return false;
     } finally {
       setCancelling(false);
     }

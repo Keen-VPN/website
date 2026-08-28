@@ -27,6 +27,17 @@ export function hasManageableSubscription(
   return Boolean(status && manageableSubscriptionStatuses.has(status));
 }
 
+/** Active VPN access via own subscription or shared business/family membership. */
+export function hasActiveVpnAccess(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (!subscription || isEndedSubscription(subscription)) return false;
+  if (hasManageableSubscription(subscription)) return true;
+  return (
+    subscription.accessRole === "member" || subscription.accessRole === "linked"
+  );
+}
+
 const endedSubscriptionStatuses = new Set([
   "canceled",
   "cancelled",
@@ -113,6 +124,7 @@ export function canSwitchStripeToTwoYear(
   if (subscription.cancelAtPeriodEnd) return false;
   if (isTwoYearSubscription(subscription)) return false;
   if (subscription.scheduledPlanChange?.to === "2year") return false;
+  if (subscription.scheduledBillingInterval?.to === "2year") return false;
   if (resolveMembershipPlanTier(subscription) !== "individual") return false;
 
   const status = getSubscriptionStatus(subscription);

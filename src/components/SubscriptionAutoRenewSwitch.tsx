@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -9,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import type { SubscriptionData } from "@/auth/types";
@@ -17,23 +17,13 @@ import {
   hasManageableSubscription,
   isStripeSubscription,
 } from "@/lib/subscription-cta";
-
-function formatDate(dateString: string | undefined): string {
-  if (!dateString) return "the end of your billing period";
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return dateString;
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
+import { formatSubscriptionEndDate } from "@/lib/format-subscription-date";
 
 interface SubscriptionAutoRenewSwitchProps {
   subscription: SubscriptionData;
   cancelling: boolean;
   portalLoading?: boolean;
-  onCancel: () => void | Promise<void>;
+  onCancel: () => boolean | undefined | Promise<boolean | undefined>;
   onManageBilling?: () => void | Promise<void>;
 }
 
@@ -51,7 +41,7 @@ export function SubscriptionAutoRenewSwitch({
     isStripeSubscription(subscription) &&
     subscription.canManageBilling === true &&
     hasManageableSubscription(subscription);
-  const endLabel = formatDate(subscription.endDate);
+  const endLabel = formatSubscriptionEndDate(subscription.endDate);
 
   if (!canShowSwitch) {
     return null;
@@ -69,14 +59,25 @@ export function SubscriptionAutoRenewSwitch({
     }
   };
 
+  const handleConfirmCancel = async () => {
+    const result = await Promise.resolve(onCancel());
+    if (result !== false) {
+      setConfirmOpen(false);
+    }
+  };
+
   return (
     <>
       <Switch
         checked={autoRenewOn}
         onCheckedChange={handleCheckedChange}
-        disabled={cancelling || portalLoading}
+        disabled={
+          cancelling ||
+          portalLoading ||
+          (!autoRenewOn && !onManageBilling)
+        }
         aria-label="Auto-renew subscription"
-        className="mt-1 data-[state=checked]:bg-[#159653] data-[state=unchecked]:bg-[#dbe2ec]"
+        className="h-[22px] w-[40px] shrink-0 border-0 data-[state=checked]:bg-[#159653] data-[state=unchecked]:bg-[#dbe2ec] [&>span]:h-[18px] [&>span]:w-[18px] [&>span]:bg-white [&>span]:shadow-none [&>span]:data-[state=checked]:translate-x-[18px] [&>span]:data-[state=unchecked]:translate-x-0"
       />
 
       <AlertDialog
@@ -87,7 +88,7 @@ export function SubscriptionAutoRenewSwitch({
           }
         }}
       >
-        <AlertDialogContent className="gap-5 border-[#e3e8f0] bg-white p-6 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:rounded-[16px]">
+        <AlertDialogContent className="dashboard-surface gap-5 border-[#e3e8f0] bg-white p-6 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:rounded-[16px]">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center text-[18px] font-semibold text-[#0f2040]">
               <AlertTriangle className="mr-2 h-5 w-5 shrink-0 text-[#ed7d36]" />
@@ -107,17 +108,16 @@ export function SubscriptionAutoRenewSwitch({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-3">
-            <AlertDialogCancel className="mt-0 h-9 rounded-[8px] border-[#dbe2ec] bg-white text-[13px] font-semibold text-[#0f2040] hover:bg-[#f5f7fb] hover:text-[#0f2040]">
+            <AlertDialogCancel
+              disabled={cancelling}
+              className="mt-0 h-9 rounded-[8px] border-[#dbe2ec] bg-white text-[13px] font-semibold text-[#0f2040] hover:bg-[#f5f7fb] hover:text-[#0f2040]"
+            >
               Keep auto-renewal on
             </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void Promise.resolve(onCancel()).finally(() => {
-                  setConfirmOpen(false);
-                });
-              }}
+            <Button
+              type="button"
               disabled={cancelling}
+              onClick={() => void handleConfirmCancel()}
               className="h-9 rounded-[8px] bg-[#d14343] text-[13px] font-semibold text-white hover:bg-[#d14343]/90"
             >
               {cancelling ? (
@@ -128,7 +128,7 @@ export function SubscriptionAutoRenewSwitch({
               ) : (
                 "Turn off auto-renewal"
               )}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

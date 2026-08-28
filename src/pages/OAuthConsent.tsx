@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { BACKEND_URL, getSessionToken } from "@/auth/backend";
+import { buildSignInUrlForCurrentLocation } from "@/auth/post-login-redirect";
 import { useAuth } from "@/contexts/AuthContext";
 
 const cardClass =
@@ -28,7 +29,7 @@ export default function OAuthConsent() {
   const [submitting, setSubmitting] = useState<"approve" | "deny" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const clientName = params.get("client_name") || "An AI assistant";
+  const clientName = "An AI assistant";
   const redirectUri = params.get("redirect_uri") ?? "";
 
   const redirectHost = useMemo(() => {
@@ -39,11 +40,9 @@ export default function OAuthConsent() {
     }
   }, [redirectUri]);
 
-  // Sign-in first, then come straight back to this same request.
   useEffect(() => {
     if (hasSessionToken) return;
-    const returnTo = `${window.location.pathname}${window.location.search}`;
-    window.location.replace(`/signin?next=${encodeURIComponent(returnTo)}`);
+    window.location.replace(buildSignInUrlForCurrentLocation());
   }, [hasSessionToken]);
 
   async function decide(approved: boolean) {

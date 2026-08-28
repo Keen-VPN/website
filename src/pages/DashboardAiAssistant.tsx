@@ -70,9 +70,10 @@ export default function DashboardAiAssistant() {
                   type="button"
                   className="inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] border border-[#dbe2ec] bg-white px-4 text-[13px] font-semibold text-[#0f2040] transition-colors hover:bg-[#f5f7fb]"
                   onClick={() => {
-                    void navigator.clipboard.writeText(serverUrl);
-                    setCopied(true);
-                    window.setTimeout(() => setCopied(false), 2000);
+                    void navigator.clipboard.writeText(serverUrl).then(() => {
+                      setCopied(true);
+                      window.setTimeout(() => setCopied(false), 2000);
+                    });
                   }}
                 >
                   {copied ? "Copied" : "Copy"}
