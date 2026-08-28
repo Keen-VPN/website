@@ -88,7 +88,7 @@ function navigateExternalPortalTab(portalWindow: Window, url: string): void {
 export function useSubscriptionBillingActions(
   options: UseSubscriptionBillingActionsOptions = {},
 ) {
-  const { refreshSubscription, patchSubscription } = useAuth();
+  const { refreshSubscription, patchSubscription, subscription } = useAuth();
   const { toast } = useToast();
   const [cancelling, setCancelling] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
