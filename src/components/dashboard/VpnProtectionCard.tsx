@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Loader2, ShieldAlert } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { SubscriptionData } from "@/auth/types";
@@ -14,10 +14,25 @@ import {
 const STAT_BOX =
   "rounded-[10px] border border-[#e3e8f0] bg-[#fafbfd] px-4 py-3";
 
+const VPN_STATUS_POLL_MS = 30_000;
+
 function formatProtocol(value: string | null | undefined): string {
   if (!value) return "—";
   if (value.toLowerCase() === "wireguard") return "WireGuard";
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function isBrowserOnVpn(status: VpnConnectionStatusData | null): boolean {
+  if (!status?.connected) return false;
+  return status.source !== "app_session" || Boolean(status.vpnIpMasked);
+}
+
+function isRemoteAppSession(status: VpnConnectionStatusData | null): boolean {
+  return Boolean(
+    status?.connected &&
+      status.source === "app_session" &&
+      !status.vpnIpMasked,
+  );
 }
 
 function resolveProtectionCopy(subscription: SubscriptionData | null) {
@@ -50,20 +65,20 @@ function resolveProtectionCopy(subscription: SubscriptionData | null) {
 
   return {
     protected: true,
-    title: "You're protected",
+    title: "Your plan is active",
     description:
       "Your KeenVPN plan is active. Connect from the app to route traffic through our encrypted network.",
   };
 }
 
 function protectionBadges(live: VpnConnectionStatusData | null): string[] {
-  if (!live?.connected) {
+  if (!isBrowserOnVpn(live)) {
     return [];
   }
   const badges: string[] = [];
-  if (live.protections.killSwitch) badges.push("Kill switch on");
-  if (live.protections.dnsProtection) badges.push("DNS protection on");
-  if (live.protections.trackerBlocking) badges.push("Tracker blocking on");
+  if (live?.protections.killSwitch) badges.push("Kill switch on");
+  if (live?.protections.dnsProtection) badges.push("DNS protection on");
+  if (live?.protections.trackerBlocking) badges.push("Tracker blocking on");
   return badges;
 }
 
@@ -81,6 +96,25 @@ export function VpnProtectionCard({
   );
   const [liveLoading, setLiveLoading] = useState(Boolean(sessionToken));
 
+  const refreshStatus = useCallback(
+    async (options?: { showLoading?: boolean }) => {
+      if (!sessionToken) {
+        setLiveStatus(null);
+        setLiveLoading(false);
+        return;
+      }
+
+      if (options?.showLoading) {
+        setLiveLoading(true);
+      }
+
+      const result = await fetchVpnConnectionStatus(sessionToken);
+      setLiveStatus(result.ok ? (result.data ?? null) : null);
+      setLiveLoading(false);
+    },
+    [sessionToken],
+  );
+
   useEffect(() => {
     if (!sessionToken) {
       setLiveStatus(null);
@@ -88,35 +122,43 @@ export function VpnProtectionCard({
       return;
     }
 
-    let cancelled = false;
-    setLiveLoading(true);
-    void fetchVpnConnectionStatus(sessionToken).then((result) => {
-      if (cancelled) return;
-      setLiveStatus(result.ok ? (result.data ?? null) : null);
-      setLiveLoading(false);
-    });
+    void refreshStatus({ showLoading: true });
+
+    const intervalId = window.setInterval(() => {
+      void refreshStatus();
+    }, VPN_STATUS_POLL_MS);
+
+    const onFocus = () => {
+      void refreshStatus();
+    };
+    window.addEventListener("focus", onFocus);
 
     return () => {
-      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
     };
-  }, [sessionToken]);
+  }, [sessionToken, refreshStatus]);
 
   const planActive = copy.protected;
-  const tunnelActive = liveStatus?.connected === true;
+  const browserProtected = isBrowserOnVpn(liveStatus);
+  const remoteSessionActive = isRemoteAppSession(liveStatus);
+  const liveConnected = liveStatus?.connected === true;
   const badges = protectionBadges(liveStatus);
 
   const connectionStats = [
     {
       label: "VPN server",
-      value: liveStatus?.serverLocation ?? (planActive ? "Not connected" : "—"),
+      value:
+        liveStatus?.serverLocation ??
+        (planActive || liveConnected ? "Not connected" : "—"),
     },
     {
       label: "Encryption",
-      value: liveStatus?.encryption ?? "AES-256",
+      value: browserProtected ? (liveStatus?.encryption ?? "AES-256") : "AES-256",
     },
     {
       label: "Protocol",
-      value: tunnelActive
+      value: liveConnected
         ? formatProtocol(liveStatus?.protocol)
         : planActive
           ? "WireGuard"
@@ -124,19 +166,37 @@ export function VpnProtectionCard({
     },
     {
       label: "VPN IP",
-      value: liveStatus?.vpnIpMasked ?? (tunnelActive ? "Hidden" : "—"),
+      value: liveStatus?.vpnIpMasked
+        ? liveStatus.vpnIpMasked
+        : remoteSessionActive
+          ? "Not in this browser"
+          : browserProtected
+            ? "Hidden"
+            : "—",
     },
   ];
+
+  const headline = browserProtected
+    ? "You're protected"
+    : remoteSessionActive
+      ? "Connected on another device"
+      : copy.title;
+
+  const description = browserProtected
+    ? "Your internet traffic is encrypted and your essential VPN protections are currently active in this browser."
+    : remoteSessionActive
+      ? `KeenVPN is active on your ${liveStatus?.activeSession?.platform ?? "app"} session. Connect here too if you want this browser protected.`
+      : copy.description;
 
   const footerNote = (() => {
     if (liveLoading) {
       return "Checking for an active KeenVPN connection…";
     }
-    if (tunnelActive && liveStatus?.source === "app_session" && !liveStatus.vpnIpMasked) {
-      return "Connected on another device. VPN IP shows here when this browser is on KeenVPN too.";
+    if (browserProtected) {
+      return "Live connection details from this browser's KeenVPN session.";
     }
-    if (tunnelActive) {
-      return "Live connection details from your KeenVPN session.";
+    if (remoteSessionActive) {
+      return "Your app session is active elsewhere. VPN IP and browser protection appear here when this browser is on KeenVPN too.";
     }
     if (planActive) {
       return "Open the KeenVPN app and connect to see your server and VPN IP here.";
@@ -151,12 +211,12 @@ export function VpnProtectionCard({
           <div className="flex items-start gap-4">
             <div
               className={
-                planActive
+                browserProtected || planActive
                   ? "flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fff4eb]"
                   : "flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fff5f5]"
               }
             >
-              {planActive ? (
+              {browserProtected || planActive ? (
                 <CheckCircle2 className="h-5 w-5 text-[#ed7d36]" />
               ) : (
                 <ShieldAlert className="h-5 w-5 text-[#d14343]" />
@@ -167,12 +227,10 @@ export function VpnProtectionCard({
                 Current protection
               </p>
               <h2 className="mt-1 text-[22px] font-bold tracking-[-0.4px] text-[#071f3f] sm:text-[26px]">
-                {tunnelActive ? "You're protected" : copy.title}
+                {headline}
               </h2>
               <p className="mt-2 max-w-xl text-[14px] leading-relaxed text-[#627086]">
-                {tunnelActive
-                  ? "Your internet traffic is encrypted and your essential VPN protections are currently active."
-                  : copy.description}
+                {description}
               </p>
             </div>
           </div>
@@ -188,10 +246,20 @@ export function VpnProtectionCard({
                 </span>
               ))}
             </div>
+          ) : browserProtected ? (
+            <p className="mt-5 text-[13px] text-[#627086]">
+              Your VPN session is active, but optional protections are off for
+              this connection.
+            </p>
+          ) : remoteSessionActive ? (
+            <p className="mt-5 text-[13px] text-[#627086]">
+              Kill switch, DNS, and tracker blocking apply on the connected app
+              session — not in this browser until you connect here too.
+            </p>
           ) : planActive ? (
             <p className="mt-5 text-[13px] text-[#627086]">
               Connect in the app to activate kill switch, DNS, and tracker
-              blocking on this session.
+              blocking on a VPN session.
             </p>
           ) : (
             <button

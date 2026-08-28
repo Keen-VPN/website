@@ -6906,7 +6906,7 @@ export async function getLinkedProviders(sessionToken: string): Promise<{
   return response.json();
 }
 
-export type VpnConnectionStatusData = {
+export interface VpnConnectionStatusData {
   connected: boolean;
   source: "app_session" | "network_exit" | null;
   serverLocation: string | null;
@@ -6922,7 +6922,7 @@ export type VpnConnectionStatusData = {
     platform: string;
     lastHeartbeatAt: string;
   } | null;
-};
+}
 
 export async function fetchVpnConnectionStatus(
   sessionToken: string,
