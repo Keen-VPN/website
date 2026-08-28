@@ -69,7 +69,9 @@ interface AuthContextType {
   authProvider: string | null;
   signIn: (provider?: 'google' | 'apple') => Promise<{ success: boolean; shouldRedirect?: string }>;
   logout: () => Promise<boolean>;
-  refreshSubscription: () => Promise<void>;
+  refreshSubscription: () => Promise<SubscriptionData | null>;
+  /** Merge fields into the in-memory subscription (e.g. right after cancel). */
+  patchSubscription: (patch: Partial<SubscriptionData>) => void;
   refreshLinkedProviders: () => Promise<void>;
 }
 
@@ -997,13 +999,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Refresh Subscription
   // ============================================================================
 
-  const refreshSubscription = React.useCallback(async () => {
+  const refreshSubscription = React.useCallback(async (): Promise<SubscriptionData | null> => {
     const sessionToken = getSessionToken();
     setHasSessionToken(Boolean(sessionToken));
     if (sessionToken) {
-      await fetchSubscriptionFromBackend(sessionToken);
+      return await fetchSubscriptionFromBackend(sessionToken);
     }
+    return null;
   }, [fetchSubscriptionFromBackend]);
+
+  const patchSubscription = React.useCallback(
+    (patch: Partial<SubscriptionData>) => {
+      setSubscription((current) => (current ? { ...current, ...patch } : null));
+    },
+    [],
+  );
 
   // ============================================================================
   // Linked Providers
@@ -1038,8 +1048,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     logout,
     refreshSubscription,
+    patchSubscription,
     refreshLinkedProviders,
-  }), [user, subscription, trial, entitlements, entitlementsStatus, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, refreshLinkedProviders]);
+  }), [user, subscription, trial, entitlements, entitlementsStatus, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, patchSubscription, refreshLinkedProviders]);
 
   const sessionTokenForDialogs = React.useMemo(() => {
     if (

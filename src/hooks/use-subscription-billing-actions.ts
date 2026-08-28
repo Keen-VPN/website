@@ -88,7 +88,7 @@ function navigateExternalPortalTab(portalWindow: Window, url: string): void {
 export function useSubscriptionBillingActions(
   options: UseSubscriptionBillingActionsOptions = {},
 ) {
-  const { refreshSubscription, subscription } = useAuth();
+  const { refreshSubscription, patchSubscription } = useAuth();
   const { toast } = useToast();
   const [cancelling, setCancelling] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
@@ -124,12 +124,24 @@ export function useSubscriptionBillingActions(
       const result = await cancelSubscription(token);
 
       if (result.success) {
+        patchSubscription({ cancelAtPeriodEnd: true });
         toast({
           title: "Auto-renewal turned off",
           description:
             "Your subscription stays active until the end of your billing period.",
         });
-        await refreshSubscription();
+        let updated = await refreshSubscription();
+        for (
+          let attempt = 0;
+          attempt < 2 && updated && !updated.cancelAtPeriodEnd;
+          attempt += 1
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          updated = await refreshSubscription();
+        }
+        if (updated && !updated.cancelAtPeriodEnd) {
+          patchSubscription({ cancelAtPeriodEnd: true });
+        }
         return true;
       } else {
         throw new Error(result.error || "Failed to cancel subscription");
@@ -145,7 +157,7 @@ export function useSubscriptionBillingActions(
     } finally {
       setCancelling(false);
     }
-  }, [requireSessionToken, toast, refreshSubscription]);
+  }, [requireSessionToken, toast, refreshSubscription, patchSubscription]);
 
   const openBillingPortalWithIntent = useCallback(
     async (intent: "default" | "change_plan", token: string) => {

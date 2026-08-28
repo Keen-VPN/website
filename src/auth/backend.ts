@@ -2158,6 +2158,7 @@ export async function fetchSubscriptionStatusWithSession(
   try {
     const response = await fetch(`${BACKEND_URL}/subscription/status-session`, {
       method: "POST",
+      cache: "no-store",
       headers: {
         "Content-Type": "application/json",
       },
