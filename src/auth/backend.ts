@@ -6906,6 +6906,58 @@ export async function getLinkedProviders(sessionToken: string): Promise<{
   return response.json();
 }
 
+export type VpnConnectionStatusData = {
+  connected: boolean;
+  source: "app_session" | "network_exit" | null;
+  serverLocation: string | null;
+  protocol: string | null;
+  encryption: "AES-256";
+  vpnIpMasked: string | null;
+  protections: {
+    killSwitch: boolean;
+    dnsProtection: boolean;
+    trackerBlocking: boolean;
+  };
+  activeSession: {
+    platform: string;
+    lastHeartbeatAt: string;
+  } | null;
+};
+
+export async function fetchVpnConnectionStatus(
+  sessionToken: string,
+): Promise<{ ok: boolean; data?: VpnConnectionStatusData; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/connection/vpn-status`, {
+      credentials: "include",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load VPN connection status",
+        ),
+      };
+    }
+    const payload = raw as { data?: VpnConnectionStatusData };
+    if (!payload.data) {
+      return { ok: false, error: "Failed to load VPN connection status" };
+    }
+    return { ok: true, data: payload.data };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to load VPN connection status",
+    };
+  }
+}
+
 export async function fetchDeviceConnectionsStatus(
   sessionToken: string,
 ): Promise<{ ok: boolean; data?: unknown; error?: string }> {

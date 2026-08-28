@@ -74,7 +74,7 @@ const CATEGORIES: FaqCategory[] = [
     questions: [
       {
         q: 'Which platforms are supported?',
-        a: 'KeenVPN is available for macOS, iOS, Android, and as a Chrome extension. A Windows installer is coming soon. Visit Downloads in your account dashboard for the latest store and installer links.',
+        a: 'KeenVPN is available for macOS, iOS, Android, Windows, and as a Chrome extension. Visit Downloads in your account dashboard for store and installer links.',
       },
       {
         q: 'How do I install KeenVPN on my router?',
@@ -82,7 +82,7 @@ const CATEGORIES: FaqCategory[] = [
       },
       {
         q: 'How do I update the KeenVPN app?',
-        a: 'On iOS and Android, update through the App Store or Google Play. On macOS, use the in-app update prompt or reinstall from Downloads. Windows support is coming soon.',
+        a: 'On iOS and Android, update through the App Store or Google Play. On macOS and Windows, use the in-app update prompt or reinstall from Downloads.',
       },
       {
         q: "Why can't I find KeenVPN in my app store?",

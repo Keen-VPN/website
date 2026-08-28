@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Home",
+  "/vpn": "VPN",
   "/subscription": "Subscription",
   "/referrals": "Refer",
   "/profile": "Profile",

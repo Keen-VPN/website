@@ -28,6 +28,9 @@ interface DownloadSection {
 const CHROME_EXTENSION_URL =
   "https://chromewebstore.google.com/detail/keenvpn-%E2%80%94-browser-protect/fdmiheabmohipekdgphijdboekojllfh";
 
+const WINDOWS_STORE_URL =
+  "https://apps.microsoft.com/store/detail/9NZZ9WCFKKBG?cid=DevShareMCLPCS";
+
 const SECTIONS: DownloadSection[] = [
   {
     title: "Desktop apps",
@@ -37,9 +40,9 @@ const SECTIONS: DownloadSection[] = [
       {
         id: "windows",
         title: "Windows",
-        subtitle: "Windows 10 and 11 — installer coming soon",
-        cta: "Coming soon",
-        comingSoon: true,
+        subtitle: "Windows 10 and 11 — Microsoft Store",
+        cta: "Get app",
+        href: WINDOWS_STORE_URL,
         icon: <Monitor className="h-5 w-5 text-dash-ink" />,
       },
       {

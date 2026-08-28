@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Home,
+  Shield,
   Gavel,
   Sparkles,
   CreditCard,
@@ -118,6 +119,15 @@ export default function DashboardSidebar({
             Products
           </p>
         </div>
+
+        <NavLink
+          to="/vpn"
+          className={({ isActive }) => navLinkClass(isActive)}
+          {...linkProps}
+        >
+          <Shield className="h-4 w-4 shrink-0" />
+          KeenVPN
+        </NavLink>
 
         <NavLink
           to="/class-action"

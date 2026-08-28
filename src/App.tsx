@@ -104,6 +104,7 @@ const AdminSignupSources = lazy(
 );
 const AdminWorkflows = lazy(() => import("./pages/admin/AdminWorkflows"));
 const DashboardHome = lazy(() => import("./pages/DashboardHome"));
+const DashboardVpn = lazy(() => import("./pages/DashboardVpn"));
 const DashboardDownloads = lazy(() => import("./pages/DashboardDownloads"));
 const DashboardReferrals = lazy(() => import("./pages/DashboardReferrals"));
 const DashboardClassAction = lazy(() => import("./pages/DashboardClassAction"));
@@ -289,6 +290,7 @@ const App = () => (
                   element={<Navigate to="/dashboard" replace />}
                 />
                 <Route path="/dashboard" element={<DashboardHome />} />
+                <Route path="/vpn" element={<DashboardVpn />} />
                 <Route path="/downloads" element={<DashboardDownloads />} />
                 <Route path="/referrals" element={<DashboardReferrals />} />
                 <Route path="/class-action" element={<DashboardClassAction />} />
