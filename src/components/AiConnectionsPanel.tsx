@@ -214,7 +214,19 @@ export function AiConnectionsPanel({
         open={issuedToken !== null}
         onOpenChange={(open) => !open && setIssuedToken(null)}
       >
-        <DialogContent className="sm:max-w-lg">
+        {/*
+          The dialog renders through a portal onto document.body, so it sits
+          outside whatever scope the page put it in — including
+          `.dashboard-surface`, which is what re-points the theme tokens at the
+          dashboard's light palette. Without the class repeated here the tokens
+          fall back to their `:root` values, which are dark: a navy panel with a
+          title and an outline button that are dark-on-dark, and so invisible.
+          Carried on the portalled element itself, which is the only place the
+          scope can reach it. Omitted on /account, which is still dark.
+        */}
+        <DialogContent
+          className={embedded ? "dashboard-surface sm:max-w-lg" : "sm:max-w-lg"}
+        >
           <DialogHeader>
             <DialogTitle>Copy this key now</DialogTitle>
           </DialogHeader>
