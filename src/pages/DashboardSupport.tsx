@@ -251,7 +251,7 @@ export default function DashboardSupport() {
       />
 
       <header className="border-b border-[#e5e0d6] bg-[#fffaf5]">
-        <div className="flex h-[76px] items-center px-6 sm:px-10 lg:px-12">
+        <div className="flex h-[76px] items-center justify-between px-6 sm:px-10 lg:px-12">
           <Link
             to="/dashboard"
             className="inline-flex items-center gap-2"
@@ -265,6 +265,12 @@ export default function DashboardSupport() {
             <span className="text-[16px] font-bold tracking-tight text-[#0f2040]">
               KeenVPN
             </span>
+          </Link>
+          <Link
+            to="/dashboard"
+            className="inline-flex h-9 items-center justify-center rounded-[8px] border border-[#dbe2ec] bg-white px-4 text-[14px] font-semibold text-[#0f2040] transition-colors hover:bg-[#f7f9fc]"
+          >
+            Back Home
           </Link>
         </div>
       </header>

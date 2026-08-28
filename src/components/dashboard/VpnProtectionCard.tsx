@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, ShieldAlert } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { SubscriptionData } from "@/auth/types";
@@ -95,20 +95,30 @@ export function VpnProtectionCard({
     null,
   );
   const [liveLoading, setLiveLoading] = useState(Boolean(sessionToken));
+  const requestGenerationRef = useRef(0);
 
   const refreshStatus = useCallback(
-    async (options?: { showLoading?: boolean }) => {
+    async (generation: number, options?: { showLoading?: boolean }) => {
       if (!sessionToken) {
-        setLiveStatus(null);
-        setLiveLoading(false);
+        if (generation === requestGenerationRef.current) {
+          setLiveStatus(null);
+          setLiveLoading(false);
+        }
         return;
       }
 
-      if (options?.showLoading) {
+      if (
+        options?.showLoading &&
+        generation === requestGenerationRef.current
+      ) {
         setLiveLoading(true);
       }
 
       const result = await fetchVpnConnectionStatus(sessionToken);
+      if (generation !== requestGenerationRef.current) {
+        return;
+      }
+
       setLiveStatus(result.ok ? (result.data ?? null) : null);
       setLiveLoading(false);
     },
@@ -117,23 +127,28 @@ export function VpnProtectionCard({
 
   useEffect(() => {
     if (!sessionToken) {
+      requestGenerationRef.current += 1;
       setLiveStatus(null);
       setLiveLoading(false);
       return;
     }
 
-    void refreshStatus({ showLoading: true });
+    const generation = requestGenerationRef.current + 1;
+    requestGenerationRef.current = generation;
+
+    void refreshStatus(generation, { showLoading: true });
 
     const intervalId = window.setInterval(() => {
-      void refreshStatus();
+      void refreshStatus(generation);
     }, VPN_STATUS_POLL_MS);
 
     const onFocus = () => {
-      void refreshStatus();
+      void refreshStatus(generation);
     };
     window.addEventListener("focus", onFocus);
 
     return () => {
+      requestGenerationRef.current += 1;
       window.clearInterval(intervalId);
       window.removeEventListener("focus", onFocus);
     };
