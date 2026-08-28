@@ -66,6 +66,8 @@ export default function AdminHotLinks() {
     rejected: HotLinkDomainRejection[];
   } | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  /** Shown inside the create/edit dialog — page-level `error` sits behind the modal. */
+  const [formError, setFormError] = useState<string | null>(null);
 
   const [importOpen, setImportOpen] = useState(false);
   const [csv, setCsv] = useState("");
@@ -187,6 +189,7 @@ export default function AdminHotLinks() {
     setForm({ ...EMPTY_FORM });
     setRejected([]);
     setDomainPreview(null);
+    setFormError(null);
     setCreateOpen(true);
   }
 
@@ -206,6 +209,7 @@ export default function AdminHotLinks() {
     });
     setRejected([]);
     setDomainPreview(null);
+    setFormError(null);
     setCreateOpen(true);
   }
 
@@ -237,8 +241,14 @@ export default function AdminHotLinks() {
   }
 
   async function handleCreate() {
+    const domains = parseDomains(form.domains);
+    if (domains.length === 0) {
+      setFormError("Add at least one matching domain.");
+      return;
+    }
     setSaving(true);
     setRejected([]);
+    setFormError(null);
     const payload = {
       partnerName: form.partnerName.trim(),
       category: form.category.trim(),
@@ -251,7 +261,7 @@ export default function AdminHotLinks() {
       priority: Number(form.priority) || 0,
       // Accept the same separators the CSV importer does, so an admin can paste
       // a domain cell straight out of a spreadsheet.
-      domains: parseDomains(form.domains),
+      domains,
     };
     const result = editingId
       ? await adminUpdateHotLink(editingId, payload)
@@ -266,11 +276,14 @@ export default function AdminHotLinks() {
       if (!result.rejectedDomains?.length) {
         setForm({ ...EMPTY_FORM });
         setEditingId(null);
+        setFormError(null);
         setCreateOpen(false);
       }
       void refreshAfterCategoryMutation();
     } else {
-      setError(result.error ?? (editingId ? "Update failed" : "Create failed"));
+      setFormError(
+        result.error ?? (editingId ? "Update failed" : "Create failed"),
+      );
     }
   }
 
@@ -496,9 +509,10 @@ export default function AdminHotLinks() {
                 rows={2}
                 placeholder="gusto.com app.gusto.com"
                 value={form.domains}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, domains: e.target.value }))
-                }
+                onChange={(e) => {
+                  setFormError(null);
+                  setForm((f) => ({ ...f, domains: e.target.value }));
+                }}
               />
               <div className="flex items-center gap-2">
                 <p className="flex-1 text-xs text-muted-foreground">
@@ -559,6 +573,12 @@ export default function AdminHotLinks() {
                 contract terms.
               </p>
             </div>
+
+            {formError && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {formError}
+              </div>
+            )}
 
             {rejected.length > 0 && (
               <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
