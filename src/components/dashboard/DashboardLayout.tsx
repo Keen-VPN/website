@@ -6,11 +6,13 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Home",
+  "/vpn": "VPN",
   "/subscription": "Subscription",
   "/referrals": "Refer",
   "/profile": "Profile",
   "/downloads": "Downloads",
   "/class-action": "Class Action",
+  "/ai-assistant": "AI Assistant",
 };
 
 export default function DashboardLayout() {

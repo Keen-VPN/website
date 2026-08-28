@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import GoogleIcon from "@/components/ui/google-icon";
 import { UserInformationCard } from "@/components/UserInformationCard";
-import { ConnectedDevicesCard } from "@/components/ConnectedDevicesCard";
 import { AuthEmailCard } from "@/components/AuthEmailCard";
 import { cn } from "@/lib/utils";
 import { hasManageableSubscription, canCancelStripeOnWebsite, isAppleIapSubscription } from "@/lib/subscription-cta";
@@ -496,20 +495,15 @@ export default function DashboardProfile() {
         </section>
 
         {sessionToken ? (
-          <ConnectedDevicesCard
-            sessionToken={sessionToken}
-            variant="dashboard"
-          />
-        ) : null}
-
-        {/* User information (optional profile Q&A from old Account page) */}
-        {sessionToken ? (
           <UserInformationCard
             sessionToken={sessionToken}
             entrySource="dashboard_profile"
             variant="dashboard"
           />
         ) : null}
+
+        {/* AI assistants and the AI Assistant chat moved to Products -> AI Assistant
+            (/ai-assistant). They are a product surface, not account settings. */}
 
         {/* Email Preferences */}
         <section className={cardClass}>

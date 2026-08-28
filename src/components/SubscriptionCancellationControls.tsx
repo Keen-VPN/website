@@ -1,7 +1,7 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -19,24 +19,16 @@ import {
   hasManageableSubscription,
   isStripeSubscription,
 } from "@/lib/subscription-cta";
-function formatDate(dateString: string | undefined): string {
-  if (!dateString) return "the end of your billing period";
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return dateString;
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
+import { formatSubscriptionEndDate } from "@/lib/format-subscription-date";
 
 interface SubscriptionCancellationControlsProps {
   subscription: SubscriptionData;
   cancelling: boolean;
-  onCancel: () => void | Promise<void>;
+  onCancel: () => boolean | undefined | Promise<boolean | undefined>;
   onManageBilling?: () => void | Promise<void>;
   portalLoading?: boolean;
   showManageBilling?: boolean;
+  showCancelButton?: boolean;
 }
 
 /**
@@ -50,12 +42,21 @@ export function SubscriptionCancellationControls({
   onManageBilling,
   portalLoading = false,
   showManageBilling = true,
+  showCancelButton = true,
 }: SubscriptionCancellationControlsProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const isStripe = isStripeSubscription(subscription);
   const canCancelStripe = canCancelStripeOnWebsite(subscription);
   const isApple = subscription.subscriptionType === "apple_iap";
   const manageable = hasManageableSubscription(subscription);
-  const endLabel = formatDate(subscription.endDate);
+  const endLabel = formatSubscriptionEndDate(subscription.endDate);
+
+  const handleConfirmCancel = async () => {
+    const result = await Promise.resolve(onCancel());
+    if (result !== false) {
+      setConfirmOpen(false);
+    }
+  };
 
   const autoRenewalOffNotice = (
     <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900/50 dark:bg-yellow-950/30">
@@ -129,7 +130,7 @@ export function SubscriptionCancellationControls({
     );
   }
 
-  if (canCancelStripe) {
+  if (canCancelStripe && showCancelButton) {
     return (
       <div className="space-y-3">
         {showManageBilling && onManageBilling ? (
@@ -150,7 +151,14 @@ export function SubscriptionCancellationControls({
             )}
           </Button>
         ) : null}
-        <AlertDialog>
+        <AlertDialog
+          open={confirmOpen}
+          onOpenChange={(open) => {
+            if (!cancelling) {
+              setConfirmOpen(open);
+            }
+          }}
+        >
           <AlertDialogTrigger asChild>
             <Button
               variant="destructive"
@@ -161,7 +169,7 @@ export function SubscriptionCancellationControls({
             </Button>
           </AlertDialogTrigger>
           {/* Branded light surface — matches dashboard / new marketing UI */}
-          <AlertDialogContent className="gap-5 border-[#e3e8f0] bg-white p-6 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:rounded-[16px]">
+          <AlertDialogContent className="dashboard-surface gap-5 border-[#e3e8f0] bg-white p-6 text-[#0f2040] shadow-[0px_16px_40px_rgba(15,32,64,0.16)] sm:rounded-[16px]">
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center text-[18px] font-semibold text-[#0f2040]">
                 <AlertTriangle className="mr-2 h-5 w-5 shrink-0 text-[#ed7d36]" />
@@ -190,12 +198,16 @@ export function SubscriptionCancellationControls({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="gap-2 sm:gap-3">
-              <AlertDialogCancel className="mt-0 h-9 rounded-[8px] border-[#dbe2ec] bg-white text-[13px] font-semibold text-[#0f2040] hover:bg-[#f5f7fb] hover:text-[#0f2040]">
+              <AlertDialogCancel
+                disabled={cancelling}
+                className="mt-0 h-9 rounded-[8px] border-[#dbe2ec] bg-white text-[13px] font-semibold text-[#0f2040] hover:bg-[#f5f7fb] hover:text-[#0f2040]"
+              >
                 Keep subscription
               </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => void onCancel()}
+              <Button
+                type="button"
                 disabled={cancelling}
+                onClick={() => void handleConfirmCancel()}
                 className="h-9 rounded-[8px] bg-[#d14343] text-[13px] font-semibold text-white hover:bg-[#d14343]/90"
               >
                 {cancelling ? (
@@ -206,7 +218,7 @@ export function SubscriptionCancellationControls({
                 ) : (
                   "Yes, cancel at period end"
                 )}
-              </AlertDialogAction>
+              </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

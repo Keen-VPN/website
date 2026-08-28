@@ -211,15 +211,18 @@ export function normalizeBackendAuthResponse(
     const from = scheduled.from;
     const to = scheduled.to;
     const effectiveAt = scheduled.effectiveAt;
+    const supportedBillingPeriods = new Set(["month", "year", "2year"]);
     if (
-      (from === "month" || from === "year") &&
-      (to === "month" || to === "year")
+      typeof from === "string" &&
+      supportedBillingPeriods.has(from) &&
+      typeof to === "string" &&
+      supportedBillingPeriods.has(to)
     ) {
       // Keep from/to even when effectiveAt is missing so annual-upgrade CTAs
       // stay hidden; notice copy falls back when the date is empty/invalid.
       normalizedSubscription.scheduledBillingInterval = {
-        from,
-        to,
+        from: from as "month" | "year" | "2year",
+        to: to as "month" | "year" | "2year",
         effectiveAt: typeof effectiveAt === "string" ? effectiveAt : "",
       };
     }
@@ -2155,6 +2158,7 @@ export async function fetchSubscriptionStatusWithSession(
   try {
     const response = await fetch(`${BACKEND_URL}/subscription/status-session`, {
       method: "POST",
+      cache: "no-store",
       headers: {
         "Content-Type": "application/json",
       },
@@ -2682,8 +2686,8 @@ export async function upgradeSubscriptionToBusiness(
   planId?: string;
   seatLimit?: number;
   billingIntervalChange?: {
-    from: "month" | "year";
-    to: "month" | "year";
+    from: "month" | "year" | "2year";
+    to: "month" | "year" | "2year";
     effectiveAt: string;
   };
   message?: string;
@@ -2720,8 +2724,8 @@ export async function upgradeSubscriptionToBusiness(
       planId?: string;
       seatLimit?: number;
       billingIntervalChange?: {
-        from: "month" | "year";
-        to: "month" | "year";
+        from: "month" | "year" | "2year";
+        to: "month" | "year" | "2year";
         effectiveAt: string;
       };
       message?: string;
@@ -6901,6 +6905,58 @@ export async function getLinkedProviders(sessionToken: string): Promise<{
     );
   }
   return response.json();
+}
+
+export interface VpnConnectionStatusData {
+  connected: boolean;
+  source: "app_session" | "network_exit" | null;
+  serverLocation: string | null;
+  protocol: string | null;
+  encryption: "AES-256";
+  vpnIpMasked: string | null;
+  protections: {
+    killSwitch: boolean;
+    dnsProtection: boolean;
+    trackerBlocking: boolean;
+  };
+  activeSession: {
+    platform: string;
+    lastHeartbeatAt: string;
+  } | null;
+}
+
+export async function fetchVpnConnectionStatus(
+  sessionToken: string,
+): Promise<{ ok: boolean; data?: VpnConnectionStatusData; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/connection/vpn-status`, {
+      credentials: "include",
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load VPN connection status",
+        ),
+      };
+    }
+    const payload = raw as { data?: VpnConnectionStatusData };
+    if (!payload.data) {
+      return { ok: false, error: "Failed to load VPN connection status" };
+    }
+    return { ok: true, data: payload.data };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to load VPN connection status",
+    };
+  }
 }
 
 export async function fetchDeviceConnectionsStatus(

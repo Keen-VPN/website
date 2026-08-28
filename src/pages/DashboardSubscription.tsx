@@ -24,7 +24,6 @@ import {
 } from '@/auth/backend';
 import { ApiPlan, getApiPlanPaidMonths, isTwoYearApiPlan } from '@/lib/pricing';
 import {
-  type SubscriptionEvent,
   formatCurrency,
   formatEventDate,
   fetchSubscriptionEventDetail,
@@ -36,6 +35,7 @@ import {
 } from '@/lib/subscription-history-api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SubscriptionCancellationControls } from '@/components/SubscriptionCancellationControls';
+import { SubscriptionAutoRenewSwitch } from '@/components/SubscriptionAutoRenewSwitch';
 import { MembershipPlanUpgradeCard } from '@/components/MembershipPlanUpgradeCard';
 import { DashboardSlideDialog } from '@/components/DashboardSlideDialog';
 import {
@@ -305,10 +305,6 @@ function CurrentPlanTab() {
   const autoRenewOn = !subscription.cancelAtPeriodEnd;
   const canOpenStripePortal =
     isStripeSubscription(subscription) && subscription.canManageBilling;
-  const canCancel =
-    isStripeSubscription(subscription) &&
-    subscription.canManageBilling === true &&
-    !subscription.cancelAtPeriodEnd;
   const teamOwnerEmail =
     membershipDashboard?.membership?.ownerEmail?.trim() || null;
   const teamBillingEnd =
@@ -393,27 +389,33 @@ function CurrentPlanTab() {
           </div>
           <div className="flex gap-4 lg:px-8">
             <RefreshCw className="mt-0.5 h-6 w-6 shrink-0 text-[#ff7900]" />
-            <div className="flex-1">
-              <p className="text-[16px] text-[#627086]">Auto-renew</p>
-              <p
-                className={
-                  isSharedMember
-                    ? 'mt-2 text-[17px] font-bold text-[#0f2040]'
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+              <div>
+                <p className="text-[16px] text-[#627086]">Auto-renew</p>
+                <p
+                  className={
+                    isSharedMember
+                      ? 'mt-2 text-[17px] font-bold text-[#0f2040]'
+                      : autoRenewOn
+                        ? 'mt-2 text-[17px] font-bold text-[#159653]'
+                        : 'mt-2 text-[17px] font-bold text-[#627086]'
+                  }
+                >
+                  {isSharedMember
+                    ? 'Managed by team admin'
                     : autoRenewOn
-                      ? 'mt-2 text-[17px] font-bold text-[#159653]'
-                      : 'mt-2 text-[17px] font-bold text-[#627086]'
-                }
-              >
-                {isSharedMember
-                  ? 'Managed by team admin'
-                  : autoRenewOn
-                    ? 'On'
-                    : 'Off'}
-              </p>
-              {canCancel ? (
-                <p className="mt-1 text-[13px] text-[#627086]">
-                  Use Turn off auto-renewal below to stop future charges.
+                      ? 'On'
+                      : 'Off'}
                 </p>
+              </div>
+              {!isSharedMember ? (
+                <SubscriptionAutoRenewSwitch
+                  subscription={subscription}
+                  cancelling={cancelling}
+                  portalLoading={portalLoading}
+                  onCancel={() => cancelSubscriptionAtPeriodEnd()}
+                  onManageBilling={() => void openBillingPortal()}
+                />
               ) : null}
             </div>
           </div>
@@ -502,10 +504,11 @@ function CurrentPlanTab() {
             <SubscriptionCancellationControls
               subscription={subscription}
               cancelling={cancelling}
-              onCancel={() => void cancelSubscriptionAtPeriodEnd()}
+              onCancel={() => cancelSubscriptionAtPeriodEnd()}
               onManageBilling={() => void openBillingPortal()}
               portalLoading={portalLoading}
               showManageBilling={false}
+              showCancelButton={false}
             />
           </div>
         ) : null}
@@ -630,7 +633,7 @@ function PlansTab() {
 
   const tierPlans = useMemo(() => {
     const filtered = plans.filter((p) => getPlanTier(p) === tier);
-    // Individual: Monthly, 2-year, 1-year. Business: Monthly, Annual.
+    // Both tiers: Monthly, 2-year (when configured), then 1-year.
     return [...filtered].sort((a, b) => {
       const rank = (p: ApiPlan) =>
         isTwoYearApiPlan(p) ? 1 : isAnnualPlan(p) ? 2 : 0;
@@ -640,6 +643,7 @@ function PlansTab() {
   const monthlyPlan = tierPlans.find(
     (plan) => !isAnnualPlan(plan) && !isTwoYearApiPlan(plan),
   );
+  const tierHasTwoYear = tierPlans.some(isTwoYearApiPlan);
 
   const startCheckout = async (plan: ApiPlan) => {
     const sessionToken = getSessionToken();
@@ -769,8 +773,8 @@ function PlansTab() {
           const twoYear = isTwoYearApiPlan(plan);
           const annual = isAnnualPlan(plan);
           const isBusiness = tier === 'team';
-          // Featured: Individual 2-year, or Business annual
-          const featured = twoYear || (isBusiness && annual);
+          // The longest available term is the single featured value card.
+          const featured = twoYear || (isBusiness && annual && !tierHasTwoYear);
           const monthly = monthlyEquivalent(plan);
           const coveredMonths = getApiPlanPaidMonths(plan);
           const standardTermPrice = monthlyPlan
@@ -846,6 +850,34 @@ function PlansTab() {
             isIndividualSubscriber;
           const useFreeBusiness =
             !isCurrentPlan && isBusiness && canFreeBusinessUpgrade;
+          const existingBusinessOwner =
+            subscription != null &&
+            hasManageableSubscription(subscription) &&
+            subscription.cancelAtPeriodEnd !== true &&
+            resolveMembershipPlanTier(subscription) === 'business' &&
+            isStripeSubscription(subscription) &&
+            subscription.canManageBilling === true;
+          const useBusinessTermChange =
+            !isCurrentPlan && isBusiness && existingBusinessOwner;
+          const targetBusinessPeriod = twoYear
+            ? '2year'
+            : annual
+              ? 'year'
+              : 'month';
+          const businessTermAlreadyScheduled =
+            useBusinessTermChange &&
+            (subscription?.scheduledBillingInterval?.to ===
+              targetBusinessPeriod ||
+              subscription?.scheduledPlanChange?.to === targetBusinessPeriod);
+          if (businessTermAlreadyScheduled) {
+            cta = `${
+              targetBusinessPeriod === '2year'
+                ? '2-year'
+                : targetBusinessPeriod === 'year'
+                  ? 'Annual'
+                  : 'Monthly'
+            } scheduled`;
+          }
           const businessPlanWaiting =
             !isCurrentPlan && isBusiness && businessActionBlocked;
           const isThisPlanLoading = activeLoadingPlanId === plan.id;
@@ -966,6 +998,15 @@ function PlansTab() {
                     void upgradeToBusinessPlan(plan.id, 1);
                     return;
                   }
+                  if (useBusinessTermChange && subscription) {
+                    const minSeats = plan.minSeats ?? 2;
+                    const seatCount = Math.max(
+                      subscription.seatLimit ?? plan.defaultSeats ?? minSeats,
+                      minSeats,
+                    );
+                    void upgradeToBusinessPlan(plan.id, seatCount);
+                    return;
+                  }
                   if (useOneClickTwoYear) {
                     void switchToTwoYear(plan.id, 'dashboard_plans');
                     return;
@@ -1013,6 +1054,7 @@ function PlansTab() {
                 disabled={
                   isAnotherPlanLoading ||
                   businessPlanWaiting ||
+                  businessTermAlreadyScheduled ||
                   (twoYearAlreadyScheduled && twoYear && !isCurrentPlan) ||
                   (annualAlreadyScheduled &&
                     annual &&
@@ -1085,7 +1127,7 @@ function isReceiptEvent(event: SubscriptionEvent): boolean {
   return event.eventType === 'purchase' || event.eventType === 'renewal';
 }
 
-function invoiceHeadline(event: SubscriptionEvent, dateLabel: string) {
+function invoiceHeadline(_event: SubscriptionEvent, dateLabel: string) {
   return `Paid on ${dateLabel}`;
 }
 

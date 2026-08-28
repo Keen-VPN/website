@@ -31,7 +31,7 @@ function isDashboardRoute(pathname: string): boolean {
 
 function buildBusinessUpgradeSuccessPath(
   billingIntervalChange?: {
-    to: "month" | "year";
+    to: "month" | "year" | "2year";
     effectiveAt: string;
   },
   explicitPath?: string,
@@ -51,7 +51,7 @@ function buildBusinessUpgradeSuccessPath(
 
   if (billingIntervalChange) {
     const { to, effectiveAt } = billingIntervalChange;
-    if (to === "month" || to === "year") {
+    if (to === "month" || to === "year" || to === "2year") {
       url.searchParams.set("billing", to);
     }
     if (typeof effectiveAt === "string" && effectiveAt.trim().length > 0) {
@@ -88,7 +88,7 @@ function navigateExternalPortalTab(portalWindow: Window, url: string): void {
 export function useSubscriptionBillingActions(
   options: UseSubscriptionBillingActionsOptions = {},
 ) {
-  const { refreshSubscription, subscription } = useAuth();
+  const { refreshSubscription, patchSubscription, subscription } = useAuth();
   const { toast } = useToast();
   const [cancelling, setCancelling] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
@@ -113,10 +113,10 @@ export function useSubscriptionBillingActions(
     return token;
   }, [toast]);
 
-  const cancelSubscriptionAtPeriodEnd = useCallback(async () => {
+  const cancelSubscriptionAtPeriodEnd = useCallback(async (): Promise<boolean> => {
     const token = requireSessionToken();
     if (!token) {
-      return;
+      return false;
     }
 
     try {
@@ -124,12 +124,25 @@ export function useSubscriptionBillingActions(
       const result = await cancelSubscription(token);
 
       if (result.success) {
+        patchSubscription({ cancelAtPeriodEnd: true });
         toast({
           title: "Auto-renewal turned off",
           description:
             "Your subscription stays active until the end of your billing period.",
         });
-        await refreshSubscription();
+        let updated = await refreshSubscription();
+        for (
+          let attempt = 0;
+          attempt < 2 && updated && !updated.cancelAtPeriodEnd;
+          attempt += 1
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          updated = await refreshSubscription();
+        }
+        if (updated && !updated.cancelAtPeriodEnd) {
+          patchSubscription({ cancelAtPeriodEnd: true });
+        }
+        return true;
       } else {
         throw new Error(result.error || "Failed to cancel subscription");
       }
@@ -140,10 +153,11 @@ export function useSubscriptionBillingActions(
           error instanceof Error ? error.message : "Please try again",
         variant: "destructive",
       });
+      return false;
     } finally {
       setCancelling(false);
     }
-  }, [requireSessionToken, toast, refreshSubscription]);
+  }, [requireSessionToken, toast, refreshSubscription, patchSubscription]);
 
   const openBillingPortalWithIntent = useCallback(
     async (intent: "default" | "change_plan", token: string) => {

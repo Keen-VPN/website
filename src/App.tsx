@@ -104,6 +104,7 @@ const AdminSignupSources = lazy(
 );
 const AdminWorkflows = lazy(() => import("./pages/admin/AdminWorkflows"));
 const DashboardHome = lazy(() => import("./pages/DashboardHome"));
+const DashboardVpn = lazy(() => import("./pages/DashboardVpn"));
 const DashboardDownloads = lazy(() => import("./pages/DashboardDownloads"));
 const DashboardReferrals = lazy(() => import("./pages/DashboardReferrals"));
 const DashboardClassAction = lazy(() => import("./pages/DashboardClassAction"));
@@ -111,6 +112,10 @@ const DashboardSubscription = lazy(
   () => import("./pages/DashboardSubscription"),
 );
 const DashboardProfile = lazy(() => import("./pages/DashboardProfile"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
+const DashboardAiAssistant = lazy(
+  () => import("./pages/DashboardAiAssistant"),
+);
 const DashboardSupport = lazy(() => import("./pages/DashboardSupport"));
 const DashboardLayout = lazy(
   () => import("./components/dashboard/DashboardLayout"),
@@ -285,15 +290,21 @@ const App = () => (
                   element={<Navigate to="/dashboard" replace />}
                 />
                 <Route path="/dashboard" element={<DashboardHome />} />
+                <Route path="/vpn" element={<DashboardVpn />} />
                 <Route path="/downloads" element={<DashboardDownloads />} />
                 <Route path="/referrals" element={<DashboardReferrals />} />
                 <Route path="/class-action" element={<DashboardClassAction />} />
+                <Route path="/ai-assistant" element={<DashboardAiAssistant />} />
                 <Route
                   path="/subscription"
                   element={<DashboardSubscription />}
                 />
                 <Route path="/profile" element={<DashboardProfile />} />
               </Route>
+              {/* MCP OAuth consent (KVPN-506). Not inside the dashboard shell:
+                  it is a full-page decision, and it is reached mid-redirect from
+                  an assistant rather than from the app's own navigation. */}
+              <Route path="/oauth/consent" element={<OAuthConsent />} />
               <Route path="/success" element={<PaymentSuccess />} />
               <Route path="/cancel" element={<PaymentCancel />} />
               <Route path="/open-app" element={<OpenApp />} />

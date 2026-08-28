@@ -37,9 +37,9 @@ const SECTIONS: DownloadSection[] = [
       {
         id: "windows",
         title: "Windows",
-        subtitle: "Windows 10 and 11 — installer coming soon",
-        cta: "Coming soon",
-        comingSoon: true,
+        subtitle: "Windows 10 and 11 — Microsoft Store",
+        cta: "Get app",
+        href: APP_STORE_URLS.windows,
         icon: <Monitor className="h-5 w-5 text-dash-ink" />,
       },
       {

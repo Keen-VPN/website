@@ -27,6 +27,25 @@ export function hasManageableSubscription(
   return Boolean(status && manageableSubscriptionStatuses.has(status));
 }
 
+/** Active VPN access via own subscription or shared business/family membership. */
+export function hasActiveVpnAccess(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (!subscription || isEndedSubscription(subscription)) return false;
+
+  const status = getSubscriptionStatus(subscription);
+  const isProvisioned = status === "active" || status === "trialing";
+
+  if (
+    subscription.accessRole === "member" ||
+    subscription.accessRole === "linked"
+  ) {
+    return isProvisioned;
+  }
+
+  return hasManageableSubscription(subscription);
+}
+
 const endedSubscriptionStatuses = new Set([
   "canceled",
   "cancelled",
@@ -113,6 +132,7 @@ export function canSwitchStripeToTwoYear(
   if (subscription.cancelAtPeriodEnd) return false;
   if (isTwoYearSubscription(subscription)) return false;
   if (subscription.scheduledPlanChange?.to === "2year") return false;
+  if (subscription.scheduledBillingInterval?.to === "2year") return false;
   if (resolveMembershipPlanTier(subscription) !== "individual") return false;
 
   const status = getSubscriptionStatus(subscription);
@@ -137,7 +157,10 @@ export function hasScheduledAnnualBilling(
 export function hasScheduledTwoYearBilling(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
-  return subscription?.scheduledPlanChange?.to === "2year";
+  return (
+    subscription?.scheduledBillingInterval?.to === "2year" ||
+    subscription?.scheduledPlanChange?.to === "2year"
+  );
 }
 
 /** Stripe monthly (or trialing monthly) with auto-renewal on — eligible for one-click annual upgrade. */

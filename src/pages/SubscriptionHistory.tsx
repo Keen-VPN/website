@@ -289,7 +289,7 @@ const SubscriptionHistory = () => {
                 <SubscriptionCancellationControls
                   subscription={subscription}
                   cancelling={cancelling}
-                  onCancel={() => void cancelSubscriptionAtPeriodEnd()}
+                  onCancel={() => cancelSubscriptionAtPeriodEnd()}
                   onManageBilling={() => void openBillingPortal()}
                   portalLoading={portalLoading}
                 />
