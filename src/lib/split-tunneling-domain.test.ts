@@ -31,11 +31,16 @@ describe("normalizeSplitTunnelingDomain", () => {
     );
   });
 
-  it("rejects public-suffix-only domains but allows eTLD+1 like org.de", () => {
+  it("rejects public-suffix-only domains via PSL (allows eTLD+1 like org.de)", () => {
     expect(normalizeSplitTunnelingDomain("co.uk")).toBeNull();
     expect(normalizeSplitTunnelingDomain("com.au")).toBeNull();
+    expect(normalizeSplitTunnelingDomain("org.in")).toBeNull();
+    expect(normalizeSplitTunnelingDomain("net.uk")).toBeNull();
+    expect(normalizeSplitTunnelingDomain("net.za")).toBeNull();
+    expect(normalizeSplitTunnelingDomain("github.io")).toBeNull();
     expect(normalizeSplitTunnelingDomain("example.co.uk")).toBe("example.co.uk");
     expect(normalizeSplitTunnelingDomain("org.de")).toBe("org.de");
+    expect(normalizeSplitTunnelingDomain("foo.github.io")).toBe("foo.github.io");
   });
 
   it("rejects invalid values", () => {

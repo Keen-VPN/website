@@ -1,55 +1,21 @@
+import { getDomain } from "tldts";
+
 const MAX_DOMAINS = 200;
 const DOMAIN_RE =
   /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
-
-/**
- * Known multi-part public suffixes (exact match only).
- * Do not use a generic SLD+ccTLD heuristic — that falsely rejects valid
- * registrable domains like org.de.
- */
-const MULTI_PART_PUBLIC_SUFFIXES = new Set([
-  "co.uk",
-  "org.uk",
-  "ac.uk",
-  "gov.uk",
-  "ltd.uk",
-  "plc.uk",
-  "com.au",
-  "net.au",
-  "org.au",
-  "edu.au",
-  "gov.au",
-  "co.nz",
-  "org.nz",
-  "co.jp",
-  "or.jp",
-  "ne.jp",
-  "com.br",
-  "com.mx",
-  "co.in",
-  "com.sg",
-  "com.hk",
-  "co.za",
-  "com.tr",
-  "com.tw",
-  "com.cn",
-  "com.ar",
-  "github.io",
-  "herokuapp.com",
-  "netlify.app",
-  "vercel.app",
-  "pages.dev",
-]);
 
 /** Max domains the account preference API accepts. */
 export const SPLIT_TUNNELING_MAX_DOMAINS = MAX_DOMAINS;
 
 /**
- * True when `domain` is a known public suffix with no private label.
+ * True when `domain` is a public suffix with no private label (PSL via tldts).
  * Excluding these would match every host under that registry via suffix rules.
+ * Uses allowPrivateDomains so suffixes like github.io / netlify.app are covered.
  */
 function isPublicSuffixOnly(domain: string): boolean {
-  return MULTI_PART_PUBLIC_SUFFIXES.has(domain);
+  return (
+    getDomain(domain, { allowPrivateDomains: true }) === null
+  );
 }
 
 /**
