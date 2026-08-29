@@ -25,10 +25,17 @@ describe("normalizeSplitTunnelingDomain", () => {
     expect(normalizeSplitTunnelingDomain("www.*.bank.com")).toBeNull();
   });
 
-  it("rejects public-suffix-only domains", () => {
+  it("allows path wildcards in pasted URLs (host only matters)", () => {
+    expect(normalizeSplitTunnelingDomain("https://www.example.com/*")).toBe(
+      "example.com",
+    );
+  });
+
+  it("rejects public-suffix-only domains but allows eTLD+1 like org.de", () => {
     expect(normalizeSplitTunnelingDomain("co.uk")).toBeNull();
     expect(normalizeSplitTunnelingDomain("com.au")).toBeNull();
     expect(normalizeSplitTunnelingDomain("example.co.uk")).toBe("example.co.uk");
+    expect(normalizeSplitTunnelingDomain("org.de")).toBe("org.de");
   });
 
   it("rejects invalid values", () => {

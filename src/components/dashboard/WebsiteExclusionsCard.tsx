@@ -34,6 +34,7 @@ export function WebsiteExclusionsCard({
   const [busyAction, setBusyAction] = useState<
     null | "toggle" | "add" | "remove"
   >(null);
+  const [removingDomain, setRemovingDomain] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const loadRequestRef = useRef(0);
   const editorReady = !loading && !loadFailed;
@@ -138,12 +139,17 @@ export function WebsiteExclusionsCard({
   const handleRemove = async (domain: string) => {
     if (!editorReady) return;
     const next = domains.filter((d) => d !== domain);
-    const ok = await persist(next, enabled, "remove");
-    if (ok) {
-      toast({
-        title: "Exclusion removed",
-        description: `${domain} will use KeenVPN again on supported clients.`,
-      });
+    setRemovingDomain(domain);
+    try {
+      const ok = await persist(next, enabled, "remove");
+      if (ok) {
+        toast({
+          title: "Exclusion removed",
+          description: `${domain} will use KeenVPN again on supported clients.`,
+        });
+      }
+    } finally {
+      setRemovingDomain(null);
     }
   };
 
@@ -285,7 +291,8 @@ export function WebsiteExclusionsCard({
                       onClick={() => void handleRemove(domain)}
                       aria-label={`Remove ${domain}`}
                     >
-                      {busyAction === "remove" ? (
+                      {busyAction === "remove" &&
+                      removingDomain === domain ? (
                         <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <Trash2 className="mr-1.5 h-3.5 w-3.5" />

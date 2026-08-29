@@ -232,6 +232,7 @@ export default function AdminHotLinks() {
     );
     setPreviewing(false);
     if (!result.ok) {
+      setDomainPreview(null);
       setFormError(result.error ?? "Validation failed");
       return;
     }
