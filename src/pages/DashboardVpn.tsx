@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getSessionToken } from "@/auth/backend";
 import { ConnectedDevicesCard } from "@/components/ConnectedDevicesCard";
 import { VpnProtectionCard } from "@/components/dashboard/VpnProtectionCard";
+import { WebsiteExclusionsCard } from "@/components/dashboard/WebsiteExclusionsCard";
 
 export default function DashboardVpn() {
   const { subscription } = useAuth();
@@ -15,10 +16,13 @@ export default function DashboardVpn() {
           sessionToken={sessionToken}
         />
         {sessionToken ? (
-          <ConnectedDevicesCard
-            sessionToken={sessionToken}
-            variant="dashboard"
-          />
+          <>
+            <ConnectedDevicesCard
+              sessionToken={sessionToken}
+              variant="dashboard"
+            />
+            <WebsiteExclusionsCard sessionToken={sessionToken} />
+          </>
         ) : null}
       </div>
     </div>
