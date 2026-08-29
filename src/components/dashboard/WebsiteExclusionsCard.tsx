@@ -103,11 +103,7 @@ export function WebsiteExclusionsCard({
     if (!editorReady) return;
     const normalized = normalizeSplitTunnelingDomain(draft);
     if (!normalized) {
-      setError(
-        draft.trim().startsWith("*.")
-          ? "Enter the domain without *. — e.g. bank.com already covers subdomains."
-          : "Enter a valid domain (e.g. bank.com).",
-      );
+      setError("Enter a valid domain (e.g. bank.com).");
       return;
     }
     if (domains.includes(normalized)) {

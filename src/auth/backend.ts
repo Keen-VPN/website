@@ -8770,6 +8770,22 @@ export interface SplitTunnelingPreference {
   domains: string[];
 }
 
+function parseSplitTunnelingPreferencePayload(
+  raw: unknown,
+): SplitTunnelingPreference | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const record = raw as Record<string, unknown>;
+  if (!Array.isArray(record.domains)) {
+    return null;
+  }
+  return {
+    enabled: record.enabled !== false,
+    domains: record.domains.filter((d): d is string => typeof d === "string"),
+  };
+}
+
 export async function fetchSplitTunnelingPreference(
   sessionToken: string,
 ): Promise<{
@@ -8786,7 +8802,7 @@ export async function fetchSplitTunnelingPreference(
         headers: { Authorization: `Bearer ${sessionToken}` },
       },
     );
-    const raw = (await response.json().catch(() => ({}))) as unknown;
+    const raw = (await response.json().catch(() => null)) as unknown;
     if (!response.ok) {
       return {
         ok: false,
@@ -8796,19 +8812,14 @@ export async function fetchSplitTunnelingPreference(
         ),
       };
     }
-    const record =
-      raw && typeof raw === "object" && !Array.isArray(raw)
-        ? (raw as Record<string, unknown>)
-        : {};
-    return {
-      ok: true,
-      data: {
-        enabled: record.enabled !== false,
-        domains: Array.isArray(record.domains)
-          ? record.domains.filter((d): d is string => typeof d === "string")
-          : [],
-      },
-    };
+    const data = parseSplitTunnelingPreferencePayload(raw);
+    if (!data) {
+      return {
+        ok: false,
+        error: "Invalid website exclusions response",
+      };
+    }
+    return { ok: true, data };
   } catch {
     return { ok: false, error: "Network error loading website exclusions" };
   }
@@ -8834,7 +8845,7 @@ export async function updateSplitTunnelingPreference(
         body: JSON.stringify(payload),
       },
     );
-    const raw = (await response.json().catch(() => ({}))) as unknown;
+    const raw = (await response.json().catch(() => null)) as unknown;
     if (!response.ok) {
       return {
         ok: false,
@@ -8844,19 +8855,14 @@ export async function updateSplitTunnelingPreference(
         ),
       };
     }
-    const record =
-      raw && typeof raw === "object" && !Array.isArray(raw)
-        ? (raw as Record<string, unknown>)
-        : {};
-    return {
-      ok: true,
-      data: {
-        enabled: record.enabled !== false,
-        domains: Array.isArray(record.domains)
-          ? record.domains.filter((d): d is string => typeof d === "string")
-          : [],
-      },
-    };
+    const data = parseSplitTunnelingPreferencePayload(raw);
+    if (!data) {
+      return {
+        ok: false,
+        error: "Invalid website exclusions response",
+      };
+    }
+    return { ok: true, data };
   } catch {
     return { ok: false, error: "Network error saving website exclusions" };
   }
