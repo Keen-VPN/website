@@ -8763,3 +8763,107 @@ export async function revokeAiConnection(
     return { ok: false, error: "Network error revoking connection" };
   }
 }
+
+/** Account-level website Split Tunneling preference (excluded domains). */
+export interface SplitTunnelingPreference {
+  enabled: boolean;
+  domains: string[];
+}
+
+function parseSplitTunnelingPreferencePayload(
+  raw: unknown,
+): SplitTunnelingPreference | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const record = raw as Record<string, unknown>;
+  if (!Array.isArray(record.domains)) {
+    return null;
+  }
+  return {
+    enabled: record.enabled !== false,
+    domains: record.domains.filter((d): d is string => typeof d === "string"),
+  };
+}
+
+export async function fetchSplitTunnelingPreference(
+  sessionToken: string,
+): Promise<{
+  ok: boolean;
+  data?: SplitTunnelingPreference;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/users/me/preferences/split-tunneling`,
+      {
+        method: "GET",
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const raw = (await response.json().catch(() => null)) as unknown;
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load website exclusions",
+        ),
+      };
+    }
+    const data = parseSplitTunnelingPreferencePayload(raw);
+    if (!data) {
+      return {
+        ok: false,
+        error: "Invalid website exclusions response",
+      };
+    }
+    return { ok: true, data };
+  } catch {
+    return { ok: false, error: "Network error loading website exclusions" };
+  }
+}
+
+export async function updateSplitTunnelingPreference(
+  sessionToken: string,
+  payload: { domains: string[]; enabled?: boolean },
+): Promise<{
+  ok: boolean;
+  data?: SplitTunnelingPreference;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/users/me/preferences/split-tunneling`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      },
+    );
+    const raw = (await response.json().catch(() => null)) as unknown;
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to save website exclusions",
+        ),
+      };
+    }
+    const data = parseSplitTunnelingPreferencePayload(raw);
+    if (!data) {
+      return {
+        ok: false,
+        error: "Invalid website exclusions response",
+      };
+    }
+    return { ok: true, data };
+  } catch {
+    return { ok: false, error: "Network error saving website exclusions" };
+  }
+}
