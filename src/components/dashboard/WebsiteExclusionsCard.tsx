@@ -165,19 +165,28 @@ export function WebsiteExclusionsCard({
             <p className="text-[13px] font-semibold text-[#0f2040]">
               Website Split Tunneling
             </p>
-            <p className="text-[12px] text-[#627086]">
+            <p className="text-[12px] text-[#627086]" aria-live="polite">
               {!editorReady
                 ? "Unavailable until the list loads"
-                : enabled
-                  ? "Excluded sites bypass KeenVPN"
-                  : "List saved — enforcement off"}
+                : busyAction === "toggle"
+                  ? "Saving…"
+                  : enabled
+                    ? "Excluded sites bypass KeenVPN"
+                    : "List saved — enforcement off"}
             </p>
           </div>
+          {busyAction === "toggle" ? (
+            <Loader2
+              className="h-4 w-4 shrink-0 animate-spin text-[#627086]"
+              aria-hidden
+            />
+          ) : null}
           <Switch
             checked={enabled}
             onCheckedChange={(checked) => void handleToggle(checked)}
             disabled={!editorReady || busy}
             aria-label="Website Split Tunneling"
+            aria-busy={busyAction === "toggle"}
             className="h-[22px] w-[40px] shrink-0 border-0 data-[state=checked]:bg-[#159653] data-[state=unchecked]:bg-[#dbe2ec] [&>span]:h-[18px] [&>span]:w-[18px] [&>span]:bg-white [&>span]:shadow-none [&>span]:data-[state=checked]:translate-x-[18px] [&>span]:data-[state=unchecked]:translate-x-0"
           />
         </div>
