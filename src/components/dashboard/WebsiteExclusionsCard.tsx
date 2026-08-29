@@ -31,10 +31,13 @@ export function WebsiteExclusionsCard({
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [busyAction, setBusyAction] = useState<
+    null | "toggle" | "add" | "remove"
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const loadRequestRef = useRef(0);
   const editorReady = !loading && !loadFailed;
+  const busy = busyAction !== null;
 
   const load = useCallback(async () => {
     const requestId = ++loadRequestRef.current;
@@ -65,16 +68,20 @@ export function WebsiteExclusionsCard({
     };
   }, [load]);
 
-  const persist = async (nextDomains: string[], nextEnabled: boolean) => {
+  const persist = async (
+    nextDomains: string[],
+    nextEnabled: boolean,
+    action: "toggle" | "add" | "remove",
+  ) => {
     if (!editorReady) return false;
 
-    setSaving(true);
+    setBusyAction(action);
     setError(null);
     const result = await updateSplitTunnelingPreference(sessionToken, {
       domains: nextDomains,
       enabled: nextEnabled,
     });
-    setSaving(false);
+    setBusyAction(null);
 
     if (!result.ok || !result.data) {
       setError(result.error ?? "Could not save website exclusions.");
@@ -95,7 +102,7 @@ export function WebsiteExclusionsCard({
     if (!editorReady) return;
     const previous = enabled;
     setEnabled(checked);
-    const ok = await persist(domains, checked);
+    const ok = await persist(domains, checked, "toggle");
     if (!ok) setEnabled(previous);
   };
 
@@ -118,7 +125,7 @@ export function WebsiteExclusionsCard({
     }
 
     const next = [...domains, normalized].sort((a, b) => a.localeCompare(b));
-    const ok = await persist(next, enabled);
+    const ok = await persist(next, enabled, "add");
     if (ok) {
       setDraft("");
       toast({
@@ -131,7 +138,7 @@ export function WebsiteExclusionsCard({
   const handleRemove = async (domain: string) => {
     if (!editorReady) return;
     const next = domains.filter((d) => d !== domain);
-    const ok = await persist(next, enabled);
+    const ok = await persist(next, enabled, "remove");
     if (ok) {
       toast({
         title: "Exclusion removed",
@@ -169,7 +176,7 @@ export function WebsiteExclusionsCard({
           <Switch
             checked={enabled}
             onCheckedChange={(checked) => void handleToggle(checked)}
-            disabled={!editorReady || saving}
+            disabled={!editorReady || busy}
             aria-label="Website Split Tunneling"
             className="h-[22px] w-[40px] shrink-0 border-0 data-[state=checked]:bg-[#159653] data-[state=unchecked]:bg-[#dbe2ec] [&>span]:h-[18px] [&>span]:w-[18px] [&>span]:bg-white [&>span]:shadow-none [&>span]:data-[state=checked]:translate-x-[18px] [&>span]:data-[state=unchecked]:translate-x-0"
           />
@@ -215,15 +222,16 @@ export function WebsiteExclusionsCard({
                 if (error) setError(null);
               }}
               placeholder="e.g. bank.com or https://www.example.com"
-              disabled={saving}
+              aria-label="Website domain or URL"
+              disabled={busy}
               className="h-10 min-w-0 flex-1 rounded-[8px] border border-[#dbe2ec] bg-white px-3 text-[14px] text-[#0f2040] outline-none transition-colors placeholder:text-[#a0aabb] focus:border-[#0f2040]/40"
             />
             <button
               type="submit"
               className={primaryBtn}
-              disabled={saving || !draft.trim()}
+              disabled={busy || !draft.trim()}
             >
-              {saving ? (
+              {busyAction === "add" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Plus className="h-4 w-4" />
@@ -264,11 +272,15 @@ export function WebsiteExclusionsCard({
                     <button
                       type="button"
                       className={outlineBtn}
-                      disabled={saving}
+                      disabled={busy}
                       onClick={() => void handleRemove(domain)}
                       aria-label={`Remove ${domain}`}
                     >
-                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                      {busyAction === "remove" ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                      )}
                       Remove
                     </button>
                   </li>

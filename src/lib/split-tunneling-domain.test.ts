@@ -21,6 +21,16 @@ describe("normalizeSplitTunnelingDomain", () => {
     expect(normalizeSplitTunnelingDomain("*.Bank.com")).toBe("bank.com");
   });
 
+  it("rejects wildcards embedded after www", () => {
+    expect(normalizeSplitTunnelingDomain("www.*.bank.com")).toBeNull();
+  });
+
+  it("rejects public-suffix-only domains", () => {
+    expect(normalizeSplitTunnelingDomain("co.uk")).toBeNull();
+    expect(normalizeSplitTunnelingDomain("com.au")).toBeNull();
+    expect(normalizeSplitTunnelingDomain("example.co.uk")).toBe("example.co.uk");
+  });
+
   it("rejects invalid values", () => {
     expect(normalizeSplitTunnelingDomain("")).toBeNull();
     expect(normalizeSplitTunnelingDomain("not a domain")).toBeNull();

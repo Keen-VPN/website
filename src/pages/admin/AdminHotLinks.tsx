@@ -225,13 +225,14 @@ export default function AdminHotLinks() {
     const domains = parseDomains(form.domains);
     if (domains.length === 0) return;
     setPreviewing(true);
+    setFormError(null);
     const result = await adminValidateHotLinkDomains(
       domains,
       editingId ?? undefined,
     );
     setPreviewing(false);
     if (!result.ok) {
-      setError(result.error ?? "Validation failed");
+      setFormError(result.error ?? "Validation failed");
       return;
     }
     setDomainPreview({
@@ -242,12 +243,18 @@ export default function AdminHotLinks() {
 
   async function handleCreate() {
     const domains = parseDomains(form.domains);
-    if (domains.length === 0) {
+    // Create requires at least one domain. Edit may clear domains (same as
+    // sending [] to adminUpdateHotLink) so partners can keep existing rows
+    // without matching hosts.
+    if (!editingId && domains.length === 0) {
+      setRejected([]);
+      setDomainPreview(null);
       setFormError("Add at least one matching domain.");
       return;
     }
     setSaving(true);
     setRejected([]);
+    setDomainPreview(null);
     setFormError(null);
     const payload = {
       partnerName: form.partnerName.trim(),
