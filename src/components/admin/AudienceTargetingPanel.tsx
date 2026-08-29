@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   adminPreviewAudienceTargeting,
+  type BroadcastEmailAudience,
   type AudienceCustomRule,
   type AudiencePreset,
   type AudiencePresetId,
@@ -22,7 +23,9 @@ interface AudienceTargetingPanelProps {
   value: AudienceTargeting;
   onChange: (value: AudienceTargeting) => void;
   context: "perks" | "broadcast";
-  deliverability?: "all_deliverable" | "opted_in";
+  /** Full broadcast audience union — narrowing it here silently mislabelled
+   * a referral-eligible preview as "all deliverable" (KVPN-602). */
+  deliverability?: BroadcastEmailAudience;
   disabled?: boolean;
   /** Parent-owned preview; skips internal fetch when provided. */
   sharedPreview?: {
