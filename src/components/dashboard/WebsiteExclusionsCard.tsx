@@ -30,25 +30,31 @@ export function WebsiteExclusionsCard({
   const [domains, setDomains] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const loadRequestRef = useRef(0);
+  const editorReady = !loading && !loadFailed;
 
   const load = useCallback(async () => {
     const requestId = ++loadRequestRef.current;
     setLoading(true);
+    setLoadFailed(false);
     setError(null);
     const result = await fetchSplitTunnelingPreference(sessionToken);
     if (requestId !== loadRequestRef.current) return;
 
     if (!result.ok || !result.data) {
       setError(result.error ?? "Could not load website exclusions.");
+      setLoadFailed(true);
+      setDomains([]);
       setLoading(false);
       return;
     }
 
     setEnabled(result.data.enabled);
     setDomains(result.data.domains);
+    setLoadFailed(false);
     setLoading(false);
   }, [sessionToken]);
 
@@ -60,6 +66,8 @@ export function WebsiteExclusionsCard({
   }, [load]);
 
   const persist = async (nextDomains: string[], nextEnabled: boolean) => {
+    if (!editorReady) return false;
+
     setSaving(true);
     setError(null);
     const result = await updateSplitTunnelingPreference(sessionToken, {
@@ -84,6 +92,7 @@ export function WebsiteExclusionsCard({
   };
 
   const handleToggle = async (checked: boolean) => {
+    if (!editorReady) return;
     const previous = enabled;
     setEnabled(checked);
     const ok = await persist(domains, checked);
@@ -91,9 +100,14 @@ export function WebsiteExclusionsCard({
   };
 
   const handleAdd = async () => {
+    if (!editorReady) return;
     const normalized = normalizeSplitTunnelingDomain(draft);
     if (!normalized) {
-      setError("Enter a valid domain (e.g. bank.com).");
+      setError(
+        draft.trim().startsWith("*.")
+          ? "Enter the domain without *. — e.g. bank.com already covers subdomains."
+          : "Enter a valid domain (e.g. bank.com).",
+      );
       return;
     }
     if (domains.includes(normalized)) {
@@ -119,6 +133,7 @@ export function WebsiteExclusionsCard({
   };
 
   const handleRemove = async (domain: string) => {
+    if (!editorReady) return;
     const next = domains.filter((d) => d !== domain);
     const ok = await persist(next, enabled);
     if (ok) {
@@ -148,15 +163,17 @@ export function WebsiteExclusionsCard({
               Website Split Tunneling
             </p>
             <p className="text-[12px] text-[#627086]">
-              {enabled
-                ? "Excluded sites bypass KeenVPN"
-                : "List saved — enforcement off"}
+              {!editorReady
+                ? "Unavailable until the list loads"
+                : enabled
+                  ? "Excluded sites bypass KeenVPN"
+                  : "List saved — enforcement off"}
             </p>
           </div>
           <Switch
             checked={enabled}
             onCheckedChange={(checked) => void handleToggle(checked)}
-            disabled={loading || saving}
+            disabled={!editorReady || saving}
             aria-label="Website Split Tunneling"
             className="h-[22px] w-[40px] shrink-0 border-0 data-[state=checked]:bg-[#159653] data-[state=unchecked]:bg-[#dbe2ec] [&>span]:h-[18px] [&>span]:w-[18px] [&>span]:bg-white [&>span]:shadow-none [&>span]:data-[state=checked]:translate-x-[18px] [&>span]:data-[state=unchecked]:translate-x-0"
           />
@@ -167,6 +184,23 @@ export function WebsiteExclusionsCard({
         <div className="mt-6 flex items-center gap-2 text-[13px] text-[#627086]">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading exclusions…
+        </div>
+      ) : loadFailed ? (
+        <div className="mt-6 rounded-[10px] border border-[#f0c2c2] bg-[#fff5f5] px-4 py-4">
+          <p className="text-[13px] text-[#d14343]" role="alert">
+            {error ?? "Could not load website exclusions."}
+          </p>
+          <p className="mt-1 text-[12px] text-[#627086]">
+            Editing is disabled so we do not overwrite your saved list by
+            mistake.
+          </p>
+          <button
+            type="button"
+            className={`${outlineBtn} mt-3`}
+            onClick={() => void load()}
+          >
+            Try again
+          </button>
         </div>
       ) : (
         <>
@@ -188,7 +222,11 @@ export function WebsiteExclusionsCard({
               disabled={saving}
               className="h-10 min-w-0 flex-1 rounded-[8px] border border-[#dbe2ec] bg-white px-3 text-[14px] text-[#0f2040] outline-none transition-colors placeholder:text-[#a0aabb] focus:border-[#0f2040]/40"
             />
-            <button type="submit" className={primaryBtn} disabled={saving || !draft.trim()}>
+            <button
+              type="submit"
+              className={primaryBtn}
+              disabled={saving || !draft.trim()}
+            >
               {saving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -246,8 +284,9 @@ export function WebsiteExclusionsCard({
           <p className="mt-4 text-[12px] leading-relaxed text-[#8a95a6]">
             Enter a domain or full URL — we normalize it (for example{" "}
             <span className="font-mono">https://www.bank.com/login</span> becomes{" "}
-            <span className="font-mono">bank.com</span>). Changes apply to your
-            KeenVPN account, not only this browser.
+            <span className="font-mono">bank.com</span>, which also covers
+            subdomains). Changes apply to your KeenVPN account, not only this
+            browser.
           </p>
         </>
       )}

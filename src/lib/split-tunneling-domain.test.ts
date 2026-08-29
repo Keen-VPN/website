@@ -12,11 +12,19 @@ describe("normalizeSplitTunnelingDomain", () => {
     expect(normalizeSplitTunnelingDomain("WWW.EXAMPLE.COM")).toBe("example.com");
   });
 
-  it("rejects invalid values", () => {
-    expect(normalizeSplitTunnelingDomain("")).toBeNull();
-    expect(normalizeSplitTunnelingDomain("not a domain")).toBeNull();
+  it("collapses *.example.com to the apex (subdomains are covered by apex)", () => {
+    // Backend + Chrome treat apex exclusions as matching subdomains, so the
+    // supported stored form is bare `example.com`, not a preserved `*.` rule.
     expect(normalizeSplitTunnelingDomain("*.company.internal")).toBe(
       "company.internal",
     );
+    expect(normalizeSplitTunnelingDomain("*.Bank.com")).toBe("bank.com");
+  });
+
+  it("rejects invalid values", () => {
+    expect(normalizeSplitTunnelingDomain("")).toBeNull();
+    expect(normalizeSplitTunnelingDomain("not a domain")).toBeNull();
+    expect(normalizeSplitTunnelingDomain("*bank.com")).toBeNull();
+    expect(normalizeSplitTunnelingDomain("foo.*.bar.com")).toBeNull();
   });
 });

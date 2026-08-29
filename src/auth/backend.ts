@@ -8786,25 +8786,26 @@ export async function fetchSplitTunnelingPreference(
         headers: { Authorization: `Bearer ${sessionToken}` },
       },
     );
-    const raw = (await response.json().catch(() => ({}))) as {
-      success?: boolean;
-      enabled?: boolean;
-      domains?: string[];
-      message?: string;
-      error?: string;
-    };
+    const raw = (await response.json().catch(() => ({}))) as unknown;
     if (!response.ok) {
       return {
         ok: false,
-        error: raw.message ?? raw.error ?? "Failed to load website exclusions",
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load website exclusions",
+        ),
       };
     }
+    const record =
+      raw && typeof raw === "object" && !Array.isArray(raw)
+        ? (raw as Record<string, unknown>)
+        : {};
     return {
       ok: true,
       data: {
-        enabled: raw.enabled !== false,
-        domains: Array.isArray(raw.domains)
-          ? raw.domains.filter((d): d is string => typeof d === "string")
+        enabled: record.enabled !== false,
+        domains: Array.isArray(record.domains)
+          ? record.domains.filter((d): d is string => typeof d === "string")
           : [],
       },
     };
@@ -8833,26 +8834,26 @@ export async function updateSplitTunnelingPreference(
         body: JSON.stringify(payload),
       },
     );
-    const raw = (await response.json().catch(() => ({}))) as {
-      success?: boolean;
-      enabled?: boolean;
-      domains?: string[];
-      message?: string;
-      error?: string;
-    };
+    const raw = (await response.json().catch(() => ({}))) as unknown;
     if (!response.ok) {
       return {
         ok: false,
-        error:
-          raw.message ?? raw.error ?? "Failed to save website exclusions",
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to save website exclusions",
+        ),
       };
     }
+    const record =
+      raw && typeof raw === "object" && !Array.isArray(raw)
+        ? (raw as Record<string, unknown>)
+        : {};
     return {
       ok: true,
       data: {
-        enabled: raw.enabled !== false,
-        domains: Array.isArray(raw.domains)
-          ? raw.domains.filter((d): d is string => typeof d === "string")
+        enabled: record.enabled !== false,
+        domains: Array.isArray(record.domains)
+          ? record.domains.filter((d): d is string => typeof d === "string")
           : [],
       },
     };

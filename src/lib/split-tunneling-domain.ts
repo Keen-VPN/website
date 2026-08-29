@@ -8,6 +8,12 @@ export const SPLIT_TUNNELING_MAX_DOMAINS = MAX_DOMAINS;
 /**
  * Normalize a website exclusion entry to match the backend policy
  * (strip scheme/www/path, lowercase, validate).
+ *
+ * Wildcard prefixes like `*.bank.com` are intentionally collapsed to `bank.com`.
+ * Account exclusions match the registrable domain and its subdomains in clients
+ * that enforce them (Chrome: host === domain || host.endsWith(`.${domain}`)),
+ * so storing a bare apex is the supported form — there is no separate
+ * "all-subdomains-only" wildcard rule.
  */
 export function normalizeSplitTunnelingDomain(raw: unknown): string | null {
   if (typeof raw !== "string" || !raw.trim()) return null;
@@ -20,6 +26,7 @@ export function normalizeSplitTunnelingDomain(raw: unknown): string | null {
   value = value.split("#")[0] ?? "";
   value = value.replace(/:\d+$/, "");
 
+  // Same as backend: `*.example.com` → `example.com` (apex covers subdomains).
   if (value.startsWith("*.")) {
     value = value.slice(2);
   }
