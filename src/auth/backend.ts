@@ -8763,3 +8763,100 @@ export async function revokeAiConnection(
     return { ok: false, error: "Network error revoking connection" };
   }
 }
+
+/** Account-level website Split Tunneling preference (excluded domains). */
+export interface SplitTunnelingPreference {
+  enabled: boolean;
+  domains: string[];
+}
+
+export async function fetchSplitTunnelingPreference(
+  sessionToken: string,
+): Promise<{
+  ok: boolean;
+  data?: SplitTunnelingPreference;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/users/me/preferences/split-tunneling`,
+      {
+        method: "GET",
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const raw = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      enabled?: boolean;
+      domains?: string[];
+      message?: string;
+      error?: string;
+    };
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: raw.message ?? raw.error ?? "Failed to load website exclusions",
+      };
+    }
+    return {
+      ok: true,
+      data: {
+        enabled: raw.enabled !== false,
+        domains: Array.isArray(raw.domains)
+          ? raw.domains.filter((d): d is string => typeof d === "string")
+          : [],
+      },
+    };
+  } catch {
+    return { ok: false, error: "Network error loading website exclusions" };
+  }
+}
+
+export async function updateSplitTunnelingPreference(
+  sessionToken: string,
+  payload: { domains: string[]; enabled?: boolean },
+): Promise<{
+  ok: boolean;
+  data?: SplitTunnelingPreference;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/users/me/preferences/split-tunneling`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      },
+    );
+    const raw = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      enabled?: boolean;
+      domains?: string[];
+      message?: string;
+      error?: string;
+    };
+    if (!response.ok) {
+      return {
+        ok: false,
+        error:
+          raw.message ?? raw.error ?? "Failed to save website exclusions",
+      };
+    }
+    return {
+      ok: true,
+      data: {
+        enabled: raw.enabled !== false,
+        domains: Array.isArray(raw.domains)
+          ? raw.domains.filter((d): d is string => typeof d === "string")
+          : [],
+      },
+    };
+  } catch {
+    return { ok: false, error: "Network error saving website exclusions" };
+  }
+}
