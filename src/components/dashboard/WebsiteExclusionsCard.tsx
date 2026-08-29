@@ -155,7 +155,7 @@ export function WebsiteExclusionsCard({
 
   return (
     <section className={cardClass}>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-5">
         <div className="min-w-0">
           <h2 className="text-[18px] font-semibold tracking-[-0.3px] text-[#0f2040]">
             Website exclusions
@@ -166,12 +166,12 @@ export function WebsiteExclusionsCard({
             (for example the Chrome extension).
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <div className="text-right">
+        <div className="flex w-full items-center justify-between gap-3 rounded-[10px] border border-[#eef2f7] bg-[#fafbfd] px-3.5 py-3 sm:px-4">
+          <div className="min-w-0">
             <p className="text-[13px] font-semibold text-[#0f2040]">
               Website Split Tunneling
             </p>
-            <p className="text-[12px] text-[#627086]" aria-live="polite">
+            <p className="mt-0.5 text-[12px] leading-snug text-[#627086]" aria-live="polite">
               {!editorReady
                 ? "Unavailable until the list loads"
                 : busyAction === "toggle"
@@ -181,20 +181,22 @@ export function WebsiteExclusionsCard({
                     : "List saved — enforcement off"}
             </p>
           </div>
-          {busyAction === "toggle" ? (
-            <Loader2
-              className="h-4 w-4 shrink-0 animate-spin text-[#627086]"
-              aria-hidden
+          <div className="flex shrink-0 items-center gap-2">
+            {busyAction === "toggle" ? (
+              <Loader2
+                className="h-4 w-4 shrink-0 animate-spin text-[#627086]"
+                aria-hidden
+              />
+            ) : null}
+            <Switch
+              checked={enabled}
+              onCheckedChange={(checked) => void handleToggle(checked)}
+              disabled={!editorReady || busy}
+              aria-label="Website Split Tunneling"
+              aria-busy={busyAction === "toggle"}
+              className="h-[22px] w-[40px] shrink-0 border-0 data-[state=checked]:bg-[#159653] data-[state=unchecked]:bg-[#dbe2ec] [&>span]:h-[18px] [&>span]:w-[18px] [&>span]:bg-white [&>span]:shadow-none [&>span]:data-[state=checked]:translate-x-[18px] [&>span]:data-[state=unchecked]:translate-x-0"
             />
-          ) : null}
-          <Switch
-            checked={enabled}
-            onCheckedChange={(checked) => void handleToggle(checked)}
-            disabled={!editorReady || busy}
-            aria-label="Website Split Tunneling"
-            aria-busy={busyAction === "toggle"}
-            className="h-[22px] w-[40px] shrink-0 border-0 data-[state=checked]:bg-[#159653] data-[state=unchecked]:bg-[#dbe2ec] [&>span]:h-[18px] [&>span]:w-[18px] [&>span]:bg-white [&>span]:shadow-none [&>span]:data-[state=checked]:translate-x-[18px] [&>span]:data-[state=unchecked]:translate-x-0"
-          />
+          </div>
         </div>
       </div>
 
@@ -223,7 +225,7 @@ export function WebsiteExclusionsCard({
       ) : (
         <>
           <form
-            className="mt-6 flex flex-col gap-2 sm:flex-row"
+            className="mt-6 flex w-full flex-col gap-2 sm:flex-row sm:items-stretch"
             onSubmit={(event) => {
               event.preventDefault();
               void handleAdd();
@@ -239,11 +241,11 @@ export function WebsiteExclusionsCard({
               placeholder="e.g. bank.com or https://www.example.com"
               aria-label="Website domain or URL"
               disabled={busy}
-              className="h-10 min-w-0 flex-1 rounded-[8px] border border-[#dbe2ec] bg-white px-3 text-[14px] text-[#0f2040] outline-none transition-colors placeholder:text-[#a0aabb] focus:border-[#0f2040]/40"
+              className="box-border h-10 w-full min-w-0 flex-1 rounded-[8px] border border-[#dbe2ec] bg-white px-3 text-[14px] text-[#0f2040] outline-none transition-colors placeholder:text-[#a0aabb] focus:border-[#0f2040]/40"
             />
             <button
               type="submit"
-              className={primaryBtn}
+              className={`${primaryBtn} h-10 w-full sm:w-auto`}
               disabled={busy || !draft.trim()}
             >
               {busyAction === "add" ? (
