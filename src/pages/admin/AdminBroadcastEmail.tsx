@@ -85,6 +85,12 @@ export default function AdminBroadcastEmail() {
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [totalAudience, setTotalAudience] = useState<number | null>(null);
   const [matchPercentage, setMatchPercentage] = useState<number | null>(null);
+  // Deliverable users before the recipient filter, and how many it removed.
+  // Total audience is counted after the filter, so without these the panel
+  // cannot tell "the filter excluded nobody" from "the filter is not running"
+  // — the ambiguity QA hit on KVPN-602.
+  const [deliverableBase, setDeliverableBase] = useState<number | null>(null);
+  const [filteredOut, setFilteredOut] = useState<number | null>(null);
   const [optedInCount, setOptedInCount] = useState<number | null>(null);
   const [loadingAudience, setLoadingAudience] = useState(false);
   const [subject, setSubject] = useState("");
@@ -168,6 +174,8 @@ export default function AdminBroadcastEmail() {
       setTotalAudience(null);
       setMatchPercentage(null);
       setOptedInCount(null);
+      setDeliverableBase(null);
+      setFilteredOut(null);
 
       // Same query the send runs, so the number an admin confirms against is
       // the number that will actually be mailed (KVPN-602).
@@ -185,6 +193,8 @@ export default function AdminBroadcastEmail() {
         setTotalAudience(null);
         setMatchPercentage(null);
         setOptedInCount(null);
+        setDeliverableBase(null);
+        setFilteredOut(null);
         toast({
           title: "Could not load audience",
           description: result.error ?? "Try again.",
@@ -195,6 +205,8 @@ export default function AdminBroadcastEmail() {
         setTotalAudience(result.data.totalAudience);
         setMatchPercentage(result.data.matchPercentage);
         setOptedInCount(result.data.optedInCount ?? null);
+        setDeliverableBase(result.data.deliverableBaseCount ?? null);
+        setFilteredOut(result.data.audienceFilteredOut ?? null);
       }
       setLoadingAudience(false);
     },
@@ -580,6 +592,25 @@ export default function AdminBroadcastEmail() {
                     : "—"}
               </p>
             </div>
+            {audience !== "all_deliverable" &&
+            !loadingAudience &&
+            filteredOut != null &&
+            deliverableBase != null ? (
+              // Total audience is measured after the recipient filter, so it
+              // can never show the filter working. This card is what separates
+              // "excluded nobody" from "not running at all" (KVPN-602).
+              <div className="rounded-lg border border-border px-4 py-3">
+                <p className="text-xs text-muted-foreground">
+                  Excluded by recipient filter
+                </p>
+                <p className="text-lg font-medium tabular-nums">
+                  {filteredOut.toLocaleString()}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  of {deliverableBase.toLocaleString()} deliverable
+                </p>
+              </div>
+            ) : null}
             {audience === "all_deliverable" && optedInCount != null ? (
               <div className="rounded-lg border border-border px-4 py-3">
                 <p className="text-xs text-muted-foreground">Opted in</p>
