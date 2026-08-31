@@ -256,9 +256,9 @@ const ReferralLanding = () => {
   const rewardLabel = formatReferralRewardLabel(rewardMonths);
   const isMemberReferral = inviteKind === "referral";
   const pillLabel = isMemberReferral ? "Referral invite" : "Partner invite";
-  // The reward belongs to whoever sent the link, never to the visitor reading
-  // this page — so the copy always names them, and falls back to wording that
-  // still fits when the backend withheld a display name.
+  // Member referrals reward both sides; affiliate/partner links reward only the
+  // referrer. Wording below branches on inviteKind so we never promise the
+  // visitor a reward on affiliate links, or hide the invitee benefit on member links.
   const inviterLabel =
     referrerName ??
     (inviteKind === "affiliate" ? "the person who invited you" : "your friend");
