@@ -18,7 +18,7 @@ const outlineBtn =
   "inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] border border-[#0f2040]/25 bg-white px-4 text-[13px] font-semibold text-[#0f2040] transition-colors hover:bg-[#f5f7fb] disabled:cursor-not-allowed disabled:opacity-50";
 
 const primaryBtn =
-  "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-[8px] bg-[#0f2040] px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 bg-[#0f2040] px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
 
 export function WebsiteExclusionsCard({
   sessionToken,
