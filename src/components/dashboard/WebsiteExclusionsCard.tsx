@@ -225,7 +225,7 @@ export function WebsiteExclusionsCard({
       ) : (
         <>
           <form
-            className="mt-6 flex w-full flex-col gap-2 sm:flex-row sm:items-stretch"
+            className="mt-6 flex w-full flex-col gap-3 sm:flex-row sm:items-stretch sm:gap-2"
             onSubmit={(event) => {
               event.preventDefault();
               void handleAdd();
@@ -238,14 +238,14 @@ export function WebsiteExclusionsCard({
                 setDraft(event.target.value);
                 if (error) setError(null);
               }}
-              placeholder="e.g. bank.com or https://www.example.com"
+              placeholder="e.g. bank.com"
               aria-label="Website domain or URL"
               disabled={busy}
-              className="box-border h-10 w-full min-w-0 flex-1 rounded-[8px] border border-[#dbe2ec] bg-white px-3 text-[14px] text-[#0f2040] outline-none transition-colors placeholder:text-[#a0aabb] focus:border-[#0f2040]/40"
+              className="box-border h-12 w-full min-w-0 flex-1 rounded-[10px] border border-[#dbe2ec] bg-white px-4 text-[16px] text-[#0f2040] outline-none transition-colors placeholder:text-[#a0aabb] focus:border-[#0f2040]/40 sm:h-10 sm:rounded-[8px] sm:px-3 sm:text-[14px]"
             />
             <button
               type="submit"
-              className={`${primaryBtn} h-10 w-full sm:w-auto`}
+              className={`${primaryBtn} h-12 w-full rounded-[10px] text-[15px] sm:h-10 sm:w-auto sm:rounded-[8px] sm:text-[13px]`}
               disabled={busy || !draft.trim()}
             >
               {busyAction === "add" ? (
