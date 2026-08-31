@@ -6691,8 +6691,20 @@ export interface AdminBroadcastAudienceSummary {
   optedInCount: number;
 }
 
+/**
+ * Recipient count for a broadcast, computed by the same query the send uses
+ * (`AdminBroadcastEmailService.loadAudience`).
+ *
+ * Deliberately not `adminPreviewAudienceTargeting`: that endpoint keeps its own
+ * second definition of the audience, which neither applied the referral-eligible
+ * gate nor removed unsubscribed recipients (KVPN-602). Since `sendBroadcast`
+ * rejects a `confirmRecipientCount` that does not match its own count exactly,
+ * the number shown here has to come from the same place the send reads it.
+ */
 export async function adminFetchBroadcastAudience(
   audience: BroadcastEmailAudience = "all_deliverable",
+  profileTargeting?: AudienceTargeting,
+  emailCategory?: string,
 ): Promise<{
   ok: boolean;
   data?: AdminBroadcastAudienceSummary;
@@ -6700,6 +6712,12 @@ export async function adminFetchBroadcastAudience(
 }> {
   try {
     const query = new URLSearchParams({ audience });
+    if (profileTargeting) {
+      query.set("profileTargeting", JSON.stringify(profileTargeting));
+    }
+    if (emailCategory) {
+      query.set("emailCategory", emailCategory);
+    }
     const response = await fetch(
       `${BACKEND_URL}/admin/broadcast-email/audience?${query.toString()}`,
       { credentials: "include" },

@@ -13,7 +13,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   adminExportBroadcastAudienceCsv,
-  adminPreviewAudienceTargeting,
+  adminFetchBroadcastAudience,
   adminFetchBroadcastEmailJob,
   adminSendBroadcastEmail,
   adminSendBroadcastPreview,
@@ -169,12 +169,13 @@ export default function AdminBroadcastEmail() {
       setMatchPercentage(null);
       setOptedInCount(null);
 
-      const result = await adminPreviewAudienceTargeting({
-        context: "broadcast",
-        deliverability: targetAudience,
-        profileTargeting: targeting,
-        emailCategory: category === "none" ? undefined : category,
-      });
+      // Same query the send runs, so the number an admin confirms against is
+      // the number that will actually be mailed (KVPN-602).
+      const result = await adminFetchBroadcastAudience(
+        targetAudience,
+        targeting,
+        category === "none" ? undefined : category,
+      );
       if (requestId !== audienceRequestIdRef.current) {
         return;
       }
@@ -589,7 +590,9 @@ export default function AdminBroadcastEmail() {
             ) : null}
             <Button
               variant="outline"
-              onClick={() => void refreshAudience(audience, profileTargeting)}
+              onClick={() =>
+                void refreshAudience(audience, profileTargeting, emailCategory)
+              }
               disabled={loadingAudience || !!audienceTargetingError}
             >
               Refresh count
