@@ -6685,7 +6685,16 @@ export interface AdminBroadcastAudienceSummary {
   audience: BroadcastEmailAudience;
   profileTargeting: AudienceTargeting;
   totalRecipients: number;
+  /** Deliverable users *after* the recipient filter. */
   totalAudience: number;
+  /**
+   * Deliverable users *before* the recipient filter, and how many it removed.
+   * `totalAudience` is counted after the gate, so on its own it always equals
+   * `matchingRecipients` and cannot show a filter working (KVPN-602).
+   * Optional: a backend older than that fix omits both.
+   */
+  deliverableBaseCount?: number;
+  audienceFilteredOut?: number;
   matchingRecipients: number;
   matchPercentage: number;
   optedInCount: number;
