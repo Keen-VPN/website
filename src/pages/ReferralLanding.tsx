@@ -254,6 +254,8 @@ const ReferralLanding = () => {
   }
 
   const rewardLabel = formatReferralRewardLabel(rewardMonths);
+  const isMemberReferral = inviteKind === "referral";
+  const pillLabel = isMemberReferral ? "Referral invite" : "Partner invite";
   // The reward belongs to whoever sent the link, never to the visitor reading
   // this page — so the copy always names them, and falls back to wording that
   // still fits when the backend withheld a display name.
@@ -261,24 +263,42 @@ const ReferralLanding = () => {
     referrerName ??
     (inviteKind === "affiliate" ? "the person who invited you" : "your friend");
 
+  const headlineRewardLine = isMemberReferral
+    ? `You both earn ${rewardLabel}.`
+    : referrerName
+      ? `They earn ${rewardLabel}.`
+      : null;
+
+  const bodyRewardLine = isMemberReferral
+    ? `you and ${inviterLabel} each earn ${rewardLabel} of KeenVPN`
+    : `${inviterLabel} earns ${rewardLabel} of KeenVPN`;
+
+  const stepThreeTitle = isMemberReferral
+    ? `You both get ${rewardLabel}`
+    : `They get ${rewardLabel}`;
+
+  const stepThreeBody = isMemberReferral
+    ? `Once you're on a paid plan, you and ${inviterLabel} each receive ${rewardLabel} of KeenVPN.`
+    : `Once you're on a paid plan, ${inviterLabel} receives ${rewardLabel} of KeenVPN.`;
+
   return (
     <HeroShell>
       <div className="mx-auto max-w-5xl text-center">
-        <Pill icon={Gift}>Referral invite</Pill>
+        <Pill icon={Gift}>{pillLabel}</Pill>
 
         <h1 className="mb-6 text-4xl font-bold leading-tight text-foreground md:text-5xl lg:text-6xl">
           {referrerName
             ? `${referrerName} invited you to KeenVPN`
             : "You've been invited to KeenVPN"}
-          <span className="mt-2 block text-primary">
-            They earn {rewardLabel}.
-          </span>
+          {headlineRewardLine ? (
+            <span className="mt-2 block text-primary">{headlineRewardLine}</span>
+          ) : null}
         </h1>
 
         <p className="mx-auto mb-8 max-w-2xl text-lg leading-relaxed text-muted-foreground md:text-xl">
           KeenVPN secures your connection and unlocks member perks — cashback
           offers, partner discounts and rewards. Subscribe on a paid plan and{" "}
-          {inviterLabel} earns {rewardLabel} of KeenVPN.
+          {bodyRewardLine}.
         </p>
 
         <div className="mb-4 flex flex-col justify-center gap-4 sm:flex-row">
@@ -316,9 +336,8 @@ const ReferralLanding = () => {
             Install KeenVPN on iOS or macOS and connect. Your free trial starts
             straight away.
           </Step>
-          <Step icon={Sparkles} title={`They get ${rewardLabel}`}>
-            Once you&apos;re on a paid plan, {inviterLabel} receives{" "}
-            {rewardLabel} of KeenVPN.
+          <Step icon={Sparkles} title={stepThreeTitle}>
+            {stepThreeBody}
           </Step>
         </div>
 
