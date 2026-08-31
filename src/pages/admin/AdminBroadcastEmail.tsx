@@ -254,6 +254,8 @@ export default function AdminBroadcastEmail() {
       setTotalAudience(null);
       setMatchPercentage(null);
       setOptedInCount(null);
+      setDeliverableBase(null);
+      setFilteredOut(null);
       setLoadingAudience(false);
       return;
     }
@@ -262,6 +264,8 @@ export default function AdminBroadcastEmail() {
     setTotalAudience(null);
     setMatchPercentage(null);
     setOptedInCount(null);
+    setDeliverableBase(null);
+    setFilteredOut(null);
     setLoadingAudience(true);
 
     const timer = window.setTimeout(() => {
