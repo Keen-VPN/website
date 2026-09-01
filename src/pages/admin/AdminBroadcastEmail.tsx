@@ -164,6 +164,10 @@ export default function AdminBroadcastEmail() {
         setCtaUrl(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaUrl);
         return;
       }
+      setSubject("");
+      setHeadline("");
+      setBody("");
+      setPreheader("");
       setCtaLabel(DEFAULT_CTA_LABEL);
       setCtaUrl(DEFAULT_CTA_URL);
     },
@@ -722,7 +726,7 @@ export default function AdminBroadcastEmail() {
               <p className="text-xs text-muted-foreground">
                 Sends the designed membership-transfer layout. The button
                 always goes to {MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaUrl}.
-                Leave subject blank to use the template default.
+                Edit the subject to override the template default.
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
