@@ -17,11 +17,15 @@ import {
   adminFetchBroadcastEmailJob,
   adminSendBroadcastEmail,
   adminSendBroadcastPreview,
+  MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS,
+  MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE,
   type AudienceTargeting,
   type AudienceTargetingPreview,
   type BroadcastEmailAudience,
   type BroadcastEmailCategory,
+  type BroadcastEmailTemplate,
 } from "@/auth/backend";
+import { buildBroadcastComposePayload } from "@/pages/admin/broadcast-email-compose";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
   AudienceTargetingPanel,
@@ -64,6 +68,17 @@ const DEFAULT_CTA_URL = "https://vpnkeen.com/perks";
 const BROADCAST_JOB_POLL_INTERVAL_MS = 2000;
 const BROADCAST_JOB_POLL_TIMEOUT_MS = 15 * 60 * 1000;
 
+const TEMPLATE_OPTIONS: {
+  value: BroadcastEmailTemplate | "custom";
+  label: string;
+}[] = [
+  { value: "custom", label: "Custom message" },
+  {
+    value: MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE,
+    label: "Membership transfer",
+  },
+];
+
 function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
@@ -82,6 +97,9 @@ export default function AdminBroadcastEmail() {
     () => createDefaultAudienceTargeting(),
   );
   const [emailCategory, setEmailCategory] = useState("none");
+  const [template, setTemplate] = useState<BroadcastEmailTemplate | "custom">(
+    "custom",
+  );
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [totalAudience, setTotalAudience] = useState<number | null>(null);
   const [matchPercentage, setMatchPercentage] = useState<number | null>(null);
@@ -112,15 +130,20 @@ export default function AdminBroadcastEmail() {
     };
   }, []);
 
+  const isMembershipTransferTemplate =
+    template === MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE;
+
   const composeReady = useMemo(
     () =>
-      subject.trim().length > 0 &&
-      headline.trim().length > 0 &&
-      body.trim().length > 0,
-    [subject, headline, body],
+      isMembershipTransferTemplate ||
+      (subject.trim().length > 0 &&
+        headline.trim().length > 0 &&
+        body.trim().length > 0),
+    [isMembershipTransferTemplate, subject, headline, body],
   );
 
   const resetComposeForm = useCallback(() => {
+    setTemplate("custom");
     setSubject("");
     setHeadline("");
     setBody("");
@@ -129,26 +152,45 @@ export default function AdminBroadcastEmail() {
     setCtaUrl(DEFAULT_CTA_URL);
   }, []);
 
+  const applyTemplate = useCallback(
+    (next: BroadcastEmailTemplate | "custom") => {
+      setTemplate(next);
+      if (next === MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE) {
+        setSubject(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.subject);
+        setHeadline(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.headline);
+        setBody(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.body);
+        setPreheader(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.preheader);
+        setCtaLabel(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaLabel);
+        setCtaUrl(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaUrl);
+        return;
+      }
+      setCtaLabel(DEFAULT_CTA_LABEL);
+      setCtaUrl(DEFAULT_CTA_URL);
+    },
+    [],
+  );
+
   const composePayload = useCallback(
-    () => ({
-      audience,
-      // "none" means genuinely uncategorised; the backend stores null rather
-      // than guessing, so reporting never shows an invented category.
-      category: category === "none" ? undefined : category,
-      profileTargeting,
-      emailCategory: emailCategory === "none" ? undefined : emailCategory,
-      subject: subject.trim(),
-      headline: headline.trim(),
-      body: body.trim(),
-      preheader: preheader.trim() || undefined,
-      ctaLabel: ctaLabel.trim() || undefined,
-      ctaUrl: ctaUrl.trim() || undefined,
-    }),
+    () =>
+      buildBroadcastComposePayload({
+        audience,
+        category,
+        profileTargeting,
+        emailCategory,
+        template,
+        subject,
+        headline,
+        body,
+        preheader,
+        ctaLabel,
+        ctaUrl,
+      }),
     [
       audience,
       category,
       profileTargeting,
       emailCategory,
+      template,
       subject,
       headline,
       body,
@@ -486,8 +528,9 @@ export default function AdminBroadcastEmail() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Broadcast Email</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Compose a Resend broadcast for KeenVPN users. Default audience is all
-          deliverable accounts.
+          Compose a Resend broadcast for KeenVPN users, or send the designed
+          membership-transfer email. Default audience is all deliverable
+          accounts.
         </p>
       </div>
 
@@ -657,65 +700,122 @@ export default function AdminBroadcastEmail() {
         <h3 className="text-sm font-semibold">Message</h3>
         <div className="grid gap-4">
           <div className="space-y-2">
-            <Label htmlFor="subject">Subject</Label>
+            <Label htmlFor="template">Template</Label>
+            <Select
+              value={template}
+              onValueChange={(value) =>
+                applyTemplate(value as BroadcastEmailTemplate | "custom")
+              }
+            >
+              <SelectTrigger id="template">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TEMPLATE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isMembershipTransferTemplate ? (
+              <p className="text-xs text-muted-foreground">
+                Sends the designed membership-transfer layout. The button
+                always goes to {MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaUrl}.
+                Leave subject blank to use the template default.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Write a one-off broadcast. Use Membership transfer to send the
+                designed campaign instead.
+              </p>
+            )}
+          </div>
+          {isMembershipTransferTemplate ? (
+            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 space-y-2 text-sm">
+              <p className="font-medium">Designed membership-transfer email</p>
+              <p className="text-muted-foreground">
+                {MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.headline} We bring your
+                remaining time to KeenVPN.
+              </p>
+              <p>
+                CTA: {MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaLabel} →{" "}
+                <span className="font-mono text-xs">
+                  {MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaUrl}
+                </span>
+              </p>
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            <Label htmlFor="subject">
+              {isMembershipTransferTemplate ? "Subject (optional)" : "Subject"}
+            </Label>
             <Input
               id="subject"
               value={subject}
               onChange={(event) => setSubject(event.target.value)}
-              placeholder="New partner perk for KeenVPN members"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="headline">Headline</Label>
-            <Input
-              id="headline"
-              value={headline}
-              onChange={(event) => setHeadline(event.target.value)}
-              placeholder="Exclusive cashback offer inside"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="preheader">Preheader (optional)</Label>
-            <Input
-              id="preheader"
-              value={preheader}
-              onChange={(event) => setPreheader(event.target.value)}
-              placeholder="Short inbox preview line"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="body">Body</Label>
-            <Textarea
-              id="body"
-              value={body}
-              onChange={(event) => setBody(event.target.value)}
-              rows={8}
               placeholder={
-                "We partnered with a new cashback provider.\n\nView the full offer and claim steps on your perks page."
+                isMembershipTransferTemplate
+                  ? MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.subject
+                  : "New partner perk for KeenVPN members"
               }
             />
-            <p className="text-xs text-muted-foreground">
-              Separate paragraphs with a blank line.
-            </p>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="ctaLabel">CTA label (optional)</Label>
-              <Input
-                id="ctaLabel"
-                value={ctaLabel}
-                onChange={(event) => setCtaLabel(event.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ctaUrl">CTA URL (optional)</Label>
-              <Input
-                id="ctaUrl"
-                value={ctaUrl}
-                onChange={(event) => setCtaUrl(event.target.value)}
-              />
-            </div>
-          </div>
+          {isMembershipTransferTemplate ? null : (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="headline">Headline</Label>
+                <Input
+                  id="headline"
+                  value={headline}
+                  onChange={(event) => setHeadline(event.target.value)}
+                  placeholder="Exclusive cashback offer inside"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="preheader">Preheader (optional)</Label>
+                <Input
+                  id="preheader"
+                  value={preheader}
+                  onChange={(event) => setPreheader(event.target.value)}
+                  placeholder="Short inbox preview line"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="body">Body</Label>
+                <Textarea
+                  id="body"
+                  value={body}
+                  onChange={(event) => setBody(event.target.value)}
+                  rows={8}
+                  placeholder={
+                    "We partnered with a new cashback provider.\n\nView the full offer and claim steps on your perks page."
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Separate paragraphs with a blank line.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="ctaLabel">CTA label (optional)</Label>
+                  <Input
+                    id="ctaLabel"
+                    value={ctaLabel}
+                    onChange={(event) => setCtaLabel(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ctaUrl">CTA URL (optional)</Label>
+                  <Input
+                    id="ctaUrl"
+                    value={ctaUrl}
+                    onChange={(event) => setCtaUrl(event.target.value)}
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
