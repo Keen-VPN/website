@@ -259,10 +259,10 @@ export default function AdminDownloadFunnel() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {(
             [
-              ["windows", webToApp?.by_platform.windows],
-              ["macos", webToApp?.by_platform.macos],
-              ["ios", webToApp?.by_platform.ios],
-              ["android", webToApp?.by_platform.android],
+              ["windows", webToApp?.by_platform?.windows],
+              ["macos", webToApp?.by_platform?.macos],
+              ["ios", webToApp?.by_platform?.ios],
+              ["android", webToApp?.by_platform?.android],
             ] as const
           ).map(([platform, count]) => (
             <div
