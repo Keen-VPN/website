@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   appendStoredUtmsToDeepLink,
+  captureFirstLandingPage,
+  captureFirstLandingFromSearch,
   captureUtmFromSearch,
   clearUtmAttributionStorage,
   getUtmAttributionAuthPayload,
+  hasForwardedLandingHandoff,
 } from "./utm-attribution";
 
 describe("Reddit first-touch attribution", () => {
@@ -65,14 +68,144 @@ describe("Reddit first-touch attribution", () => {
 
     expect(getUtmAttributionAuthPayload().utmAttribution).toEqual(
       expect.objectContaining({
-        landing_path: "/auth/magic-link",
-        landing_url: `${window.location.origin}/auth/magic-link`,
         reddit_uuid: "uuid-789",
       }),
     );
     expect(
+      getUtmAttributionAuthPayload().utmAttribution?.landing_path,
+    ).toBeUndefined();
+    expect(
       getUtmAttributionAuthPayload().utmAttribution?.landing_url,
-    ).not.toContain("secret-token");
+    ).toBeUndefined();
+  });
+
+  it("captures the first attributable landing page without UTMs", () => {
+    captureFirstLandingPage("/server-locations/brazil");
+    window.history.replaceState({}, "", "/pricing");
+
+    expect(getUtmAttributionAuthPayload().utmAttribution).toEqual(
+      expect.objectContaining({
+        landing_path: "/server-locations/brazil",
+      }),
+    );
+  });
+
+  it("accepts first landing forwarded from the marketing site", () => {
+    captureFirstLandingFromSearch(
+      "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fpricing.html&captured_at=2026-04-21T12%3A00%3A00.000Z",
+    );
+    window.history.replaceState({}, "", "/signin");
+
+    expect(getUtmAttributionAuthPayload().utmAttribution).toEqual(
+      expect.objectContaining({
+        landing_path: "/pricing.html",
+        landing_url: "https://vpnkeen.com/pricing.html",
+        captured_at: "2026-04-21T12:00:00.000Z",
+      }),
+    );
+  });
+
+  it("preserves forwarded first landing when UTMs are captured on sign-in", () => {
+    captureFirstLandingFromSearch(
+      "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fpricing.html&captured_at=2026-04-21T12%3A00%3A00.000Z&utm_source=reddit&utm_medium=paid_social",
+    );
+    captureUtmFromSearch(
+      "?utm_source=reddit&utm_medium=paid_social",
+      "/signin",
+    );
+
+    expect(getUtmAttributionAuthPayload().utmAttribution).toEqual(
+      expect.objectContaining({
+        utm_source: "reddit",
+        utm_medium: "paid_social",
+        landing_path: "/pricing.html",
+        landing_url: "https://vpnkeen.com/pricing.html",
+        captured_at: "2026-04-21T12:00:00.000Z",
+      }),
+    );
+  });
+
+  it("rejects forged marketing landing attribution from untrusted origins", () => {
+    expect(
+      captureFirstLandingFromSearch(
+        "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fevil.example%2Fpricing.html",
+      ),
+    ).toBeNull();
+    expect(getUtmAttributionAuthPayload()).toEqual({});
+  });
+
+  it("rejects forged landing attribution when landing_url does not match landing_path", () => {
+    expect(
+      captureFirstLandingFromSearch(
+        "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fserver-locations%2Fbrazil",
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects landing_path without a validated marketing landing_url", () => {
+    expect(
+      captureFirstLandingFromSearch("?landing_path=%2Fpricing.html"),
+    ).toBeNull();
+    expect(getUtmAttributionAuthPayload()).toEqual({});
+  });
+
+  it("does not record signup when a marketing handoff is rejected", () => {
+    const search =
+      "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fevil.example%2Fpricing.html";
+    captureFirstLandingFromSearch(search);
+    if (!hasForwardedLandingHandoff(search)) {
+      captureFirstLandingPage("/signup");
+    }
+
+    expect(getUtmAttributionAuthPayload()).toEqual({});
+  });
+
+  it("falls back to a valid timestamp when captured_at is malformed", () => {
+    const before = Date.now();
+    captureFirstLandingFromSearch(
+      "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fpricing.html&captured_at=not-a-date",
+    );
+    const capturedAt =
+      getUtmAttributionAuthPayload().utmAttribution?.captured_at;
+    expect(capturedAt).toBeTruthy();
+    expect(Date.parse(String(capturedAt))).toBeGreaterThanOrEqual(before);
+  });
+
+  it("keeps long marketing landing URLs up to 2000 characters", () => {
+    const longQuery = "x".repeat(1200);
+    const landingUrl = `https://vpnkeen.com/pricing.html?${longQuery}`;
+    captureFirstLandingFromSearch(
+      `?landing_path=%2Fpricing.html&landing_url=${encodeURIComponent(landingUrl)}`,
+    );
+
+    expect(
+      getUtmAttributionAuthPayload().utmAttribution?.landing_url,
+    ).toBe(landingUrl);
+  });
+
+  it("does not capture auth or post-login routes as first landing pages", () => {
+    expect(captureFirstLandingPage("/auth/magic")).toBeNull();
+    expect(captureFirstLandingPage("/auth/verify-email")).toBeNull();
+    expect(captureFirstLandingPage("/signin/magic")).toBeNull();
+    expect(captureFirstLandingPage("/signup")).toBeNull();
+    expect(captureFirstLandingPage("/dashboard")).toBeNull();
+
+    captureFirstLandingPage("/server-locations/brazil");
+    clearUtmAttributionStorage();
+    expect(captureFirstLandingPage("/dashboard")).toBeNull();
+    expect(getUtmAttributionAuthPayload()).toEqual({});
+  });
+
+  it("preserves the first landing page when later pages are visited", () => {
+    captureFirstLandingPage("/blog/is-public-wifi-safe");
+    captureFirstLandingPage("/pricing");
+    captureFirstLandingPage("/signup");
+
+    expect(getUtmAttributionAuthPayload().utmAttribution).toEqual(
+      expect.objectContaining({
+        landing_path: "/blog/is-public-wifi-safe",
+      }),
+    );
   });
 
   it("adds the current Reddit UUID cookie to a deep link with stored attribution", () => {

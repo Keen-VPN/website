@@ -3,6 +3,9 @@ import { useLocation } from "react-router-dom";
 import { recordStickerLanding } from "@/auth/backend";
 import {
   captureUtmFromSearch,
+  captureFirstLandingPage,
+  captureFirstLandingFromSearch,
+  hasForwardedLandingHandoff,
   parseUtmAttributionFromSearch,
 } from "@/lib/utm-attribution";
 import { isStickerUtmSource } from "@/lib/sticker-campaigns";
@@ -12,6 +15,10 @@ export default function UtmCapture() {
   const location = useLocation();
 
   useEffect(() => {
+    captureFirstLandingFromSearch(location.search);
+    if (!hasForwardedLandingHandoff(location.search)) {
+      captureFirstLandingPage(location.pathname);
+    }
     captureUtmFromSearch(location.search, location.pathname);
 
     const stickerAttribution = parseUtmAttributionFromSearch(

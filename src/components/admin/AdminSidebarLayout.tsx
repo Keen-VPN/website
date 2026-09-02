@@ -189,6 +189,13 @@ export default function AdminSidebarLayout() {
               Sticker Campaigns
             </NavLink>
             <NavLink
+              to="/admin/landing-attribution"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Megaphone className="h-4 w-4" />
+              Landing Pages
+            </NavLink>
+            <NavLink
               to="/admin/utm-attribution"
               className={({ isActive }) => linkClass(isActive)}
             >
