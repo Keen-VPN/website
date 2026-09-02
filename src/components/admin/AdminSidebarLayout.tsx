@@ -196,6 +196,13 @@ export default function AdminSidebarLayout() {
               Landing Pages
             </NavLink>
             <NavLink
+              to="/admin/download-funnel"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Megaphone className="h-4 w-4" />
+              Download Funnel
+            </NavLink>
+            <NavLink
               to="/admin/utm-attribution"
               className={({ isActive }) => linkClass(isActive)}
             >

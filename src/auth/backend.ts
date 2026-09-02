@@ -4242,6 +4242,88 @@ export async function adminFetchLandingPageReport(params?: {
   }
 }
 
+export interface AdminDownloadClickRow {
+  platform: string;
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  clicks: number;
+}
+
+export interface AdminDownloadFunnelReport {
+  from: string;
+  to: string;
+  downloads: {
+    total_clicks: number;
+    by_platform: Record<string, number>;
+    rows: AdminDownloadClickRow[];
+  };
+  web_to_app: {
+    web_signups: number;
+    later_app_authenticated: number;
+    never_used_app: number;
+    by_platform: {
+      windows: number;
+      macos: number;
+      ios: number;
+      android: number;
+    };
+    trials: number;
+    subscriptions: number;
+    web_signup_to_app_rate: number;
+    web_signup_to_trial_rate: number;
+    web_signup_to_paid_rate: number;
+  };
+}
+
+export async function adminFetchDownloadFunnelReport(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminDownloadFunnelReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/utm-attribution/downloads/funnel${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load download funnel report",
+        ),
+      };
+    }
+    const record = data as { data?: AdminDownloadFunnelReport };
+    if (!record.data) {
+      return { ok: false, error: "Invalid download funnel report response" };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
 export type AdminUnsubscribeTrendInterval = "day" | "week" | "month";
 
 export interface AdminEmailUnsubscribeSummary {
