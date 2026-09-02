@@ -3838,6 +3838,21 @@ export interface AdminUtmSignupReport {
   rows: AdminUtmSignupRow[];
 }
 
+export interface AdminLandingPageReportRow {
+  first_page: string;
+  signups: number;
+  trials: number;
+  signup_to_trial_rate: number;
+}
+
+export interface AdminLandingPageReport {
+  from: string;
+  to: string;
+  total_signups: number;
+  total_trials: number;
+  rows: AdminLandingPageReportRow[];
+}
+
 const SIGNUP_STARTED_SESSION_KEY = "keen_signup_started_tracked";
 const STICKER_LANDING_SESSION_KEY = "keen_sticker_landing_tracked";
 
@@ -4166,6 +4181,54 @@ export async function adminFetchUtmSignupReport(params?: {
     const record = data as { data?: AdminUtmSignupReport };
     if (!record.data) {
       return { ok: false, error: "Invalid UTM sign-up report response" };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchLandingPageReport(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminLandingPageReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/utm-attribution/landing-pages${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load landing page report",
+        ),
+      };
+    }
+    const record = data as { data?: AdminLandingPageReport };
+    if (!record.data) {
+      return { ok: false, error: "Invalid landing page report response" };
     }
     return { ok: true, data: record.data };
   } catch (e) {
