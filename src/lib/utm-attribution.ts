@@ -11,6 +11,8 @@ const MAX_LANDING_URL_LENGTH = 2000;
 const NON_ATTRIBUTABLE_LANDING_PREFIXES = [
   "/admin",
   "/signin",
+  "/signup",
+  "/subscribe",
   "/auth/magic",
   "/auth/debug",
   "/auth/verify-email",
@@ -58,6 +60,12 @@ export function isAttributableLandingPath(path: string): boolean {
     (prefix) =>
       normalized === prefix || normalized.startsWith(`${prefix}/`),
   );
+}
+
+/** True when the URL carries a marketing-site landing handoff attempt. */
+export function hasForwardedLandingHandoff(search: string): boolean {
+  const value = new URLSearchParams(search).get("landing_path")?.trim();
+  return Boolean(value);
 }
 
 function isValidStoredFirstLandingAttribution(
@@ -208,17 +216,6 @@ function validateMarketingLandingUrl(
   }
 }
 
-function resolveMarketingLandingUrl(
-  landingPath: string,
-  rawLandingUrl?: string,
-): string {
-  const validated = rawLandingUrl
-    ? validateMarketingLandingUrl(rawLandingUrl, landingPath)
-    : undefined;
-  if (validated) return validated;
-  return `${MARKETING_SITE_URL}${landingPath}`.slice(0, MAX_LANDING_URL_LENGTH);
-}
-
 function parseForwardedFirstLanding(
   search: string,
 ): StoredFirstLandingAttribution | null {
@@ -228,7 +225,7 @@ function parseForwardedFirstLanding(
 
   const rawLandingUrl = params.get("landing_url")?.trim();
   if (
-    rawLandingUrl &&
+    !rawLandingUrl ||
     !validateMarketingLandingUrl(rawLandingUrl, landingPath)
   ) {
     return null;
@@ -236,7 +233,7 @@ function parseForwardedFirstLanding(
 
   return {
     landing_path: landingPath,
-    landing_url: resolveMarketingLandingUrl(landingPath, rawLandingUrl),
+    landing_url: rawLandingUrl.slice(0, MAX_LANDING_URL_LENGTH),
     captured_at: parseValidCapturedAt(trimParam(params.get("captured_at"))),
   };
 }
@@ -253,6 +250,17 @@ function resolveLandingFieldsForAttribution(
   const forwarded = parseForwardedFirstLanding(search);
   if (forwarded) {
     return forwarded;
+  }
+
+  if (
+    hasForwardedLandingHandoff(search) ||
+    !isAttributableLandingPath(landingPath)
+  ) {
+    return {
+      landing_path: "/",
+      landing_url: undefined,
+      captured_at: new Date().toISOString(),
+    };
   }
 
   return {

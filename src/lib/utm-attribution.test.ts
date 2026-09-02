@@ -6,6 +6,7 @@ import {
   captureUtmFromSearch,
   clearUtmAttributionStorage,
   getUtmAttributionAuthPayload,
+  hasForwardedLandingHandoff,
 } from "./utm-attribution";
 
 describe("Reddit first-touch attribution", () => {
@@ -141,6 +142,24 @@ describe("Reddit first-touch attribution", () => {
     ).toBeNull();
   });
 
+  it("rejects landing_path without a validated marketing landing_url", () => {
+    expect(
+      captureFirstLandingFromSearch("?landing_path=%2Fpricing.html"),
+    ).toBeNull();
+    expect(getUtmAttributionAuthPayload()).toEqual({});
+  });
+
+  it("does not record signup when a marketing handoff is rejected", () => {
+    const search =
+      "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fevil.example%2Fpricing.html";
+    captureFirstLandingFromSearch(search);
+    if (!hasForwardedLandingHandoff(search)) {
+      captureFirstLandingPage("/signup");
+    }
+
+    expect(getUtmAttributionAuthPayload()).toEqual({});
+  });
+
   it("falls back to a valid timestamp when captured_at is malformed", () => {
     const before = Date.now();
     captureFirstLandingFromSearch(
@@ -168,6 +187,7 @@ describe("Reddit first-touch attribution", () => {
     expect(captureFirstLandingPage("/auth/magic")).toBeNull();
     expect(captureFirstLandingPage("/auth/verify-email")).toBeNull();
     expect(captureFirstLandingPage("/signin/magic")).toBeNull();
+    expect(captureFirstLandingPage("/signup")).toBeNull();
     expect(captureFirstLandingPage("/dashboard")).toBeNull();
 
     captureFirstLandingPage("/server-locations/brazil");

@@ -5,6 +5,7 @@ import {
   captureUtmFromSearch,
   captureFirstLandingPage,
   captureFirstLandingFromSearch,
+  hasForwardedLandingHandoff,
   parseUtmAttributionFromSearch,
 } from "@/lib/utm-attribution";
 import { isStickerUtmSource } from "@/lib/sticker-campaigns";
@@ -15,7 +16,9 @@ export default function UtmCapture() {
 
   useEffect(() => {
     captureFirstLandingFromSearch(location.search);
-    captureFirstLandingPage(location.pathname);
+    if (!hasForwardedLandingHandoff(location.search)) {
+      captureFirstLandingPage(location.pathname);
+    }
     captureUtmFromSearch(location.search, location.pathname);
 
     const stickerAttribution = parseUtmAttributionFromSearch(
