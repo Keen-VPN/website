@@ -149,7 +149,7 @@ describe("Reddit first-touch attribution", () => {
     const capturedAt =
       getUtmAttributionAuthPayload().utmAttribution?.captured_at;
     expect(capturedAt).toBeTruthy();
-    expect(Date.parse(capturedAt!)).toBeGreaterThanOrEqual(before);
+    expect(Date.parse(String(capturedAt))).toBeGreaterThanOrEqual(before);
   });
 
   it("keeps long marketing landing URLs up to 2000 characters", () => {
