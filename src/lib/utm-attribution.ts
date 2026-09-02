@@ -1,6 +1,17 @@
 import { getRedditUuidCookie } from "@/lib/reddit-analytics";
 
 export const UTM_ATTRIBUTION_STORAGE_KEY = "keen_utm_attribution";
+export const FIRST_LANDING_ATTRIBUTION_STORAGE_KEY =
+  "keen_first_landing_attribution";
+
+const NON_ATTRIBUTABLE_LANDING_PREFIXES = [
+  "/admin",
+  "/auth/magic-link",
+  "/auth/debug",
+  "/auth/verify",
+  "/email/preferences",
+  "/contextual-email",
+] as const;
 
 export interface StoredUtmAttribution {
   utm_source?: string;
@@ -17,6 +28,111 @@ export interface StoredUtmAttribution {
 
 export interface UtmAttributionAuthPayload {
   utmAttribution?: StoredUtmAttribution;
+}
+
+interface StoredFirstLandingAttribution {
+  landing_path: string;
+  landing_url?: string;
+  captured_at: string;
+}
+
+export function isAttributableLandingPath(path: string): boolean {
+  const normalized = path.trim();
+  if (!normalized.startsWith("/")) {
+    return false;
+  }
+  return !NON_ATTRIBUTABLE_LANDING_PREFIXES.some(
+    (prefix) =>
+      normalized === prefix || normalized.startsWith(`${prefix}/`),
+  );
+}
+
+function isValidStoredFirstLandingAttribution(
+  value: unknown,
+): value is StoredFirstLandingAttribution {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.landing_path === "string" &&
+    Boolean(record.landing_path.trim()) &&
+    typeof record.captured_at === "string" &&
+    Boolean(record.captured_at.trim())
+  );
+}
+
+export function getStoredFirstLandingAttribution(): StoredFirstLandingAttribution | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(FIRST_LANDING_ATTRIBUTION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isValidStoredFirstLandingAttribution(parsed)) {
+      localStorage.removeItem(FIRST_LANDING_ATTRIBUTION_STORAGE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    try {
+      localStorage.removeItem(FIRST_LANDING_ATTRIBUTION_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }
+}
+
+function setStoredFirstLandingAttribution(
+  value: StoredFirstLandingAttribution,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(
+      FIRST_LANDING_ATTRIBUTION_STORAGE_KEY,
+      JSON.stringify(value),
+    );
+  } catch {
+    /* private mode / blocked storage */
+  }
+}
+
+/** First-touch capture for organic and campaign visitors without UTMs. */
+export function captureFirstLandingPage(
+  landingPath: string,
+): StoredFirstLandingAttribution | null {
+  if (typeof window === "undefined") return null;
+  if (getStoredFirstLandingAttribution()) return null;
+  if (!isAttributableLandingPath(landingPath)) return null;
+
+  const captured: StoredFirstLandingAttribution = {
+    landing_path: landingPath.slice(0, 500),
+    landing_url:
+      `${window.location.origin}${landingPath}`.slice(0, 2000),
+    captured_at: new Date().toISOString(),
+  };
+  setStoredFirstLandingAttribution(captured);
+  return captured;
+}
+
+function buildLandingAttributionFields():
+  | Pick<StoredUtmAttribution, "landing_path" | "landing_url" | "captured_at">
+  | null {
+  const stored = getStoredUtmAttribution();
+  if (stored) {
+    return {
+      landing_path: stored.landing_path,
+      landing_url: stored.landing_url,
+      captured_at: stored.captured_at,
+    };
+  }
+
+  const firstLanding = getStoredFirstLandingAttribution();
+  if (!firstLanding) return null;
+
+  return {
+    landing_path: firstLanding.landing_path,
+    landing_url: firstLanding.landing_url,
+    captured_at: firstLanding.captured_at,
+  };
 }
 
 const UTM_PARAM_KEYS = [
@@ -130,6 +246,7 @@ export function clearUtmAttributionStorage(): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.removeItem(UTM_ATTRIBUTION_STORAGE_KEY);
+    localStorage.removeItem(FIRST_LANDING_ATTRIBUTION_STORAGE_KEY);
   } catch {
     /* private mode / blocked storage */
   }
@@ -159,7 +276,9 @@ export function captureUtmFromSearch(
 
 export function getUtmAttributionAuthPayload(): UtmAttributionAuthPayload {
   const stored = getStoredUtmAttribution();
+  const landingFields = buildLandingAttributionFields();
   const redditUuid = getRedditUuidCookie();
+
   if (stored) {
     return {
       utmAttribution: {
@@ -168,15 +287,16 @@ export function getUtmAttributionAuthPayload(): UtmAttributionAuthPayload {
       },
     };
   }
-  if (!redditUuid || typeof window === "undefined") return {};
+
+  if (!landingFields && !redditUuid) {
+    return {};
+  }
+
   return {
     utmAttribution: {
-      landing_path: window.location.pathname.slice(0, 500),
-      landing_url:
-        `${window.location.origin}${window.location.pathname}`.slice(0, 2000),
-      captured_at: new Date().toISOString(),
-      reddit_uuid: redditUuid,
-    },
+      ...(landingFields ?? {}),
+      ...(redditUuid ? { reddit_uuid: redditUuid } : {}),
+    } as StoredUtmAttribution,
   };
 }
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   appendStoredUtmsToDeepLink,
+  captureFirstLandingPage,
   captureUtmFromSearch,
   clearUtmAttributionStorage,
   getUtmAttributionAuthPayload,
@@ -65,14 +66,35 @@ describe("Reddit first-touch attribution", () => {
 
     expect(getUtmAttributionAuthPayload().utmAttribution).toEqual(
       expect.objectContaining({
-        landing_path: "/auth/magic-link",
-        landing_url: `${window.location.origin}/auth/magic-link`,
         reddit_uuid: "uuid-789",
       }),
     );
     expect(
-      getUtmAttributionAuthPayload().utmAttribution?.landing_url,
-    ).not.toContain("secret-token");
+      getUtmAttributionAuthPayload().utmAttribution?.landing_path,
+    ).toBeUndefined();
+  });
+
+  it("captures the first attributable landing page without UTMs", () => {
+    captureFirstLandingPage("/server-locations/brazil");
+    window.history.replaceState({}, "", "/pricing");
+
+    expect(getUtmAttributionAuthPayload().utmAttribution).toEqual(
+      expect.objectContaining({
+        landing_path: "/server-locations/brazil",
+      }),
+    );
+  });
+
+  it("preserves the first landing page when later pages are visited", () => {
+    captureFirstLandingPage("/blog/is-public-wifi-safe");
+    captureFirstLandingPage("/pricing");
+    captureFirstLandingPage("/signup");
+
+    expect(getUtmAttributionAuthPayload().utmAttribution).toEqual(
+      expect.objectContaining({
+        landing_path: "/blog/is-public-wifi-safe",
+      }),
+    );
   });
 
   it("adds the current Reddit UUID cookie to a deep link with stored attribution", () => {

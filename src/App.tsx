@@ -87,6 +87,9 @@ const AdminUserSessions = lazy(
 const AdminUtmAttribution = lazy(
   () => import("./pages/admin/AdminUtmAttribution"),
 );
+const AdminLandingAttribution = lazy(
+  () => import("./pages/admin/AdminLandingAttribution"),
+);
 const AdminStickerCampaigns = lazy(
   () => import("./pages/admin/AdminStickerCampaigns"),
 );
@@ -362,6 +365,10 @@ const App = () => (
                 <Route path="churn" element={<AdminChurn />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="utm-attribution" element={<AdminUtmAttribution />} />
+                <Route
+                  path="landing-attribution"
+                  element={<AdminLandingAttribution />}
+                />
                 <Route
                   path="sticker-campaigns"
                   element={<AdminStickerCampaigns />}
