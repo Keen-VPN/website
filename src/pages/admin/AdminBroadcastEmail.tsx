@@ -68,14 +68,14 @@ const DEFAULT_CTA_URL = "https://vpnkeen.com/perks";
 const BROADCAST_JOB_POLL_INTERVAL_MS = 2000;
 const BROADCAST_JOB_POLL_TIMEOUT_MS = 15 * 60 * 1000;
 
-type BroadcastComposeDraft = {
+interface BroadcastComposeDraft {
   subject: string;
   headline: string;
   body: string;
   preheader: string;
   ctaLabel: string;
   ctaUrl: string;
-};
+}
 
 const EMPTY_CUSTOM_DRAFT: BroadcastComposeDraft = {
   subject: "",
