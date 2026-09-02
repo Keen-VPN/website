@@ -9,6 +9,7 @@ import {
   defaultAdminReportFromValue,
   defaultAdminReportToValue,
   formatAdminRate,
+  isAdminReportDateRangeValid,
 } from "@/lib/admin-utils";
 
 function formatFirstPageLabel(path: string): string {
@@ -28,6 +29,15 @@ export default function AdminLandingAttribution() {
     if (!from.trim() || !to.trim()) {
       setReport(null);
       setError(null);
+      setLoading(false);
+      return;
+    }
+
+    if (!isAdminReportDateRangeValid(from, to)) {
+      activeRequest.current?.abort();
+      activeRequest.current = null;
+      setReport(null);
+      setError("From date must be on or before To date.");
       setLoading(false);
       return;
     }

@@ -10,6 +10,10 @@ export function defaultAdminReportToValue(): string {
   return date.toISOString().slice(0, 10);
 }
 
+export function isAdminReportDateRangeValid(from: string, to: string): boolean {
+  return Boolean(from.trim() && to.trim() && from <= to);
+}
+
 export function formatAdminRate(value: number): string {
   return `${value.toFixed(2)}%`;
 }

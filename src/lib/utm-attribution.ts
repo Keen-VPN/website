@@ -1,4 +1,11 @@
 import { getRedditUuidCookie } from "@/lib/reddit-analytics";
+import {
+  isReplaceableLandingPlaceholder,
+  landingHandoffSecret,
+  LANDING_HANDOFF_SIGNATURE_PARAM,
+  parseValidHandoffCapturedAt,
+  verifyLandingHandoff,
+} from "@/lib/landing-handoff";
 import { MARKETING_SITE_URL } from "@/lib/site-urls";
 
 export const UTM_ATTRIBUTION_STORAGE_KEY = "keen_utm_attribution";
@@ -123,6 +130,7 @@ export function captureFirstLandingPage(
   if (typeof window === "undefined") return null;
   if (getStoredFirstLandingAttribution()) return null;
   if (!isAttributableLandingPath(landingPath)) return null;
+  if (isReplaceableLandingPlaceholder(landingPath)) return null;
 
   const captured: StoredFirstLandingAttribution = {
     landing_path: landingPath.slice(0, 500),
@@ -135,14 +143,18 @@ export function captureFirstLandingPage(
 }
 
 /** Accept first landing forwarded from the static marketing site (cross-origin). */
-export function captureFirstLandingFromSearch(
+export async function captureFirstLandingFromSearch(
   search: string,
-): StoredFirstLandingAttribution | null {
+): Promise<StoredFirstLandingAttribution | null> {
   if (typeof window === "undefined") return null;
-  if (getStoredFirstLandingAttribution()) return null;
 
-  const captured = parseForwardedFirstLanding(search);
+  const captured = await parseForwardedFirstLanding(search);
   if (!captured) return null;
+
+  const existing = getStoredFirstLandingAttribution();
+  if (existing && !isReplaceableLandingPlaceholder(existing.landing_path)) {
+    return existing;
+  }
 
   setStoredFirstLandingAttribution(captured);
   return captured;
@@ -194,11 +206,49 @@ function marketingSiteOrigin(): string {
   }
 }
 
-function parseValidCapturedAt(value?: string): string {
-  if (!value) return new Date().toISOString();
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return new Date().toISOString();
-  return parsed.toISOString();
+async function parseForwardedFirstLanding(
+  search: string,
+): Promise<StoredFirstLandingAttribution | null> {
+  const params = new URLSearchParams(search);
+  const landingPath = trimParam(params.get("landing_path"));
+  if (!landingPath || !isAttributableLandingPath(landingPath)) return null;
+
+  const rawLandingUrl = params.get("landing_url")?.trim();
+  if (
+    !rawLandingUrl ||
+    !validateMarketingLandingUrl(rawLandingUrl, landingPath)
+  ) {
+    return null;
+  }
+
+  const landingUrl = rawLandingUrl.slice(0, MAX_LANDING_URL_LENGTH);
+  const capturedAt = parseValidHandoffCapturedAt(
+    trimParam(params.get("captured_at")),
+  );
+  if (!capturedAt) return null;
+
+  const secret = landingHandoffSecret();
+  const signature = params.get(LANDING_HANDOFF_SIGNATURE_PARAM)?.trim();
+  if (!secret) {
+    if (import.meta.env.PROD) return null;
+  } else if (
+    !signature ||
+    !(await verifyLandingHandoff(
+      landingPath,
+      landingUrl,
+      capturedAt,
+      signature,
+      secret,
+    ))
+  ) {
+    return null;
+  }
+
+  return {
+    landing_path: landingPath,
+    landing_url: landingUrl,
+    captured_at: capturedAt,
+  };
 }
 
 function validateMarketingLandingUrl(
@@ -216,28 +266,6 @@ function validateMarketingLandingUrl(
   }
 }
 
-function parseForwardedFirstLanding(
-  search: string,
-): StoredFirstLandingAttribution | null {
-  const params = new URLSearchParams(search);
-  const landingPath = trimParam(params.get("landing_path"));
-  if (!landingPath || !isAttributableLandingPath(landingPath)) return null;
-
-  const rawLandingUrl = params.get("landing_url")?.trim();
-  if (
-    !rawLandingUrl ||
-    !validateMarketingLandingUrl(rawLandingUrl, landingPath)
-  ) {
-    return null;
-  }
-
-  return {
-    landing_path: landingPath,
-    landing_url: rawLandingUrl.slice(0, MAX_LANDING_URL_LENGTH),
-    captured_at: parseValidCapturedAt(trimParam(params.get("captured_at"))),
-  };
-}
-
 function resolveLandingFieldsForAttribution(
   search: string,
   landingPath: string,
@@ -247,14 +275,10 @@ function resolveLandingFieldsForAttribution(
     return storedFirst;
   }
 
-  const forwarded = parseForwardedFirstLanding(search);
-  if (forwarded) {
-    return forwarded;
-  }
-
   if (
     hasForwardedLandingHandoff(search) ||
-    !isAttributableLandingPath(landingPath)
+    !isAttributableLandingPath(landingPath) ||
+    isReplaceableLandingPlaceholder(landingPath)
   ) {
     return {
       landing_path: "/",
