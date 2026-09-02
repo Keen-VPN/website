@@ -68,6 +68,24 @@ const DEFAULT_CTA_URL = "https://vpnkeen.com/perks";
 const BROADCAST_JOB_POLL_INTERVAL_MS = 2000;
 const BROADCAST_JOB_POLL_TIMEOUT_MS = 15 * 60 * 1000;
 
+type BroadcastComposeDraft = {
+  subject: string;
+  headline: string;
+  body: string;
+  preheader: string;
+  ctaLabel: string;
+  ctaUrl: string;
+};
+
+const EMPTY_CUSTOM_DRAFT: BroadcastComposeDraft = {
+  subject: "",
+  headline: "",
+  body: "",
+  preheader: "",
+  ctaLabel: DEFAULT_CTA_LABEL,
+  ctaUrl: DEFAULT_CTA_URL,
+};
+
 const TEMPLATE_OPTIONS: {
   value: BroadcastEmailTemplate | "custom";
   label: string;
@@ -123,6 +141,7 @@ export default function AdminBroadcastEmail() {
   const [exporting, setExporting] = useState(false);
   const audienceRequestIdRef = useRef(0);
   const broadcastPollActiveRef = useRef(false);
+  const customDraftRef = useRef<BroadcastComposeDraft>(EMPTY_CUSTOM_DRAFT);
 
   useEffect(() => {
     return () => {
@@ -143,6 +162,7 @@ export default function AdminBroadcastEmail() {
   );
 
   const resetComposeForm = useCallback(() => {
+    customDraftRef.current = { ...EMPTY_CUSTOM_DRAFT };
     setTemplate("custom");
     setSubject("");
     setHeadline("");
@@ -152,27 +172,40 @@ export default function AdminBroadcastEmail() {
     setCtaUrl(DEFAULT_CTA_URL);
   }, []);
 
-  const applyTemplate = useCallback(
-    (next: BroadcastEmailTemplate | "custom") => {
-      setTemplate(next);
-      if (next === MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE) {
-        setSubject(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.subject);
-        setHeadline(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.headline);
-        setBody(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.body);
-        setPreheader(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.preheader);
-        setCtaLabel(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaLabel);
-        setCtaUrl(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaUrl);
-        return;
-      }
-      setSubject("");
-      setHeadline("");
-      setBody("");
-      setPreheader("");
-      setCtaLabel(DEFAULT_CTA_LABEL);
-      setCtaUrl(DEFAULT_CTA_URL);
-    },
-    [],
-  );
+  const applyTemplate = (
+    next: BroadcastEmailTemplate | "custom",
+  ) => {
+    if (template === "custom" && next !== "custom") {
+      customDraftRef.current = {
+        subject,
+        headline,
+        body,
+        preheader,
+        ctaLabel,
+        ctaUrl,
+      };
+    }
+
+    setTemplate(next);
+
+    if (next === MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE) {
+      setSubject(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.subject);
+      setHeadline(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.headline);
+      setBody(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.body);
+      setPreheader(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.preheader);
+      setCtaLabel(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaLabel);
+      setCtaUrl(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaUrl);
+      return;
+    }
+
+    const draft = customDraftRef.current;
+    setSubject(draft.subject);
+    setHeadline(draft.headline);
+    setBody(draft.body);
+    setPreheader(draft.preheader);
+    setCtaLabel(draft.ctaLabel);
+    setCtaUrl(draft.ctaUrl);
+  };
 
   const composePayload = useCallback(
     () =>

@@ -6674,7 +6674,7 @@ export type BroadcastEmailTemplate = "membership_transfer";
 export const MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE: BroadcastEmailTemplate =
   "membership_transfer";
 
-export const MEMBERSHIP_TRANSFER_PAGE_URL = "https://vpnkeen.com/transfer";
+export const MEMBERSHIP_TRANSFER_PAGE_URL = "https://vpnkeen.com/transfer.html";
 
 export const MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS = {
   subject: "Transfer your VPN membership to KeenVPN",
