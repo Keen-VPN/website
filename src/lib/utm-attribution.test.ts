@@ -104,6 +104,66 @@ describe("Reddit first-touch attribution", () => {
     );
   });
 
+  it("preserves forwarded first landing when UTMs are captured on sign-in", () => {
+    captureFirstLandingFromSearch(
+      "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fpricing.html&captured_at=2026-04-21T12%3A00%3A00.000Z&utm_source=reddit&utm_medium=paid_social",
+    );
+    captureUtmFromSearch(
+      "?utm_source=reddit&utm_medium=paid_social",
+      "/signin",
+    );
+
+    expect(getUtmAttributionAuthPayload().utmAttribution).toEqual(
+      expect.objectContaining({
+        utm_source: "reddit",
+        utm_medium: "paid_social",
+        landing_path: "/pricing.html",
+        landing_url: "https://vpnkeen.com/pricing.html",
+        captured_at: "2026-04-21T12:00:00.000Z",
+      }),
+    );
+  });
+
+  it("rejects forged marketing landing attribution from untrusted origins", () => {
+    expect(
+      captureFirstLandingFromSearch(
+        "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fevil.example%2Fpricing.html",
+      ),
+    ).toBeNull();
+    expect(getUtmAttributionAuthPayload()).toEqual({});
+  });
+
+  it("rejects forged landing attribution when landing_url does not match landing_path", () => {
+    expect(
+      captureFirstLandingFromSearch(
+        "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fserver-locations%2Fbrazil",
+      ),
+    ).toBeNull();
+  });
+
+  it("falls back to a valid timestamp when captured_at is malformed", () => {
+    const before = Date.now();
+    captureFirstLandingFromSearch(
+      "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fpricing.html&captured_at=not-a-date",
+    );
+    const capturedAt =
+      getUtmAttributionAuthPayload().utmAttribution?.captured_at;
+    expect(capturedAt).toBeTruthy();
+    expect(Date.parse(capturedAt!)).toBeGreaterThanOrEqual(before);
+  });
+
+  it("keeps long marketing landing URLs up to 2000 characters", () => {
+    const longQuery = "x".repeat(1200);
+    const landingUrl = `https://vpnkeen.com/pricing.html?${longQuery}`;
+    captureFirstLandingFromSearch(
+      `?landing_path=%2Fpricing.html&landing_url=${encodeURIComponent(landingUrl)}`,
+    );
+
+    expect(
+      getUtmAttributionAuthPayload().utmAttribution?.landing_url,
+    ).toBe(landingUrl);
+  });
+
   it("does not capture auth or post-login routes as first landing pages", () => {
     expect(captureFirstLandingPage("/auth/magic")).toBeNull();
     expect(captureFirstLandingPage("/auth/verify-email")).toBeNull();

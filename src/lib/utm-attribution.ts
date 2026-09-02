@@ -1,8 +1,12 @@
 import { getRedditUuidCookie } from "@/lib/reddit-analytics";
+import { MARKETING_SITE_URL } from "@/lib/site-urls";
 
 export const UTM_ATTRIBUTION_STORAGE_KEY = "keen_utm_attribution";
 export const FIRST_LANDING_ATTRIBUTION_STORAGE_KEY =
   "keen_first_landing_attribution";
+
+const MAX_ATTRIBUTION_PARAM_LENGTH = 500;
+const MAX_LANDING_URL_LENGTH = 2000;
 
 const NON_ATTRIBUTABLE_LANDING_PREFIXES = [
   "/admin",
@@ -129,15 +133,9 @@ export function captureFirstLandingFromSearch(
   if (typeof window === "undefined") return null;
   if (getStoredFirstLandingAttribution()) return null;
 
-  const params = new URLSearchParams(search);
-  const landingPath = trimParam(params.get("landing_path"));
-  if (!landingPath || !isAttributableLandingPath(landingPath)) return null;
+  const captured = parseForwardedFirstLanding(search);
+  if (!captured) return null;
 
-  const captured: StoredFirstLandingAttribution = {
-    landing_path: landingPath,
-    landing_url: trimParam(params.get("landing_url")),
-    captured_at: trimParam(params.get("captured_at")) ?? new Date().toISOString(),
-  };
   setStoredFirstLandingAttribution(captured);
   return captured;
 }
@@ -172,9 +170,102 @@ const UTM_PARAM_KEYS = [
   "utm_term",
 ] as const;
 
-function trimParam(value: string | null): string | undefined {
+function trimParam(
+  value: string | null,
+  maxLength = MAX_ATTRIBUTION_PARAM_LENGTH,
+): string | undefined {
   const trimmed = value?.trim();
-  return trimmed ? trimmed.slice(0, 500) : undefined;
+  return trimmed ? trimmed.slice(0, maxLength) : undefined;
+}
+
+function marketingSiteOrigin(): string {
+  try {
+    return new URL(MARKETING_SITE_URL).origin;
+  } catch {
+    return "https://vpnkeen.com";
+  }
+}
+
+function parseValidCapturedAt(value?: string): string {
+  if (!value) return new Date().toISOString();
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return new Date().toISOString();
+  return parsed.toISOString();
+}
+
+function validateMarketingLandingUrl(
+  landingUrl: string,
+  landingPath: string,
+): string | undefined {
+  try {
+    const url = new URL(landingUrl);
+    if (url.origin !== marketingSiteOrigin()) return undefined;
+    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+    if (url.pathname !== landingPath) return undefined;
+    return landingUrl.slice(0, MAX_LANDING_URL_LENGTH);
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveMarketingLandingUrl(
+  landingPath: string,
+  rawLandingUrl?: string,
+): string {
+  const validated = rawLandingUrl
+    ? validateMarketingLandingUrl(rawLandingUrl, landingPath)
+    : undefined;
+  if (validated) return validated;
+  return `${MARKETING_SITE_URL}${landingPath}`.slice(0, MAX_LANDING_URL_LENGTH);
+}
+
+function parseForwardedFirstLanding(
+  search: string,
+): StoredFirstLandingAttribution | null {
+  const params = new URLSearchParams(search);
+  const landingPath = trimParam(params.get("landing_path"));
+  if (!landingPath || !isAttributableLandingPath(landingPath)) return null;
+
+  const rawLandingUrl = params.get("landing_url")?.trim();
+  if (
+    rawLandingUrl &&
+    !validateMarketingLandingUrl(rawLandingUrl, landingPath)
+  ) {
+    return null;
+  }
+
+  return {
+    landing_path: landingPath,
+    landing_url: resolveMarketingLandingUrl(landingPath, rawLandingUrl),
+    captured_at: parseValidCapturedAt(trimParam(params.get("captured_at"))),
+  };
+}
+
+function resolveLandingFieldsForAttribution(
+  search: string,
+  landingPath: string,
+): Pick<StoredUtmAttribution, "landing_path" | "landing_url" | "captured_at"> {
+  const storedFirst = getStoredFirstLandingAttribution();
+  if (storedFirst) {
+    return storedFirst;
+  }
+
+  const forwarded = parseForwardedFirstLanding(search);
+  if (forwarded) {
+    return forwarded;
+  }
+
+  return {
+    landing_path: landingPath.slice(0, MAX_ATTRIBUTION_PARAM_LENGTH),
+    landing_url:
+      typeof window === "undefined"
+        ? undefined
+        : `${window.location.origin}${landingPath}`.slice(
+            0,
+            MAX_LANDING_URL_LENGTH,
+          ),
+    captured_at: new Date().toISOString(),
+  };
 }
 
 function buildAttributionFromSearch(
@@ -183,12 +274,7 @@ function buildAttributionFromSearch(
 ): StoredUtmAttribution | null {
   const params = new URLSearchParams(search);
   const captured: StoredUtmAttribution = {
-    landing_path: landingPath.slice(0, 500),
-    landing_url:
-      typeof window === "undefined"
-        ? undefined
-        : `${window.location.origin}${landingPath}`.slice(0, 2000),
-    captured_at: new Date().toISOString(),
+    ...resolveLandingFieldsForAttribution(search, landingPath),
   };
 
   let hasUtm = false;
