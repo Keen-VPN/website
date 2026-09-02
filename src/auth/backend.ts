@@ -4245,6 +4245,7 @@ export async function adminFetchLandingPageReport(params?: {
 export interface AdminDownloadClickRow {
   platform: string;
   utm_source: string;
+  utm_medium: string;
   utm_campaign: string;
   clicks: number;
 }

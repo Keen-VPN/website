@@ -72,8 +72,9 @@ export default function AdminDownloadFunnel() {
     return () => activeRequest.current?.abort();
   }, [load, fromInput, toInput]);
 
-  const downloads = report?.downloads;
-  const webToApp = report?.web_to_app;
+  const showData = !loading && !error && report != null;
+  const downloads = showData ? report.downloads : null;
+  const webToApp = showData ? report.web_to_app : null;
   const platformEntries = Object.entries(downloads?.by_platform ?? {}).sort(
     (a, b) => b[1] - a[1],
   );
@@ -86,7 +87,8 @@ export default function AdminDownloadFunnel() {
         </h2>
         <p className="text-sm text-muted-foreground">
           Website store CTA clicks are download intent only — not confirmed
-          installs. Web → app usage uses later authenticated devices. See also{" "}
+          installs. Web → app usage uses later native VPN sessions after
+          signup. See also{" "}
           <Link
             to="/admin/utm-attribution"
             className="text-primary underline-offset-4 hover:underline"
@@ -134,7 +136,7 @@ export default function AdminDownloadFunnel() {
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-sm text-muted-foreground">Total clicks</p>
             <p className="text-2xl font-semibold">
-              {loading ? "—" : (downloads?.total_clicks ?? 0)}
+              {loading || error ? "—" : (downloads?.total_clicks ?? 0)}
             </p>
           </div>
           {platformEntries.map(([platform, count]) => (
@@ -146,7 +148,7 @@ export default function AdminDownloadFunnel() {
                 {platform}
               </p>
               <p className="text-2xl font-semibold">
-                {loading ? "—" : count}
+                {loading || error ? "—" : count}
               </p>
             </div>
           ))}
@@ -158,6 +160,7 @@ export default function AdminDownloadFunnel() {
               <tr>
                 <th className="p-3 font-medium">Platform</th>
                 <th className="p-3 font-medium">UTM source</th>
+                <th className="p-3 font-medium">Medium</th>
                 <th className="p-3 font-medium">Campaign</th>
                 <th className="p-3 font-medium text-right">Clicks</th>
               </tr>
@@ -165,24 +168,36 @@ export default function AdminDownloadFunnel() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={4}>
+                  <td className="p-3 text-muted-foreground" colSpan={5}>
                     Loading…
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td className="p-3 text-muted-foreground" colSpan={5}>
+                    Report unavailable.
                   </td>
                 </tr>
               ) : (downloads?.rows.length ?? 0) === 0 ? (
                 <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={4}>
+                  <td className="p-3 text-muted-foreground" colSpan={5}>
                     No download clicks in this range.
                   </td>
                 </tr>
               ) : (
                 downloads?.rows.map((row) => (
                   <tr
-                    key={`${row.platform}-${row.utm_source}-${row.utm_campaign}`}
+                    key={JSON.stringify([
+                      row.platform,
+                      row.utm_source,
+                      row.utm_medium,
+                      row.utm_campaign,
+                    ])}
                     className="border-b border-border/60"
                   >
                     <td className="p-3 capitalize">{row.platform}</td>
                     <td className="p-3">{row.utm_source}</td>
+                    <td className="p-3">{row.utm_medium}</td>
                     <td className="p-3">{row.utm_campaign}</td>
                     <td className="p-3 text-right">{row.clicks}</td>
                   </tr>
@@ -197,23 +212,25 @@ export default function AdminDownloadFunnel() {
         <h3 className="text-lg font-medium">Web signup → app usage</h3>
         <p className="text-sm text-muted-foreground">
           Cohort is web <code className="text-xs">user_account_created</code>{" "}
-          in the date window. App usage is later non-revoked devices on
-          Windows/macOS/iOS/Android.
+          in the date window. App usage is later native{" "}
+          <code className="text-xs">connection_sessions</code> after signup.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-sm text-muted-foreground">Web sign-ups</p>
             <p className="text-2xl font-semibold">
-              {loading ? "—" : (webToApp?.web_signups ?? 0)}
+              {loading || error ? "—" : (webToApp?.web_signups ?? 0)}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-sm text-muted-foreground">Later used an app</p>
             <p className="text-2xl font-semibold">
-              {loading ? "—" : (webToApp?.later_app_authenticated ?? 0)}
+              {loading || error
+                ? "—"
+                : (webToApp?.later_app_authenticated ?? 0)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {loading
+              {loading || error
                 ? "—"
                 : formatAdminRate(webToApp?.web_signup_to_app_rate ?? 0)}
             </p>
@@ -221,18 +238,18 @@ export default function AdminDownloadFunnel() {
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-sm text-muted-foreground">Never used an app</p>
             <p className="text-2xl font-semibold">
-              {loading ? "—" : (webToApp?.never_used_app ?? 0)}
+              {loading || error ? "—" : (webToApp?.never_used_app ?? 0)}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-sm text-muted-foreground">Trials / Paid</p>
             <p className="text-2xl font-semibold">
-              {loading
+              {loading || error
                 ? "—"
                 : `${webToApp?.trials ?? 0} / ${webToApp?.subscriptions ?? 0}`}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {loading
+              {loading || error
                 ? "—"
                 : `${formatAdminRate(webToApp?.web_signup_to_trial_rate ?? 0)} trial · ${formatAdminRate(webToApp?.web_signup_to_paid_rate ?? 0)} paid`}
             </p>
@@ -256,7 +273,7 @@ export default function AdminDownloadFunnel() {
                 {platform} app users
               </p>
               <p className="text-2xl font-semibold">
-                {loading ? "—" : (count ?? 0)}
+                {loading || error ? "—" : (count ?? 0)}
               </p>
             </div>
           ))}
