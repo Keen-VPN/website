@@ -1,10 +1,8 @@
 import { getRedditUuidCookie } from "@/lib/reddit-analytics";
 import {
   isReplaceableLandingPlaceholder,
-  landingHandoffSecret,
   LANDING_HANDOFF_SIGNATURE_PARAM,
   parseValidHandoffCapturedAt,
-  verifyLandingHandoff,
 } from "@/lib/landing-handoff";
 import { MARKETING_SITE_URL } from "@/lib/site-urls";
 
@@ -43,6 +41,7 @@ export interface StoredUtmAttribution {
   utm_term?: string;
   landing_path: string;
   landing_url?: string;
+  landing_sig?: string;
   reddit_click_id?: string;
   reddit_uuid?: string;
   captured_at: string;
@@ -55,6 +54,7 @@ export interface UtmAttributionAuthPayload {
 interface StoredFirstLandingAttribution {
   landing_path: string;
   landing_url?: string;
+  landing_sig?: string;
   captured_at: string;
 }
 
@@ -143,12 +143,12 @@ export function captureFirstLandingPage(
 }
 
 /** Accept first landing forwarded from the static marketing site (cross-origin). */
-export async function captureFirstLandingFromSearch(
+export function captureFirstLandingFromSearch(
   search: string,
-): Promise<StoredFirstLandingAttribution | null> {
+): StoredFirstLandingAttribution | null {
   if (typeof window === "undefined") return null;
 
-  const captured = await parseForwardedFirstLanding(search);
+  const captured = parseForwardedFirstLanding(search);
   if (!captured) return null;
 
   const existing = getStoredFirstLandingAttribution();
@@ -161,13 +161,17 @@ export async function captureFirstLandingFromSearch(
 }
 
 function buildLandingAttributionFields():
-  | Pick<StoredUtmAttribution, "landing_path" | "landing_url" | "captured_at">
+  | Pick<
+      StoredUtmAttribution,
+      "landing_path" | "landing_url" | "landing_sig" | "captured_at"
+    >
   | null {
   const stored = getStoredUtmAttribution();
   if (stored) {
     return {
       landing_path: stored.landing_path,
       landing_url: stored.landing_url,
+      landing_sig: stored.landing_sig,
       captured_at: stored.captured_at,
     };
   }
@@ -178,6 +182,7 @@ function buildLandingAttributionFields():
   return {
     landing_path: firstLanding.landing_path,
     landing_url: firstLanding.landing_url,
+    landing_sig: firstLanding.landing_sig,
     captured_at: firstLanding.captured_at,
   };
 }
@@ -206,9 +211,9 @@ function marketingSiteOrigin(): string {
   }
 }
 
-async function parseForwardedFirstLanding(
+function parseForwardedFirstLanding(
   search: string,
-): Promise<StoredFirstLandingAttribution | null> {
+): StoredFirstLandingAttribution | null {
   const params = new URLSearchParams(search);
   const landingPath = trimParam(params.get("landing_path"));
   if (!landingPath || !isAttributableLandingPath(landingPath)) return null;
@@ -227,26 +232,16 @@ async function parseForwardedFirstLanding(
   );
   if (!capturedAt) return null;
 
-  const secret = landingHandoffSecret();
-  const signature = params.get(LANDING_HANDOFF_SIGNATURE_PARAM)?.trim();
-  if (!secret) {
-    if (import.meta.env.PROD) return null;
-  } else if (
-    !signature ||
-    !(await verifyLandingHandoff(
-      landingPath,
-      landingUrl,
-      capturedAt,
-      signature,
-      secret,
-    ))
-  ) {
-    return null;
-  }
+  const landingSig = trimParam(
+    params.get(LANDING_HANDOFF_SIGNATURE_PARAM),
+    MAX_ATTRIBUTION_PARAM_LENGTH,
+  );
+  if (!landingSig) return null;
 
   return {
     landing_path: landingPath,
     landing_url: landingUrl,
+    landing_sig: landingSig,
     captured_at: capturedAt,
   };
 }
@@ -467,6 +462,7 @@ export function appendStoredUtmsToDeepLink(deepLink: string): string {
       "utm_term",
       "landing_path",
       "landing_url",
+      "landing_sig",
       "reddit_click_id",
       "reddit_uuid",
       "captured_at",

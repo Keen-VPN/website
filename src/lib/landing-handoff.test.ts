@@ -2,8 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isReplaceableLandingPlaceholder,
   parseValidHandoffCapturedAt,
-  signLandingHandoff,
-  verifyLandingHandoff,
 } from "./landing-handoff";
 
 describe("landing-handoff", () => {
@@ -27,34 +25,5 @@ describe("landing-handoff", () => {
     expect(parseValidHandoffCapturedAt("not-a-date")).toBeNull();
     expect(parseValidHandoffCapturedAt("2030-01-01T00:00:00.000Z")).toBeNull();
     expect(parseValidHandoffCapturedAt("2020-01-01T00:00:00.000Z")).toBeNull();
-  });
-
-  it("signs and verifies marketing handoff payloads", async () => {
-    const signature = await signLandingHandoff(
-      "/pricing.html",
-      "https://vpnkeen.com/pricing.html",
-      "2026-04-21T12:00:00.000Z",
-      "test-secret",
-    );
-
-    await expect(
-      verifyLandingHandoff(
-        "/pricing.html",
-        "https://vpnkeen.com/pricing.html",
-        "2026-04-21T12:00:00.000Z",
-        signature,
-        "test-secret",
-      ),
-    ).resolves.toBe(true);
-
-    await expect(
-      verifyLandingHandoff(
-        "/pricing.html",
-        "https://vpnkeen.com/pricing.html",
-        "2026-04-21T12:00:00.000Z",
-        signature,
-        "wrong-secret",
-      ),
-    ).resolves.toBe(false);
   });
 });

@@ -15,32 +15,25 @@ export default function UtmCapture() {
   const location = useLocation();
 
   useEffect(() => {
-    let cancelled = false;
+    const hasHandoff = hasForwardedLandingHandoff(location.search);
 
-    void (async () => {
-      await captureFirstLandingFromSearch(location.search);
-      if (cancelled) return;
+    if (hasHandoff) {
+      captureFirstLandingFromSearch(location.search);
+    } else {
+      captureFirstLandingPage(location.pathname);
+    }
+    captureUtmFromSearch(location.search, location.pathname);
 
-      if (!hasForwardedLandingHandoff(location.search)) {
-        captureFirstLandingPage(location.pathname);
-      }
-      captureUtmFromSearch(location.search, location.pathname);
-
-      const stickerAttribution = parseUtmAttributionFromSearch(
-        location.search,
-        location.pathname,
-      );
-      if (
-        stickerAttribution &&
-        isStickerUtmSource(stickerAttribution.utm_source)
-      ) {
-        void recordStickerLanding(stickerAttribution);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    const stickerAttribution = parseUtmAttributionFromSearch(
+      location.search,
+      location.pathname,
+    );
+    if (
+      stickerAttribution &&
+      isStickerUtmSource(stickerAttribution.utm_source)
+    ) {
+      void recordStickerLanding(stickerAttribution);
+    }
   }, [location.pathname, location.search]);
 
   return null;

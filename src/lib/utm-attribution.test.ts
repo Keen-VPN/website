@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { signLandingHandoff } from "./landing-handoff";
 import {
   appendStoredUtmsToDeepLink,
   captureFirstLandingPage,
@@ -7,30 +6,11 @@ import {
   captureUtmFromSearch,
   clearUtmAttributionStorage,
   getUtmAttributionAuthPayload,
-  hasForwardedLandingHandoff,
 } from "./utm-attribution";
 
 const VALID_CAPTURED_AT = "2026-04-21T12:00:00.000Z";
 const VALID_HANDOFF_SEARCH =
-  "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fpricing.html&captured_at=2026-04-21T12%3A00%3A00.000Z";
-
-async function buildSignedHandoffSearch(
-  landingPath: string,
-  landingUrl: string,
-  capturedAt = VALID_CAPTURED_AT,
-  secret = "test-secret",
-): Promise<string> {
-  const params = new URLSearchParams({
-    landing_path: landingPath,
-    landing_url: landingUrl,
-    captured_at: capturedAt,
-  });
-  params.set(
-    "landing_sig",
-    await signLandingHandoff(landingPath, landingUrl, capturedAt, secret),
-  );
-  return `?${params.toString()}`;
-}
+  "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fpricing.html&captured_at=2026-04-21T12%3A00%3A00.000Z&landing_sig=abc123def456";
 
 describe("Reddit first-touch attribution", () => {
   beforeEach(() => {
@@ -120,21 +100,22 @@ describe("Reddit first-touch attribution", () => {
     );
   });
 
-  it("accepts first landing forwarded from the marketing site", async () => {
-    await captureFirstLandingFromSearch(VALID_HANDOFF_SEARCH);
+  it("accepts first landing forwarded from the marketing site", () => {
+    captureFirstLandingFromSearch(VALID_HANDOFF_SEARCH);
     window.history.replaceState({}, "", "/signin");
 
     expect(getUtmAttributionAuthPayload().utmAttribution).toEqual(
       expect.objectContaining({
         landing_path: "/pricing.html",
         landing_url: "https://vpnkeen.com/pricing.html",
+        landing_sig: "abc123def456",
         captured_at: VALID_CAPTURED_AT,
       }),
     );
   });
 
-  it("preserves forwarded first landing when UTMs are captured on sign-in", async () => {
-    await captureFirstLandingFromSearch(
+  it("preserves forwarded first landing when UTMs are captured on sign-in", () => {
+    captureFirstLandingFromSearch(
       `${VALID_HANDOFF_SEARCH}&utm_source=reddit&utm_medium=paid_social`,
     );
     captureUtmFromSearch(
@@ -148,67 +129,47 @@ describe("Reddit first-touch attribution", () => {
         utm_medium: "paid_social",
         landing_path: "/pricing.html",
         landing_url: "https://vpnkeen.com/pricing.html",
+        landing_sig: "abc123def456",
         captured_at: VALID_CAPTURED_AT,
       }),
     );
   });
 
-  it("rejects forged marketing landing attribution from untrusted origins", async () => {
-    await expect(
+  it("rejects forged marketing landing attribution from untrusted origins", () => {
+    expect(
       captureFirstLandingFromSearch(
-        "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fevil.example%2Fpricing.html&captured_at=2026-04-21T12%3A00%3A00.000Z",
+        "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fevil.example%2Fpricing.html&captured_at=2026-04-21T12%3A00%3A00.000Z&landing_sig=abc123",
       ),
-    ).resolves.toBeNull();
+    ).toBeNull();
     expect(getUtmAttributionAuthPayload()).toEqual({});
   });
 
-  it("rejects forged landing attribution when landing_url does not match landing_path", async () => {
-    await expect(
+  it("rejects forged landing attribution when landing_url does not match landing_path", () => {
+    expect(
       captureFirstLandingFromSearch(
-        "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fserver-locations%2Fbrazil&captured_at=2026-04-21T12%3A00%3A00.000Z",
+        "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fserver-locations%2Fbrazil&captured_at=2026-04-21T12%3A00%3A00.000Z&landing_sig=abc123",
       ),
-    ).resolves.toBeNull();
+    ).toBeNull();
   });
 
-  it("rejects landing_path without a validated marketing landing_url", async () => {
-    await expect(
-      captureFirstLandingFromSearch("?landing_path=%2Fpricing.html"),
-    ).resolves.toBeNull();
+  it("rejects landing_path without a validated marketing landing_url", () => {
+    expect(captureFirstLandingFromSearch("?landing_path=%2Fpricing.html")).toBeNull();
     expect(getUtmAttributionAuthPayload()).toEqual({});
   });
 
-  it("rejects unsigned handoffs when a production signing secret is configured", async () => {
-    vi.stubEnv("VITE_LANDING_HANDOFF_SECRET", "test-secret");
-
-    await expect(captureFirstLandingFromSearch(VALID_HANDOFF_SEARCH)).resolves.toBeNull();
+  it("rejects handoffs without a landing_sig parameter", () => {
+    expect(
+      captureFirstLandingFromSearch(
+        "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fpricing.html&captured_at=2026-04-21T12%3A00%3A00.000Z",
+      ),
+    ).toBeNull();
     expect(getUtmAttributionAuthPayload()).toEqual({});
   });
 
-  it("accepts signed marketing handoffs when a production signing secret is configured", async () => {
-    vi.stubEnv("VITE_LANDING_HANDOFF_SECRET", "test-secret");
-    const search = await buildSignedHandoffSearch(
-      "/pricing.html",
-      "https://vpnkeen.com/pricing.html",
-    );
-
-    await captureFirstLandingFromSearch(search);
-
-    expect(getUtmAttributionAuthPayload().utmAttribution).toEqual(
-      expect.objectContaining({
-        landing_path: "/pricing.html",
-        landing_url: "https://vpnkeen.com/pricing.html",
-        captured_at: VALID_CAPTURED_AT,
-      }),
-    );
-  });
-
-  it("does not record an attributable page when a marketing handoff is rejected", async () => {
+  it("does not record an attributable page when a marketing handoff is rejected", () => {
     const search =
-      "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fevil.example%2Fpricing.html&captured_at=2026-04-21T12%3A00%3A00.000Z";
-    await captureFirstLandingFromSearch(search);
-    if (!hasForwardedLandingHandoff(search)) {
-      captureFirstLandingPage("/server-locations/brazil");
-    }
+      "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fevil.example%2Fpricing.html&captured_at=2026-04-21T12%3A00%3A00.000Z&landing_sig=abc123";
+    expect(captureFirstLandingFromSearch(search)).toBeNull();
 
     expect(getUtmAttributionAuthPayload()).toEqual({});
   });
@@ -218,19 +179,19 @@ describe("Reddit first-touch attribution", () => {
     expect(captureFirstLandingPage("/pricing")).toBeNull();
   });
 
-  it("rejects marketing handoff with malformed captured_at", async () => {
-    await expect(
+  it("rejects marketing handoff with malformed captured_at", () => {
+    expect(
       captureFirstLandingFromSearch(
-        "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fpricing.html&captured_at=not-a-date",
+        "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fpricing.html&captured_at=not-a-date&landing_sig=abc123",
       ),
-    ).resolves.toBeNull();
+    ).toBeNull();
   });
 
-  it("keeps long marketing landing URLs up to 2000 characters", async () => {
+  it("keeps long marketing landing URLs up to 2000 characters", () => {
     const longQuery = "x".repeat(1200);
     const landingUrl = `https://vpnkeen.com/pricing.html?${longQuery}`;
-    await captureFirstLandingFromSearch(
-      `?landing_path=%2Fpricing.html&landing_url=${encodeURIComponent(landingUrl)}&captured_at=2026-04-21T12%3A00%3A00.000Z`,
+    captureFirstLandingFromSearch(
+      `?landing_path=%2Fpricing.html&landing_url=${encodeURIComponent(landingUrl)}&captured_at=2026-04-21T12%3A00%3A00.000Z&landing_sig=abc123`,
     );
 
     expect(
