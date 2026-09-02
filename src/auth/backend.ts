@@ -6668,14 +6668,34 @@ export type BroadcastEmailCategory =
   | "product"
   | "announcement";
 
+/** Named designed templates. `membership_transfer` uses the membership-transfer layout. */
+export type BroadcastEmailTemplate = "membership_transfer";
+
+export const MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE: BroadcastEmailTemplate =
+  "membership_transfer";
+
+export const MEMBERSHIP_TRANSFER_PAGE_URL = "https://vpnkeen.com/transfer";
+
+export const MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS = {
+  subject: "Transfer your VPN membership to KeenVPN",
+  headline: "You bring your current VPN membership.",
+  preheader:
+    "Switch without losing time. Bring your remaining VPN time to KeenVPN.",
+  ctaLabel: "TRANSFER YOUR MEMBERSHIP",
+  ctaUrl: MEMBERSHIP_TRANSFER_PAGE_URL,
+  body: "Ready to switch VPNs? You don't have to lose the time you've already paid for. Transfer your eligible membership to KeenVPN and we'll apply the verified remaining time from your current VPN, so you can switch today without waiting for that subscription to expire.",
+} as const;
+
 export interface AdminBroadcastComposePayload {
   audience?: BroadcastEmailAudience;
   category?: BroadcastEmailCategory;
   profileTargeting?: AudienceTargeting;
   emailCategory?: string;
-  subject: string;
-  headline: string;
-  body: string;
+  template?: BroadcastEmailTemplate;
+  /** Required for custom broadcasts. Optional when `template` is set. */
+  subject?: string;
+  headline?: string;
+  body?: string;
   preheader?: string;
   ctaLabel?: string;
   ctaUrl?: string;
