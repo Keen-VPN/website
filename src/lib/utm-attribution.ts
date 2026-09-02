@@ -6,11 +6,20 @@ export const FIRST_LANDING_ATTRIBUTION_STORAGE_KEY =
 
 const NON_ATTRIBUTABLE_LANDING_PREFIXES = [
   "/admin",
-  "/auth/magic-link",
+  "/signin",
+  "/auth/magic",
   "/auth/debug",
-  "/auth/verify",
+  "/auth/verify-email",
+  "/auth/change-email",
   "/email/preferences",
+  "/email/unsubscribe",
   "/contextual-email",
+  "/dashboard",
+  "/account",
+  "/oauth/consent",
+  "/success",
+  "/cancel",
+  "/reactivate",
 ] as const;
 
 export interface StoredUtmAttribution {
@@ -108,6 +117,26 @@ export function captureFirstLandingPage(
     landing_url:
       `${window.location.origin}${landingPath}`.slice(0, 2000),
     captured_at: new Date().toISOString(),
+  };
+  setStoredFirstLandingAttribution(captured);
+  return captured;
+}
+
+/** Accept first landing forwarded from the static marketing site (cross-origin). */
+export function captureFirstLandingFromSearch(
+  search: string,
+): StoredFirstLandingAttribution | null {
+  if (typeof window === "undefined") return null;
+  if (getStoredFirstLandingAttribution()) return null;
+
+  const params = new URLSearchParams(search);
+  const landingPath = trimParam(params.get("landing_path"));
+  if (!landingPath || !isAttributableLandingPath(landingPath)) return null;
+
+  const captured: StoredFirstLandingAttribution = {
+    landing_path: landingPath,
+    landing_url: trimParam(params.get("landing_url")),
+    captured_at: trimParam(params.get("captured_at")) ?? new Date().toISOString(),
   };
   setStoredFirstLandingAttribution(captured);
   return captured;

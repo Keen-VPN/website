@@ -4,6 +4,7 @@ import { recordStickerLanding } from "@/auth/backend";
 import {
   captureUtmFromSearch,
   captureFirstLandingPage,
+  captureFirstLandingFromSearch,
   parseUtmAttributionFromSearch,
 } from "@/lib/utm-attribution";
 import { isStickerUtmSource } from "@/lib/sticker-campaigns";
@@ -13,6 +14,7 @@ export default function UtmCapture() {
   const location = useLocation();
 
   useEffect(() => {
+    captureFirstLandingFromSearch(location.search);
     captureFirstLandingPage(location.pathname);
     captureUtmFromSearch(location.search, location.pathname);
 

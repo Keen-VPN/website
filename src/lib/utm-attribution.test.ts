@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   appendStoredUtmsToDeepLink,
   captureFirstLandingPage,
+  captureFirstLandingFromSearch,
   captureUtmFromSearch,
   clearUtmAttributionStorage,
   getUtmAttributionAuthPayload,
@@ -72,6 +73,9 @@ describe("Reddit first-touch attribution", () => {
     expect(
       getUtmAttributionAuthPayload().utmAttribution?.landing_path,
     ).toBeUndefined();
+    expect(
+      getUtmAttributionAuthPayload().utmAttribution?.landing_url,
+    ).toBeUndefined();
   });
 
   it("captures the first attributable landing page without UTMs", () => {
@@ -83,6 +87,33 @@ describe("Reddit first-touch attribution", () => {
         landing_path: "/server-locations/brazil",
       }),
     );
+  });
+
+  it("accepts first landing forwarded from the marketing site", () => {
+    captureFirstLandingFromSearch(
+      "?landing_path=%2Fpricing.html&landing_url=https%3A%2F%2Fvpnkeen.com%2Fpricing.html&captured_at=2026-04-21T12%3A00%3A00.000Z",
+    );
+    window.history.replaceState({}, "", "/signin");
+
+    expect(getUtmAttributionAuthPayload().utmAttribution).toEqual(
+      expect.objectContaining({
+        landing_path: "/pricing.html",
+        landing_url: "https://vpnkeen.com/pricing.html",
+        captured_at: "2026-04-21T12:00:00.000Z",
+      }),
+    );
+  });
+
+  it("does not capture auth or post-login routes as first landing pages", () => {
+    expect(captureFirstLandingPage("/auth/magic")).toBeNull();
+    expect(captureFirstLandingPage("/auth/verify-email")).toBeNull();
+    expect(captureFirstLandingPage("/signin/magic")).toBeNull();
+    expect(captureFirstLandingPage("/dashboard")).toBeNull();
+
+    captureFirstLandingPage("/server-locations/brazil");
+    clearUtmAttributionStorage();
+    expect(captureFirstLandingPage("/dashboard")).toBeNull();
+    expect(getUtmAttributionAuthPayload()).toEqual({});
   });
 
   it("preserves the first landing page when later pages are visited", () => {

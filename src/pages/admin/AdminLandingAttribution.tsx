@@ -97,7 +97,7 @@ export default function AdminLandingAttribution() {
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">To (UTC)</span>
+          <span className="text-muted-foreground">To (UTC, exclusive)</span>
           <input
             type="date"
             className="rounded-md border border-border bg-background px-3 py-2"
@@ -151,7 +151,7 @@ export default function AdminLandingAttribution() {
                   Loading…
                 </td>
               </tr>
-            ) : report?.rows.length ? (
+            ) : error ? null : report?.rows.length ? (
               report.rows.map((row) => (
                 <tr
                   key={row.first_page}
