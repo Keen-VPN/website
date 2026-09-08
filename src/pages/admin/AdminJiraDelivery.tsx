@@ -25,9 +25,23 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 
-function currentMonthYear(): { month: number; year: number } {
+function currentMonthYear(): {
+  month: number;
+  year: number;
+  label: string;
+} {
   const now = new Date();
-  return { month: now.getUTCMonth() + 1, year: now.getUTCFullYear() };
+  const month = now.getUTCMonth() + 1;
+  const year = now.getUTCFullYear();
+  return {
+    month,
+    year,
+    label: `${year}-${String(month).padStart(2, "0")}`,
+  };
+}
+
+function isFutureMonth(month: number, year: number, max: { month: number; year: number }) {
+  return year > max.year || (year === max.year && month > max.month);
 }
 
 function pct(value: number): string {
@@ -50,28 +64,41 @@ export default function AdminJiraDelivery() {
   const [error, setError] = useState<string | null>(null);
   const loadGeneration = useRef(0);
 
-  const load = useCallback(async (targetMonth: number, targetYear: number) => {
-    const generation = ++loadGeneration.current;
-    setLoading(true);
-    setError(null);
+  const load = useCallback(
+    async (
+      targetMonth: number,
+      targetYear: number,
+      options?: { preserveOnError?: boolean },
+    ) => {
+      const generation = ++loadGeneration.current;
+      setLoading(true);
+      setError(null);
+      if (!options?.preserveOnError) {
+        // Month change: drop stale totals so we don't show last month under a new label.
+        setReport(null);
+      }
 
-    const res = await adminFetchJiraDeliveryReport({
-      month: targetMonth,
-      year: targetYear,
-    });
+      const res = await adminFetchJiraDeliveryReport({
+        month: targetMonth,
+        year: targetYear,
+      });
 
-    if (generation !== loadGeneration.current) return;
+      if (generation !== loadGeneration.current) return;
 
-    if (!res.ok || !res.data) {
-      setReport(null);
-      setError(res.error ?? "Failed to load Jira delivery report");
+      if (!res.ok || !res.data) {
+        if (!options?.preserveOnError) {
+          setReport(null);
+        }
+        setError(res.error ?? "Failed to load Jira delivery report");
+        setLoading(false);
+        return;
+      }
+
+      setReport(res.data);
       setLoading(false);
-      return;
-    }
-
-    setReport(res.data);
-    setLoading(false);
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     void load(month, year);
@@ -110,21 +137,22 @@ export default function AdminJiraDelivery() {
           <input
             id="jira-month"
             type="month"
+            max={initial.label}
             className="rounded-md border border-border bg-background px-3 py-1.5 text-sm"
             value={monthInputValue}
             onChange={(e) => {
               const [y, m] = e.target.value.split("-").map(Number);
-              if (y && m) {
-                setYear(y);
-                setMonth(m);
-              }
+              if (!y || !m) return;
+              if (isFutureMonth(m, y, initial)) return;
+              setYear(y);
+              setMonth(m);
             }}
           />
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => void load(month, year)}
+            onClick={() => void load(month, year, { preserveOnError: true })}
             disabled={loading}
           >
             Refresh
@@ -159,6 +187,10 @@ export default function AdminJiraDelivery() {
 
       {loading && !report ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : null}
+
+      {loading && report?.configured ? (
+        <p className="text-sm text-muted-foreground">Refreshing…</p>
       ) : null}
 
       {report?.configured ? (
@@ -249,9 +281,9 @@ export default function AdminJiraDelivery() {
                         </tr>
                       </thead>
                       <tbody>
-                        {report.byRp.map((row) => (
+                        {report.byRp.map((row, index) => (
                           <tr
-                            key={row.assigneeAccountId ?? row.assigneeDisplayName}
+                            key={`${row.assigneeAccountId ?? "none"}:${row.assigneeDisplayName}:${index}`}
                             className="border-b border-border/60"
                           >
                             <td className="py-2 pr-3">{row.assigneeDisplayName}</td>
