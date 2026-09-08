@@ -127,7 +127,8 @@ export default function AdminJiraDelivery() {
           </h2>
           <p className="text-sm text-muted-foreground">
             Completed story points by month, assignee (RP), and environment
-            label. Counted once when a story reaches Done.
+            label. Counted once when a story reaches Done. Tickets without an
+            estimate count as 1 point.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -205,7 +206,8 @@ export default function AdminJiraDelivery() {
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground">
                 {report.issuesWithPointsCount} of {report.completedIssueCount}{" "}
-                Done issues had estimates · {report.monthLabel}
+                Done issues · missing estimates default to 1 ·{" "}
+                {report.monthLabel}
               </CardContent>
             </Card>
             <Card>
