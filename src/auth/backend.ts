@@ -3378,6 +3378,41 @@ export interface AdminChurnReport {
   breakdowns: AdminChurnBreakdownRow[];
 }
 
+export interface AdminJiraDeliveryRpRow {
+  assigneeAccountId: string | null;
+  assigneeDisplayName: string;
+  points: number;
+  percentOfTotal: number;
+}
+
+export interface AdminJiraDeliveryEnvironmentRow {
+  environment: string;
+  points: number;
+  percentOfTotal: number;
+}
+
+export interface AdminJiraDeliveryTrendPoint {
+  month: string;
+  monthLabel: string;
+  totalPoints: number;
+}
+
+export interface AdminJiraDeliveryReport {
+  month: string;
+  monthLabel: string;
+  totalPoints: number;
+  completedIssueCount: number;
+  issuesWithPointsCount: number;
+  previousMonth: string;
+  previousMonthTotalPoints: number;
+  monthOverMonthDelta: number;
+  monthOverMonthPercent: number | null;
+  byRp: AdminJiraDeliveryRpRow[];
+  byEnvironment: AdminJiraDeliveryEnvironmentRow[];
+  trend: AdminJiraDeliveryTrendPoint[];
+  configured: boolean;
+}
+
 export interface AdminChurnTrendPoint {
   month: number;
   year: number;
@@ -6299,6 +6334,38 @@ export async function adminFetchChurnReport(params: {
       };
     }
     const record = raw as { data?: AdminChurnReport };
+    return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchJiraDeliveryReport(params: {
+  month: number;
+  year: number;
+}): Promise<{ ok: boolean; data?: AdminJiraDeliveryReport; error?: string }> {
+  try {
+    const query = new URLSearchParams();
+    query.set("month", String(params.month));
+    query.set("year", String(params.year));
+    const response = await fetch(
+      `${BACKEND_URL}/admin/jira-delivery?${query.toString()}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load Jira delivery report",
+        ),
+      };
+    }
+    const record = raw as { data?: AdminJiraDeliveryReport };
     return { ok: true, data: record.data };
   } catch (e) {
     return {

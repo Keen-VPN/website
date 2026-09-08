@@ -182,6 +182,13 @@ export default function AdminSidebarLayout() {
               Churn
             </NavLink>
             <NavLink
+              to="/admin/jira-delivery"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <BarChart3 className="h-4 w-4" />
+              Jira Delivery
+            </NavLink>
+            <NavLink
               to="/admin/sticker-campaigns"
               className={({ isActive }) => linkClass(isActive)}
             >
