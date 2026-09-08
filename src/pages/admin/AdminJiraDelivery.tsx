@@ -206,7 +206,7 @@ export default function AdminJiraDelivery() {
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground">
                 {report.issuesWithPointsCount} of {report.completedIssueCount}{" "}
-                Done issues · missing estimates default to 1 ·{" "}
+                Done issues had estimates; missing estimates default to 1 ·{" "}
                 {report.monthLabel}
               </CardContent>
             </Card>
