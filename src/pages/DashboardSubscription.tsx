@@ -70,7 +70,7 @@ const TABS: { id: TabId; label: string }[] = [
 const FEATURES = [
   'Connect up to 3 devices simultaneously',
   '30-day money-back guarantee',
-  '6,400+ servers across 111 countries',
+  '40+ servers in 33 countries',
   'Unlimited bandwidth & speed',
   'AES-256 military-grade encryption',
   '24/7 live chat & email support',
