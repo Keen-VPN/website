@@ -1,16 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
   ADMIN_PERK_FORM_DRAFT_LEGACY_KEY,
+  adminPerkFormDraftKey,
+  claimUnscopedLegacyPerkFormDraft,
   clearPerkFormDraft,
-  defaultBlankCreateEndsAt,
+  defaultPerkEndDateInput,
+  discardUnscopedLegacyPerkFormDraft,
   draftHasMeaningfulContent,
   draftMatchesSession,
   isAdminSessionError,
   parsePerkFormDraft,
+  peekUnscopedLegacyPerkFormDraft,
   readPerkFormDraft,
   writePerkFormDraft,
   type PerkFormDraft,
 } from "./admin-perk-form-draft";
+
+const FIXED_NOW = new Date("2026-09-09T12:00:00.000Z");
+const FIXED_BLANK_ENDS = defaultPerkEndDateInput("", FIXED_NOW);
 
 function sampleDraft(
   overrides: Partial<PerkFormDraft> = {},
@@ -23,6 +30,7 @@ function sampleDraft(
     editingId: null,
     idManuallyEdited: false,
     showIdEditor: false,
+    blankEndsAt: FIXED_BLANK_ENDS,
     form: {
       id: "perk_p_8_25m_google_class_action",
       title: "$8.25M Google Class Action",
@@ -40,7 +48,7 @@ function sampleDraft(
       isActive: true,
       sortOrder: "0",
       startsAt: "",
-      endsAt: "2026-10-24",
+      endsAt: FIXED_BLANK_ENDS,
       audienceTargeting: { presets: ["all_users"] },
       extensionDomains: [],
     },
@@ -70,8 +78,15 @@ describe("admin-perk-form-draft", () => {
 
   it("round-trips draft through storage without tokens and scopes by admin", () => {
     const storage = memoryStorage();
+    const blankEndsAt = FIXED_BLANK_ENDS;
 
-    writePerkFormDraft(sampleDraft(), storage);
+    writePerkFormDraft(
+      sampleDraft({
+        form: { ...sampleDraft().form, endsAt: "2026-12-01" },
+      }),
+      storage,
+      blankEndsAt,
+    );
     const loaded = readPerkFormDraft("admin_1", storage);
     expect(loaded?.form.title).toBe("$8.25M Google Class Action");
     expect(loaded?.form.category).toBe("finance");
@@ -93,11 +108,12 @@ describe("admin-perk-form-draft", () => {
             workflowType: "",
             id: "",
             category: "privacy_security",
-            endsAt: defaultBlankCreateEndsAt(),
+            endsAt: blankEndsAt,
             extensionDomains: [],
           },
         }),
         storage,
+        blankEndsAt,
       ),
     ).toBe(false);
     expect(readPerkFormDraft("admin_1", storage)?.form.title).toBe(
@@ -108,8 +124,10 @@ describe("admin-perk-form-draft", () => {
     expect(readPerkFormDraft("admin_1", storage)).toBeNull();
   });
 
-  it("does not treat the default endsAt as meaningful content", () => {
+  it("does not treat the session blank endsAt as meaningful content", () => {
+    const blankEndsAt = FIXED_BLANK_ENDS;
     const draft = sampleDraft({
+      blankEndsAt,
       form: {
         ...sampleDraft().form,
         title: "",
@@ -120,13 +138,13 @@ describe("admin-perk-form-draft", () => {
         redemptionUrl: "",
         id: "",
         category: "privacy_security",
-        endsAt: defaultBlankCreateEndsAt(),
+        endsAt: blankEndsAt,
       },
     });
-    expect(draftHasMeaningfulContent(draft)).toBe(false);
+    expect(draftHasMeaningfulContent(draft, blankEndsAt)).toBe(false);
   });
 
-  it("migrates legacy unscoped drafts into the admin-scoped key", () => {
+  it("does not auto-adopt a legacy draft for another admin", () => {
     const storage = memoryStorage();
     const legacy = {
       version: 1,
@@ -138,13 +156,34 @@ describe("admin-perk-form-draft", () => {
     };
     storage.setItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY, JSON.stringify(legacy));
 
-    const loaded = readPerkFormDraft("admin_1", storage);
-    expect(loaded?.form.title).toBe("$8.25M Google Class Action");
-    expect(loaded?.adminId).toBe("admin_1");
+    expect(readPerkFormDraft("admin_b", storage)).toBeNull();
+    expect(storage.getItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY)).toBeTruthy();
+    expect(storage.getItem(adminPerkFormDraftKey("admin_b"))).toBeNull();
+
+    const pending = peekUnscopedLegacyPerkFormDraft(storage);
+    expect(pending?.form.title).toBe("$8.25M Google Class Action");
+
+    const claimed = claimUnscopedLegacyPerkFormDraft("admin_a", storage);
+    expect(claimed?.adminId).toBe("admin_a");
     expect(storage.getItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY)).toBeNull();
-    expect(readPerkFormDraft("admin_1", storage)?.form.title).toBe(
+    expect(readPerkFormDraft("admin_a", storage)?.form.title).toBe(
       "$8.25M Google Class Action",
     );
+    expect(readPerkFormDraft("admin_b", storage)).toBeNull();
+  });
+
+  it("can discard an unscoped legacy draft without claiming it", () => {
+    const storage = memoryStorage();
+    storage.setItem(
+      ADMIN_PERK_FORM_DRAFT_LEGACY_KEY,
+      JSON.stringify({
+        version: 1,
+        mode: "create",
+        form: sampleDraft().form,
+      }),
+    );
+    discardUnscopedLegacyPerkFormDraft(storage);
+    expect(peekUnscopedLegacyPerkFormDraft(storage)).toBeNull();
   });
 
   it("treats select/toggle-only changes as meaningful", () => {
@@ -159,10 +198,10 @@ describe("admin-perk-form-draft", () => {
         redemptionUrl: "",
         id: "",
         category: "finance",
-        endsAt: "",
+        endsAt: FIXED_BLANK_ENDS,
       },
     });
-    expect(draftHasMeaningfulContent(draft)).toBe(true);
+    expect(draftHasMeaningfulContent(draft, FIXED_BLANK_ENDS)).toBe(true);
   });
 
   it("falls back on malformed audience targeting", () => {
@@ -171,6 +210,7 @@ describe("admin-perk-form-draft", () => {
       adminId: "admin_1",
       mode: "create",
       editingId: null,
+      blankEndsAt: FIXED_BLANK_ENDS,
       form: {
         ...sampleDraft().form,
         audienceTargeting: { presets: "nope" },
@@ -205,7 +245,15 @@ describe("admin-perk-form-draft", () => {
         throw new Error("blocked");
       },
     };
-    expect(writePerkFormDraft(sampleDraft(), storage)).toBe(false);
+    expect(
+      writePerkFormDraft(
+        sampleDraft({
+          form: { ...sampleDraft().form, endsAt: "2026-12-01" },
+        }),
+        storage,
+        FIXED_BLANK_ENDS,
+      ),
+    ).toBe(false);
     expect(() => clearPerkFormDraft("admin_1", storage)).not.toThrow();
   });
 });

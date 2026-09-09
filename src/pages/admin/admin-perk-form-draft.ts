@@ -83,6 +83,20 @@ export interface PerkFormDraft {
   editingId: string | null;
   idManuallyEdited: boolean;
   showIdEditor: boolean;
+  /** endsAt default captured when the dialog session started (stable across midnight). */
+  blankEndsAt: string;
+  form: PerkFormDraftForm;
+}
+
+/** Unscoped draft awaiting explicit claim by the signed-in admin. */
+export interface PendingLegacyPerkFormDraft {
+  version: 1;
+  savedAt: string;
+  mode: PerkFormDraftMode;
+  editingId: string | null;
+  idManuallyEdited: boolean;
+  showIdEditor: boolean;
+  blankEndsAt: string;
   form: PerkFormDraftForm;
 }
 
@@ -90,19 +104,28 @@ export function adminPerkFormDraftKey(adminId: string): string {
   return `${ADMIN_PERK_FORM_DRAFT_KEY_PREFIX}:${adminId}`;
 }
 
-/** Matches AdminPerks emptyForm() endsAt default (today + 45 days UTC). */
-export function defaultBlankCreateEndsAt(startsAt = ""): string {
+/**
+ * Shared blank-create endsAt default (today + 45 days UTC).
+ * Used by AdminPerks emptyForm and draft meaningful-content checks.
+ */
+export function defaultPerkEndDateInput(
+  startsAt = "",
+  now: Date = new Date(),
+): string {
   const base = startsAt.trim()
     ? new Date(`${startsAt.trim()}T00:00:00.000Z`)
-    : new Date();
+    : new Date(now.getTime());
   if (Number.isNaN(base.getTime())) {
-    const fallback = new Date();
+    const fallback = new Date(now.getTime());
     fallback.setUTCDate(fallback.getUTCDate() + 45);
     return fallback.toISOString().slice(0, 10);
   }
   base.setUTCDate(base.getUTCDate() + 45);
   return base.toISOString().slice(0, 10);
 }
+
+/** @deprecated alias — prefer defaultPerkEndDateInput */
+export const defaultBlankCreateEndsAt = defaultPerkEndDateInput;
 
 export function isAdminSessionError(
   message: string | null | undefined,
@@ -125,7 +148,7 @@ export function adminPerkLoginReturnPath(): string {
 }
 
 export function draftMatchesSession(
-  draft: PerkFormDraft,
+  draft: PerkFormDraft | PendingLegacyPerkFormDraft,
   editingId: string | null,
 ): boolean {
   if (editingId) {
@@ -247,10 +270,16 @@ function parseForm(raw: unknown): PerkFormDraftForm | null {
   };
 }
 
-export function parsePerkFormDraft(
-  raw: unknown,
-  adminIdFallback?: string,
-): PerkFormDraft | null {
+function parseDraftCore(raw: unknown): {
+  form: PerkFormDraftForm;
+  mode: PerkFormDraftMode;
+  editingId: string | null;
+  idManuallyEdited: boolean;
+  showIdEditor: boolean;
+  blankEndsAt: string;
+  savedAt: string;
+  adminId: string;
+} | null {
   if (!isRecord(raw) || raw.version !== 1) return null;
   const form = parseForm(raw.form);
   if (!form) return null;
@@ -259,30 +288,74 @@ export function parsePerkFormDraft(
     typeof raw.editingId === "string" && raw.editingId.trim()
       ? raw.editingId
       : null;
-  const adminId =
-    asString(raw.adminId).trim() || asString(adminIdFallback).trim();
-  if (!adminId) return null;
+  const blankEndsAt =
+    asString(raw.blankEndsAt).trim() ||
+    defaultPerkEndDateInput(form.startsAt);
 
   return {
-    version: 1,
-    adminId,
-    savedAt: asString(raw.savedAt, new Date().toISOString()),
+    form,
     mode,
     editingId: mode === "edit" ? editingId : null,
     idManuallyEdited: asBoolean(raw.idManuallyEdited),
     showIdEditor: asBoolean(raw.showIdEditor),
-    form,
+    blankEndsAt,
+    savedAt: asString(raw.savedAt, new Date().toISOString()),
+    adminId: asString(raw.adminId).trim(),
+  };
+}
+
+/** Owned drafts only — never invents an adminId from the caller. */
+export function parsePerkFormDraft(raw: unknown): PerkFormDraft | null {
+  const core = parseDraftCore(raw);
+  if (!core?.adminId) return null;
+  return {
+    version: 1,
+    adminId: core.adminId,
+    savedAt: core.savedAt,
+    mode: core.mode,
+    editingId: core.editingId,
+    idManuallyEdited: core.idManuallyEdited,
+    showIdEditor: core.showIdEditor,
+    blankEndsAt: core.blankEndsAt,
+    form: core.form,
+  };
+}
+
+export function parsePendingLegacyPerkFormDraft(
+  raw: unknown,
+): PendingLegacyPerkFormDraft | null {
+  const core = parseDraftCore(raw);
+  if (!core) return null;
+  // Owned payloads are not legacy-pending — those belong in scoped storage.
+  if (core.adminId) return null;
+  return {
+    version: 1,
+    savedAt: core.savedAt,
+    mode: core.mode,
+    editingId: core.editingId,
+    idManuallyEdited: core.idManuallyEdited,
+    showIdEditor: core.showIdEditor,
+    blankEndsAt: core.blankEndsAt,
+    form: core.form,
   };
 }
 
 /** True when the draft differs from a blank create form (including selects/toggles). */
 export function draftHasMeaningfulContent(
-  draft: PerkFormDraft,
-  blankEndsAt: string = defaultBlankCreateEndsAt(),
+  draft: Pick<PerkFormDraft, "form" | "blankEndsAt"> | PendingLegacyPerkFormDraft,
+  blankEndsAt?: string,
 ): boolean {
   const { form } = draft;
+  const sessionBlank =
+    blankEndsAt?.trim() ||
+    draft.blankEndsAt?.trim() ||
+    defaultPerkEndDateInput();
   const audienceDefault = JSON.stringify(createDefaultAudienceTargeting());
-  const defaultEndsForStarts = defaultBlankCreateEndsAt(form.startsAt);
+  const endsAtIsBlankDefault =
+    !form.endsAt.trim() ||
+    form.endsAt === sessionBlank ||
+    (Boolean(form.startsAt.trim()) &&
+      form.endsAt === defaultPerkEndDateInput(form.startsAt));
   return Boolean(
     form.title.trim() ||
       form.partnerName.trim() ||
@@ -294,9 +367,7 @@ export function draftHasMeaningfulContent(
       form.workflowType.trim() ||
       form.id.trim() ||
       form.startsAt.trim() ||
-      (form.endsAt.trim() &&
-        form.endsAt !== blankEndsAt &&
-        form.endsAt !== defaultEndsForStarts) ||
+      !endsAtIsBlankDefault ||
       form.sortOrder.trim() !== "0" ||
       form.category !== "privacy_security" ||
       form.redemptionType !== "external_link" ||
@@ -311,13 +382,15 @@ export function draftHasMeaningfulContent(
   );
 }
 
-function tryParseStoredDraft(
-  raw: string | null,
+export function readPerkFormDraft(
   adminId: string,
+  storage: Pick<Storage, "getItem"> = localStorage,
 ): PerkFormDraft | null {
-  if (!raw) return null;
+  if (!adminId) return null;
   try {
-    const parsed = parsePerkFormDraft(JSON.parse(raw) as unknown, adminId);
+    const raw = storage.getItem(adminPerkFormDraftKey(adminId));
+    if (!raw) return null;
+    const parsed = parsePerkFormDraft(JSON.parse(raw) as unknown);
     if (!parsed || parsed.adminId !== adminId) return null;
     if (!draftHasMeaningfulContent(parsed)) return null;
     return parsed;
@@ -326,37 +399,58 @@ function tryParseStoredDraft(
   }
 }
 
-export function readPerkFormDraft(
+/** Peek at an unscoped legacy draft without assigning it to any admin. */
+export function peekUnscopedLegacyPerkFormDraft(
+  storage: Pick<Storage, "getItem"> = localStorage,
+): PendingLegacyPerkFormDraft | null {
+  try {
+    const raw = storage.getItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY);
+    if (!raw) return null;
+    const pending = parsePendingLegacyPerkFormDraft(
+      JSON.parse(raw) as unknown,
+    );
+    if (!pending || !draftHasMeaningfulContent(pending)) return null;
+    return pending;
+  } catch {
+    return null;
+  }
+}
+
+/** Explicit claim: bind a legacy unscoped draft to the signed-in admin. */
+export function claimUnscopedLegacyPerkFormDraft(
   adminId: string,
   storage: Pick<Storage, "getItem" | "setItem" | "removeItem"> = localStorage,
 ): PerkFormDraft | null {
   if (!adminId) return null;
+  const pending = peekUnscopedLegacyPerkFormDraft(storage);
+  if (!pending) return null;
+  const owned: PerkFormDraft = {
+    version: 1,
+    adminId,
+    savedAt: pending.savedAt,
+    mode: pending.mode,
+    editingId: pending.editingId,
+    idManuallyEdited: pending.idManuallyEdited,
+    showIdEditor: pending.showIdEditor,
+    blankEndsAt: pending.blankEndsAt,
+    form: pending.form,
+  };
   try {
-    const scoped = tryParseStoredDraft(
-      storage.getItem(adminPerkFormDraftKey(adminId)),
-      adminId,
-    );
-    if (scoped) return scoped;
-
-    // Migrate unscoped drafts from the first draft implementation.
-    const legacy = tryParseStoredDraft(
-      storage.getItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY),
-      adminId,
-    );
-    if (!legacy) return null;
-
-    try {
-      storage.setItem(
-        adminPerkFormDraftKey(adminId),
-        JSON.stringify(legacy),
-      );
-      storage.removeItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY);
-    } catch {
-      // Still return the migrated-in-memory draft if persistence fails.
-    }
-    return legacy;
+    storage.setItem(adminPerkFormDraftKey(adminId), JSON.stringify(owned));
+    storage.removeItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY);
   } catch {
     return null;
+  }
+  return owned;
+}
+
+export function discardUnscopedLegacyPerkFormDraft(
+  storage: Pick<Storage, "removeItem"> = localStorage,
+): void {
+  try {
+    storage.removeItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY);
+  } catch {
+    // ignore
   }
 }
 
@@ -365,8 +459,12 @@ export function writePerkFormDraft(
     savedAt?: string;
   },
   storage: Pick<Storage, "setItem" | "removeItem"> = localStorage,
-  blankEndsAt: string = defaultBlankCreateEndsAt(),
+  blankEndsAt?: string,
 ): boolean {
+  const resolvedBlank =
+    blankEndsAt?.trim() ||
+    draft.blankEndsAt?.trim() ||
+    defaultPerkEndDateInput();
   const payload: PerkFormDraft = {
     version: 1,
     adminId: draft.adminId,
@@ -375,9 +473,10 @@ export function writePerkFormDraft(
     editingId: draft.mode === "edit" ? draft.editingId : null,
     idManuallyEdited: draft.idManuallyEdited,
     showIdEditor: draft.showIdEditor,
+    blankEndsAt: resolvedBlank,
     form: draft.form,
   };
-  if (!payload.adminId || !draftHasMeaningfulContent(payload, blankEndsAt)) {
+  if (!payload.adminId || !draftHasMeaningfulContent(payload, resolvedBlank)) {
     return false;
   }
   try {
@@ -385,11 +484,6 @@ export function writePerkFormDraft(
       adminPerkFormDraftKey(payload.adminId),
       JSON.stringify(payload),
     );
-    try {
-      storage.removeItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY);
-    } catch {
-      // ignore
-    }
     return true;
   } catch {
     return false;
