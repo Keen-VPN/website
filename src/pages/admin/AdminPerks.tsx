@@ -944,16 +944,11 @@ export default function AdminPerks() {
       }
     }
 
-    // Only clear the stored draft if it belongs to this dialog session.
-    if (adminId) {
-      const existing = readPerkFormDraft(adminId);
-      if (
-        claimDraftSessionRef.current ||
-        (existing && draftMatchesSession(existing, editingId))
-      ) {
-        clearPerkFormDraft(adminId);
-        setRecoveryDraft(null);
-      }
+    // Only clear a draft claimed by this dialog session. Create drafts all share
+    // editingId === null, so matching on mode alone would wipe an unrelated recovery draft.
+    if (adminId && claimDraftSessionRef.current) {
+      clearPerkFormDraft(adminId);
+      setRecoveryDraft(null);
     }
     claimDraftSessionRef.current = false;
     setDialogOpen(false);
