@@ -424,6 +424,8 @@ export function claimUnscopedLegacyPerkFormDraft(
   if (!adminId) return null;
   const pending = peekUnscopedLegacyPerkFormDraft(storage);
   if (!pending) return null;
+  // Another tab may have written a scoped draft since the banner appeared.
+  if (readPerkFormDraft(adminId, storage)) return null;
   const owned: PerkFormDraft = {
     version: 1,
     adminId,

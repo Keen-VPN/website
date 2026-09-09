@@ -172,6 +172,34 @@ describe("admin-perk-form-draft", () => {
     expect(readPerkFormDraft("admin_b", storage)).toBeNull();
   });
 
+  it("refuses to claim a legacy draft over an existing scoped draft", () => {
+    const storage = memoryStorage();
+    writePerkFormDraft(
+      sampleDraft({
+        adminId: "admin_1",
+        form: { ...sampleDraft().form, title: "Scoped draft", endsAt: "2026-12-01" },
+      }),
+      storage,
+      FIXED_BLANK_ENDS,
+    );
+    storage.setItem(
+      ADMIN_PERK_FORM_DRAFT_LEGACY_KEY,
+      JSON.stringify({
+        version: 1,
+        mode: "create",
+        form: { ...sampleDraft().form, title: "Legacy draft" },
+      }),
+    );
+
+    expect(claimUnscopedLegacyPerkFormDraft("admin_1", storage)).toBeNull();
+    expect(readPerkFormDraft("admin_1", storage)?.form.title).toBe(
+      "Scoped draft",
+    );
+    expect(peekUnscopedLegacyPerkFormDraft(storage)?.form.title).toBe(
+      "Legacy draft",
+    );
+  });
+
   it("can discard an unscoped legacy draft without claiming it", () => {
     const storage = memoryStorage();
     storage.setItem(

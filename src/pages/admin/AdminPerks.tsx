@@ -769,8 +769,8 @@ export default function AdminPerks() {
   const claimLegacyDraft = () => {
     if (!adminId) return;
     const claimed = claimUnscopedLegacyPerkFormDraft(adminId);
-    setPendingLegacyDraft(null);
     if (!claimed) return;
+    setPendingLegacyDraft(null);
     setRecoveryDraft(claimed);
     applyDraft(claimed);
   };
