@@ -95,7 +95,7 @@ const PREVIEW_PREFERENCES: EmailCategoryPreference[] = [
   },
   {
     category: "perks_offers",
-    label: "Class Actions & Perks*",
+    label: "Class Actions & Perks",
     description: "",
     subscribed: false,
   },
@@ -114,7 +114,7 @@ function normalizeEmailPreferences(
     row.category === "perks_offers"
       ? {
           ...row,
-          label: "Class Actions & Perks*",
+          label: "Class Actions & Perks",
           description: "",
         }
       : row,

@@ -284,4 +284,47 @@ describe("admin-perk-form-draft", () => {
     ).toBe(false);
     expect(() => clearPerkFormDraft("admin_1", storage)).not.toThrow();
   });
+
+  it("rejects edit drafts without an editingId", () => {
+    expect(
+      parsePerkFormDraft({
+        version: 1,
+        adminId: "admin_1",
+        mode: "edit",
+        editingId: "",
+        blankEndsAt: FIXED_BLANK_ENDS,
+        form: sampleDraft().form,
+      }),
+    ).toBeNull();
+  });
+
+  it("clears invalid date inputs instead of restoring them", () => {
+    const parsed = parsePerkFormDraft({
+      version: 1,
+      adminId: "admin_1",
+      mode: "create",
+      blankEndsAt: FIXED_BLANK_ENDS,
+      form: {
+        ...sampleDraft().form,
+        startsAt: "not-a-date",
+        endsAt: "2026-13-40",
+      },
+    });
+    expect(parsed?.form.startsAt).toBe("");
+    expect(parsed?.form.endsAt).toBe("");
+  });
+
+  it("expires stale recovery drafts", () => {
+    const storage = memoryStorage();
+    const stale = sampleDraft({
+      savedAt: "2020-01-01T00:00:00.000Z",
+      form: { ...sampleDraft().form, endsAt: "2026-12-01" },
+    });
+    storage.setItem(
+      adminPerkFormDraftKey("admin_1"),
+      JSON.stringify(stale),
+    );
+    expect(readPerkFormDraft("admin_1", storage)).toBeNull();
+    expect(storage.getItem(adminPerkFormDraftKey("admin_1"))).toBeNull();
+  });
 });

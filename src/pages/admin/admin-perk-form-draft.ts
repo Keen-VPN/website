@@ -12,6 +12,8 @@ export const ADMIN_PERK_FORM_DRAFT_KEY_PREFIX =
 export const ADMIN_PERK_FORM_DRAFT_LEGACY_KEY =
   "keen_admin_perk_form_draft_v1";
 export const ADMIN_PERK_RESTORE_QUERY = "restorePerkDraft";
+/** Recovery drafts older than this are ignored and cleared. */
+export const ADMIN_PERK_FORM_DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 const VALID_CATEGORIES = new Set([
   "privacy_security",
@@ -263,11 +265,22 @@ function parseForm(raw: unknown): PerkFormDraftForm | null {
     isFeatured: asBoolean(raw.isFeatured),
     isActive: asBoolean(raw.isActive, true),
     sortOrder: asString(raw.sortOrder, "0"),
-    startsAt: asString(raw.startsAt),
-    endsAt: asString(raw.endsAt),
+    startsAt: parseDateInput(raw.startsAt),
+    endsAt: parseDateInput(raw.endsAt),
     audienceTargeting: parseAudienceTargeting(raw.audienceTargeting),
     extensionDomains: parseExtensionDomains(raw.extensionDomains),
   };
+}
+
+/** Accept YYYY-MM-DD calendar dates only; invalid values become empty. */
+function parseDateInput(value: unknown): string {
+  const raw = asString(value).trim();
+  if (!raw) return "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return "";
+  const parsed = new Date(`${raw}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return "";
+  if (parsed.toISOString().slice(0, 10) !== raw) return "";
+  return raw;
 }
 
 function parseDraftCore(raw: unknown): {
@@ -286,8 +299,10 @@ function parseDraftCore(raw: unknown): {
   const mode = raw.mode === "edit" ? "edit" : "create";
   const editingId =
     typeof raw.editingId === "string" && raw.editingId.trim()
-      ? raw.editingId
+      ? raw.editingId.trim()
       : null;
+  // Malformed edit drafts without a target perk would create a new perk on Save.
+  if (mode === "edit" && !editingId) return null;
   const blankEndsAt =
     asString(raw.blankEndsAt).trim() ||
     defaultPerkEndDateInput(form.startsAt);
@@ -295,7 +310,7 @@ function parseDraftCore(raw: unknown): {
   return {
     form,
     mode,
-    editingId: mode === "edit" ? editingId : null,
+    editingId,
     idManuallyEdited: asBoolean(raw.idManuallyEdited),
     showIdEditor: asBoolean(raw.showIdEditor),
     blankEndsAt,
@@ -382,16 +397,34 @@ export function draftHasMeaningfulContent(
   );
 }
 
+function isDraftExpired(
+  savedAt: string,
+  nowMs: number = Date.now(),
+): boolean {
+  const savedMs = Date.parse(savedAt);
+  if (!Number.isFinite(savedMs)) return true;
+  return nowMs - savedMs > ADMIN_PERK_FORM_DRAFT_MAX_AGE_MS;
+}
+
 export function readPerkFormDraft(
   adminId: string,
-  storage: Pick<Storage, "getItem"> = localStorage,
+  storage: Pick<Storage, "getItem" | "removeItem"> = localStorage,
 ): PerkFormDraft | null {
   if (!adminId) return null;
   try {
-    const raw = storage.getItem(adminPerkFormDraftKey(adminId));
+    const key = adminPerkFormDraftKey(adminId);
+    const raw = storage.getItem(key);
     if (!raw) return null;
     const parsed = parsePerkFormDraft(JSON.parse(raw) as unknown);
     if (!parsed || parsed.adminId !== adminId) return null;
+    if (isDraftExpired(parsed.savedAt)) {
+      try {
+        storage.removeItem(key);
+      } catch {
+        // ignore
+      }
+      return null;
+    }
     if (!draftHasMeaningfulContent(parsed)) return null;
     return parsed;
   } catch {
@@ -401,7 +434,7 @@ export function readPerkFormDraft(
 
 /** Peek at an unscoped legacy draft without assigning it to any admin. */
 export function peekUnscopedLegacyPerkFormDraft(
-  storage: Pick<Storage, "getItem"> = localStorage,
+  storage: Pick<Storage, "getItem" | "removeItem"> = localStorage,
 ): PendingLegacyPerkFormDraft | null {
   try {
     const raw = storage.getItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY);
@@ -409,7 +442,12 @@ export function peekUnscopedLegacyPerkFormDraft(
     const pending = parsePendingLegacyPerkFormDraft(
       JSON.parse(raw) as unknown,
     );
-    if (!pending || !draftHasMeaningfulContent(pending)) return null;
+    if (!pending) return null;
+    if (isDraftExpired(pending.savedAt)) {
+      discardUnscopedLegacyPerkFormDraft(storage);
+      return null;
+    }
+    if (!draftHasMeaningfulContent(pending)) return null;
     return pending;
   } catch {
     return null;

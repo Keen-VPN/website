@@ -914,7 +914,8 @@ export default function AdminPerks() {
       });
       setSaving(false);
       if (!res.ok) {
-        persistCurrentDraft({ force: true });
+        // Never force-overwrite an unrelated recovery draft on failed save.
+        persistCurrentDraft();
         setSessionErrorUnauthorized(Boolean(res.unauthorized));
         setDialogError(res.error ?? "Failed to update perk");
         return;
@@ -936,17 +937,24 @@ export default function AdminPerks() {
       );
       setSaving(false);
       if (!res.ok) {
-        persistCurrentDraft({ force: true });
+        persistCurrentDraft();
         setSessionErrorUnauthorized(Boolean(res.unauthorized));
         setDialogError(res.error ?? "Failed to create perk");
         return;
       }
     }
 
+    // Only clear the stored draft if it belongs to this dialog session.
     if (adminId) {
-      clearPerkFormDraft(adminId);
+      const existing = readPerkFormDraft(adminId);
+      if (
+        claimDraftSessionRef.current ||
+        (existing && draftMatchesSession(existing, editingId))
+      ) {
+        clearPerkFormDraft(adminId);
+        setRecoveryDraft(null);
+      }
     }
-    setRecoveryDraft(null);
     claimDraftSessionRef.current = false;
     setDialogOpen(false);
     void loadPerks();
