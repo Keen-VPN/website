@@ -182,7 +182,17 @@ export default function DashboardProfile() {
     const response = await fetchMyEmailCategoryPreferences(sessionToken);
     if (generation !== prefsLoadGen.current) return;
     if (response.success && response.preferences) {
-      setPreferences(response.preferences);
+      setPreferences(
+        response.preferences.map((row) =>
+          row.category === "perks_offers"
+            ? {
+                ...row,
+                label: "Class Actions & Perks*",
+                description: "",
+              }
+            : row,
+        ),
+      );
       setPrefsReady(true);
       setPrefsLoadError(null);
     } else {

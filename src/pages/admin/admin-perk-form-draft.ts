@@ -1,7 +1,47 @@
 /** Local recovery draft for the admin New/Edit perk dialog. No auth tokens. */
 
-export const ADMIN_PERK_FORM_DRAFT_KEY = "keen_admin_perk_form_draft_v1";
+import {
+  createDefaultAudienceTargeting,
+  getAudienceTargetingValidationError,
+} from "@/components/admin/audience-targeting.constants";
+import type { AudienceTargeting } from "@/auth/backend";
+
+export const ADMIN_PERK_FORM_DRAFT_KEY_PREFIX =
+  "keen_admin_perk_form_draft_v1";
 export const ADMIN_PERK_RESTORE_QUERY = "restorePerkDraft";
+
+const VALID_CATEGORIES = new Set([
+  "privacy_security",
+  "ai_productivity",
+  "developer_tools",
+  "startup_growth",
+  "remote_work",
+  "finance",
+]);
+
+const VALID_REDEMPTION_TYPES = new Set([
+  "external_link",
+  "coupon_code",
+  "invite_only",
+  "workflow",
+]);
+
+const VALID_AUDIENCE_PRESETS = new Set([
+  "all_users",
+  "has_us_bank_account",
+  "no_us_bank_account",
+  "receives_direct_deposit",
+  "self_employed",
+  "business_owner",
+  "interested_in_starting_business",
+  "custom",
+]);
+
+const VALID_QUESTION_KEYS = new Set([
+  "us_bank_account",
+  "direct_deposit_income",
+  "entrepreneurship_interest_2026",
+]);
 
 export type PerkFormDraftMode = "create" | "edit";
 
@@ -24,16 +64,17 @@ export interface PerkFormDraftForm {
   sortOrder: string;
   startsAt: string;
   endsAt: string;
-  audienceTargeting: unknown;
-  extensionDomains: Array<{
+  audienceTargeting: AudienceTargeting;
+  extensionDomains: {
     host: string;
     pathPrefix: string;
     priority: string;
-  }>;
+  }[];
 }
 
 export interface PerkFormDraft {
   version: 1;
+  adminId: string;
   savedAt: string;
   mode: PerkFormDraftMode;
   editingId: string | null;
@@ -42,7 +83,15 @@ export interface PerkFormDraft {
   form: PerkFormDraftForm;
 }
 
-export function isAdminSessionError(message: string | null | undefined): boolean {
+export function adminPerkFormDraftKey(adminId: string): string {
+  return `${ADMIN_PERK_FORM_DRAFT_KEY_PREFIX}:${adminId}`;
+}
+
+export function isAdminSessionError(
+  message: string | null | undefined,
+  unauthorized?: boolean,
+): boolean {
+  if (unauthorized) return true;
   if (!message) return false;
   const normalized = message.toLowerCase();
   return (
@@ -58,6 +107,16 @@ export function adminPerkLoginReturnPath(): string {
   )}`;
 }
 
+export function draftMatchesSession(
+  draft: PerkFormDraft,
+  editingId: string | null,
+): boolean {
+  if (editingId) {
+    return draft.mode === "edit" && draft.editingId === editingId;
+  }
+  return draft.mode === "create";
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -68,6 +127,56 @@ function asString(value: unknown, fallback = ""): string {
 
 function asBoolean(value: unknown, fallback = false): boolean {
   return typeof value === "boolean" ? value : fallback;
+}
+
+function parseAudienceTargeting(value: unknown): AudienceTargeting {
+  const fallback = createDefaultAudienceTargeting();
+  if (!isRecord(value) || !Array.isArray(value.presets)) {
+    return fallback;
+  }
+
+  const presets = value.presets.filter(
+    (preset): preset is AudienceTargeting["presets"][number] =>
+      typeof preset === "string" && VALID_AUDIENCE_PRESETS.has(preset),
+  );
+  if (presets.length === 0) {
+    return fallback;
+  }
+
+  const targeting: AudienceTargeting = {
+    presets,
+  };
+
+  if (isRecord(value.customRules)) {
+    const logic = value.customRules.logic === "and" ? "and" : "or";
+    const rulesRaw = Array.isArray(value.customRules.rules)
+      ? value.customRules.rules
+      : [];
+    const rules = rulesRaw
+      .map((rule) => {
+        if (!isRecord(rule)) return null;
+        const questionKey = asString(rule.questionKey);
+        const ruleValue = asString(rule.value);
+        if (!VALID_QUESTION_KEYS.has(questionKey) || !ruleValue) return null;
+        return {
+          questionKey: questionKey as
+            | "us_bank_account"
+            | "direct_deposit_income"
+            | "entrepreneurship_interest_2026",
+          value: ruleValue,
+        };
+      })
+      .filter((rule): rule is NonNullable<typeof rule> => rule != null);
+
+    if (rules.length > 0) {
+      targeting.customRules = { logic, rules };
+    }
+  }
+
+  if (getAudienceTargetingValidationError(targeting)) {
+    return fallback;
+  }
+  return targeting;
 }
 
 function parseExtensionDomains(
@@ -93,16 +202,20 @@ function parseForm(raw: unknown): PerkFormDraftForm | null {
     access === "free" || access === "paid" || access === "annual"
       ? access
       : "paid";
+  const category = asString(raw.category, "privacy_security");
+  const redemptionType = asString(raw.redemptionType, "external_link");
 
   return {
     id: asString(raw.id),
     title: asString(raw.title),
     partnerName: asString(raw.partnerName),
-    category: asString(raw.category, "privacy_security"),
+    category: VALID_CATEGORIES.has(category) ? category : "privacy_security",
     description: asString(raw.description),
     imageUrl: asString(raw.imageUrl),
     offerText: asString(raw.offerText),
-    redemptionType: asString(raw.redemptionType, "external_link"),
+    redemptionType: VALID_REDEMPTION_TYPES.has(redemptionType)
+      ? redemptionType
+      : "external_link",
     redemptionUrl: asString(raw.redemptionUrl),
     couponCode: asString(raw.couponCode),
     workflowType: asString(raw.workflowType),
@@ -112,7 +225,7 @@ function parseForm(raw: unknown): PerkFormDraftForm | null {
     sortOrder: asString(raw.sortOrder, "0"),
     startsAt: asString(raw.startsAt),
     endsAt: asString(raw.endsAt),
-    audienceTargeting: raw.audienceTargeting ?? { presets: ["all_users"] },
+    audienceTargeting: parseAudienceTargeting(raw.audienceTargeting),
     extensionDomains: parseExtensionDomains(raw.extensionDomains),
   };
 }
@@ -126,9 +239,12 @@ export function parsePerkFormDraft(raw: unknown): PerkFormDraft | null {
     typeof raw.editingId === "string" && raw.editingId.trim()
       ? raw.editingId
       : null;
+  const adminId = asString(raw.adminId).trim();
+  if (!adminId) return null;
 
   return {
     version: 1,
+    adminId,
     savedAt: asString(raw.savedAt, new Date().toISOString()),
     mode,
     editingId: mode === "edit" ? editingId : null,
@@ -138,8 +254,13 @@ export function parsePerkFormDraft(raw: unknown): PerkFormDraft | null {
   };
 }
 
-export function draftHasMeaningfulContent(draft: PerkFormDraft): boolean {
+/** True when the draft differs from a blank create form (including selects/toggles). */
+export function draftHasMeaningfulContent(
+  draft: PerkFormDraft,
+  blankEndsAt = "",
+): boolean {
   const { form } = draft;
+  const audienceDefault = JSON.stringify(createDefaultAudienceTargeting());
   return Boolean(
     form.title.trim() ||
       form.partnerName.trim() ||
@@ -150,6 +271,15 @@ export function draftHasMeaningfulContent(draft: PerkFormDraft): boolean {
       form.couponCode.trim() ||
       form.workflowType.trim() ||
       form.id.trim() ||
+      form.startsAt.trim() ||
+      (form.endsAt.trim() && form.endsAt !== blankEndsAt) ||
+      form.sortOrder.trim() !== "0" ||
+      form.category !== "privacy_security" ||
+      form.redemptionType !== "external_link" ||
+      form.accessLevel !== "paid" ||
+      form.isFeatured ||
+      form.isActive !== true ||
+      JSON.stringify(form.audienceTargeting) !== audienceDefault ||
       form.extensionDomains.some(
         (row) =>
           row.host.trim() || row.pathPrefix.trim() || row.priority.trim(),
@@ -158,13 +288,16 @@ export function draftHasMeaningfulContent(draft: PerkFormDraft): boolean {
 }
 
 export function readPerkFormDraft(
+  adminId: string,
   storage: Pick<Storage, "getItem"> = localStorage,
 ): PerkFormDraft | null {
+  if (!adminId) return null;
   try {
-    const raw = storage.getItem(ADMIN_PERK_FORM_DRAFT_KEY);
+    const raw = storage.getItem(adminPerkFormDraftKey(adminId));
     if (!raw) return null;
     const parsed = parsePerkFormDraft(JSON.parse(raw) as unknown);
-    if (!parsed || !draftHasMeaningfulContent(parsed)) return null;
+    if (!parsed || parsed.adminId !== adminId) return null;
+    if (!draftHasMeaningfulContent(parsed)) return null;
     return parsed;
   } catch {
     return null;
@@ -175,10 +308,11 @@ export function writePerkFormDraft(
   draft: Omit<PerkFormDraft, "version" | "savedAt"> & {
     savedAt?: string;
   },
-  storage: Pick<Storage, "setItem"> = localStorage,
+  storage: Pick<Storage, "setItem" | "removeItem"> = localStorage,
 ): boolean {
   const payload: PerkFormDraft = {
     version: 1,
+    adminId: draft.adminId,
     savedAt: draft.savedAt ?? new Date().toISOString(),
     mode: draft.mode,
     editingId: draft.mode === "edit" ? draft.editingId : null,
@@ -186,15 +320,28 @@ export function writePerkFormDraft(
     showIdEditor: draft.showIdEditor,
     form: draft.form,
   };
-  if (!draftHasMeaningfulContent(payload)) {
+  if (!payload.adminId || !draftHasMeaningfulContent(payload)) {
     return false;
   }
-  storage.setItem(ADMIN_PERK_FORM_DRAFT_KEY, JSON.stringify(payload));
-  return true;
+  try {
+    storage.setItem(
+      adminPerkFormDraftKey(payload.adminId),
+      JSON.stringify(payload),
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function clearPerkFormDraft(
+  adminId: string,
   storage: Pick<Storage, "removeItem"> = localStorage,
 ): void {
-  storage.removeItem(ADMIN_PERK_FORM_DRAFT_KEY);
+  if (!adminId) return;
+  try {
+    storage.removeItem(adminPerkFormDraftKey(adminId));
+  } catch {
+    // Ignore blocked storage — form flow must continue.
+  }
 }

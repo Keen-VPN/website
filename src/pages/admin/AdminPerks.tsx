@@ -6,6 +6,7 @@ import {
   ADMIN_PERK_RESTORE_QUERY,
   adminPerkLoginReturnPath,
   clearPerkFormDraft,
+  draftMatchesSession,
   isAdminSessionError,
   readPerkFormDraft,
   writePerkFormDraft,
@@ -465,9 +466,10 @@ function redemptionLabel(type: PerkRedemptionType) {
 }
 
 export default function AdminPerks() {
-  const { can } = useAdminAuth();
+  const { admin, can } = useAdminAuth();
   const { workflowsEnabled } = useFeatureFlags();
   const canWrite = can("subscriptions.write");
+  const adminId = admin?.id ?? "";
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [perks, setPerks] = useState<AdminPerk[]>([]);
@@ -493,8 +495,12 @@ export default function AdminPerks() {
   const [idManuallyEdited, setIdManuallyEdited] = useState(false);
   const [showIdEditor, setShowIdEditor] = useState(false);
   const [recoveryDraft, setRecoveryDraft] = useState<PerkFormDraft | null>(
-    () => (typeof window === "undefined" ? null : readPerkFormDraft()),
+    null,
   );
+  const [sessionErrorUnauthorized, setSessionErrorUnauthorized] =
+    useState(false);
+  /** When false, autosave will not overwrite an unrelated stored draft. */
+  const claimDraftSessionRef = useRef(false);
   const showDisabledWorkflowType =
     !workflowsEnabled && Boolean(editingId) && form.redemptionType === "workflow";
   const availableRedemptionTypes =
@@ -644,36 +650,62 @@ export default function AdminPerks() {
       ...draft.form,
       category: draft.form.category as PerkCategory,
       redemptionType: draft.form.redemptionType as PerkRedemptionType,
-      audienceTargeting: draft.form.audienceTargeting as AudienceTargeting,
+      audienceTargeting: draft.form.audienceTargeting,
       extensionDomains: draft.form.extensionDomains,
     });
     setIdManuallyEdited(draft.idManuallyEdited);
     setShowIdEditor(draft.showIdEditor);
     setDialogError(null);
+    setSessionErrorUnauthorized(false);
+    claimDraftSessionRef.current = true;
     setDialogOpen(true);
   }, []);
 
-  const persistCurrentDraft = useCallback(() => {
-    const wrote = writePerkFormDraft({
-      mode: editingId ? "edit" : "create",
-      editingId,
-      idManuallyEdited,
-      showIdEditor,
-      form,
-    });
-    if (wrote) {
-      setRecoveryDraft(readPerkFormDraft());
+  const persistCurrentDraft = useCallback(
+    (opts?: { force?: boolean }) => {
+      if (!adminId || !canWrite) return false;
+      const existing = readPerkFormDraft(adminId);
+      if (
+        existing &&
+        !draftMatchesSession(existing, editingId) &&
+        !claimDraftSessionRef.current &&
+        !opts?.force
+      ) {
+        return false;
+      }
+      const wrote = writePerkFormDraft({
+        adminId,
+        mode: editingId ? "edit" : "create",
+        editingId,
+        idManuallyEdited,
+        showIdEditor,
+        form,
+      });
+      if (wrote) {
+        claimDraftSessionRef.current = true;
+        setRecoveryDraft(readPerkFormDraft(adminId));
+      }
+      return wrote;
+    },
+    [adminId, canWrite, editingId, form, idManuallyEdited, showIdEditor],
+  );
+
+  useEffect(() => {
+    if (!adminId) {
+      setRecoveryDraft(null);
+      return;
     }
-  }, [editingId, form, idManuallyEdited, showIdEditor]);
+    setRecoveryDraft(readPerkFormDraft(adminId));
+  }, [adminId]);
 
   // Autosave while the dialog is open so an expired session never wipes work.
   useEffect(() => {
-    if (!dialogOpen || !canWrite) return;
+    if (!dialogOpen || !canWrite || !adminId) return;
     const timer = window.setTimeout(() => {
       persistCurrentDraft();
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [canWrite, dialogOpen, persistCurrentDraft]);
+  }, [adminId, canWrite, dialogOpen, persistCurrentDraft]);
 
   // After re-auth, restore the draft and strip the query flag.
   const restoredFromQueryRef = useRef(false);
@@ -681,37 +713,48 @@ export default function AdminPerks() {
     if (restoredFromQueryRef.current) return;
     if (searchParams.get(ADMIN_PERK_RESTORE_QUERY) !== "1") return;
     restoredFromQueryRef.current = true;
-    const draft = readPerkFormDraft();
-    if (draft && canWrite) {
-      applyDraft(draft);
-      setRecoveryDraft(draft);
+    if (adminId && canWrite) {
+      const draft = readPerkFormDraft(adminId);
+      if (draft) {
+        applyDraft(draft);
+        setRecoveryDraft(draft);
+      }
     }
     const next = new URLSearchParams(searchParams);
     next.delete(ADMIN_PERK_RESTORE_QUERY);
     setSearchParams(next, { replace: true });
-  }, [applyDraft, canWrite, searchParams, setSearchParams]);
+  }, [adminId, applyDraft, canWrite, searchParams, setSearchParams]);
 
   const openCreate = () => {
+    const existing = adminId ? readPerkFormDraft(adminId) : null;
     // Intentionally start blank — do not auto-restore an old draft into a new form.
     setEditingId(null);
     setForm(emptyForm());
     setIdManuallyEdited(false);
     setShowIdEditor(false);
     setDialogError(null);
+    setSessionErrorUnauthorized(false);
+    claimDraftSessionRef.current = !existing;
     setDialogOpen(true);
   };
 
   const openEdit = (perk: AdminPerk) => {
+    const existing = adminId ? readPerkFormDraft(adminId) : null;
     setEditingId(perk.id);
     setForm(perkToForm(perk));
     setIdManuallyEdited(false);
     setShowIdEditor(false);
     setDialogError(null);
+    setSessionErrorUnauthorized(false);
+    claimDraftSessionRef.current = Boolean(
+      existing && draftMatchesSession(existing, perk.id),
+    );
     setDialogOpen(true);
   };
 
   const continueRecoveryDraft = () => {
-    const draft = readPerkFormDraft();
+    if (!adminId) return;
+    const draft = readPerkFormDraft(adminId);
     if (!draft) {
       setRecoveryDraft(null);
       return;
@@ -720,8 +763,17 @@ export default function AdminPerks() {
   };
 
   const discardRecoveryDraft = () => {
-    clearPerkFormDraft();
+    if (!adminId) return;
+    clearPerkFormDraft(adminId);
     setRecoveryDraft(null);
+    claimDraftSessionRef.current = dialogOpen;
+  };
+
+  const closePerkDialog = () => {
+    persistCurrentDraft();
+    setDialogError(null);
+    setSessionErrorUnauthorized(false);
+    setDialogOpen(false);
   };
 
   const existingPerkIds = [
@@ -843,7 +895,8 @@ export default function AdminPerks() {
       });
       setSaving(false);
       if (!res.ok) {
-        persistCurrentDraft();
+        persistCurrentDraft({ force: true });
+        setSessionErrorUnauthorized(Boolean(res.unauthorized));
         setDialogError(res.error ?? "Failed to update perk");
         return;
       }
@@ -864,14 +917,18 @@ export default function AdminPerks() {
       );
       setSaving(false);
       if (!res.ok) {
-        persistCurrentDraft();
+        persistCurrentDraft({ force: true });
+        setSessionErrorUnauthorized(Boolean(res.unauthorized));
         setDialogError(res.error ?? "Failed to create perk");
         return;
       }
     }
 
-    clearPerkFormDraft();
+    if (adminId) {
+      clearPerkFormDraft(adminId);
+    }
     setRecoveryDraft(null);
+    claimDraftSessionRef.current = false;
     setDialogOpen(false);
     void loadPerks();
     void loadExpired();
@@ -1609,10 +1666,10 @@ export default function AdminPerks() {
         open={dialogOpen}
         onOpenChange={(open) => {
           if (!open) {
-            persistCurrentDraft();
-            setDialogError(null);
+            closePerkDialog();
+            return;
           }
-          setDialogOpen(open);
+          setDialogOpen(true);
         }}
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
@@ -1624,15 +1681,15 @@ export default function AdminPerks() {
           {dialogError ? (
             <div className="space-y-3 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
               <p>
-                {isAdminSessionError(dialogError)
+                {isAdminSessionError(dialogError, sessionErrorUnauthorized)
                   ? "Your admin session expired. Your perk draft is saved on this device — sign in again to continue without losing your work."
                   : dialogError}
               </p>
-              {isAdminSessionError(dialogError) ? (
+              {isAdminSessionError(dialogError, sessionErrorUnauthorized) ? (
                 <Button asChild size="sm" variant="outline">
                   <Link
                     to={adminPerkLoginReturnPath()}
-                    onClick={() => persistCurrentDraft()}
+                    onClick={() => persistCurrentDraft({ force: true })}
                   >
                     Sign in again
                   </Link>
@@ -2114,7 +2171,7 @@ export default function AdminPerks() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setDialogOpen(false)}
+              onClick={closePerkDialog}
             >
               Cancel
             </Button>
