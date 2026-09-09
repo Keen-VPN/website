@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  ADMIN_PERK_FORM_DRAFT_LEGACY_KEY,
   clearPerkFormDraft,
+  defaultBlankCreateEndsAt,
   draftHasMeaningfulContent,
   draftMatchesSession,
   isAdminSessionError,
@@ -91,7 +93,7 @@ describe("admin-perk-form-draft", () => {
             workflowType: "",
             id: "",
             category: "privacy_security",
-            endsAt: "",
+            endsAt: defaultBlankCreateEndsAt(),
             extensionDomains: [],
           },
         }),
@@ -104,6 +106,45 @@ describe("admin-perk-form-draft", () => {
 
     clearPerkFormDraft("admin_1", storage);
     expect(readPerkFormDraft("admin_1", storage)).toBeNull();
+  });
+
+  it("does not treat the default endsAt as meaningful content", () => {
+    const draft = sampleDraft({
+      form: {
+        ...sampleDraft().form,
+        title: "",
+        partnerName: "",
+        description: "",
+        imageUrl: "",
+        offerText: "",
+        redemptionUrl: "",
+        id: "",
+        category: "privacy_security",
+        endsAt: defaultBlankCreateEndsAt(),
+      },
+    });
+    expect(draftHasMeaningfulContent(draft)).toBe(false);
+  });
+
+  it("migrates legacy unscoped drafts into the admin-scoped key", () => {
+    const storage = memoryStorage();
+    const legacy = {
+      version: 1,
+      mode: "create",
+      editingId: null,
+      idManuallyEdited: false,
+      showIdEditor: false,
+      form: sampleDraft().form,
+    };
+    storage.setItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY, JSON.stringify(legacy));
+
+    const loaded = readPerkFormDraft("admin_1", storage);
+    expect(loaded?.form.title).toBe("$8.25M Google Class Action");
+    expect(loaded?.adminId).toBe("admin_1");
+    expect(storage.getItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY)).toBeNull();
+    expect(readPerkFormDraft("admin_1", storage)?.form.title).toBe(
+      "$8.25M Google Class Action",
+    );
   });
 
   it("treats select/toggle-only changes as meaningful", () => {
