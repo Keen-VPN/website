@@ -665,22 +665,23 @@ export default function AdminPerks() {
     (opts?: { force?: boolean }) => {
       if (!adminId || !canWrite) return false;
       const existing = readPerkFormDraft(adminId);
-      if (
-        existing &&
-        !draftMatchesSession(existing, editingId) &&
-        !claimDraftSessionRef.current &&
-        !opts?.force
-      ) {
+      // Only overwrite an existing recovery draft once this dialog session claims it
+      // (Continue draft / new blank with no prior draft / successful edit of same draft).
+      if (existing && !claimDraftSessionRef.current && !opts?.force) {
         return false;
       }
-      const wrote = writePerkFormDraft({
-        adminId,
-        mode: editingId ? "edit" : "create",
-        editingId,
-        idManuallyEdited,
-        showIdEditor,
-        form,
-      });
+      const wrote = writePerkFormDraft(
+        {
+          adminId,
+          mode: editingId ? "edit" : "create",
+          editingId,
+          idManuallyEdited,
+          showIdEditor,
+          form,
+        },
+        localStorage,
+        defaultPerkEndDateInput(),
+      );
       if (wrote) {
         claimDraftSessionRef.current = true;
         setRecoveryDraft(readPerkFormDraft(adminId));
@@ -770,6 +771,7 @@ export default function AdminPerks() {
   };
 
   const closePerkDialog = () => {
+    // Persist immediately so Cancel within the autosave debounce window keeps edits.
     persistCurrentDraft();
     setDialogError(null);
     setSessionErrorUnauthorized(false);

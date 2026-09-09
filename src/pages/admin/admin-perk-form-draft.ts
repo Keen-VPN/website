@@ -8,6 +8,9 @@ import type { AudienceTargeting } from "@/auth/backend";
 
 export const ADMIN_PERK_FORM_DRAFT_KEY_PREFIX =
   "keen_admin_perk_form_draft_v1";
+/** Pre-scoped key from the first draft implementation. */
+export const ADMIN_PERK_FORM_DRAFT_LEGACY_KEY =
+  "keen_admin_perk_form_draft_v1";
 export const ADMIN_PERK_RESTORE_QUERY = "restorePerkDraft";
 
 const VALID_CATEGORIES = new Set([
@@ -85,6 +88,20 @@ export interface PerkFormDraft {
 
 export function adminPerkFormDraftKey(adminId: string): string {
   return `${ADMIN_PERK_FORM_DRAFT_KEY_PREFIX}:${adminId}`;
+}
+
+/** Matches AdminPerks emptyForm() endsAt default (today + 45 days UTC). */
+export function defaultBlankCreateEndsAt(startsAt = ""): string {
+  const base = startsAt.trim()
+    ? new Date(`${startsAt.trim()}T00:00:00.000Z`)
+    : new Date();
+  if (Number.isNaN(base.getTime())) {
+    const fallback = new Date();
+    fallback.setUTCDate(fallback.getUTCDate() + 45);
+    return fallback.toISOString().slice(0, 10);
+  }
+  base.setUTCDate(base.getUTCDate() + 45);
+  return base.toISOString().slice(0, 10);
 }
 
 export function isAdminSessionError(
@@ -230,7 +247,10 @@ function parseForm(raw: unknown): PerkFormDraftForm | null {
   };
 }
 
-export function parsePerkFormDraft(raw: unknown): PerkFormDraft | null {
+export function parsePerkFormDraft(
+  raw: unknown,
+  adminIdFallback?: string,
+): PerkFormDraft | null {
   if (!isRecord(raw) || raw.version !== 1) return null;
   const form = parseForm(raw.form);
   if (!form) return null;
@@ -239,7 +259,8 @@ export function parsePerkFormDraft(raw: unknown): PerkFormDraft | null {
     typeof raw.editingId === "string" && raw.editingId.trim()
       ? raw.editingId
       : null;
-  const adminId = asString(raw.adminId).trim();
+  const adminId =
+    asString(raw.adminId).trim() || asString(adminIdFallback).trim();
   if (!adminId) return null;
 
   return {
@@ -257,10 +278,11 @@ export function parsePerkFormDraft(raw: unknown): PerkFormDraft | null {
 /** True when the draft differs from a blank create form (including selects/toggles). */
 export function draftHasMeaningfulContent(
   draft: PerkFormDraft,
-  blankEndsAt = "",
+  blankEndsAt: string = defaultBlankCreateEndsAt(),
 ): boolean {
   const { form } = draft;
   const audienceDefault = JSON.stringify(createDefaultAudienceTargeting());
+  const defaultEndsForStarts = defaultBlankCreateEndsAt(form.startsAt);
   return Boolean(
     form.title.trim() ||
       form.partnerName.trim() ||
@@ -272,7 +294,9 @@ export function draftHasMeaningfulContent(
       form.workflowType.trim() ||
       form.id.trim() ||
       form.startsAt.trim() ||
-      (form.endsAt.trim() && form.endsAt !== blankEndsAt) ||
+      (form.endsAt.trim() &&
+        form.endsAt !== blankEndsAt &&
+        form.endsAt !== defaultEndsForStarts) ||
       form.sortOrder.trim() !== "0" ||
       form.category !== "privacy_security" ||
       form.redemptionType !== "external_link" ||
@@ -287,18 +311,50 @@ export function draftHasMeaningfulContent(
   );
 }
 
-export function readPerkFormDraft(
+function tryParseStoredDraft(
+  raw: string | null,
   adminId: string,
-  storage: Pick<Storage, "getItem"> = localStorage,
 ): PerkFormDraft | null {
-  if (!adminId) return null;
+  if (!raw) return null;
   try {
-    const raw = storage.getItem(adminPerkFormDraftKey(adminId));
-    if (!raw) return null;
-    const parsed = parsePerkFormDraft(JSON.parse(raw) as unknown);
+    const parsed = parsePerkFormDraft(JSON.parse(raw) as unknown, adminId);
     if (!parsed || parsed.adminId !== adminId) return null;
     if (!draftHasMeaningfulContent(parsed)) return null;
     return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function readPerkFormDraft(
+  adminId: string,
+  storage: Pick<Storage, "getItem" | "setItem" | "removeItem"> = localStorage,
+): PerkFormDraft | null {
+  if (!adminId) return null;
+  try {
+    const scoped = tryParseStoredDraft(
+      storage.getItem(adminPerkFormDraftKey(adminId)),
+      adminId,
+    );
+    if (scoped) return scoped;
+
+    // Migrate unscoped drafts from the first draft implementation.
+    const legacy = tryParseStoredDraft(
+      storage.getItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY),
+      adminId,
+    );
+    if (!legacy) return null;
+
+    try {
+      storage.setItem(
+        adminPerkFormDraftKey(adminId),
+        JSON.stringify(legacy),
+      );
+      storage.removeItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY);
+    } catch {
+      // Still return the migrated-in-memory draft if persistence fails.
+    }
+    return legacy;
   } catch {
     return null;
   }
@@ -309,6 +365,7 @@ export function writePerkFormDraft(
     savedAt?: string;
   },
   storage: Pick<Storage, "setItem" | "removeItem"> = localStorage,
+  blankEndsAt: string = defaultBlankCreateEndsAt(),
 ): boolean {
   const payload: PerkFormDraft = {
     version: 1,
@@ -320,7 +377,7 @@ export function writePerkFormDraft(
     showIdEditor: draft.showIdEditor,
     form: draft.form,
   };
-  if (!payload.adminId || !draftHasMeaningfulContent(payload)) {
+  if (!payload.adminId || !draftHasMeaningfulContent(payload, blankEndsAt)) {
     return false;
   }
   try {
@@ -328,6 +385,11 @@ export function writePerkFormDraft(
       adminPerkFormDraftKey(payload.adminId),
       JSON.stringify(payload),
     );
+    try {
+      storage.removeItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY);
+    } catch {
+      // ignore
+    }
     return true;
   } catch {
     return false;

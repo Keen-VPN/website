@@ -107,6 +107,20 @@ const PREVIEW_PREFERENCES: EmailCategoryPreference[] = [
   },
 ];
 
+function normalizeEmailPreferences(
+  rows: EmailCategoryPreference[],
+): EmailCategoryPreference[] {
+  return rows.map((row) =>
+    row.category === "perks_offers"
+      ? {
+          ...row,
+          label: "Class Actions & Perks*",
+          description: "",
+        }
+      : row,
+  );
+}
+
 function SectionHeader({
   title,
   description,
@@ -182,17 +196,7 @@ export default function DashboardProfile() {
     const response = await fetchMyEmailCategoryPreferences(sessionToken);
     if (generation !== prefsLoadGen.current) return;
     if (response.success && response.preferences) {
-      setPreferences(
-        response.preferences.map((row) =>
-          row.category === "perks_offers"
-            ? {
-                ...row,
-                label: "Class Actions & Perks*",
-                description: "",
-              }
-            : row,
-        ),
-      );
+      setPreferences(normalizeEmailPreferences(response.preferences));
       setPrefsReady(true);
       setPrefsLoadError(null);
     } else {
@@ -245,7 +249,7 @@ export default function DashboardProfile() {
       });
       return;
     }
-    setPreferences(response.preferences);
+    setPreferences(normalizeEmailPreferences(response.preferences));
   }
 
   async function handleDeleteAccount() {
