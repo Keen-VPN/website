@@ -149,6 +149,15 @@ export const serverLocations: ServerLocation[] = [
     available: true,
   },
   {
+    id: "ru-moscow",
+    country: "Russia",
+    countryCode: "RU",
+    city: "Moscow",
+    region: "Europe",
+    coordinates: { lat: 55.7558, lng: 37.6173 },
+    available: true,
+  },
+  {
     id: "ng-lagos",
     country: "Nigeria",
     countryCode: "NG",
