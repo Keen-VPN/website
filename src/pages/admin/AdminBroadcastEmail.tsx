@@ -59,7 +59,7 @@ const EMAIL_CATEGORY_OPTIONS: { value: string; label: string }[] = [
   { value: "none", label: "No category (all recipients)" },
   { value: "product_updates", label: "Product Updates" },
   { value: "education_privacy", label: "Education, Privacy & Security" },
-  { value: "perks_offers", label: "Perks & Offers" },
+  { value: "perks_offers", label: "Class Actions & Perks" },
   { value: "referrals", label: "Referrals" },
 ];
 

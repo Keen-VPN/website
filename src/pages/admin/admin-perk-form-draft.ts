@@ -1,0 +1,543 @@
+/** Local recovery draft for the admin New/Edit perk dialog. No auth tokens. */
+
+import {
+  createDefaultAudienceTargeting,
+  getAudienceTargetingValidationError,
+} from "@/components/admin/audience-targeting.constants";
+import type { AudienceTargeting } from "@/auth/backend";
+
+export const ADMIN_PERK_FORM_DRAFT_KEY_PREFIX =
+  "keen_admin_perk_form_draft_v1";
+/** Pre-scoped key from the first draft implementation. */
+export const ADMIN_PERK_FORM_DRAFT_LEGACY_KEY =
+  "keen_admin_perk_form_draft_v1";
+export const ADMIN_PERK_RESTORE_QUERY = "restorePerkDraft";
+/** Recovery drafts older than this are ignored and cleared. */
+export const ADMIN_PERK_FORM_DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+const VALID_CATEGORIES = new Set([
+  "privacy_security",
+  "ai_productivity",
+  "developer_tools",
+  "startup_growth",
+  "remote_work",
+  "finance",
+]);
+
+const VALID_REDEMPTION_TYPES = new Set([
+  "external_link",
+  "coupon_code",
+  "invite_only",
+  "workflow",
+]);
+
+const VALID_AUDIENCE_PRESETS = new Set([
+  "all_users",
+  "has_us_bank_account",
+  "no_us_bank_account",
+  "receives_direct_deposit",
+  "self_employed",
+  "business_owner",
+  "interested_in_starting_business",
+  "custom",
+]);
+
+const VALID_QUESTION_KEYS = new Set([
+  "us_bank_account",
+  "direct_deposit_income",
+  "entrepreneurship_interest_2026",
+]);
+
+export type PerkFormDraftMode = "create" | "edit";
+
+/** Serializable perk form fields — mirrors AdminPerks PerkFormState. */
+export interface PerkFormDraftForm {
+  id: string;
+  title: string;
+  partnerName: string;
+  category: string;
+  description: string;
+  imageUrl: string;
+  offerText: string;
+  redemptionType: string;
+  redemptionUrl: string;
+  couponCode: string;
+  workflowType: string;
+  accessLevel: "free" | "paid" | "annual";
+  isFeatured: boolean;
+  isActive: boolean;
+  sortOrder: string;
+  startsAt: string;
+  endsAt: string;
+  audienceTargeting: AudienceTargeting;
+  extensionDomains: {
+    host: string;
+    pathPrefix: string;
+    priority: string;
+  }[];
+}
+
+export interface PerkFormDraft {
+  version: 1;
+  adminId: string;
+  savedAt: string;
+  mode: PerkFormDraftMode;
+  editingId: string | null;
+  idManuallyEdited: boolean;
+  showIdEditor: boolean;
+  /** endsAt default captured when the dialog session started (stable across midnight). */
+  blankEndsAt: string;
+  form: PerkFormDraftForm;
+}
+
+/** Unscoped draft awaiting explicit claim by the signed-in admin. */
+export interface PendingLegacyPerkFormDraft {
+  version: 1;
+  savedAt: string;
+  mode: PerkFormDraftMode;
+  editingId: string | null;
+  idManuallyEdited: boolean;
+  showIdEditor: boolean;
+  blankEndsAt: string;
+  form: PerkFormDraftForm;
+}
+
+export function adminPerkFormDraftKey(adminId: string): string {
+  return `${ADMIN_PERK_FORM_DRAFT_KEY_PREFIX}:${adminId}`;
+}
+
+/**
+ * Shared blank-create endsAt default (today + 45 days UTC).
+ * Used by AdminPerks emptyForm and draft meaningful-content checks.
+ */
+export function defaultPerkEndDateInput(
+  startsAt = "",
+  now: Date = new Date(),
+): string {
+  const base = startsAt.trim()
+    ? new Date(`${startsAt.trim()}T00:00:00.000Z`)
+    : new Date(now.getTime());
+  if (Number.isNaN(base.getTime())) {
+    const fallback = new Date(now.getTime());
+    fallback.setUTCDate(fallback.getUTCDate() + 45);
+    return fallback.toISOString().slice(0, 10);
+  }
+  base.setUTCDate(base.getUTCDate() + 45);
+  return base.toISOString().slice(0, 10);
+}
+
+/** @deprecated alias — prefer defaultPerkEndDateInput */
+export const defaultBlankCreateEndsAt = defaultPerkEndDateInput;
+
+export function isAdminSessionError(
+  message: string | null | undefined,
+  unauthorized?: boolean,
+): boolean {
+  if (unauthorized) return true;
+  if (!message) return false;
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("admin session required") ||
+    normalized.includes("session expired") ||
+    normalized.includes("unauthorized")
+  );
+}
+
+export function adminPerkLoginReturnPath(): string {
+  return `/admin/login?return=${encodeURIComponent(
+    `/admin/perks?${ADMIN_PERK_RESTORE_QUERY}=1`,
+  )}`;
+}
+
+export function draftMatchesSession(
+  draft: PerkFormDraft | PendingLegacyPerkFormDraft,
+  editingId: string | null,
+): boolean {
+  if (editingId) {
+    return draft.mode === "edit" && draft.editingId === editingId;
+  }
+  return draft.mode === "create";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function asBoolean(value: unknown, fallback = false): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function parseAudienceTargeting(value: unknown): AudienceTargeting {
+  const fallback = createDefaultAudienceTargeting();
+  if (!isRecord(value) || !Array.isArray(value.presets)) {
+    return fallback;
+  }
+
+  const presets = value.presets.filter(
+    (preset): preset is AudienceTargeting["presets"][number] =>
+      typeof preset === "string" && VALID_AUDIENCE_PRESETS.has(preset),
+  );
+  if (presets.length === 0) {
+    return fallback;
+  }
+
+  const targeting: AudienceTargeting = {
+    presets,
+  };
+
+  if (isRecord(value.customRules)) {
+    const logic = value.customRules.logic === "and" ? "and" : "or";
+    const rulesRaw = Array.isArray(value.customRules.rules)
+      ? value.customRules.rules
+      : [];
+    const rules = rulesRaw
+      .map((rule) => {
+        if (!isRecord(rule)) return null;
+        const questionKey = asString(rule.questionKey);
+        const ruleValue = asString(rule.value);
+        if (!VALID_QUESTION_KEYS.has(questionKey) || !ruleValue) return null;
+        return {
+          questionKey: questionKey as
+            | "us_bank_account"
+            | "direct_deposit_income"
+            | "entrepreneurship_interest_2026",
+          value: ruleValue,
+        };
+      })
+      .filter((rule): rule is NonNullable<typeof rule> => rule != null);
+
+    if (rules.length > 0) {
+      targeting.customRules = { logic, rules };
+    }
+  }
+
+  if (getAudienceTargetingValidationError(targeting)) {
+    return fallback;
+  }
+  return targeting;
+}
+
+function parseExtensionDomains(
+  value: unknown,
+): PerkFormDraftForm["extensionDomains"] {
+  if (!Array.isArray(value)) return [];
+  return value.map((row) => {
+    if (!isRecord(row)) {
+      return { host: "", pathPrefix: "", priority: "" };
+    }
+    return {
+      host: asString(row.host),
+      pathPrefix: asString(row.pathPrefix),
+      priority: asString(row.priority),
+    };
+  });
+}
+
+function parseForm(raw: unknown): PerkFormDraftForm | null {
+  if (!isRecord(raw)) return null;
+  const access = raw.accessLevel;
+  const accessLevel =
+    access === "free" || access === "paid" || access === "annual"
+      ? access
+      : "paid";
+  const category = asString(raw.category, "privacy_security");
+  const redemptionType = asString(raw.redemptionType, "external_link");
+
+  return {
+    id: asString(raw.id),
+    title: asString(raw.title),
+    partnerName: asString(raw.partnerName),
+    category: VALID_CATEGORIES.has(category) ? category : "privacy_security",
+    description: asString(raw.description),
+    imageUrl: asString(raw.imageUrl),
+    offerText: asString(raw.offerText),
+    redemptionType: VALID_REDEMPTION_TYPES.has(redemptionType)
+      ? redemptionType
+      : "external_link",
+    redemptionUrl: asString(raw.redemptionUrl),
+    couponCode: asString(raw.couponCode),
+    workflowType: asString(raw.workflowType),
+    accessLevel,
+    isFeatured: asBoolean(raw.isFeatured),
+    isActive: asBoolean(raw.isActive, true),
+    sortOrder: asString(raw.sortOrder, "0"),
+    startsAt: parseDateInput(raw.startsAt),
+    endsAt: parseDateInput(raw.endsAt),
+    audienceTargeting: parseAudienceTargeting(raw.audienceTargeting),
+    extensionDomains: parseExtensionDomains(raw.extensionDomains),
+  };
+}
+
+/** Accept YYYY-MM-DD calendar dates only; invalid values become empty. */
+function parseDateInput(value: unknown): string {
+  const raw = asString(value).trim();
+  if (!raw) return "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return "";
+  const parsed = new Date(`${raw}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return "";
+  if (parsed.toISOString().slice(0, 10) !== raw) return "";
+  return raw;
+}
+
+function parseDraftCore(raw: unknown): {
+  form: PerkFormDraftForm;
+  mode: PerkFormDraftMode;
+  editingId: string | null;
+  idManuallyEdited: boolean;
+  showIdEditor: boolean;
+  blankEndsAt: string;
+  savedAt: string;
+  adminId: string;
+} | null {
+  if (!isRecord(raw) || raw.version !== 1) return null;
+  const form = parseForm(raw.form);
+  if (!form) return null;
+  const mode = raw.mode === "edit" ? "edit" : "create";
+  const editingId =
+    typeof raw.editingId === "string" && raw.editingId.trim()
+      ? raw.editingId.trim()
+      : null;
+  // Malformed edit drafts without a target perk would create a new perk on Save.
+  if (mode === "edit" && !editingId) return null;
+  const blankEndsAt =
+    asString(raw.blankEndsAt).trim() ||
+    defaultPerkEndDateInput(form.startsAt);
+
+  return {
+    form,
+    mode,
+    editingId,
+    idManuallyEdited: asBoolean(raw.idManuallyEdited),
+    showIdEditor: asBoolean(raw.showIdEditor),
+    blankEndsAt,
+    savedAt: asString(raw.savedAt, new Date().toISOString()),
+    adminId: asString(raw.adminId).trim(),
+  };
+}
+
+/** Owned drafts only — never invents an adminId from the caller. */
+export function parsePerkFormDraft(raw: unknown): PerkFormDraft | null {
+  const core = parseDraftCore(raw);
+  if (!core?.adminId) return null;
+  return {
+    version: 1,
+    adminId: core.adminId,
+    savedAt: core.savedAt,
+    mode: core.mode,
+    editingId: core.editingId,
+    idManuallyEdited: core.idManuallyEdited,
+    showIdEditor: core.showIdEditor,
+    blankEndsAt: core.blankEndsAt,
+    form: core.form,
+  };
+}
+
+export function parsePendingLegacyPerkFormDraft(
+  raw: unknown,
+): PendingLegacyPerkFormDraft | null {
+  const core = parseDraftCore(raw);
+  if (!core) return null;
+  // Owned payloads are not legacy-pending — those belong in scoped storage.
+  if (core.adminId) return null;
+  return {
+    version: 1,
+    savedAt: core.savedAt,
+    mode: core.mode,
+    editingId: core.editingId,
+    idManuallyEdited: core.idManuallyEdited,
+    showIdEditor: core.showIdEditor,
+    blankEndsAt: core.blankEndsAt,
+    form: core.form,
+  };
+}
+
+/** True when the draft differs from a blank create form (including selects/toggles). */
+export function draftHasMeaningfulContent(
+  draft: Pick<PerkFormDraft, "form" | "blankEndsAt"> | PendingLegacyPerkFormDraft,
+  blankEndsAt?: string,
+): boolean {
+  const { form } = draft;
+  const sessionBlank =
+    blankEndsAt?.trim() ||
+    draft.blankEndsAt?.trim() ||
+    defaultPerkEndDateInput();
+  const audienceDefault = JSON.stringify(createDefaultAudienceTargeting());
+  const endsAtIsBlankDefault =
+    !form.endsAt.trim() ||
+    form.endsAt === sessionBlank ||
+    (Boolean(form.startsAt.trim()) &&
+      form.endsAt === defaultPerkEndDateInput(form.startsAt));
+  return Boolean(
+    form.title.trim() ||
+      form.partnerName.trim() ||
+      form.description.trim() ||
+      form.imageUrl.trim() ||
+      form.offerText.trim() ||
+      form.redemptionUrl.trim() ||
+      form.couponCode.trim() ||
+      form.workflowType.trim() ||
+      form.id.trim() ||
+      form.startsAt.trim() ||
+      !endsAtIsBlankDefault ||
+      form.sortOrder.trim() !== "0" ||
+      form.category !== "privacy_security" ||
+      form.redemptionType !== "external_link" ||
+      form.accessLevel !== "paid" ||
+      form.isFeatured ||
+      form.isActive !== true ||
+      JSON.stringify(form.audienceTargeting) !== audienceDefault ||
+      form.extensionDomains.some(
+        (row) =>
+          row.host.trim() || row.pathPrefix.trim() || row.priority.trim(),
+      ),
+  );
+}
+
+function isDraftExpired(
+  savedAt: string,
+  nowMs: number = Date.now(),
+): boolean {
+  const savedMs = Date.parse(savedAt);
+  if (!Number.isFinite(savedMs)) return true;
+  return nowMs - savedMs > ADMIN_PERK_FORM_DRAFT_MAX_AGE_MS;
+}
+
+export function readPerkFormDraft(
+  adminId: string,
+  storage: Pick<Storage, "getItem" | "removeItem"> = localStorage,
+): PerkFormDraft | null {
+  if (!adminId) return null;
+  try {
+    const key = adminPerkFormDraftKey(adminId);
+    const raw = storage.getItem(key);
+    if (!raw) return null;
+    const parsed = parsePerkFormDraft(JSON.parse(raw) as unknown);
+    if (!parsed || parsed.adminId !== adminId) return null;
+    if (isDraftExpired(parsed.savedAt)) {
+      try {
+        storage.removeItem(key);
+      } catch {
+        // ignore
+      }
+      return null;
+    }
+    if (!draftHasMeaningfulContent(parsed)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/** Peek at an unscoped legacy draft without assigning it to any admin. */
+export function peekUnscopedLegacyPerkFormDraft(
+  storage: Pick<Storage, "getItem" | "removeItem"> = localStorage,
+): PendingLegacyPerkFormDraft | null {
+  try {
+    const raw = storage.getItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY);
+    if (!raw) return null;
+    const pending = parsePendingLegacyPerkFormDraft(
+      JSON.parse(raw) as unknown,
+    );
+    if (!pending) return null;
+    if (isDraftExpired(pending.savedAt)) {
+      discardUnscopedLegacyPerkFormDraft(storage);
+      return null;
+    }
+    if (!draftHasMeaningfulContent(pending)) return null;
+    return pending;
+  } catch {
+    return null;
+  }
+}
+
+/** Explicit claim: bind a legacy unscoped draft to the signed-in admin. */
+export function claimUnscopedLegacyPerkFormDraft(
+  adminId: string,
+  storage: Pick<Storage, "getItem" | "setItem" | "removeItem"> = localStorage,
+): PerkFormDraft | null {
+  if (!adminId) return null;
+  const pending = peekUnscopedLegacyPerkFormDraft(storage);
+  if (!pending) return null;
+  // Another tab may have written a scoped draft since the banner appeared.
+  if (readPerkFormDraft(adminId, storage)) return null;
+  const owned: PerkFormDraft = {
+    version: 1,
+    adminId,
+    savedAt: pending.savedAt,
+    mode: pending.mode,
+    editingId: pending.editingId,
+    idManuallyEdited: pending.idManuallyEdited,
+    showIdEditor: pending.showIdEditor,
+    blankEndsAt: pending.blankEndsAt,
+    form: pending.form,
+  };
+  try {
+    storage.setItem(adminPerkFormDraftKey(adminId), JSON.stringify(owned));
+    storage.removeItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY);
+  } catch {
+    return null;
+  }
+  return owned;
+}
+
+export function discardUnscopedLegacyPerkFormDraft(
+  storage: Pick<Storage, "removeItem"> = localStorage,
+): void {
+  try {
+    storage.removeItem(ADMIN_PERK_FORM_DRAFT_LEGACY_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+export function writePerkFormDraft(
+  draft: Omit<PerkFormDraft, "version" | "savedAt"> & {
+    savedAt?: string;
+  },
+  storage: Pick<Storage, "setItem" | "removeItem"> = localStorage,
+  blankEndsAt?: string,
+): boolean {
+  const resolvedBlank =
+    blankEndsAt?.trim() ||
+    draft.blankEndsAt?.trim() ||
+    defaultPerkEndDateInput();
+  const payload: PerkFormDraft = {
+    version: 1,
+    adminId: draft.adminId,
+    savedAt: draft.savedAt ?? new Date().toISOString(),
+    mode: draft.mode,
+    editingId: draft.mode === "edit" ? draft.editingId : null,
+    idManuallyEdited: draft.idManuallyEdited,
+    showIdEditor: draft.showIdEditor,
+    blankEndsAt: resolvedBlank,
+    form: draft.form,
+  };
+  if (!payload.adminId || !draftHasMeaningfulContent(payload, resolvedBlank)) {
+    return false;
+  }
+  try {
+    storage.setItem(
+      adminPerkFormDraftKey(payload.adminId),
+      JSON.stringify(payload),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearPerkFormDraft(
+  adminId: string,
+  storage: Pick<Storage, "removeItem"> = localStorage,
+): void {
+  if (!adminId) return;
+  try {
+    storage.removeItem(adminPerkFormDraftKey(adminId));
+  } catch {
+    // Ignore blocked storage — form flow must continue.
+  }
+}

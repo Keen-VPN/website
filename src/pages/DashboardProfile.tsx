@@ -95,8 +95,8 @@ const PREVIEW_PREFERENCES: EmailCategoryPreference[] = [
   },
   {
     category: "perks_offers",
-    label: "Perks & Offers",
-    description: "KeenVPN perks, promotions and eligible special offers.",
+    label: "Class Actions & Perks",
+    description: "",
     subscribed: false,
   },
   {
@@ -107,21 +107,37 @@ const PREVIEW_PREFERENCES: EmailCategoryPreference[] = [
   },
 ];
 
+function normalizeEmailPreferences(
+  rows: EmailCategoryPreference[],
+): EmailCategoryPreference[] {
+  return rows.map((row) =>
+    row.category === "perks_offers"
+      ? {
+          ...row,
+          label: "Class Actions & Perks",
+          description: "",
+        }
+      : row,
+  );
+}
+
 function SectionHeader({
   title,
   description,
 }: {
   title: string;
-  description: string;
+  description?: string;
 }) {
   return (
     <div className="mb-5">
       <h2 className="text-[16px] font-semibold tracking-[-0.2px] text-[#0f2040]">
         {title}
       </h2>
-      <p className="mt-1 text-[13px] leading-relaxed text-[#627086]">
-        {description}
-      </p>
+      {description ? (
+        <p className="mt-1 text-[13px] leading-relaxed text-[#627086]">
+          {description}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -180,7 +196,7 @@ export default function DashboardProfile() {
     const response = await fetchMyEmailCategoryPreferences(sessionToken);
     if (generation !== prefsLoadGen.current) return;
     if (response.success && response.preferences) {
-      setPreferences(response.preferences);
+      setPreferences(normalizeEmailPreferences(response.preferences));
       setPrefsReady(true);
       setPrefsLoadError(null);
     } else {
@@ -233,7 +249,7 @@ export default function DashboardProfile() {
       });
       return;
     }
-    setPreferences(response.preferences);
+    setPreferences(normalizeEmailPreferences(response.preferences));
   }
 
   async function handleDeleteAccount() {
@@ -300,7 +316,7 @@ export default function DashboardProfile() {
   return (
     <div className="px-4 py-6 sm:px-6 sm:py-8 md:px-8 lg:px-10">
       <div className="mx-auto flex w-full max-w-[920px] flex-col gap-5">
-        {/* Account details — shared AuthEmailCard (same flow as Settings) */}
+        {/* Account details + connected accounts */}
         <section className={cardClass}>
           <SectionHeader
             title="Account details"
@@ -318,16 +334,12 @@ export default function DashboardProfile() {
               </p>
             </div>
           )}
-        </section>
 
-        {/* Connected accounts */}
-        <section className={cardClass}>
-          <SectionHeader
-            title="Connected accounts"
-            description="Manage third-party accounts connected to your KeenVPN account."
-          />
-
-          <div className="divide-y divide-[#eef2f7]">
+          <div className="mt-6 border-t border-[#eef2f7] pt-5">
+            <h3 className="mb-4 text-[14px] font-semibold tracking-[-0.2px] text-[#0f2040]">
+              Connected accounts
+            </h3>
+            <div className="divide-y divide-[#eef2f7]">
             {/* Google */}
             <div className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 flex-1">
@@ -491,6 +503,7 @@ export default function DashboardProfile() {
                 </button>
               )}
             </div>
+            </div>
           </div>
         </section>
 
@@ -507,10 +520,7 @@ export default function DashboardProfile() {
 
         {/* Email Preferences */}
         <section className={cardClass}>
-          <SectionHeader
-            title="Email Preferences"
-            description="Customize your email preference."
-          />
+          <SectionHeader title="Email Preferences" />
 
           {prefsLoading ? (
             <div className="space-y-5">
@@ -546,9 +556,11 @@ export default function DashboardProfile() {
                     <p className="text-[14px] font-semibold text-[#0f2040]">
                       {row.label}
                     </p>
-                    <p className="mt-1 text-[13px] leading-relaxed text-[#627086]">
-                      {row.description}
-                    </p>
+                    {row.description ? (
+                      <p className="mt-1 text-[13px] leading-relaxed text-[#627086]">
+                        {row.description}
+                      </p>
+                    ) : null}
                   </div>
                   <ProfileToggle
                     checked={row.subscribed}

@@ -5329,7 +5329,12 @@ export async function adminListPerks(options?: {
 
 export async function adminCreatePerk(
   payload: CreateAdminPerkPayload,
-): Promise<{ ok: boolean; data?: AdminPerk; error?: string }> {
+): Promise<{
+  ok: boolean;
+  data?: AdminPerk;
+  error?: string;
+  unauthorized?: boolean;
+}> {
   try {
     const response = await fetch(`${BACKEND_URL}/admin/perks`, {
       method: "POST",
@@ -5341,6 +5346,7 @@ export async function adminCreatePerk(
     if (!response.ok) {
       return {
         ok: false,
+        unauthorized: response.status === 401,
         error: extractBackendErrorMessage(raw, "Failed to create perk"),
       };
     }
@@ -5357,7 +5363,12 @@ export async function adminCreatePerk(
 export async function adminUpdatePerk(
   id: string,
   payload: UpdateAdminPerkPayload,
-): Promise<{ ok: boolean; data?: AdminPerk; error?: string }> {
+): Promise<{
+  ok: boolean;
+  data?: AdminPerk;
+  error?: string;
+  unauthorized?: boolean;
+}> {
   try {
     const response = await fetch(
       `${BACKEND_URL}/admin/perks/${encodeURIComponent(id)}`,
@@ -5372,6 +5383,7 @@ export async function adminUpdatePerk(
     if (!response.ok) {
       return {
         ok: false,
+        unauthorized: response.status === 401,
         error: extractBackendErrorMessage(raw, "Failed to update perk"),
       };
     }
