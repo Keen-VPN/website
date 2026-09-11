@@ -250,7 +250,8 @@ export default function AdminJiraDelivery() {
                   estimate (reporter)
                 </CardDescription>
                 <CardTitle className="text-3xl tabular-nums">
-                  {report.kennaCreatedEstimates == null
+                  {report.kennaCreatedEstimates == null ||
+                  report.kennaCreatedEstimates.configured === false
                     ? "—"
                     : report.kennaCreatedEstimates.points}
                 </CardTitle>
