@@ -128,7 +128,10 @@ export default function AdminJiraDelivery() {
           <p className="text-sm text-muted-foreground">
             Completed story points by month, assignee (RP), and environment
             label. Counted once when a story reaches Done. Tickets without an
-            estimate count as 1 point.
+            estimate count as 1 point. Kenna&apos;s total is story estimates on
+            tickets where he is the{" "}
+            <span className="font-medium text-foreground">Reporter</span>{" "}
+            (created that month, any status), separate from Done-by-RP.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -196,7 +199,7 @@ export default function AdminJiraDelivery() {
 
       {report?.configured ? (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Total points</CardDescription>
@@ -235,6 +238,29 @@ export default function AdminJiraDelivery() {
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground">
                 Assignees who completed estimated work this month
+                {report.byRp.some((r) => r.suspended)
+                  ? ` · ${report.byRp.filter((r) => r.suspended).length} suspended`
+                  : ""}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>
+                  {report.kennaCreatedEstimates?.displayName ?? "Kenna"} — story
+                  estimate (reporter)
+                </CardDescription>
+                <CardTitle className="text-3xl tabular-nums">
+                  {report.kennaCreatedEstimates == null
+                    ? "—"
+                    : report.kennaCreatedEstimates.points}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs text-muted-foreground">
+                {report.kennaCreatedEstimates == null
+                  ? "Unavailable until the API includes Kenna reporter estimates (deploy backend leaderboard)"
+                  : report.kennaCreatedEstimates.configured === false
+                    ? "Set JIRA_LEADERBOARD_BOSS_ACCOUNT_ID to enable"
+                    : `${report.kennaCreatedEstimates.issueCount} tickets with Kenna as reporter this month · missing estimates default to 1 · not Done-by-RP`}
               </CardContent>
             </Card>
           </div>
@@ -267,7 +293,10 @@ export default function AdminJiraDelivery() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Points by RP</CardTitle>
-                <CardDescription>Assignee when the story was Done</CardDescription>
+                <CardDescription>
+                  Assignee when the story was Done. Suspended Jira accounts stay
+                  visible here (hidden from daily Slack).
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {report.byRp.length === 0 ? (
@@ -288,7 +317,16 @@ export default function AdminJiraDelivery() {
                             key={`${row.assigneeAccountId ?? "none"}:${row.assigneeDisplayName}:${index}`}
                             className="border-b border-border/60"
                           >
-                            <td className="py-2 pr-3">{row.assigneeDisplayName}</td>
+                            <td className="py-2 pr-3">
+                              <span className="inline-flex flex-wrap items-center gap-2">
+                                {row.assigneeDisplayName}
+                                {row.suspended ? (
+                                  <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                                    Suspended
+                                  </span>
+                                ) : null}
+                              </span>
+                            </td>
                             <td className="py-2 pr-3 tabular-nums">{row.points}</td>
                             <td className="py-2 tabular-nums">
                               {pct(row.percentOfTotal)}
