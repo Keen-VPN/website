@@ -250,13 +250,17 @@ export default function AdminJiraDelivery() {
                   estimate (reporter)
                 </CardDescription>
                 <CardTitle className="text-3xl tabular-nums">
-                  {report.kennaCreatedEstimates?.points ?? 0}
+                  {report.kennaCreatedEstimates == null
+                    ? "—"
+                    : report.kennaCreatedEstimates.points}
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground">
-                {report.kennaCreatedEstimates?.configured === false
-                  ? "Set JIRA_LEADERBOARD_BOSS_ACCOUNT_ID to enable"
-                  : `${report.kennaCreatedEstimates?.issueCount ?? 0} tickets with Kenna as reporter this month · missing estimates default to 1 · not Done-by-RP`}
+                {report.kennaCreatedEstimates == null
+                  ? "Unavailable until the API includes Kenna reporter estimates (deploy backend leaderboard)"
+                  : report.kennaCreatedEstimates.configured === false
+                    ? "Set JIRA_LEADERBOARD_BOSS_ACCOUNT_ID to enable"
+                    : `${report.kennaCreatedEstimates.issueCount} tickets with Kenna as reporter this month · missing estimates default to 1 · not Done-by-RP`}
               </CardContent>
             </Card>
           </div>
