@@ -3383,6 +3383,7 @@ export interface AdminJiraDeliveryRpRow {
   assigneeDisplayName: string;
   points: number;
   percentOfTotal: number;
+  suspended?: boolean;
 }
 
 export interface AdminJiraDeliveryEnvironmentRow {
@@ -3395,6 +3396,14 @@ export interface AdminJiraDeliveryTrendPoint {
   month: string;
   monthLabel: string;
   totalPoints: number;
+}
+
+export interface AdminJiraKennaCreatedEstimates {
+  displayName: string;
+  accountId: string | null;
+  points: number;
+  issueCount: number;
+  configured: boolean;
 }
 
 export interface AdminJiraDeliveryReport {
@@ -3410,6 +3419,7 @@ export interface AdminJiraDeliveryReport {
   byRp: AdminJiraDeliveryRpRow[];
   byEnvironment: AdminJiraDeliveryEnvironmentRow[];
   trend: AdminJiraDeliveryTrendPoint[];
+  kennaCreatedEstimates?: AdminJiraKennaCreatedEstimates;
   configured: boolean;
 }
 
