@@ -217,6 +217,22 @@ describe("posthog analytics", () => {
     expect(String(event?.properties?.$pathname)).not.toContain("cs_live_abc");
   });
 
+  it("sanitizes embedded $pathname query when $current_url is present", async () => {
+    const analytics = await import("./posthog-analytics");
+    const event = analytics.sanitizeCaptureResult({
+      event: "website_visit",
+      properties: {
+        $current_url: "https://portal.vpnkeen.com/account",
+        $pathname: "/account?token=secret-value",
+        $host: "portal.vpnkeen.com",
+      },
+    });
+
+    expect(String(event?.properties?.$pathname)).toBe("/account");
+    expect(String(event?.properties?.$pathname)).not.toContain("secret-value");
+    expect(String(event?.properties?.$current_url)).not.toContain("secret-value");
+  });
+
   it("opts out staff learned after init without recursing", async () => {
     const analytics = await import("./posthog-analytics");
     expect(analytics.initializePostHog()).toBe(true);

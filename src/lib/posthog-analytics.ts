@@ -235,9 +235,12 @@ function sanitizeEventProperties(
   if (rawUrl) {
     try {
       const parsed = new URL(rawUrl);
+      const pathnameSource =
+        typeof next.$pathname === "string" ? next.$pathname : parsed.pathname;
+      const [pathnamePart, embeddedSearch = ""] = pathnameSource.split("?");
       const sanitized = sanitizeAnalyticsLocation(
-        typeof next.$pathname === "string" ? next.$pathname : parsed.pathname,
-        parsed.search,
+        pathnamePart.startsWith("/") ? pathnamePart : `/${pathnamePart}`,
+        parsed.search || (embeddedSearch ? `?${embeddedSearch}` : ""),
         `${parsed.protocol}//${parsed.host}`,
       );
       next.$current_url = sanitized.url;
@@ -247,7 +250,12 @@ function sanitizeEventProperties(
       processedKeys.add("$pathname");
       processedKeys.add("$host");
       if (typeof next.path === "string") {
-        next.path = sanitized.path;
+        const [pathPart, pathSearch = ""] = next.path.split("?");
+        const sanitizedPath = sanitizeAnalyticsLocation(
+          pathPart.startsWith("/") ? pathPart : `/${pathPart}`,
+          pathSearch ? `?${pathSearch}` : parsed.search,
+        );
+        next.path = sanitizedPath.path;
         processedKeys.add("path");
       }
     } catch {
