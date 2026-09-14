@@ -43,21 +43,50 @@ import {
   maybeAutoReturnToKeenVpnAppAfterAuth,
 } from "@/lib/keenvpn-deep-links";
 import {
+  isStripeCheckoutReturn,
+} from "@/lib/keenvpn-deep-links";
+import {
   trackPostHogSubscriptionStarted,
   trackPostHogTrialStarted,
 } from "@/lib/posthog-analytics";
 import { trackRedditConfirmedTrial } from "@/lib/reddit-analytics";
 
-function isFreshStripeCheckoutReturn(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    if (new URLSearchParams(window.location.search).get("session_id")) {
-      return true;
-    }
-    return Boolean(sessionStorage.getItem("keenvpn_stripe_checkout_return"));
-  } catch {
-    return false;
+/** Client checkout marker alone is not enough — require a newly started sub from the API. */
+function isServerConfirmedFreshPaidSubscription(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (!subscription) return false;
+  if (typeof subscription.daysSinceSubscriptionStart === "number") {
+    return subscription.daysSinceSubscriptionStart <= 0;
   }
+  if (subscription.subscriptionStartedAt) {
+    const startedAt = new Date(subscription.subscriptionStartedAt).getTime();
+    if (!Number.isNaN(startedAt)) {
+      return Date.now() - startedAt <= 24 * 60 * 60 * 1000;
+    }
+  }
+  return false;
+}
+
+function consumeFreshCheckoutConversionSignal(): boolean {
+  if (typeof window === "undefined") return false;
+  let sessionId: string | null = null;
+  try {
+    sessionId = new URLSearchParams(window.location.search).get("session_id");
+  } catch {
+    sessionId = null;
+  }
+  const hasCheckoutMarker = isStripeCheckoutReturn() || Boolean(sessionId);
+  if (!hasCheckoutMarker) return false;
+
+  const consumeKey = `keen_posthog_checkout_conversion:${sessionId ?? "marker"}`;
+  try {
+    if (sessionStorage.getItem(consumeKey) === "1") return false;
+    sessionStorage.setItem(consumeKey, "1");
+  } catch {
+    /* storage blocked — still allow a single attempt this call */
+  }
+  return true;
 }
 
 // ============================================================================
@@ -283,9 +312,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               response.redditTrialConversionId,
             );
           }
-          // Stripe checkout return lands with ?session_id=… (or stores the
-          // return marker). Historical logins never have that signal.
-          if (paidActive && isFreshStripeCheckoutReturn()) {
+          // Fresh paid conversion: require checkout return marker AND a
+          // server-reported newly started subscription. Consume a one-shot
+          // analytics marker so stale/replayed ?session_id= URLs cannot re-emit.
+          if (
+            paidActive &&
+            consumeFreshCheckoutConversionSignal() &&
+            isServerConfirmedFreshPaidSubscription(response.subscription)
+          ) {
             trackPostHogSubscriptionStarted(userId, {
               subscription_status: response.subscription?.status ?? null,
               billing_period: response.subscription?.billingPeriod ?? null,

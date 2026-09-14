@@ -224,6 +224,7 @@ function sanitizeEventProperties(
   if (!properties) return properties;
   const next: Record<string, unknown> = { ...properties };
   const includeLocationFallback = options?.includeLocationFallback !== false;
+  const processedKeys = new Set<string>();
 
   const rawUrl =
     typeof next.$current_url === "string"
@@ -242,31 +243,43 @@ function sanitizeEventProperties(
       next.$current_url = sanitized.url;
       next.$pathname = sanitized.pathname;
       next.$host = sanitized.host || parsed.host;
+      processedKeys.add("$current_url");
+      processedKeys.add("$pathname");
+      processedKeys.add("$host");
       if (typeof next.path === "string") {
         next.path = sanitized.path;
+        processedKeys.add("path");
       }
     } catch {
-      /* ignore malformed urls */
+      // Parse failed — fall through so the loop can still redact string fields.
     }
   } else if (typeof next.$pathname === "string") {
     const sanitized = sanitizeAnalyticsLocation(next.$pathname, "");
     next.$pathname = sanitized.pathname;
+    processedKeys.add("$pathname");
   }
 
-  // Re-sanitize other URL-like fields, but do not re-process the standard
-  // page fields above — sanitizeAnalyticsUrlValue would turn path/host into
-  // absolute URLs and corrupt PostHog breakdowns.
-  const alreadySanitized = new Set([
-    "$current_url",
-    "$pathname",
-    "$host",
-    "path",
-  ]);
+  // Re-sanitize other URL-like fields. Skip only keys this pass already
+  // rewrote as path/host (not absolute URLs). Unprocessed path/$host still
+  // need redaction when $current_url was absent or malformed.
   for (const [key, value] of Object.entries(next)) {
-    if (alreadySanitized.has(key)) continue;
-    if (typeof value === "string" && shouldSanitizeUrlProperty(key)) {
-      next[key] = sanitizeAnalyticsUrlValue(value);
+    if (processedKeys.has(key)) continue;
+    if (typeof value !== "string" || !shouldSanitizeUrlProperty(key)) continue;
+
+    if (key === "$pathname" || key === "path") {
+      const [pathnamePart, searchPart = ""] = value.split("?");
+      const sanitized = sanitizeAnalyticsLocation(
+        pathnamePart.startsWith("/") ? pathnamePart : `/${pathnamePart}`,
+        searchPart ? `?${searchPart}` : "",
+      );
+      next[key] = key === "path" ? sanitized.path : sanitized.pathname;
+      continue;
     }
+    if (key === "$host") {
+      // Host alone is not a credential bearer; leave as-is when unset above.
+      continue;
+    }
+    next[key] = sanitizeAnalyticsUrlValue(value);
   }
 
   return next;
