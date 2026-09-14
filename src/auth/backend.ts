@@ -3922,6 +3922,9 @@ const stickerLandingInFlightByKey = new Map<string, Promise<void>>();
 
 /** Records signup_started with stored first-touch UTMs (pre-account). */
 export async function recordSignupStarted(): Promise<void> {
+  // PostHog funnel step must fire for direct/no-UTM signups too.
+  trackPostHogSignupStarted();
+
   const payload = getUtmAttributionAuthPayload();
   if (!payload.utmAttribution) return;
 
@@ -3964,7 +3967,6 @@ export async function recordSignupStarted(): Promise<void> {
           /* private mode / blocked storage */
         }
       }
-      trackPostHogSignupStarted();
     } catch {
       /* non-fatal */
     } finally {

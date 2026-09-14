@@ -16,6 +16,30 @@ const INTERNAL_EMAIL_DOMAINS = (
 
 const EVENT_DEDUPE_PREFIX = "keen_posthog_event:";
 const INTERNAL_SESSION_KEY = "keen_posthog_internal";
+const INTERNAL_PERSIST_KEY = "keen_posthog_internal_persist";
+
+const SENSITIVE_QUERY_KEYS = new Set([
+  "token",
+  "session_id",
+  "sessiontoken",
+  "session_token",
+  "code",
+  "otp",
+  "password",
+  "secret",
+  "access_token",
+  "id_token",
+  "refresh_token",
+  "api_key",
+  "apikey",
+  "authorization",
+  "auth",
+  "email_token",
+  "magic_token",
+  "winback_token",
+  "retention_token",
+  "key",
+]);
 
 let initialized = false;
 let capturingDisabled = false;
@@ -49,6 +73,45 @@ export function isInternalEmail(email: string | null | undefined): boolean {
   return domain ? INTERNAL_EMAIL_DOMAINS.includes(domain) : false;
 }
 
+/** Strip credential-bearing query params and opaque path tokens before analytics. */
+export function sanitizeAnalyticsLocation(
+  pathname: string,
+  search = "",
+  origin = typeof window !== "undefined" ? window.location.origin : "",
+): { path: string; url: string } {
+  const params = new URLSearchParams(
+    search.startsWith("?") ? search.slice(1) : search,
+  );
+  for (const key of [...params.keys()]) {
+    const normalized = key.toLowerCase();
+    if (
+      SENSITIVE_QUERY_KEYS.has(normalized) ||
+      normalized.includes("token") ||
+      normalized.includes("secret") ||
+      normalized.includes("password")
+    ) {
+      params.set(key, "[redacted]");
+    }
+  }
+
+  const safePath = pathname
+    .split("/")
+    .map((segment) => {
+      if (!segment) return segment;
+      // Long opaque segments (magic links, JWTs, session ids)
+      if (segment.length >= 32 && /^[A-Za-z0-9_-]+$/.test(segment)) {
+        return "[redacted]";
+      }
+      return segment;
+    })
+    .join("/");
+
+  const query = params.toString();
+  const path = query ? `${safePath}?${query}` : safePath;
+  const url = origin ? `${origin}${path}` : path;
+  return { path, url };
+}
+
 function shouldDisableCapturing(): boolean {
   if (typeof window === "undefined") return true;
   if (import.meta.env.DEV && import.meta.env.VITE_POSTHOG_ENABLE_DEV !== "true") {
@@ -56,18 +119,24 @@ function shouldDisableCapturing(): boolean {
   }
   try {
     if (sessionStorage.getItem(INTERNAL_SESSION_KEY) === "1") return true;
+    if (localStorage.getItem(INTERNAL_PERSIST_KEY) === "1") return true;
   } catch {
     /* storage blocked */
   }
   if (new URLSearchParams(window.location.search).get("ph_internal") === "1") {
-    try {
-      sessionStorage.setItem(INTERNAL_SESSION_KEY, "1");
-    } catch {
-      /* storage blocked */
-    }
+    persistInternalOptOut();
     return true;
   }
   return false;
+}
+
+function persistInternalOptOut(): void {
+  try {
+    sessionStorage.setItem(INTERNAL_SESSION_KEY, "1");
+    localStorage.setItem(INTERNAL_PERSIST_KEY, "1");
+  } catch {
+    /* storage blocked */
+  }
 }
 
 export function initializePostHog(): boolean {
@@ -95,6 +164,7 @@ export function initializePostHog(): boolean {
         keen_app: "portal",
       });
       if (capturingDisabled) {
+        client.register({ is_internal: true });
         client.opt_out_capturing();
       }
     },
@@ -125,12 +195,7 @@ export function markInternalTraffic(email?: string | null): void {
   const internal = isInternalEmail(email);
   if (!internal) return;
 
-  try {
-    sessionStorage.setItem(INTERNAL_SESSION_KEY, "1");
-  } catch {
-    /* storage blocked */
-  }
-
+  persistInternalOptOut();
   posthog.register({ is_internal: true });
   if (!capturingDisabled) {
     posthog.opt_out_capturing();
@@ -158,24 +223,26 @@ export function trackPostHogEvent(
   eventName: string,
   payload: PostHogPayload = {},
   dedupeKey?: string,
+  options?: { persistent?: boolean },
 ): void {
   if (!initializePostHog() || capturingDisabled) return;
-  if (dedupeKey && wasTracked(dedupeKey)) return;
+  if (dedupeKey && wasTracked(dedupeKey, options?.persistent === true)) return;
 
   posthog.capture(eventName, {
     ...getAttributionProperties(),
     ...payload,
   });
-  if (dedupeKey) markTracked(dedupeKey);
+  if (dedupeKey) markTracked(dedupeKey, options?.persistent === true);
 }
 
-export function trackPostHogPageView(path: string): void {
+export function trackPostHogPageView(pathname: string, search = ""): void {
   if (!initializePostHog() || capturingDisabled) return;
 
+  const { path, url } = sanitizeAnalyticsLocation(pathname, search);
   posthog.capture("$pageview", {
     ...getAttributionProperties(),
     path,
-    $current_url: window.location.href,
+    $current_url: url,
   });
   trackPostHogEvent("website_visit", { path });
 }
@@ -190,6 +257,7 @@ export function trackPostHogAccountCreated(userId: string): void {
     "user_account_created",
     { user_id: userId },
     `user_account_created:${userId}`,
+    { persistent: true },
   );
 }
 
@@ -201,7 +269,8 @@ export function trackPostHogTrialStarted(userId: string, conversionId?: string):
       user_id: userId,
       conversion_id: conversionId ?? null,
     },
-    `trial_started:${conversionId ?? userId}`,
+    `trial_started:${userId}`,
+    { persistent: true },
   );
 }
 
@@ -217,6 +286,7 @@ export function trackPostHogSubscriptionStarted(
       ...properties,
     },
     `subscription_started:${userId}`,
+    { persistent: true },
   );
 }
 
@@ -227,18 +297,26 @@ export function forwardProductEventToPostHog(
   trackPostHogEvent(eventName, payload);
 }
 
-function wasTracked(key: string): boolean {
+function storageGet(key: string, persistent: boolean): string | null {
   try {
-    return sessionStorage.getItem(`${EVENT_DEDUPE_PREFIX}${key}`) === "1";
+    return (persistent ? localStorage : sessionStorage).getItem(key);
   } catch {
-    return false;
+    return null;
   }
 }
 
-function markTracked(key: string): void {
+function storageSet(key: string, persistent: boolean): void {
   try {
-    sessionStorage.setItem(`${EVENT_DEDUPE_PREFIX}${key}`, "1");
+    (persistent ? localStorage : sessionStorage).setItem(key, "1");
   } catch {
     /* storage blocked */
   }
+}
+
+function wasTracked(key: string, persistent: boolean): boolean {
+  return storageGet(`${EVENT_DEDUPE_PREFIX}${key}`, persistent) === "1";
+}
+
+function markTracked(key: string, persistent: boolean): void {
+  storageSet(`${EVENT_DEDUPE_PREFIX}${key}`, persistent);
 }

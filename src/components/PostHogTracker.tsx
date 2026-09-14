@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -11,30 +11,35 @@ import {
 
 export default function PostHogTracker() {
   const location = useLocation();
-  const { user, authProvider } = useAuth();
+  const { user, keenUserId, authProvider, loading } = useAuth();
+  const wasIdentifiedRef = useRef(false);
 
   useEffect(() => {
     initializePostHog();
   }, []);
 
   useEffect(() => {
-    const path = `${location.pathname}${location.search}`;
-    trackPostHogPageView(path);
+    trackPostHogPageView(location.pathname, location.search);
   }, [location.pathname, location.search]);
 
   useEffect(() => {
-    if (!user) {
-      resetPostHogUser();
+    // Wait for auth bootstrap so the initial anonymous pageview is not reset.
+    if (loading) return;
+
+    if (!user || !keenUserId) {
+      if (wasIdentifiedRef.current) {
+        resetPostHogUser();
+        wasIdentifiedRef.current = false;
+      }
       return;
     }
 
     markInternalTraffic(user.email);
-    if (user.uid) {
-      identifyPostHogUser(user.uid, {
-        auth_provider: authProvider ?? user.providerData[0]?.providerId ?? null,
-      });
-    }
-  }, [user, authProvider]);
+    identifyPostHogUser(keenUserId, {
+      auth_provider: authProvider ?? user.providerData[0]?.providerId ?? null,
+    });
+    wasIdentifiedRef.current = true;
+  }, [user, keenUserId, authProvider, loading]);
 
   return null;
 }
