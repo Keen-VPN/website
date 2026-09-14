@@ -42,6 +42,10 @@ import {
   clearStripeCheckoutReturn,
   maybeAutoReturnToKeenVpnAppAfterAuth,
 } from "@/lib/keenvpn-deep-links";
+import {
+  trackPostHogSubscriptionStarted,
+  trackPostHogTrialStarted,
+} from "@/lib/posthog-analytics";
 import { trackRedditConfirmedTrial } from "@/lib/reddit-analytics";
 
 // ============================================================================
@@ -116,6 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
   /** Guards against duplicate authenticateWithBackend calls (signIn + onAuthStateChanged or double-click). */
   const backendAuthInProgressRef = useRef(false);
+  const userRef = useRef<FirebaseUser | null>(null);
   const signupSourceCheckedRef = useRef(false);
   const [signupSourceDialogOpen, setSignupSourceDialogOpen] = useState(false);
   const [contactEmailDialogOpen, setContactEmailDialogOpen] = useState(false);
@@ -173,6 +178,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Subscription Management
   // ============================================================================
 
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
   const fetchSubscriptionFromBackend = React.useCallback(async (sessionToken: string) => {
     if (getSessionToken() === sessionToken) {
       setEntitlementsStatus("loading");
@@ -190,11 +199,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTrial(response.trial ?? null);
         setEntitlements(response.entitlements);
         setEntitlementsStatus(response.entitlements ? "ready" : "error");
+        const userId = userRef.current?.uid;
+        const subscriptionStatus = response.subscription?.status?.toLowerCase();
+        const trialActive =
+          response.trial?.active || subscriptionStatus === "trialing";
+
         if (
           response.trial?.active &&
           response.redditTrialConversionId
         ) {
           trackRedditConfirmedTrial(response.redditTrialConversionId);
+        }
+        if (trialActive && userId) {
+          trackPostHogTrialStarted(
+            userId,
+            response.redditTrialConversionId ?? undefined,
+          );
+        }
+        if (
+          userId &&
+          subscriptionStatus === "active" &&
+          !trialActive
+        ) {
+          trackPostHogSubscriptionStarted(userId, {
+            subscription_status: response.subscription?.status ?? null,
+            billing_period: response.subscription?.billingPeriod ?? null,
+            plan_id: response.subscription?.planId ?? null,
+          });
         }
         return response.subscription;
       }

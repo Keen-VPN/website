@@ -12,6 +12,7 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import UtmCapture from "@/components/UtmCapture";
+import PostHogTracker from "@/components/PostHogTracker";
 import RedditPixelTracker from "@/components/RedditPixelTracker";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import MarketingSiteRedirect from "@/components/MarketingSiteRedirect";
@@ -188,6 +189,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <UtmCapture />
+          <PostHogTracker />
           <RedditPixelTracker />
           <Suspense fallback={<PageLoader />}>
             <Routes>
