@@ -42,7 +42,69 @@ import {
   clearStripeCheckoutReturn,
   maybeAutoReturnToKeenVpnAppAfterAuth,
 } from "@/lib/keenvpn-deep-links";
+import {
+  isStripeCheckoutReturn,
+} from "@/lib/keenvpn-deep-links";
+import {
+  trackPostHogSubscriptionStarted,
+  trackPostHogTrialStarted,
+} from "@/lib/posthog-analytics";
 import { trackRedditConfirmedTrial } from "@/lib/reddit-analytics";
+
+/** Client checkout marker alone is not enough — require a newly started sub from the API. */
+function isServerConfirmedFreshPaidSubscription(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  if (!subscription) return false;
+  if (typeof subscription.daysSinceSubscriptionStart === "number") {
+    return subscription.daysSinceSubscriptionStart <= 0;
+  }
+  if (subscription.subscriptionStartedAt) {
+    const startedAt = new Date(subscription.subscriptionStartedAt).getTime();
+    if (!Number.isNaN(startedAt)) {
+      return Date.now() - startedAt <= 24 * 60 * 60 * 1000;
+    }
+  }
+  return false;
+}
+
+function peekFreshCheckoutConversionSignal(): {
+  active: boolean;
+  consumeKey: string | null;
+} {
+  if (typeof window === "undefined") {
+    return { active: false, consumeKey: null };
+  }
+  let sessionId: string | null = null;
+  try {
+    sessionId = new URLSearchParams(window.location.search).get("session_id");
+  } catch {
+    sessionId = null;
+  }
+  const hasCheckoutMarker = isStripeCheckoutReturn() || Boolean(sessionId);
+  if (!hasCheckoutMarker) {
+    return { active: false, consumeKey: null };
+  }
+
+  const consumeKey = `keen_posthog_checkout_conversion:${sessionId ?? "marker"}`;
+  try {
+    if (sessionStorage.getItem(consumeKey) === "1") {
+      return { active: false, consumeKey: null };
+    }
+  } catch {
+    /* storage blocked — still allow attempt */
+  }
+  return { active: true, consumeKey };
+}
+
+function markCheckoutConversionConsumed(consumeKey: string | null): void {
+  if (!consumeKey) return;
+  try {
+    sessionStorage.setItem(consumeKey, "1");
+  } catch {
+    /* storage blocked */
+  }
+}
 
 // ============================================================================
 // Context Types
@@ -57,6 +119,8 @@ type EntitlementsStatus = "idle" | "loading" | "ready" | "error";
 
 interface AuthContextType {
   user: FirebaseUser | null;
+  /** Internal KeenVPN user id from the backend (never Firebase UID). */
+  keenUserId: string | null;
   subscription: SubscriptionData | null;
   trial: TrialData | null;
   entitlements: UserEntitlements | null;
@@ -83,6 +147,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [keenUserId, setKeenUserId] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [trial, setTrial] = useState<TrialData | null>(null);
   const [entitlements, setEntitlements] = useState<UserEntitlements | null>(null);
@@ -116,6 +181,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
   /** Guards against duplicate authenticateWithBackend calls (signIn + onAuthStateChanged or double-click). */
   const backendAuthInProgressRef = useRef(false);
+  const keenUserIdRef = useRef<string | null>(null);
+  const prevTrialActiveRef = useRef(false);
+  const prevPaidActiveRef = useRef(false);
+  const subscriptionLifecycleSeededRef = useRef(false);
   const signupSourceCheckedRef = useRef(false);
   const [signupSourceDialogOpen, setSignupSourceDialogOpen] = useState(false);
   const [contactEmailDialogOpen, setContactEmailDialogOpen] = useState(false);
@@ -173,6 +242,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Subscription Management
   // ============================================================================
 
+  useEffect(() => {
+    keenUserIdRef.current = keenUserId;
+  }, [keenUserId]);
+
+  const clearAuthIdentity = React.useCallback(() => {
+    setKeenUserId(null);
+    keenUserIdRef.current = null;
+    prevTrialActiveRef.current = false;
+    prevPaidActiveRef.current = false;
+    subscriptionLifecycleSeededRef.current = false;
+  }, []);
+
+  const rememberKeenUserId = React.useCallback((id: string | null | undefined) => {
+    if (!id) return;
+    setKeenUserId(id);
+    keenUserIdRef.current = id;
+  }, []);
+
   const fetchSubscriptionFromBackend = React.useCallback(async (sessionToken: string) => {
     if (getSessionToken() === sessionToken) {
       setEntitlementsStatus("loading");
@@ -190,12 +277,113 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTrial(response.trial ?? null);
         setEntitlements(response.entitlements);
         setEntitlementsStatus(response.entitlements ? "ready" : "error");
+
+        let userId = keenUserIdRef.current;
+        // Subscription can succeed before identity restore. Retry verification
+        // here so funnel events are not dropped for the whole session.
+        if (!userId && getSessionToken() === sessionToken) {
+          try {
+            const verified = await verifySessionToken(sessionToken);
+            if (
+              verified.success &&
+              verified.user?.id &&
+              getSessionToken() === sessionToken
+            ) {
+              rememberKeenUserId(verified.user.id);
+              userId = verified.user.id;
+            }
+          } catch {
+            // Non-fatal — funnel events stay deferred until a later refresh.
+          }
+        }
+
+        const subscriptionStatus = response.subscription?.status?.toLowerCase();
+        const trialActive =
+          Boolean(response.trial?.active) || subscriptionStatus === "trialing";
+        // Independent of trial.active — converted users may still have an
+        // active trial flag while subscription status is already paid.
+        const paidActive = subscriptionStatus === "active";
+
         if (
           response.trial?.active &&
           response.redditTrialConversionId
         ) {
           trackRedditConfirmedTrial(response.redditTrialConversionId);
         }
+        // Without a backend user id, skip funnel emission and do not advance
+        // transition flags — a later fetch after identity restore can emit once.
+        if (!userId) {
+          return response.subscription;
+        }
+
+        // Seed historical subscription/trial state on first observation so a
+        // returning subscriber is not counted as a fresh conversion. Emit on
+        // first observation only for fresh backend/checkout conversion signals.
+        if (!subscriptionLifecycleSeededRef.current) {
+          const checkoutSignal = peekFreshCheckoutConversionSignal();
+          const freshPaidConfirmed =
+            paidActive &&
+            checkoutSignal.active &&
+            isServerConfirmedFreshPaidSubscription(response.subscription);
+
+          prevTrialActiveRef.current = trialActive;
+          // If checkout is still hydrating, keep prior paid=false so a later
+          // refresh can emit when the server confirms a newly started sub.
+          prevPaidActiveRef.current =
+            paidActive && !(checkoutSignal.active && !freshPaidConfirmed);
+          subscriptionLifecycleSeededRef.current = true;
+
+          if (trialActive && response.redditTrialConversionId) {
+            trackPostHogTrialStarted(
+              userId,
+              response.redditTrialConversionId,
+            );
+          }
+          if (freshPaidConfirmed) {
+            trackPostHogSubscriptionStarted(userId, {
+              subscription_status: response.subscription?.status ?? null,
+              billing_period: response.subscription?.billingPeriod ?? null,
+              plan_id: response.subscription?.planId ?? null,
+              checkout_return: true,
+            });
+            markCheckoutConversionConsumed(checkoutSignal.consumeKey);
+          }
+          return response.subscription;
+        }
+
+        // Only emit on genuine in-session transitions into trial/paid.
+        if (trialActive && !prevTrialActiveRef.current) {
+          trackPostHogTrialStarted(
+            userId,
+            response.redditTrialConversionId ?? undefined,
+          );
+        }
+        if (paidActive && !prevPaidActiveRef.current) {
+          const checkoutSignal = peekFreshCheckoutConversionSignal();
+          const freshPaidConfirmed =
+            checkoutSignal.active &&
+            isServerConfirmedFreshPaidSubscription(response.subscription);
+
+          // Checkout-return path: wait for server-confirmed fresh start.
+          // Non-checkout transitions (in-app upgrade) emit normally.
+          if (!checkoutSignal.active || freshPaidConfirmed) {
+            trackPostHogSubscriptionStarted(userId, {
+              subscription_status: response.subscription?.status ?? null,
+              billing_period: response.subscription?.billingPeriod ?? null,
+              plan_id: response.subscription?.planId ?? null,
+              checkout_return: Boolean(freshPaidConfirmed),
+            });
+            if (freshPaidConfirmed) {
+              markCheckoutConversionConsumed(checkoutSignal.consumeKey);
+            }
+            prevPaidActiveRef.current = true;
+          }
+        } else if (paidActive) {
+          prevPaidActiveRef.current = true;
+        } else {
+          prevPaidActiveRef.current = false;
+        }
+        prevTrialActiveRef.current = trialActive;
         return response.subscription;
       }
       if (response.unauthorized) {
@@ -207,6 +395,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setHasSessionToken(false);
           setAuthProvider(null);
           setUser(null);
+          clearAuthIdentity();
           setLinkedProviders(null);
           setSubscription(null);
           setTrial(null);
@@ -228,7 +417,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return null;
     }
-  }, [setAuthProvider]);
+  }, [setAuthProvider, clearAuthIdentity, rememberKeenUserId]);
 
   const syncHasSessionToken = React.useCallback(() => {
     setHasSessionToken(Boolean(getSessionToken()));
@@ -345,6 +534,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (backendResponse?.success && backendResponse?.sessionToken) {
               storeSessionToken(backendResponse.sessionToken);
               setHasSessionToken(true);
+              rememberKeenUserId(backendResponse.user?.id);
               setSubscription(backendResponse.subscription || null);
               setTrial(backendResponse.trial ?? null);
               setAuthProvider(providerType);
@@ -383,6 +573,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
               // Clear user state
               setUser(null);
+              clearAuthIdentity();
               setSubscription(null);
               setTrial(null);
               setEntitlements(null);
@@ -405,6 +596,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setHasSessionToken(false);
               setAuthProvider(null);
               setUser(null);
+              clearAuthIdentity();
               setSubscription(null);
               setTrial(null);
               setEntitlements(null);
@@ -436,6 +628,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (response.success && response.user && mounted) {
             // Create a mock Firebase user for compatibility
+            rememberKeenUserId(response.user.id);
             setUser({
               uid: response.user.id,
               email: response.user.email,
@@ -506,6 +699,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const sessionToken = getSessionToken();
           setHasSessionToken(Boolean(sessionToken));
           if (sessionToken) {
+            // Session may exist while keenUserId is still cold (e.g. verify
+            // failed during bootstrap). Restore backend id before subscription
+            // fetch so PostHog funnel events are not skipped forever.
+            if (!keenUserIdRef.current) {
+              try {
+                const verified = await verifySessionToken(sessionToken);
+                if (
+                  verified.success &&
+                  verified.user?.id &&
+                  getSessionToken() === sessionToken
+                ) {
+                  rememberKeenUserId(verified.user.id);
+                }
+              } catch {
+                // Non-fatal — subscription fetch still runs below.
+              }
+            }
             await fetchSubscriptionFromBackend(sessionToken);
           } else if (!backendAuthInProgressRef.current) {
             // Firebase user exists but no backend session — get session via login (Firebase token).
@@ -519,6 +729,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (backendResponse.success && backendResponse.sessionToken) {
                 storeSessionToken(backendResponse.sessionToken);
                 setHasSessionToken(true);
+                rememberKeenUserId(backendResponse.user?.id);
                 setSubscription(backendResponse.subscription || null);
                 setTrial(backendResponse.trial ?? null);
                 void fetchSubscriptionFromBackend(backendResponse.sessionToken);
@@ -543,6 +754,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setHasSessionToken(false);
                 setAuthProvider(null);
                 setUser(null);
+                clearAuthIdentity();
                 setSubscription(null);
                 setTrial(null);
                 setEntitlements(null);
@@ -568,6 +780,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSubscription(null);
             setTrial(null);
             setEntitlements(null);
+            clearAuthIdentity();
           }
           setAuthProvider(null);
           syncHasSessionToken();
@@ -610,6 +823,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setHasSessionToken(false);
           setAuthProvider(null);
           setUser(null);
+          clearAuthIdentity();
           setLinkedProviders(null);
           setSubscription(null);
           setTrial(null);
@@ -794,6 +1008,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setHasSessionToken(false);
               setAuthProvider(null);
               setUser(null);
+              clearAuthIdentity();
               setSubscription(null);
               setTrial(null);
               setEntitlements(null);
@@ -808,6 +1023,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           setSubscription(response.subscription || null);
           setTrial(response.trial ?? null);
+          rememberKeenUserId(response.user?.id);
           void fetchSubscriptionFromBackend(token);
           if (window.location.pathname === '/signin') {
             if (isASWebSession()) {
@@ -855,6 +1071,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         backendAuthInProgressRef.current = false;
         storeSessionToken(backendResponse.sessionToken);
         setHasSessionToken(true);
+        rememberKeenUserId(backendResponse.user?.id);
         setSubscription(backendResponse.subscription || null);
         setTrial(backendResponse.trial ?? null);
         void fetchSubscriptionFromBackend(backendResponse.sessionToken);
@@ -901,6 +1118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Clear user state
         setUser(null);
+        clearAuthIdentity();
         setSubscription(null);
         setTrial(null);
         setEntitlements(null);
@@ -928,6 +1146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setHasSessionToken(false);
         setAuthProvider(null);
         setUser(null);
+        clearAuthIdentity();
         setSubscription(null);
         setTrial(null);
         setEntitlements(null);
@@ -974,6 +1193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSignupSourceDialogOpen(false);
       setHasSessionToken(false);
       setUser(null);
+      clearAuthIdentity();
       setSubscription(null);
       setTrial(null);
       setEntitlements(null);
@@ -993,7 +1213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       return false;
     }
-  }, [toast, setAuthProvider]);
+  }, [toast, setAuthProvider, clearAuthIdentity]);
 
   // ============================================================================
   // Refresh Subscription
@@ -1036,6 +1256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value = React.useMemo<AuthContextType>(() => ({
     user,
+    keenUserId,
     subscription,
     trial,
     entitlements,
@@ -1050,7 +1271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshSubscription,
     patchSubscription,
     refreshLinkedProviders,
-  }), [user, subscription, trial, entitlements, entitlementsStatus, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, patchSubscription, refreshLinkedProviders]);
+  }), [user, keenUserId, subscription, trial, entitlements, entitlementsStatus, loading, isAuthenticating, hasSessionToken, linkedProviders, authProvider, signIn, logout, refreshSubscription, patchSubscription, refreshLinkedProviders]);
 
   const sessionTokenForDialogs = React.useMemo(() => {
     if (

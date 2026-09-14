@@ -19,6 +19,10 @@ import {
   getUtmAttributionAuthPayload,
 } from "@/lib/utm-attribution";
 import { buildAuthDeepLink } from "@/lib/keenvpn-deep-links";
+import {
+  trackPostHogAccountCreated,
+  trackPostHogSignupStarted,
+} from "@/lib/posthog-analytics";
 import { trackRedditLeadCompleted } from "@/lib/reddit-analytics";
 
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "/api";
@@ -28,6 +32,7 @@ function trackNewAccount(response: BackendAuthResponse): void {
     response.createdUser === true || response.user?.createdUser === true;
   if (createdUser && response.user?.id) {
     trackRedditLeadCompleted(response.user.id);
+    trackPostHogAccountCreated(response.user.id);
   }
 }
 
@@ -3917,6 +3922,9 @@ const stickerLandingInFlightByKey = new Map<string, Promise<void>>();
 
 /** Records signup_started with stored first-touch UTMs (pre-account). */
 export async function recordSignupStarted(): Promise<void> {
+  // PostHog funnel step must fire for direct/no-UTM signups too.
+  trackPostHogSignupStarted();
+
   const payload = getUtmAttributionAuthPayload();
   if (!payload.utmAttribution) return;
 
