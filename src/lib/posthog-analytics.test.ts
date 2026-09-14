@@ -27,6 +27,7 @@ describe("posthog analytics", () => {
     vi.stubEnv("VITE_POSTHOG_ENABLE_DEV", "true");
     sessionStorage.clear();
     localStorage.clear();
+    window.history.pushState({}, "", "/");
     capture.mockClear();
     identify.mockClear();
     init.mockClear();
@@ -42,6 +43,9 @@ describe("posthog analytics", () => {
   });
 
   afterEach(() => {
+    window.history.pushState({}, "", "/");
+    sessionStorage.clear();
+    localStorage.clear();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
@@ -62,11 +66,14 @@ describe("posthog analytics", () => {
 
   it("opts out during init when ph_internal=1", async () => {
     window.history.pushState({}, "", "/?ph_internal=1");
-    const analytics = await import("./posthog-analytics");
-    analytics.initializePostHog();
-    expect(optOut).toHaveBeenCalled();
-    expect(localStorage.getItem("keen_posthog_internal_persist")).toBe("1");
-    window.history.pushState({}, "", "/");
+    try {
+      const analytics = await import("./posthog-analytics");
+      analytics.initializePostHog();
+      expect(optOut).toHaveBeenCalled();
+      expect(localStorage.getItem("keen_posthog_internal_persist")).toBe("1");
+    } finally {
+      window.history.pushState({}, "", "/");
+    }
   });
 
   it("deduplicates account_created events persistently", async () => {
@@ -83,6 +90,7 @@ describe("posthog analytics", () => {
       "user-1",
       expect.objectContaining({ keen_environment: expect.any(String) }),
     );
+    expect(analytics.hadIdentifiedPostHogUser()).toBe(true);
   });
 
   it("marks internal email domains and opts out", async () => {
@@ -98,7 +106,7 @@ describe("posthog analytics", () => {
   it("redacts credential-bearing URLs before pageview capture", async () => {
     const analytics = await import("./posthog-analytics");
     const sanitized = analytics.sanitizeAnalyticsLocation(
-      "/auth/magic/verify/abc123def456ghi789jkl012mno345pqr",
+      "/auth/magic/verify/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature",
       "?token=secret-value&utm_source=test",
       "https://portal.vpnkeen.com",
     );
@@ -106,7 +114,16 @@ describe("posthog analytics", () => {
     expect(sanitized.path).toContain("[redacted]");
     expect(sanitized.path).toContain("utm_source=test");
     expect(sanitized.path).not.toContain("secret-value");
+    expect(sanitized.path).not.toContain("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9");
     expect(sanitized.url).not.toContain("secret-value");
+
+    const percentEncoded = analytics.sanitizeAnalyticsLocation(
+      "/auth/callback/abc%2Bdef%2Fghi%3D0123456789abcdef0123456789abcdef",
+      "",
+      "https://portal.vpnkeen.com",
+    );
+    expect(percentEncoded.path).toContain("[redacted]");
+    expect(percentEncoded.path).not.toContain("%2B");
   });
 
   it("resolves staging hostnames without replacing window", async () => {
@@ -117,11 +134,13 @@ describe("posthog analytics", () => {
       value: { ...original, hostname: "staging-portal.vpnkeen.com" },
     });
 
-    expect(analytics.resolveKeenEnvironment()).toBe("staging");
-
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: original,
-    });
+    try {
+      expect(analytics.resolveKeenEnvironment()).toBe("staging");
+    } finally {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: original,
+      });
+    }
   });
 });

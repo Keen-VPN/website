@@ -234,15 +234,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ) {
           trackRedditConfirmedTrial(response.redditTrialConversionId);
         }
+        // Without a backend user id, skip funnel emission and do not advance
+        // transition flags — a later fetch after identity restore can emit once.
+        if (!userId) {
+          return response.subscription;
+        }
         // Only emit on transition into trial/paid so refreshes and returning
         // sessions do not re-count funnel conversions.
-        if (trialActive && userId && !prevTrialActiveRef.current) {
+        if (trialActive && !prevTrialActiveRef.current) {
           trackPostHogTrialStarted(
             userId,
             response.redditTrialConversionId ?? undefined,
           );
         }
-        if (paidActive && userId && !prevPaidActiveRef.current) {
+        if (paidActive && !prevPaidActiveRef.current) {
           trackPostHogSubscriptionStarted(userId, {
             subscription_status: response.subscription?.status ?? null,
             billing_period: response.subscription?.billingPeriod ?? null,
@@ -566,6 +571,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const sessionToken = getSessionToken();
           setHasSessionToken(Boolean(sessionToken));
           if (sessionToken) {
+            // Session may exist while keenUserId is still cold (e.g. verify
+            // failed during bootstrap). Restore backend id before subscription
+            // fetch so PostHog funnel events are not skipped forever.
+            if (!keenUserIdRef.current) {
+              try {
+                const verified = await verifySessionToken(sessionToken);
+                if (verified.success && verified.user?.id) {
+                  rememberKeenUserId(verified.user.id);
+                }
+              } catch {
+                // Non-fatal — subscription fetch still runs below.
+              }
+            }
             await fetchSubscriptionFromBackend(sessionToken);
           } else if (!backendAuthInProgressRef.current) {
             // Firebase user exists but no backend session — get session via login (Firebase token).

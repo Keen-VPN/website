@@ -17,6 +17,7 @@ const INTERNAL_EMAIL_DOMAINS = (
 const EVENT_DEDUPE_PREFIX = "keen_posthog_event:";
 const INTERNAL_SESSION_KEY = "keen_posthog_internal";
 const INTERNAL_PERSIST_KEY = "keen_posthog_internal_persist";
+const IDENTIFIED_PERSIST_KEY = "keen_posthog_identified";
 
 const SENSITIVE_QUERY_KEYS = new Set([
   "token",
@@ -40,6 +41,26 @@ const SENSITIVE_QUERY_KEYS = new Set([
   "retention_token",
   "key",
 ]);
+
+/** True for JWTs, percent-encoded blobs, and other long opaque credentials. */
+export function looksLikeOpaqueCredential(segment: string): boolean {
+  if (!segment || segment.length < 24) return false;
+  let decoded = segment;
+  try {
+    decoded = decodeURIComponent(segment);
+  } catch {
+    decoded = segment;
+  }
+  // JWT: header.payload.signature
+  if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(decoded)) {
+    return true;
+  }
+  // Long opaque segments including base64 / percent-encoding characters
+  if (decoded.length >= 32 && /^[A-Za-z0-9._%~+=-]+$/.test(decoded)) {
+    return true;
+  }
+  return false;
+}
 
 let initialized = false;
 let capturingDisabled = false;
@@ -98,8 +119,7 @@ export function sanitizeAnalyticsLocation(
     .split("/")
     .map((segment) => {
       if (!segment) return segment;
-      // Long opaque segments (magic links, JWTs, session ids)
-      if (segment.length >= 32 && /^[A-Za-z0-9_-]+$/.test(segment)) {
+      if (looksLikeOpaqueCredential(segment)) {
         return "[redacted]";
       }
       return segment;
@@ -212,11 +232,30 @@ export function identifyPostHogUser(
     ...properties,
     keen_environment: resolveKeenEnvironment(),
   });
+  try {
+    localStorage.setItem(IDENTIFIED_PERSIST_KEY, "1");
+  } catch {
+    /* storage blocked */
+  }
+}
+
+/** True when we previously identified a KeenVPN user in this browser. */
+export function hadIdentifiedPostHogUser(): boolean {
+  try {
+    return localStorage.getItem(IDENTIFIED_PERSIST_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export function resetPostHogUser(): void {
   if (!initialized) return;
   posthog.reset();
+  try {
+    localStorage.removeItem(IDENTIFIED_PERSIST_KEY);
+  } catch {
+    /* storage blocked */
+  }
 }
 
 export function trackPostHogEvent(
