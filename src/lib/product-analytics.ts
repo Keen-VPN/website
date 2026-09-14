@@ -1,4 +1,23 @@
+import { forwardProductEventToPostHog } from "@/lib/posthog-analytics";
+
 type ProductAnalyticsPayload = Record<string, string | number | boolean | null>;
+
+function emitProductEvent(
+  eventName: string,
+  payload: ProductAnalyticsPayload,
+  customEventName: string,
+): void {
+  if (typeof window === "undefined") return;
+
+  const detail = {
+    ...payload,
+    event: eventName,
+  };
+
+  window.dataLayer?.push(detail);
+  window.dispatchEvent(new CustomEvent(customEventName, { detail }));
+  forwardProductEventToPostHog(eventName, payload);
+}
 
 declare global {
   interface Window {
@@ -15,17 +34,7 @@ export function trackAnnualSubscriptionEvent(
   eventName: AnnualSubscriptionEventName,
   payload: ProductAnalyticsPayload = {},
 ): void {
-  if (typeof window === "undefined") return;
-
-  const detail = {
-    ...payload,
-    event: eventName,
-  };
-
-  window.dataLayer?.push(detail);
-  window.dispatchEvent(
-    new CustomEvent("keen_annual_subscription", { detail }),
-  );
+  emitProductEvent(eventName, payload, "keen_annual_subscription");
 }
 
 export type TwoYearSubscriptionEventName =
@@ -37,34 +46,14 @@ export function trackTwoYearSubscriptionEvent(
   eventName: TwoYearSubscriptionEventName,
   payload: ProductAnalyticsPayload = {},
 ): void {
-  if (typeof window === "undefined") return;
-
-  const detail = {
-    ...payload,
-    event: eventName,
-  };
-
-  window.dataLayer?.push(detail);
-  window.dispatchEvent(
-    new CustomEvent("keen_two_year_subscription", { detail }),
-  );
+  emitProductEvent(eventName, payload, "keen_two_year_subscription");
 }
 
 export function trackProductEngagement(
   eventName: "why_keenvpn_viewed" | "comparison_section_clicked",
   payload: ProductAnalyticsPayload = {},
 ): void {
-  if (typeof window === "undefined") return;
-
-  const detail = {
-    ...payload,
-    event: eventName,
-  };
-
-  window.dataLayer?.push(detail);
-  window.dispatchEvent(
-    new CustomEvent("keen_product_engagement", { detail }),
-  );
+  emitProductEvent(eventName, payload, "keen_product_engagement");
 }
 
 export type WorkspaceEventName =
@@ -75,15 +64,7 @@ export function trackWorkspaceEvent(
   eventName: WorkspaceEventName,
   payload: ProductAnalyticsPayload = {},
 ): void {
-  if (typeof window === "undefined") return;
-
-  const detail = {
-    ...payload,
-    event: eventName,
-  };
-
-  window.dataLayer?.push(detail);
-  window.dispatchEvent(new CustomEvent("keen_workspace", { detail }));
+  emitProductEvent(eventName, payload, "keen_workspace");
 }
 
 export type SwitchPageEventName =
@@ -96,15 +77,7 @@ export function trackSwitchPageEvent(
   eventName: SwitchPageEventName,
   payload: ProductAnalyticsPayload = {},
 ): void {
-  if (typeof window === "undefined") return;
-
-  const detail = {
-    ...payload,
-    event: eventName,
-  };
-
-  window.dataLayer?.push(detail);
-  window.dispatchEvent(new CustomEvent("keen_switch_page", { detail }));
+  emitProductEvent(eventName, payload, "keen_switch_page");
 }
 
 export type PerkAnalyticsEventName =
@@ -123,15 +96,7 @@ export function trackPerksEvent(
   eventName: PerkAnalyticsEventName,
   payload: ProductAnalyticsPayload = {},
 ): void {
-  if (typeof window === "undefined") return;
-
-  const detail = {
-    ...payload,
-    event: eventName,
-  };
-
-  window.dataLayer?.push(detail);
-  window.dispatchEvent(new CustomEvent("keen_perks", { detail }));
+  emitProductEvent(eventName, payload, "keen_perks");
 }
 
 export type PerksLandingEventName =
@@ -146,15 +111,7 @@ export function trackPerksLandingEvent(
   eventName: PerksLandingEventName,
   payload: ProductAnalyticsPayload = {},
 ): void {
-  if (typeof window === "undefined") return;
-
-  const detail = {
-    ...payload,
-    event: eventName,
-  };
-
-  window.dataLayer?.push(detail);
-  window.dispatchEvent(new CustomEvent("keen_perks_landing", { detail }));
+  emitProductEvent(eventName, payload, "keen_perks_landing");
 }
 
 export type ServerPageEventName =
@@ -166,13 +123,5 @@ export function trackServerPageEvent(
   eventName: ServerPageEventName,
   payload: ProductAnalyticsPayload = {},
 ): void {
-  if (typeof window === "undefined") return;
-
-  const detail = {
-    ...payload,
-    event: eventName,
-  };
-
-  window.dataLayer?.push(detail);
-  window.dispatchEvent(new CustomEvent("keen_server_page", { detail }));
+  emitProductEvent(eventName, payload, "keen_server_page");
 }
