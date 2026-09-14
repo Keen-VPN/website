@@ -253,7 +253,7 @@ function sanitizeEventProperties(
         const [pathPart, pathSearch = ""] = next.path.split("?");
         const sanitizedPath = sanitizeAnalyticsLocation(
           pathPart.startsWith("/") ? pathPart : `/${pathPart}`,
-          pathSearch ? `?${pathSearch}` : parsed.search,
+          pathSearch ? `?${pathSearch}` : "",
         );
         next.path = sanitizedPath.path;
         processedKeys.add("path");
