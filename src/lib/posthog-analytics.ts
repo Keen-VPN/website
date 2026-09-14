@@ -254,7 +254,11 @@ function sanitizeEventProperties(
       // Parse failed — fall through so the loop can still redact string fields.
     }
   } else if (typeof next.$pathname === "string") {
-    const sanitized = sanitizeAnalyticsLocation(next.$pathname, "");
+    const [pathnamePart, searchPart = ""] = next.$pathname.split("?");
+    const sanitized = sanitizeAnalyticsLocation(
+      pathnamePart.startsWith("/") ? pathnamePart : `/${pathnamePart}`,
+      searchPart ? `?${searchPart}` : "",
+    );
     next.$pathname = sanitized.pathname;
     processedKeys.add("$pathname");
   }

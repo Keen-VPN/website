@@ -204,6 +204,19 @@ describe("posthog analytics", () => {
     expect(String(event?.$set?.path)).toContain("[redacted]");
   });
 
+  it("sanitizes $pathname query credentials when $current_url is absent", async () => {
+    const analytics = await import("./posthog-analytics");
+    const event = analytics.sanitizeCaptureResult({
+      event: "website_visit",
+      properties: {
+        $pathname: "/account?session_id=cs_live_abc",
+      },
+    });
+
+    expect(String(event?.properties?.$pathname)).toBe("/account");
+    expect(String(event?.properties?.$pathname)).not.toContain("cs_live_abc");
+  });
+
   it("opts out staff learned after init without recursing", async () => {
     const analytics = await import("./posthog-analytics");
     expect(analytics.initializePostHog()).toBe(true);

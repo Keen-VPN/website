@@ -68,8 +68,13 @@ function isServerConfirmedFreshPaidSubscription(
   return false;
 }
 
-function consumeFreshCheckoutConversionSignal(): boolean {
-  if (typeof window === "undefined") return false;
+function peekFreshCheckoutConversionSignal(): {
+  active: boolean;
+  consumeKey: string | null;
+} {
+  if (typeof window === "undefined") {
+    return { active: false, consumeKey: null };
+  }
   let sessionId: string | null = null;
   try {
     sessionId = new URLSearchParams(window.location.search).get("session_id");
@@ -77,16 +82,28 @@ function consumeFreshCheckoutConversionSignal(): boolean {
     sessionId = null;
   }
   const hasCheckoutMarker = isStripeCheckoutReturn() || Boolean(sessionId);
-  if (!hasCheckoutMarker) return false;
+  if (!hasCheckoutMarker) {
+    return { active: false, consumeKey: null };
+  }
 
   const consumeKey = `keen_posthog_checkout_conversion:${sessionId ?? "marker"}`;
   try {
-    if (sessionStorage.getItem(consumeKey) === "1") return false;
+    if (sessionStorage.getItem(consumeKey) === "1") {
+      return { active: false, consumeKey: null };
+    }
+  } catch {
+    /* storage blocked — still allow attempt */
+  }
+  return { active: true, consumeKey };
+}
+
+function markCheckoutConversionConsumed(consumeKey: string | null): void {
+  if (!consumeKey) return;
+  try {
     sessionStorage.setItem(consumeKey, "1");
   } catch {
-    /* storage blocked — still allow a single attempt this call */
+    /* storage blocked */
   }
-  return true;
 }
 
 // ============================================================================
@@ -303,29 +320,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // returning subscriber is not counted as a fresh conversion. Emit on
         // first observation only for fresh backend/checkout conversion signals.
         if (!subscriptionLifecycleSeededRef.current) {
+          const checkoutSignal = peekFreshCheckoutConversionSignal();
+          const freshPaidConfirmed =
+            paidActive &&
+            checkoutSignal.active &&
+            isServerConfirmedFreshPaidSubscription(response.subscription);
+
           prevTrialActiveRef.current = trialActive;
-          prevPaidActiveRef.current = paidActive;
+          // If checkout is still hydrating, keep prior paid=false so a later
+          // refresh can emit when the server confirms a newly started sub.
+          prevPaidActiveRef.current =
+            paidActive && !(checkoutSignal.active && !freshPaidConfirmed);
           subscriptionLifecycleSeededRef.current = true;
+
           if (trialActive && response.redditTrialConversionId) {
             trackPostHogTrialStarted(
               userId,
               response.redditTrialConversionId,
             );
           }
-          // Fresh paid conversion: require checkout return marker AND a
-          // server-reported newly started subscription. Consume a one-shot
-          // analytics marker so stale/replayed ?session_id= URLs cannot re-emit.
-          if (
-            paidActive &&
-            consumeFreshCheckoutConversionSignal() &&
-            isServerConfirmedFreshPaidSubscription(response.subscription)
-          ) {
+          if (freshPaidConfirmed) {
             trackPostHogSubscriptionStarted(userId, {
               subscription_status: response.subscription?.status ?? null,
               billing_period: response.subscription?.billingPeriod ?? null,
               plan_id: response.subscription?.planId ?? null,
               checkout_return: true,
             });
+            markCheckoutConversionConsumed(checkoutSignal.consumeKey);
           }
           return response.subscription;
         }
@@ -338,14 +359,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           );
         }
         if (paidActive && !prevPaidActiveRef.current) {
-          trackPostHogSubscriptionStarted(userId, {
-            subscription_status: response.subscription?.status ?? null,
-            billing_period: response.subscription?.billingPeriod ?? null,
-            plan_id: response.subscription?.planId ?? null,
-          });
+          const checkoutSignal = peekFreshCheckoutConversionSignal();
+          const freshPaidConfirmed =
+            checkoutSignal.active &&
+            isServerConfirmedFreshPaidSubscription(response.subscription);
+
+          // Checkout-return path: wait for server-confirmed fresh start.
+          // Non-checkout transitions (in-app upgrade) emit normally.
+          if (!checkoutSignal.active || freshPaidConfirmed) {
+            trackPostHogSubscriptionStarted(userId, {
+              subscription_status: response.subscription?.status ?? null,
+              billing_period: response.subscription?.billingPeriod ?? null,
+              plan_id: response.subscription?.planId ?? null,
+              checkout_return: Boolean(freshPaidConfirmed),
+            });
+            if (freshPaidConfirmed) {
+              markCheckoutConversionConsumed(checkoutSignal.consumeKey);
+            }
+            prevPaidActiveRef.current = true;
+          }
+        } else if (paidActive) {
+          prevPaidActiveRef.current = true;
+        } else {
+          prevPaidActiveRef.current = false;
         }
         prevTrialActiveRef.current = trialActive;
-        prevPaidActiveRef.current = paidActive;
         return response.subscription;
       }
       if (response.unauthorized) {
