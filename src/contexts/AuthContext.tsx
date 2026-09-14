@@ -222,7 +222,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTrial(response.trial ?? null);
         setEntitlements(response.entitlements);
         setEntitlementsStatus(response.entitlements ? "ready" : "error");
-        const userId = keenUserIdRef.current;
+
+        let userId = keenUserIdRef.current;
+        // Subscription can succeed before identity restore. Retry verification
+        // here so funnel events are not dropped for the whole session.
+        if (!userId && getSessionToken() === sessionToken) {
+          try {
+            const verified = await verifySessionToken(sessionToken);
+            if (
+              verified.success &&
+              verified.user?.id &&
+              getSessionToken() === sessionToken
+            ) {
+              rememberKeenUserId(verified.user.id);
+              userId = verified.user.id;
+            }
+          } catch {
+            // Non-fatal — funnel events stay deferred until a later refresh.
+          }
+        }
+
         const subscriptionStatus = response.subscription?.status?.toLowerCase();
         const trialActive =
           Boolean(response.trial?.active) || subscriptionStatus === "trialing";
@@ -289,7 +308,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return null;
     }
-  }, [setAuthProvider, clearAuthIdentity]);
+  }, [setAuthProvider, clearAuthIdentity, rememberKeenUserId]);
 
   const syncHasSessionToken = React.useCallback(() => {
     setHasSessionToken(Boolean(getSessionToken()));
@@ -577,7 +596,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!keenUserIdRef.current) {
               try {
                 const verified = await verifySessionToken(sessionToken);
-                if (verified.success && verified.user?.id) {
+                if (
+                  verified.success &&
+                  verified.user?.id &&
+                  getSessionToken() === sessionToken
+                ) {
                   rememberKeenUserId(verified.user.id);
                 }
               } catch {

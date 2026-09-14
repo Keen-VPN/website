@@ -118,12 +118,15 @@ describe("posthog analytics", () => {
     expect(sanitized.url).not.toContain("secret-value");
 
     const percentEncoded = analytics.sanitizeAnalyticsLocation(
-      "/auth/callback/abc%2Bdef%2Fghi%3D0123456789abcdef0123456789abcdef",
+      "/auth/callback/abc%2Fdef%2Fghi%3D0123456789abcdef0123456789abcdef",
       "",
       "https://portal.vpnkeen.com",
     );
     expect(percentEncoded.path).toContain("[redacted]");
-    expect(percentEncoded.path).not.toContain("%2B");
+    expect(percentEncoded.path).not.toContain("%2F");
+    expect(analytics.looksLikeOpaqueCredential(
+      "abc%2Fdef%2Fghi%3D0123456789abcdef0123456789abcdef",
+    )).toBe(true);
   });
 
   it("resolves staging hostnames without replacing window", async () => {

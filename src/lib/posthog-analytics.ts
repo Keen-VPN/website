@@ -55,8 +55,19 @@ export function looksLikeOpaqueCredential(segment: string): boolean {
   if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(decoded)) {
     return true;
   }
-  // Long opaque segments including base64 / percent-encoding characters
-  if (decoded.length >= 32 && /^[A-Za-z0-9._%~+=-]+$/.test(decoded)) {
+  // Long opaque segments including base64 / percent-encoding characters.
+  // Allow `/` in the decoded form so credentials with encoded slashes still match.
+  if (
+    decoded.length >= 32 &&
+    /^[A-Za-z0-9._%~+=/-]+$/.test(decoded)
+  ) {
+    return true;
+  }
+  // Also test the raw segment in case decode fails or changes shape.
+  if (
+    segment.length >= 32 &&
+    /^[A-Za-z0-9._%~+=-]+$/.test(segment)
+  ) {
     return true;
   }
   return false;
