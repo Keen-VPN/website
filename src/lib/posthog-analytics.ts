@@ -219,14 +219,16 @@ function shouldSanitizeUrlProperty(key: string): boolean {
 
 function sanitizeEventProperties(
   properties: Record<string, unknown> | undefined,
+  options?: { includeLocationFallback?: boolean },
 ): Record<string, unknown> | undefined {
   if (!properties) return properties;
   const next: Record<string, unknown> = { ...properties };
+  const includeLocationFallback = options?.includeLocationFallback !== false;
 
   const rawUrl =
     typeof next.$current_url === "string"
       ? next.$current_url
-      : typeof window !== "undefined"
+      : includeLocationFallback && typeof window !== "undefined"
         ? window.location.href
         : "";
   if (rawUrl) {
@@ -251,7 +253,17 @@ function sanitizeEventProperties(
     next.$pathname = sanitized.pathname;
   }
 
+  // Re-sanitize other URL-like fields, but do not re-process the standard
+  // page fields above — sanitizeAnalyticsUrlValue would turn path/host into
+  // absolute URLs and corrupt PostHog breakdowns.
+  const alreadySanitized = new Set([
+    "$current_url",
+    "$pathname",
+    "$host",
+    "path",
+  ]);
   for (const [key, value] of Object.entries(next)) {
+    if (alreadySanitized.has(key)) continue;
     if (typeof value === "string" && shouldSanitizeUrlProperty(key)) {
       next[key] = sanitizeAnalyticsUrlValue(value);
     }
@@ -266,12 +278,17 @@ export function sanitizeCaptureResult(
   if (!event) return event;
   return {
     ...event,
-    properties: sanitizeEventProperties(event.properties),
+    properties: sanitizeEventProperties(event.properties, {
+      includeLocationFallback: true,
+    }),
+    // Never inject current-page location into person properties.
     $set: sanitizeEventProperties(
       event.$set as Record<string, unknown> | undefined,
+      { includeLocationFallback: false },
     ) as CaptureResult["$set"],
     $set_once: sanitizeEventProperties(
       event.$set_once as Record<string, unknown> | undefined,
+      { includeLocationFallback: false },
     ) as CaptureResult["$set_once"],
   };
 }
@@ -318,12 +335,16 @@ function hasExistingSessionToken(): boolean {
 export function initializePostHog(options?: {
   email?: string | null;
 }): boolean {
-  if (typeof window === "undefined" || !POSTHOG_KEY || initialized) {
-    // If already initialized but we just learned this is staff, opt out now.
-    if (initialized && isInternalEmail(options?.email)) {
-      markInternalTraffic(options?.email);
+  if (typeof window === "undefined" || !POSTHOG_KEY) {
+    return false;
+  }
+
+  if (initialized) {
+    // Learned staff email after init — opt out without re-entering init.
+    if (isInternalEmail(options?.email)) {
+      applyInternalOptOut();
     }
-    return initialized;
+    return true;
   }
 
   const environment = resolveKeenEnvironment();
@@ -375,18 +396,23 @@ export function getAttributionProperties(): PostHogPayload {
   });
 }
 
-export function markInternalTraffic(email?: string | null): void {
-  if (!initializePostHog({ email })) return;
-
-  const internal = isInternalEmail(email);
-  if (!internal) return;
-
+function applyInternalOptOut(): void {
   persistInternalOptOut();
+  if (!initialized) return;
   posthog.register({ is_internal: true });
   if (!capturingDisabled) {
     posthog.opt_out_capturing();
     capturingDisabled = true;
   }
+}
+
+export function markInternalTraffic(email?: string | null): void {
+  if (!isInternalEmail(email)) return;
+
+  if (!initialized) {
+    initializePostHog({ email });
+  }
+  applyInternalOptOut();
 }
 
 export function identifyPostHogUser(

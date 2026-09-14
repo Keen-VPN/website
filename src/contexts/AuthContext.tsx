@@ -48,6 +48,18 @@ import {
 } from "@/lib/posthog-analytics";
 import { trackRedditConfirmedTrial } from "@/lib/reddit-analytics";
 
+function isFreshStripeCheckoutReturn(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if (new URLSearchParams(window.location.search).get("session_id")) {
+      return true;
+    }
+    return Boolean(sessionStorage.getItem("keenvpn_stripe_checkout_return"));
+  } catch {
+    return false;
+  }
+}
+
 // ============================================================================
 // Context Types
 // ============================================================================
@@ -260,8 +272,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Seed historical subscription/trial state on first observation so a
         // returning subscriber is not counted as a fresh conversion. Emit on
-        // first observation only when the backend provides a fresh trial
-        // conversion id (same signal Reddit uses).
+        // first observation only for fresh backend/checkout conversion signals.
         if (!subscriptionLifecycleSeededRef.current) {
           prevTrialActiveRef.current = trialActive;
           prevPaidActiveRef.current = paidActive;
@@ -271,6 +282,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               userId,
               response.redditTrialConversionId,
             );
+          }
+          // Stripe checkout return lands with ?session_id=… (or stores the
+          // return marker). Historical logins never have that signal.
+          if (paidActive && isFreshStripeCheckoutReturn()) {
+            trackPostHogSubscriptionStarted(userId, {
+              subscription_status: response.subscription?.status ?? null,
+              billing_period: response.subscription?.billingPeriod ?? null,
+              plan_id: response.subscription?.planId ?? null,
+              checkout_return: true,
+            });
           }
           return response.subscription;
         }

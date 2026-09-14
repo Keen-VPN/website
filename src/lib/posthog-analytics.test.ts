@@ -173,6 +173,29 @@ describe("posthog analytics", () => {
     expect(event?.properties?.$pathname).toBe(
       "/auth/magic/verify/[redacted]",
     );
+    expect(event?.properties?.$host).toBe("portal.vpnkeen.com");
+  });
+
+  it("does not inject page location into $set person properties", async () => {
+    const analytics = await import("./posthog-analytics");
+    const event = analytics.sanitizeCaptureResult({
+      event: "$identify",
+      properties: {},
+      $set: { auth_provider: "google" },
+    });
+
+    expect(event?.$set).toEqual({ auth_provider: "google" });
+    expect(event?.$set).not.toHaveProperty("$current_url");
+    expect(event?.$set).not.toHaveProperty("$pathname");
+  });
+
+  it("opts out staff learned after init without recursing", async () => {
+    const analytics = await import("./posthog-analytics");
+    expect(analytics.initializePostHog()).toBe(true);
+    expect(() =>
+      analytics.initializePostHog({ email: "dev@keenvpn.com" }),
+    ).not.toThrow();
+    expect(optOut).toHaveBeenCalled();
   });
 
   it("resolves staging hostnames without replacing window", async () => {
