@@ -16,7 +16,10 @@ function emitProductEvent(
 
   window.dataLayer?.push(detail);
   window.dispatchEvent(new CustomEvent(customEventName, { detail }));
-  forwardProductEventToPostHog(eventName, payload);
+  // Keep navigation_path out of PostHog — it can carry Stripe session ids.
+  const { navigation_path: _navigationPath, ...posthogPayload } = payload;
+  void _navigationPath;
+  forwardProductEventToPostHog(eventName, posthogPayload);
 }
 
 declare global {

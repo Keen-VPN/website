@@ -1,4 +1,5 @@
 import posthog from "posthog-js";
+import type { CaptureResult } from "posthog-js";
 import { getStoredUtmAttribution } from "@/lib/utm-attribution";
 
 type PostHogPayload = Record<string, string | number | boolean | null>;
@@ -18,6 +19,8 @@ const EVENT_DEDUPE_PREFIX = "keen_posthog_event:";
 const INTERNAL_SESSION_KEY = "keen_posthog_internal";
 const INTERNAL_PERSIST_KEY = "keen_posthog_internal_persist";
 const IDENTIFIED_PERSIST_KEY = "keen_posthog_identified";
+/** Must match SESSION_TOKEN_KEY in auth/backend.ts (avoid circular import). */
+const SESSION_TOKEN_STORAGE_KEY = "sessionToken";
 
 const SENSITIVE_QUERY_KEYS = new Set([
   "token",
@@ -40,6 +43,22 @@ const SENSITIVE_QUERY_KEYS = new Set([
   "winback_token",
   "retention_token",
   "key",
+]);
+
+const URL_PROPERTY_KEYS = new Set([
+  "$current_url",
+  "$pathname",
+  "$host",
+  "$referrer",
+  "$referring_domain",
+  "$initial_current_url",
+  "$session_entry_url",
+  "path",
+  "landing_url",
+  "landing_path",
+  "navigation_path",
+  "url",
+  "href",
 ]);
 
 /** True for JWTs, percent-encoded blobs, and other long opaque credentials. */
@@ -110,7 +129,7 @@ export function sanitizeAnalyticsLocation(
   pathname: string,
   search = "",
   origin = typeof window !== "undefined" ? window.location.origin : "",
-): { path: string; url: string } {
+): { path: string; url: string; pathname: string; host: string } {
   const params = new URLSearchParams(
     search.startsWith("?") ? search.slice(1) : search,
   );
@@ -126,7 +145,7 @@ export function sanitizeAnalyticsLocation(
     }
   }
 
-  const safePath = pathname
+  const safePathname = pathname
     .split("/")
     .map((segment) => {
       if (!segment) return segment;
@@ -138,14 +157,132 @@ export function sanitizeAnalyticsLocation(
     .join("/");
 
   const query = params.toString();
-  const path = query ? `${safePath}?${query}` : safePath;
+  const path = query ? `${safePathname}?${query}` : safePathname;
+  let host = "";
+  try {
+    host = origin ? new URL(origin).host : "";
+  } catch {
+    host = "";
+  }
   const url = origin ? `${origin}${path}` : path;
-  return { path, url };
+  return { path, url, pathname: safePathname, host };
 }
 
-function shouldDisableCapturing(): boolean {
+export function sanitizeAnalyticsUrlValue(value: string): string {
+  try {
+    const parsed = new URL(value, typeof window !== "undefined" ? window.location.origin : "https://portal.vpnkeen.com");
+    const sanitized = sanitizeAnalyticsLocation(
+      parsed.pathname,
+      parsed.search,
+      `${parsed.protocol}//${parsed.host}`,
+    );
+    return sanitized.url;
+  } catch {
+    const [pathnamePart, searchPart = ""] = value.split("?");
+    return sanitizeAnalyticsLocation(
+      pathnamePart.startsWith("/") ? pathnamePart : `/${pathnamePart}`,
+      searchPart ? `?${searchPart}` : "",
+    ).path;
+  }
+}
+
+export function sanitizePostHogPayload(
+  payload: PostHogPayload,
+): PostHogPayload {
+  const next: PostHogPayload = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (value == null) {
+      next[key] = value;
+      continue;
+    }
+    if (typeof value === "string" && shouldSanitizeUrlProperty(key)) {
+      next[key] = sanitizeAnalyticsUrlValue(value);
+      continue;
+    }
+    next[key] = value;
+  }
+  return next;
+}
+
+function shouldSanitizeUrlProperty(key: string): boolean {
+  const normalized = key.toLowerCase();
+  if (URL_PROPERTY_KEYS.has(key) || URL_PROPERTY_KEYS.has(normalized)) {
+    return true;
+  }
+  return (
+    normalized.includes("url") ||
+    normalized.includes("path") ||
+    normalized.includes("href") ||
+    normalized.includes("referrer")
+  );
+}
+
+function sanitizeEventProperties(
+  properties: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!properties) return properties;
+  const next: Record<string, unknown> = { ...properties };
+
+  const rawUrl =
+    typeof next.$current_url === "string"
+      ? next.$current_url
+      : typeof window !== "undefined"
+        ? window.location.href
+        : "";
+  if (rawUrl) {
+    try {
+      const parsed = new URL(rawUrl);
+      const sanitized = sanitizeAnalyticsLocation(
+        typeof next.$pathname === "string" ? next.$pathname : parsed.pathname,
+        parsed.search,
+        `${parsed.protocol}//${parsed.host}`,
+      );
+      next.$current_url = sanitized.url;
+      next.$pathname = sanitized.pathname;
+      next.$host = sanitized.host || parsed.host;
+      if (typeof next.path === "string") {
+        next.path = sanitized.path;
+      }
+    } catch {
+      /* ignore malformed urls */
+    }
+  } else if (typeof next.$pathname === "string") {
+    const sanitized = sanitizeAnalyticsLocation(next.$pathname, "");
+    next.$pathname = sanitized.pathname;
+  }
+
+  for (const [key, value] of Object.entries(next)) {
+    if (typeof value === "string" && shouldSanitizeUrlProperty(key)) {
+      next[key] = sanitizeAnalyticsUrlValue(value);
+    }
+  }
+
+  return next;
+}
+
+export function sanitizeCaptureResult(
+  event: CaptureResult | null,
+): CaptureResult | null {
+  if (!event) return event;
+  return {
+    ...event,
+    properties: sanitizeEventProperties(event.properties),
+    $set: sanitizeEventProperties(
+      event.$set as Record<string, unknown> | undefined,
+    ) as CaptureResult["$set"],
+    $set_once: sanitizeEventProperties(
+      event.$set_once as Record<string, unknown> | undefined,
+    ) as CaptureResult["$set_once"],
+  };
+}
+
+function shouldDisableCapturing(email?: string | null): boolean {
   if (typeof window === "undefined") return true;
   if (import.meta.env.DEV && import.meta.env.VITE_POSTHOG_ENABLE_DEV !== "true") {
+    return true;
+  }
+  if (isInternalEmail(email)) {
+    persistInternalOptOut();
     return true;
   }
   try {
@@ -170,13 +307,27 @@ function persistInternalOptOut(): void {
   }
 }
 
-export function initializePostHog(): boolean {
+function hasExistingSessionToken(): boolean {
+  try {
+    return Boolean(localStorage.getItem(SESSION_TOKEN_STORAGE_KEY));
+  } catch {
+    return false;
+  }
+}
+
+export function initializePostHog(options?: {
+  email?: string | null;
+}): boolean {
   if (typeof window === "undefined" || !POSTHOG_KEY || initialized) {
+    // If already initialized but we just learned this is staff, opt out now.
+    if (initialized && isInternalEmail(options?.email)) {
+      markInternalTraffic(options?.email);
+    }
     return initialized;
   }
 
   const environment = resolveKeenEnvironment();
-  capturingDisabled = shouldDisableCapturing();
+  capturingDisabled = shouldDisableCapturing(options?.email);
 
   posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
@@ -185,10 +336,14 @@ export function initializePostHog(): boolean {
     capture_pageleave: true,
     autocapture: false,
     persistence: "localStorage+cookie",
-    session_recording: {
-      maskAllInputs: true,
-      maskTextSelector: "[data-ph-mask], [data-sensitive]",
-    },
+    disable_session_recording: capturingDisabled,
+    session_recording: capturingDisabled
+      ? undefined
+      : {
+          maskAllInputs: true,
+          maskTextSelector: "[data-ph-mask], [data-sensitive]",
+        },
+    before_send: sanitizeCaptureResult,
     loaded: (client) => {
       client.register({
         keen_environment: environment,
@@ -209,7 +364,7 @@ export function getAttributionProperties(): PostHogPayload {
   const stored = getStoredUtmAttribution();
   if (!stored) return {};
 
-  return {
+  return sanitizePostHogPayload({
     utm_source: stored.utm_source ?? null,
     utm_medium: stored.utm_medium ?? null,
     utm_campaign: stored.utm_campaign ?? null,
@@ -217,11 +372,11 @@ export function getAttributionProperties(): PostHogPayload {
     utm_term: stored.utm_term ?? null,
     landing_path: stored.landing_path,
     landing_url: stored.landing_url ?? null,
-  };
+  });
 }
 
 export function markInternalTraffic(email?: string | null): void {
-  if (!initializePostHog()) return;
+  if (!initializePostHog({ email })) return;
 
   const internal = isInternalEmail(email);
   if (!internal) return;
@@ -240,7 +395,7 @@ export function identifyPostHogUser(
 ): void {
   if (!initializePostHog() || capturingDisabled) return;
   posthog.identify(userId, {
-    ...properties,
+    ...sanitizePostHogPayload(properties),
     keen_environment: resolveKeenEnvironment(),
   });
   try {
@@ -280,7 +435,7 @@ export function trackPostHogEvent(
 
   posthog.capture(eventName, {
     ...getAttributionProperties(),
-    ...payload,
+    ...sanitizePostHogPayload(payload),
   });
   if (dedupeKey) markTracked(dedupeKey, options?.persistent === true);
 }
@@ -288,17 +443,25 @@ export function trackPostHogEvent(
 export function trackPostHogPageView(pathname: string, search = ""): void {
   if (!initializePostHog() || capturingDisabled) return;
 
-  const { path, url } = sanitizeAnalyticsLocation(pathname, search);
+  const { path, url, pathname: safePathname, host } =
+    sanitizeAnalyticsLocation(pathname, search);
   posthog.capture("$pageview", {
     ...getAttributionProperties(),
     path,
     $current_url: url,
+    $pathname: safePathname,
+    $host: host,
   });
   trackPostHogEvent("website_visit", { path });
 }
 
 export function trackPostHogSignupStarted(): void {
-  trackPostHogEvent("signup_started", {}, "signup_started");
+  // Returning / already-authenticated users re-entering SignIn should not
+  // inflate the signup_started funnel step.
+  if (hadIdentifiedPostHogUser() || hasExistingSessionToken()) return;
+  trackPostHogEvent("signup_started", {}, "signup_started", {
+    persistent: true,
+  });
 }
 
 export function trackPostHogAccountCreated(userId: string): void {
@@ -344,7 +507,7 @@ export function forwardProductEventToPostHog(
   eventName: string,
   payload: PostHogPayload = {},
 ): void {
-  trackPostHogEvent(eventName, payload);
+  trackPostHogEvent(eventName, sanitizePostHogPayload(payload));
 }
 
 function storageGet(key: string, persistent: boolean): string | null {

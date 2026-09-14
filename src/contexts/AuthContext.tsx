@@ -123,10 +123,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
   /** Guards against duplicate authenticateWithBackend calls (signIn + onAuthStateChanged or double-click). */
   const backendAuthInProgressRef = useRef(false);
-  const userRef = useRef<FirebaseUser | null>(null);
   const keenUserIdRef = useRef<string | null>(null);
   const prevTrialActiveRef = useRef(false);
   const prevPaidActiveRef = useRef(false);
+  const subscriptionLifecycleSeededRef = useRef(false);
   const signupSourceCheckedRef = useRef(false);
   const [signupSourceDialogOpen, setSignupSourceDialogOpen] = useState(false);
   const [contactEmailDialogOpen, setContactEmailDialogOpen] = useState(false);
@@ -185,10 +185,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ============================================================================
 
   useEffect(() => {
-    userRef.current = user;
-  }, [user]);
-
-  useEffect(() => {
     keenUserIdRef.current = keenUserId;
   }, [keenUserId]);
 
@@ -197,6 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     keenUserIdRef.current = null;
     prevTrialActiveRef.current = false;
     prevPaidActiveRef.current = false;
+    subscriptionLifecycleSeededRef.current = false;
   }, []);
 
   const rememberKeenUserId = React.useCallback((id: string | null | undefined) => {
@@ -245,7 +242,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const subscriptionStatus = response.subscription?.status?.toLowerCase();
         const trialActive =
           Boolean(response.trial?.active) || subscriptionStatus === "trialing";
-        const paidActive = subscriptionStatus === "active" && !trialActive;
+        // Independent of trial.active — converted users may still have an
+        // active trial flag while subscription status is already paid.
+        const paidActive = subscriptionStatus === "active";
 
         if (
           response.trial?.active &&
@@ -258,8 +257,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!userId) {
           return response.subscription;
         }
-        // Only emit on transition into trial/paid so refreshes and returning
-        // sessions do not re-count funnel conversions.
+
+        // Seed historical subscription/trial state on first observation so a
+        // returning subscriber is not counted as a fresh conversion. Emit on
+        // first observation only when the backend provides a fresh trial
+        // conversion id (same signal Reddit uses).
+        if (!subscriptionLifecycleSeededRef.current) {
+          prevTrialActiveRef.current = trialActive;
+          prevPaidActiveRef.current = paidActive;
+          subscriptionLifecycleSeededRef.current = true;
+          if (trialActive && response.redditTrialConversionId) {
+            trackPostHogTrialStarted(
+              userId,
+              response.redditTrialConversionId,
+            );
+          }
+          return response.subscription;
+        }
+
+        // Only emit on genuine in-session transitions into trial/paid.
         if (trialActive && !prevTrialActiveRef.current) {
           trackPostHogTrialStarted(
             userId,

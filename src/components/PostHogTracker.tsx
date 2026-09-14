@@ -22,9 +22,9 @@ export default function PostHogTracker() {
       return;
     }
 
-    // Wait for auth bootstrap so staff localStorage opt-out and identity
-    // reset apply before the first pageview/session recording.
-    initializePostHog();
+    // Pass email into init so staff opt-out / recording disable happens before
+    // any capture or session recording starts.
+    initializePostHog({ email: user?.email });
 
     if (!user || !keenUserId) {
       // After reload PostHog may still have the previous account identity in

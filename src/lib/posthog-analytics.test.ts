@@ -58,10 +58,27 @@ describe("posthog analytics", () => {
     expect(init).not.toHaveBeenCalled();
   });
 
-  it("initializes PostHog when configured", async () => {
+  it("initializes PostHog when configured with before_send sanitizer", async () => {
     const analytics = await import("./posthog-analytics");
     expect(analytics.initializePostHog()).toBe(true);
     expect(init).toHaveBeenCalledTimes(1);
+    expect(init.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        before_send: analytics.sanitizeCaptureResult,
+      }),
+    );
+  });
+
+  it("opts out during init for staff email before recording starts", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.initializePostHog({ email: "dev@keenvpn.com" });
+    expect(optOut).toHaveBeenCalled();
+    expect(init.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        disable_session_recording: true,
+      }),
+    );
+    expect(localStorage.getItem("keen_posthog_internal_persist")).toBe("1");
   });
 
   it("opts out during init when ph_internal=1", async () => {
@@ -91,6 +108,13 @@ describe("posthog analytics", () => {
       expect.objectContaining({ keen_environment: expect.any(String) }),
     );
     expect(analytics.hadIdentifiedPostHogUser()).toBe(true);
+  });
+
+  it("skips signup_started for returning/authenticated browsers", async () => {
+    localStorage.setItem("keen_posthog_identified", "1");
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogSignupStarted();
+    expect(capture).not.toHaveBeenCalled();
   });
 
   it("marks internal email domains and opts out", async () => {
@@ -124,9 +148,31 @@ describe("posthog analytics", () => {
     );
     expect(percentEncoded.path).toContain("[redacted]");
     expect(percentEncoded.path).not.toContain("%2F");
-    expect(analytics.looksLikeOpaqueCredential(
-      "abc%2Fdef%2Fghi%3D0123456789abcdef0123456789abcdef",
-    )).toBe(true);
+    expect(
+      analytics.looksLikeOpaqueCredential(
+        "abc%2Fdef%2Fghi%3D0123456789abcdef0123456789abcdef",
+      ),
+    ).toBe(true);
+  });
+
+  it("sanitizes auto-attached URL properties via before_send", async () => {
+    const analytics = await import("./posthog-analytics");
+    const event = analytics.sanitizeCaptureResult({
+      event: "website_visit",
+      properties: {
+        $current_url:
+          "https://portal.vpnkeen.com/auth/magic/verify/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig?token=secret",
+        $pathname:
+          "/auth/magic/verify/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig",
+        $host: "portal.vpnkeen.com",
+      },
+    });
+
+    expect(event?.properties?.$current_url).toContain("[redacted]");
+    expect(String(event?.properties?.$current_url)).not.toContain("secret");
+    expect(event?.properties?.$pathname).toBe(
+      "/auth/magic/verify/[redacted]",
+    );
   });
 
   it("resolves staging hostnames without replacing window", async () => {
