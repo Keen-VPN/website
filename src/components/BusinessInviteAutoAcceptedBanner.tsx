@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, X } from "lucide-react";
 import {
+  armBusinessInviteNoticeReleaseOnUnmount,
   clearBusinessInviteAutoAcceptedNotice,
-  clearBusinessInviteAutoAcceptedStorage,
   peekBusinessInviteAutoAcceptedNotice,
   type BusinessInviteAutoAcceptedNotice,
 } from "@/auth/business-invite-auto-accepted";
@@ -29,9 +29,10 @@ export function BusinessInviteAutoAcceptedBanner() {
   );
 
   useEffect(() => {
-    // Drop durable storage after commit; memory peek still works for Strict
-    // Mode remount until dismiss/logout clears memory too.
-    clearBusinessInviteAutoAcceptedStorage();
+    // Clear durable storage now; delay memory clear until unmount settles so
+    // Strict Mode remount can still peek, but leaving /dashboard and returning
+    // does not re-show the banner.
+    return armBusinessInviteNoticeReleaseOnUnmount();
   }, []);
 
   if (!notice) return null;
