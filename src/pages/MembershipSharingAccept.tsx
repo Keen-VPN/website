@@ -212,7 +212,17 @@ export default function MembershipSharingAccept() {
             if (!cancelled && membership.ok) {
               const { onTeam, creditPending: deferred } =
                 isAlreadyOnCompanyPlan(membership.data);
-              if (onTeam) {
+              // Only treat as "already accepted" when this tab was resuming
+              // *this* invite (signup auto-accept). Being on any company plan
+              // must not turn an unrelated expired/revoked link into success.
+              if (
+                onTeam &&
+                inviteAcceptIntentMatches(
+                  readPendingMembershipInviteAcceptIntent(),
+                  token,
+                  inviteId,
+                )
+              ) {
                 clearMatchingPendingMembershipInviteAcceptIntent(
                   token,
                   inviteId,
