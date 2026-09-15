@@ -91,6 +91,14 @@ export interface BackendAuthResponse {
   trial?: TrialData | null;
   redditTrialConversionId?: string | null;
   error?: string;
+  /** Present when signup auto-accepted a pending Business membership invite. */
+  businessInviteAutoAccepted?: {
+    inviteId: string;
+    subscriptionId: string;
+    planName: string | null;
+    pending: boolean;
+    billingDeferredUntil?: string | null;
+  };
   /** When true, backend rejected the token (401 or invalid); safe to clear session. When false/undefined on failure, do not clear (e.g. network error). */
   unauthorized?: boolean;
 }

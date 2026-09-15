@@ -24,6 +24,7 @@ import {
   trackPostHogSignupStarted,
 } from "@/lib/posthog-analytics";
 import { trackRedditLeadCompleted } from "@/lib/reddit-analytics";
+import { storeBusinessInviteAutoAcceptedNotice } from "@/auth/business-invite-auto-accepted";
 
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "/api";
 
@@ -33,6 +34,9 @@ function trackNewAccount(response: BackendAuthResponse): void {
   if (createdUser && response.user?.id) {
     trackRedditLeadCompleted(response.user.id);
     trackPostHogAccountCreated(response.user.id);
+  }
+  if (response.businessInviteAutoAccepted) {
+    storeBusinessInviteAutoAcceptedNotice(response.businessInviteAutoAccepted);
   }
 }
 
