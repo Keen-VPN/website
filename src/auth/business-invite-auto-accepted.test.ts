@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   BUSINESS_INVITE_AUTO_ACCEPTED_KEY,
   clearBusinessInviteAutoAcceptedNotice,
+  clearBusinessInviteAutoAcceptedStorage,
   consumeBusinessInviteAutoAcceptedNotice,
+  peekBusinessInviteAutoAcceptedNotice,
   readBusinessInviteAutoAcceptedNotice,
   storeBusinessInviteAutoAcceptedNotice,
 } from "./business-invite-auto-accepted";
@@ -23,7 +25,7 @@ function createStorage() {
 }
 
 afterEach(() => {
-  sessionStorage.removeItem(BUSINESS_INVITE_AUTO_ACCEPTED_KEY);
+  clearBusinessInviteAutoAcceptedNotice();
 });
 
 describe("business invite auto-accepted notice", () => {
@@ -73,5 +75,25 @@ describe("business invite auto-accepted notice", () => {
         storage,
       ),
     ).not.toThrow();
+  });
+
+  it("keeps memory peek after storage-only clear", () => {
+    const storage = createStorage();
+    storeBusinessInviteAutoAcceptedNotice(
+      {
+        inviteId: "inv-1",
+        subscriptionId: "sub-1",
+        planName: "Business Annual",
+        pending: false,
+      },
+      storage,
+    );
+    clearBusinessInviteAutoAcceptedStorage(storage);
+    expect(storage.getItem(BUSINESS_INVITE_AUTO_ACCEPTED_KEY)).toBeNull();
+    expect(peekBusinessInviteAutoAcceptedNotice(storage)?.inviteId).toBe(
+      "inv-1",
+    );
+    clearBusinessInviteAutoAcceptedNotice(storage);
+    expect(peekBusinessInviteAutoAcceptedNotice(storage)).toBeNull();
   });
 });

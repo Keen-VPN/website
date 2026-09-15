@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, X } from "lucide-react";
 import {
-  consumeBusinessInviteAutoAcceptedNotice,
+  clearBusinessInviteAutoAcceptedNotice,
+  clearBusinessInviteAutoAcceptedStorage,
+  peekBusinessInviteAutoAcceptedNotice,
   type BusinessInviteAutoAcceptedNotice,
 } from "@/auth/business-invite-auto-accepted";
 import { formatScheduledAnnualBillingDate } from "@/lib/scheduled-annual-billing";
@@ -21,11 +23,16 @@ function noticeBody(notice: BusinessInviteAutoAcceptedNotice): string {
 }
 
 export function BusinessInviteAutoAcceptedBanner() {
-  // Consume on first render so the banner is present for the first paint
-  // (and for screen-reader live regions) instead of appearing after an effect.
+  // Read only during init — do not mutate sessionStorage in render.
   const [notice, setNotice] = useState<BusinessInviteAutoAcceptedNotice | null>(
-    () => consumeBusinessInviteAutoAcceptedNotice(),
+    () => peekBusinessInviteAutoAcceptedNotice(),
   );
+
+  useEffect(() => {
+    // Drop durable storage after commit; memory peek still works for Strict
+    // Mode remount until dismiss/logout clears memory too.
+    clearBusinessInviteAutoAcceptedStorage();
+  }, []);
 
   if (!notice) return null;
 
@@ -52,7 +59,10 @@ export function BusinessInviteAutoAcceptedBanner() {
               type="button"
               aria-label="Dismiss"
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-[#627086] hover:bg-white/70 hover:text-[#0f2040]"
-              onClick={() => setNotice(null)}
+              onClick={() => {
+                clearBusinessInviteAutoAcceptedNotice();
+                setNotice(null);
+              }}
             >
               <X className="h-4 w-4" />
             </button>
