@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CheckCircle2, X } from "lucide-react";
 import {
   consumeBusinessInviteAutoAcceptedNotice,
@@ -21,18 +21,19 @@ function noticeBody(notice: BusinessInviteAutoAcceptedNotice): string {
 }
 
 export function BusinessInviteAutoAcceptedBanner() {
+  // Consume on first render so the banner is present for the first paint
+  // (and for screen-reader live regions) instead of appearing after an effect.
   const [notice, setNotice] = useState<BusinessInviteAutoAcceptedNotice | null>(
-    null,
+    () => consumeBusinessInviteAutoAcceptedNotice(),
   );
-
-  useEffect(() => {
-    setNotice(consumeBusinessInviteAutoAcceptedNotice());
-  }, []);
 
   if (!notice) return null;
 
   return (
-    <div className="mx-4 mb-4 overflow-hidden rounded-[13px] bg-[#eef8f2] px-4 py-4 sm:mx-6 sm:px-5 lg:mx-7">
+    <div
+      role="status"
+      className="mx-4 mb-4 overflow-hidden rounded-[13px] bg-[#eef8f2] px-4 py-4 sm:mx-6 sm:px-5 lg:mx-7"
+    >
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#159653]/15">
           <CheckCircle2 className="h-4 w-4 text-[#159653]" />

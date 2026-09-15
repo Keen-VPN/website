@@ -14,13 +14,22 @@ export function storeBusinessInviteAutoAcceptedNotice(
   notice: BusinessInviteAutoAcceptedNotice,
   storage: Pick<Storage, "setItem"> = sessionStorage,
 ): void {
-  storage.setItem(BUSINESS_INVITE_AUTO_ACCEPTED_KEY, JSON.stringify(notice));
+  try {
+    storage.setItem(BUSINESS_INVITE_AUTO_ACCEPTED_KEY, JSON.stringify(notice));
+  } catch {
+    /* private mode / blocked storage — banner simply won't show */
+  }
 }
 
 export function readBusinessInviteAutoAcceptedNotice(
   storage: Pick<Storage, "getItem"> = sessionStorage,
 ): BusinessInviteAutoAcceptedNotice | null {
-  const raw = storage.getItem(BUSINESS_INVITE_AUTO_ACCEPTED_KEY);
+  let raw: string | null = null;
+  try {
+    raw = storage.getItem(BUSINESS_INVITE_AUTO_ACCEPTED_KEY);
+  } catch {
+    return null;
+  }
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as BusinessInviteAutoAcceptedNotice;
@@ -49,7 +58,11 @@ export function readBusinessInviteAutoAcceptedNotice(
 export function clearBusinessInviteAutoAcceptedNotice(
   storage: Pick<Storage, "removeItem"> = sessionStorage,
 ): void {
-  storage.removeItem(BUSINESS_INVITE_AUTO_ACCEPTED_KEY);
+  try {
+    storage.removeItem(BUSINESS_INVITE_AUTO_ACCEPTED_KEY);
+  } catch {
+    /* private mode / blocked storage */
+  }
 }
 
 export function consumeBusinessInviteAutoAcceptedNotice(

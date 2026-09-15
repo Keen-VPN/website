@@ -55,4 +55,23 @@ describe("business invite auto-accepted notice", () => {
     expect(readBusinessInviteAutoAcceptedNotice(storage)).toBeNull();
     clearBusinessInviteAutoAcceptedNotice(storage);
   });
+
+  it("swallows storage write failures", () => {
+    const storage = {
+      setItem() {
+        throw new Error("quota exceeded");
+      },
+    };
+    expect(() =>
+      storeBusinessInviteAutoAcceptedNotice(
+        {
+          inviteId: "inv-1",
+          subscriptionId: "sub-1",
+          planName: null,
+          pending: false,
+        },
+        storage,
+      ),
+    ).not.toThrow();
+  });
 });
