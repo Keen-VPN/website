@@ -15,6 +15,7 @@ import { getDashboardServersLabel } from "@/constants/server-locations";
 import { MembershipSharingProvider, useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
 import { MembershipTeamPanel } from "@/components/MembershipTeamPanel";
 import { ReceivedMembershipInviteBanner } from "@/components/ReceivedMembershipInviteBanner";
+import { BusinessInviteAutoAcceptedBanner } from "@/components/BusinessInviteAutoAcceptedBanner";
 import { hasManageableSubscription, isEndedSubscription } from "@/lib/subscription-cta";
 import type { SubscriptionData } from "@/auth/types";
 import { DashboardHomeLayout } from "@/components/dashboard/DashboardHomeShared";
@@ -505,6 +506,7 @@ function DashboardHomeContent({
           onDismiss={dismissPostCheckoutUi}
         />
       ) : null}
+      <BusinessInviteAutoAcceptedBanner />
       {sessionToken ? (
         <ReceivedMembershipInviteBanner
           sessionToken={sessionToken}
