@@ -8,6 +8,7 @@ import {
   acceptMembershipInvite,
   acceptReceivedMembershipInvite,
   BACKEND_URL,
+  fetchMembershipSharingDashboard,
   fetchReceivedMembershipInvite,
   getSessionToken,
   isMembershipInviteDetails,
@@ -32,6 +33,23 @@ const CONFIRMATION_COPY =
   "I understand that my company will pay for my KeenVPN subscription. I understand that my company can see my membership status but will never get access to my browsing history or data.";
 
 type ReauthReason = "expired_session" | "wrong_account";
+
+function isAlreadyOnCompanyPlan(dashboard: unknown): {
+  onTeam: boolean;
+  creditPending: boolean;
+} {
+  if (!dashboard || typeof dashboard !== "object") {
+    return { onTeam: false, creditPending: false };
+  }
+  const role = (dashboard as { role?: unknown }).role;
+  if (role === "transfer_pending") {
+    return { onTeam: true, creditPending: true };
+  }
+  if (role === "member") {
+    return { onTeam: true, creditPending: false };
+  }
+  return { onTeam: false, creditPending: false };
+}
 
 export default function MembershipSharingAccept() {
   const [searchParams] = useSearchParams();
@@ -182,6 +200,32 @@ export default function MembershipSharingAccept() {
           result.status === 404 ||
           result.status === 410
         ) {
+          // Signup auto-accept (or a prior accept) already consumed the invite.
+          // Resume-after-signin lands back here with a no-longer-pending invite;
+          // if the user is already on the company plan, show success instead of
+          // "invalid or expired".
+          const sessionForMembership = getSessionToken();
+          if (sessionForMembership) {
+            const membership = await fetchMembershipSharingDashboard(
+              sessionForMembership,
+            );
+            if (!cancelled && membership.ok) {
+              const { onTeam, creditPending: deferred } =
+                isAlreadyOnCompanyPlan(membership.data);
+              if (onTeam) {
+                clearMatchingPendingMembershipInviteAcceptIntent(
+                  token,
+                  inviteId,
+                );
+                setCreditPending(deferred);
+                setAccepted(true);
+                await refreshSubscription();
+                setLoading(false);
+                return;
+              }
+            }
+          }
+          if (cancelled) return;
           clearMatchingPendingMembershipInviteAcceptIntent(token, inviteId);
           setError("This invitation is invalid or has expired.");
           setLoading(false);
@@ -227,6 +271,7 @@ export default function MembershipSharingAccept() {
     loadRetryCount,
     navigate,
     receivedInviteSessionToken,
+    refreshSubscription,
     token,
   ]);
 
