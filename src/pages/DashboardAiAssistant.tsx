@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { BACKEND_URL, getSessionToken } from "@/auth/backend";
+import { getSessionToken } from "@/auth/backend";
 import { AiConnectionsPanel } from "@/components/AiConnectionsPanel";
 import { AiAssistantCard } from "@/components/AiAssistantCard";
 
@@ -19,14 +19,16 @@ const cardClass =
 /**
  * The server URL a member pastes into their assistant.
  *
- * BACKEND_URL is relative ("/api") in most builds, but this value gets copied
- * into a different application entirely, so it has to be absolute.
+ * Must be absolute (copied into Claude/ChatGPT). Prefer the branded MCP host so
+ * assistants that resolve icons from the connector URL's apex domain show the
+ * KeenVPN logo — not the Netlify letter tile.
  */
 function mcpServerUrl(): string {
-  const base = BACKEND_URL.startsWith("http")
-    ? BACKEND_URL
-    : `${window.location.origin}${BACKEND_URL}`;
-  return `${base.replace(/\/+$/, "")}/mcp`;
+  const configured = import.meta.env.VITE_MCP_SERVER_URL?.trim();
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+  return "https://mcp.vpnkeen.com/api/mcp";
 }
 
 export default function DashboardAiAssistant() {
