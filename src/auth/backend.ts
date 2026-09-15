@@ -24,6 +24,7 @@ import {
   trackPostHogSignupStarted,
 } from "@/lib/posthog-analytics";
 import { trackRedditLeadCompleted } from "@/lib/reddit-analytics";
+import { storeBusinessInviteAutoAcceptedNotice, clearBusinessInviteAutoAcceptedNotice } from "@/auth/business-invite-auto-accepted";
 
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "/api";
 
@@ -33,6 +34,11 @@ function trackNewAccount(response: BackendAuthResponse): void {
   if (createdUser && response.user?.id) {
     trackRedditLeadCompleted(response.user.id);
     trackPostHogAccountCreated(response.user.id);
+  }
+  // Only store on new-account create. Backend already gates auto-accept the
+  // same way; this keeps a stale/replayed field from re-showing the banner.
+  if (createdUser && response.businessInviteAutoAccepted) {
+    storeBusinessInviteAutoAcceptedNotice(response.businessInviteAutoAccepted);
   }
 }
 
@@ -6718,6 +6724,7 @@ export function clearSessionToken(): void {
   localStorage.removeItem(SESSION_TOKEN_KEY);
   localStorage.removeItem(APP_TOKEN_KEY);
   localStorage.removeItem("google_access_token");
+  clearBusinessInviteAutoAcceptedNotice();
 }
 
 /**
