@@ -115,7 +115,7 @@ describe("business invite auto-accepted notice", () => {
     expect(readBusinessInviteAutoAcceptedNotice(other)).toBeNull();
   });
 
-  it("releases memory after unmount settles so revisiting dashboard is clean", () => {
+  it("keeps Strict Mode remount peek, but ordinary remount after release is empty", () => {
     vi.useFakeTimers();
     storeBusinessInviteAutoAcceptedNotice({
       inviteId: "inv-1",
@@ -124,17 +124,40 @@ describe("business invite auto-accepted notice", () => {
       pending: false,
     });
 
+    // First paint
+    expect(peekBusinessInviteAutoAcceptedNotice()?.inviteId).toBe("inv-1");
     const cleanup = armBusinessInviteNoticeReleaseOnUnmount();
-    expect(peekBusinessInviteAutoAcceptedNotice()?.inviteId).toBe("inv-1");
 
-    // Strict Mode remount: cancel scheduled release
+    // Strict Mode: unmount schedules release, remount peeks before macrotask
     cleanup();
-    const cleanup2 = armBusinessInviteNoticeReleaseOnUnmount();
     expect(peekBusinessInviteAutoAcceptedNotice()?.inviteId).toBe("inv-1");
+    const cleanup2 = armBusinessInviteNoticeReleaseOnUnmount();
 
-    // Real leave: cleanup schedules release, no remount cancels it
+    // Ordinary remount after release settles must not re-show
     cleanup2();
     vi.runAllTimers();
+    expect(peekBusinessInviteAutoAcceptedNotice()).toBeNull();
+
+    // Remounting again still empty (do not cancel/preserve)
+    armBusinessInviteNoticeReleaseOnUnmount();
+    expect(peekBusinessInviteAutoAcceptedNotice()).toBeNull();
+  });
+
+  it("does not re-show when remount happens after release without cancelling", () => {
+    vi.useFakeTimers();
+    storeBusinessInviteAutoAcceptedNotice({
+      inviteId: "inv-1",
+      subscriptionId: "sub-1",
+      planName: "Business Annual",
+      pending: false,
+    });
+    peekBusinessInviteAutoAcceptedNotice();
+    const cleanup = armBusinessInviteNoticeReleaseOnUnmount();
+    cleanup();
+    vi.runAllTimers();
+
+    // Simulate ordinary remount that used to cancel the timer — must stay null
+    armBusinessInviteNoticeReleaseOnUnmount();
     expect(peekBusinessInviteAutoAcceptedNotice()).toBeNull();
   });
 

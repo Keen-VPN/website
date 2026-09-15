@@ -29,9 +29,9 @@ export function BusinessInviteAutoAcceptedBanner() {
   );
 
   useEffect(() => {
-    // Clear durable storage now; delay memory clear until unmount settles so
-    // Strict Mode remount can still peek, but leaving /dashboard and returning
-    // does not re-show the banner.
+    // Consume once: durable storage cleared now; active display lock released
+    // on unmount via a timer that is never cancelled (ordinary remounts after
+    // it fires do not re-show; Strict Mode remount peeks before it fires).
     return armBusinessInviteNoticeReleaseOnUnmount();
   }, []);
 

@@ -11,15 +11,23 @@ export interface BusinessInviteAutoAcceptedNotice {
 }
 
 /**
- * In-memory copy for the default sessionStorage only. Scoped so custom
- * storages (tests) never share or bypass each other.
+ * Session-only lifecycle for default sessionStorage:
+ * - pendingNotice: written on signup store
+ * - activeDisplayNotice: locked on first peek so Strict Mode remount can
+ *   re-read before the deferred release runs
+ * - displayConsumed: set when the banner arms; after active display is
+ *   released, further peeks return null (ordinary remount / revisit)
+ *
+ * We never cancel a pending release timer — cancelling made ordinary remounts
+ * (loading flicker, leave/return in the same tick) look like Strict Mode and
+ * re-show the banner.
  */
-let sessionMemoryNotice:
+let pendingNotice: BusinessInviteAutoAcceptedNotice | null = null;
+let activeDisplayNotice:
   | BusinessInviteAutoAcceptedNotice
   | null
   | undefined;
-
-/** Cancels delayed full-clear scheduled on dashboard unmount (Strict Mode). */
+let displayConsumed = false;
 let pendingReleaseTimer: ReturnType<typeof setTimeout> | null = null;
 
 function isDefaultSessionStorage(
@@ -79,12 +87,21 @@ export function storeBusinessInviteAutoAcceptedNotice(
   if (!normalized) return;
 
   if (isDefaultSessionStorage(storage)) {
-    cancelScheduledBusinessInviteNoticeRelease();
-    sessionMemoryNotice = normalized;
+    // New signup notice — reset one-time display lifecycle.
+    if (pendingReleaseTimer) {
+      clearTimeout(pendingReleaseTimer);
+      pendingReleaseTimer = null;
+    }
+    displayConsumed = false;
+    activeDisplayNotice = undefined;
+    pendingNotice = normalized;
   }
 
   try {
-    storage.setItem(BUSINESS_INVITE_AUTO_ACCEPTED_KEY, JSON.stringify(normalized));
+    storage.setItem(
+      BUSINESS_INVITE_AUTO_ACCEPTED_KEY,
+      JSON.stringify(normalized),
+    );
   } catch {
     /* private mode / blocked storage — banner simply won't show */
   }
@@ -93,15 +110,24 @@ export function storeBusinessInviteAutoAcceptedNotice(
 export function readBusinessInviteAutoAcceptedNotice(
   storage: Pick<Storage, "getItem"> = sessionStorage,
 ): BusinessInviteAutoAcceptedNotice | null {
-  if (isDefaultSessionStorage(storage) && sessionMemoryNotice !== undefined) {
-    return sessionMemoryNotice;
+  if (!isDefaultSessionStorage(storage)) {
+    return readRawFromStorage(storage);
   }
 
-  const fromStorage = readRawFromStorage(storage);
-  if (isDefaultSessionStorage(storage)) {
-    sessionMemoryNotice = fromStorage;
+  // Locked for the current display generation (covers Strict Mode remount
+  // before the deferred release macrotask runs).
+  if (activeDisplayNotice !== undefined) {
+    return activeDisplayNotice;
   }
-  return fromStorage;
+
+  if (displayConsumed) {
+    return null;
+  }
+
+  const notice = pendingNotice ?? readRawFromStorage(storage);
+  activeDisplayNotice = notice;
+  if (notice) pendingNotice = null;
+  return notice;
 }
 
 export function clearBusinessInviteAutoAcceptedStorage(
@@ -117,44 +143,43 @@ export function clearBusinessInviteAutoAcceptedStorage(
 export function clearBusinessInviteAutoAcceptedNotice(
   storage: Pick<Storage, "removeItem"> = sessionStorage,
 ): void {
-  cancelScheduledBusinessInviteNoticeRelease();
   if (isDefaultSessionStorage(storage)) {
-    sessionMemoryNotice = null;
+    if (pendingReleaseTimer) {
+      clearTimeout(pendingReleaseTimer);
+      pendingReleaseTimer = null;
+    }
+    pendingNotice = null;
+    activeDisplayNotice = undefined;
+    displayConsumed = false;
   }
   clearBusinessInviteAutoAcceptedStorage(storage);
 }
 
 /**
- * After the banner has committed, drop durable storage. Keep session memory
- * until the dashboard unmount settles (so Strict Mode remount still peeks),
- * then fully clear so revisiting /dashboard does not re-show the banner.
+ * Call from the banner mount effect.
+ * - Marks the notice consumed for future ordinary remounts / revisits
+ * - Clears durable storage immediately
+ * - On unmount, schedules release of the active display lock (never cancelled
+ *   by a later remount — Strict Mode remount peeks before the macrotask runs;
+ *   an ordinary remount after the macrotask sees displayConsumed and gets null)
  */
 export function armBusinessInviteNoticeReleaseOnUnmount(): () => void {
-  cancelScheduledBusinessInviteNoticeRelease();
+  displayConsumed = true;
+  pendingNotice = null;
   clearBusinessInviteAutoAcceptedStorage();
   return () => {
-    scheduleBusinessInviteNoticeRelease();
+    scheduleActiveDisplayRelease();
   };
 }
 
-function scheduleBusinessInviteNoticeRelease(): void {
-  if (pendingReleaseTimer) clearTimeout(pendingReleaseTimer);
+function scheduleActiveDisplayRelease(): void {
+  // Do not reset/cancel an already-scheduled release — that is what allowed
+  // ordinary remounts to preserve memory and re-show the banner.
+  if (pendingReleaseTimer) return;
   pendingReleaseTimer = setTimeout(() => {
     pendingReleaseTimer = null;
-    sessionMemoryNotice = null;
-    try {
-      sessionStorage.removeItem(BUSINESS_INVITE_AUTO_ACCEPTED_KEY);
-    } catch {
-      /* blocked storage */
-    }
+    activeDisplayNotice = undefined;
   }, 0);
-}
-
-function cancelScheduledBusinessInviteNoticeRelease(): void {
-  if (pendingReleaseTimer) {
-    clearTimeout(pendingReleaseTimer);
-    pendingReleaseTimer = null;
-  }
 }
 
 /** Read for UI without clearing storage. */
