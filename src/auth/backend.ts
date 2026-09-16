@@ -515,7 +515,8 @@ export type PerkCategory =
   | "developer_tools"
   | "startup_growth"
   | "remote_work"
-  | "finance";
+  | "finance"
+  | "class_action";
 
 export type PerkRedemptionType =
   "external_link" | "coupon_code" | "invite_only" | "workflow";
