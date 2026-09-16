@@ -22,6 +22,7 @@ const VALID_CATEGORIES = new Set([
   "startup_growth",
   "remote_work",
   "finance",
+  "class_action",
 ]);
 
 const VALID_REDEMPTION_TYPES = new Set([

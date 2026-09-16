@@ -85,6 +85,7 @@ const CATEGORY_LABELS: Record<PerkCategory, string> = {
   startup_growth: "Startup & Growth",
   remote_work: "Remote Work",
   finance: "Finance",
+  class_action: "Class Action",
 };
 
 const ACCESS_BADGE: Record<string, string> = {
