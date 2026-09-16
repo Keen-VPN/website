@@ -75,6 +75,7 @@ const PERK_CATEGORIES: { value: PerkCategory; label: string }[] = [
   { value: "startup_growth", label: "Startup & Growth" },
   { value: "remote_work", label: "Remote Work" },
   { value: "finance", label: "Finance" },
+  { value: "class_action", label: "Class Action" },
 ];
 
 const REDEMPTION_TYPES: { value: PerkRedemptionType; label: string }[] = [
