@@ -46,7 +46,11 @@ export function buildBroadcastComposePayload(input: {
 
   if (input.template === PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE) {
     payload.template = PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE;
-    if (input.perkId) payload.perkId = input.perkId;
+    const perkId = optionalTrim(input.perkId ?? "");
+    if (!perkId) {
+      throw new Error("perkId is required for perk announcement");
+    }
+    payload.perkId = perkId;
     // Perk sends always go under Class Actions & Perks preferences.
     payload.emailCategory = "perks_offers";
     const subject = optionalTrim(input.subject);

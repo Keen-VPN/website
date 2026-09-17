@@ -79,6 +79,8 @@ interface BroadcastComposeDraft {
   preheader: string;
   ctaLabel: string;
   ctaUrl: string;
+  category: BroadcastEmailCategory | "none";
+  emailCategory: string;
 }
 
 const EMPTY_CUSTOM_DRAFT: BroadcastComposeDraft = {
@@ -88,6 +90,8 @@ const EMPTY_CUSTOM_DRAFT: BroadcastComposeDraft = {
   preheader: "",
   ctaLabel: DEFAULT_CTA_LABEL,
   ctaUrl: DEFAULT_CTA_URL,
+  category: "none",
+  emailCategory: "none",
 };
 
 const TEMPLATE_OPTIONS: {
@@ -174,14 +178,15 @@ export default function AdminBroadcastEmail() {
   const composeReady = useMemo(
     () =>
       isMembershipTransferTemplate ||
-      (isPerkAnnouncementTemplate && perkId.trim().length > 0) ||
-      (subject.trim().length > 0 &&
+      (isPerkAnnouncementTemplate && !!selectedPerk) ||
+      (!isPerkAnnouncementTemplate &&
+        subject.trim().length > 0 &&
         headline.trim().length > 0 &&
         body.trim().length > 0),
     [
       isMembershipTransferTemplate,
       isPerkAnnouncementTemplate,
-      perkId,
+      selectedPerk,
       subject,
       headline,
       body,
@@ -198,6 +203,7 @@ export default function AdminBroadcastEmail() {
     setPreheader("");
     setCtaLabel(DEFAULT_CTA_LABEL);
     setCtaUrl(DEFAULT_CTA_URL);
+    setCategory("none");
     setEmailCategory("none");
   }, []);
 
@@ -239,6 +245,8 @@ export default function AdminBroadcastEmail() {
         preheader,
         ctaLabel,
         ctaUrl,
+        category,
+        emailCategory,
       };
     }
 
@@ -279,6 +287,8 @@ export default function AdminBroadcastEmail() {
     setPreheader(draft.preheader);
     setCtaLabel(draft.ctaLabel);
     setCtaUrl(draft.ctaUrl);
+    setCategory(draft.category);
+    setEmailCategory(draft.emailCategory);
   };
 
   const composePayload = useCallback(
@@ -330,6 +340,10 @@ export default function AdminBroadcastEmail() {
       }
       const active = result.data.filter((perk) => perk.isActive);
       setActivePerks(active);
+      // Drop stale URL / leftover ids that are not in the active catalog.
+      setPerkId((current) =>
+        current && active.some((perk) => perk.id === current) ? current : "",
+      );
     });
     return () => {
       cancelled = true;
@@ -770,7 +784,13 @@ export default function AdminBroadcastEmail() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="email-category">Email category</Label>
-            <Select value={emailCategory} onValueChange={setEmailCategory}>
+            <Select
+              value={
+                isPerkAnnouncementTemplate ? "perks_offers" : emailCategory
+              }
+              onValueChange={setEmailCategory}
+              disabled={isPerkAnnouncementTemplate}
+            >
               <SelectTrigger id="email-category">
                 <SelectValue />
               </SelectTrigger>
@@ -783,8 +803,9 @@ export default function AdminBroadcastEmail() {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Recipients who turned this category off in their email preferences
-              are excluded.
+              {isPerkAnnouncementTemplate
+                ? "Perk announcements always use Class Actions & Perks preferences."
+                : "Recipients who turned this category off in their email preferences are excluded."}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
