@@ -47,6 +47,35 @@ describe("buildBroadcastComposePayload", () => {
     });
   });
 
+  it("sends perkId and perks_offers for perk announcement", () => {
+    expect(
+      buildBroadcastComposePayload({
+        ...baseInput,
+        template: "perk_announcement",
+        perkId: "perk_ca_disney",
+        subject: "  Override subject  ",
+      }),
+    ).toEqual({
+      audience: "all_deliverable",
+      profileTargeting: createDefaultAudienceTargeting(),
+      emailCategory: "perks_offers",
+      template: "perk_announcement",
+      perkId: "perk_ca_disney",
+      subject: "Override subject",
+      ctaLabel: "View perks",
+      ctaUrl: "https://vpnkeen.com/perks",
+    });
+  });
+
+  it("requires perkId for perk announcement", () => {
+    expect(() =>
+      buildBroadcastComposePayload({
+        ...baseInput,
+        template: "perk_announcement",
+      }),
+    ).toThrow(/perkId is required/i);
+  });
+
   it("still requires custom copy on a one-off broadcast", () => {
     expect(
       buildBroadcastComposePayload({
