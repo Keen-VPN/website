@@ -331,7 +331,6 @@ export default function AdminBroadcastEmail() {
     void adminListPerks({ includeInactive: false }).then((result) => {
       if (cancelled) return;
       setLoadingPerks(false);
-      perksCatalogLoadedRef.current = true;
       if (!result.ok || !result.data) {
         toast({
           title: "Could not load perks",
@@ -340,6 +339,7 @@ export default function AdminBroadcastEmail() {
         });
         return;
       }
+      perksCatalogLoadedRef.current = true;
       const active = result.data.filter((perk) => perk.isActive);
       setActivePerks(active);
     });
