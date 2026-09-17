@@ -47,25 +47,21 @@ describe("buildBroadcastComposePayload", () => {
     });
   });
 
-  it("still requires custom copy on a one-off broadcast", () => {
+  it("sends perkId and perks_offers for perk announcement", () => {
     expect(
       buildBroadcastComposePayload({
         ...baseInput,
-        template: "custom",
-        subject: "Perk drop",
-        headline: "New cashback",
-        body: "See perks.",
-        preheader: "Inbox preview",
+        template: "perk_announcement",
+        perkId: "perk_ca_disney",
+        subject: "  Override subject  ",
       }),
     ).toEqual({
       audience: "all_deliverable",
       profileTargeting: createDefaultAudienceTargeting(),
-      subject: "Perk drop",
-      headline: "New cashback",
-      body: "See perks.",
-      preheader: "Inbox preview",
-      ctaLabel: "View perks",
-      ctaUrl: "https://vpnkeen.com/perks",
+      emailCategory: "perks_offers",
+      template: "perk_announcement",
+      perkId: "perk_ca_disney",
+      subject: "Override subject",
     });
   });
 });
