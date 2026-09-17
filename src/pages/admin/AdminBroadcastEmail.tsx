@@ -134,6 +134,7 @@ export default function AdminBroadcastEmail() {
   const [perkId, setPerkId] = useState("");
   const [activePerks, setActivePerks] = useState<AdminPerk[]>([]);
   const [loadingPerks, setLoadingPerks] = useState(false);
+  const perksCatalogLoadedRef = useRef(false);
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [totalAudience, setTotalAudience] = useState<number | null>(null);
   const [matchPercentage, setMatchPercentage] = useState<number | null>(null);
@@ -330,6 +331,7 @@ export default function AdminBroadcastEmail() {
     void adminListPerks({ includeInactive: false }).then((result) => {
       if (cancelled) return;
       setLoadingPerks(false);
+      perksCatalogLoadedRef.current = true;
       if (!result.ok || !result.data) {
         toast({
           title: "Could not load perks",
@@ -340,10 +342,6 @@ export default function AdminBroadcastEmail() {
       }
       const active = result.data.filter((perk) => perk.isActive);
       setActivePerks(active);
-      // Drop stale URL / leftover ids that are not in the active catalog.
-      setPerkId((current) =>
-        current && active.some((perk) => perk.id === current) ? current : "",
-      );
     });
     return () => {
       cancelled = true;
@@ -360,6 +358,27 @@ export default function AdminBroadcastEmail() {
     setEmailCategory("perks_offers");
     setCategory("announcement");
   }, [searchParams]);
+
+  // If Email members / URL preselected a perk that isn't active, clear it and
+  // explain why preview/send stays disabled.
+  useEffect(() => {
+    if (!isPerkAnnouncementTemplate || loadingPerks || !perkId) return;
+    if (!perksCatalogLoadedRef.current) return;
+    if (activePerks.some((perk) => perk.id === perkId)) return;
+    setPerkId("");
+    toast({
+      title: "Perk not available to email",
+      description:
+        "That perk is inactive or still pending review. Activate it first, then try Email members again.",
+      variant: "destructive",
+    });
+  }, [
+    isPerkAnnouncementTemplate,
+    loadingPerks,
+    activePerks,
+    perkId,
+    toast,
+  ]);
 
   const lastAppliedPerkIdRef = useRef<string | null>(null);
 
