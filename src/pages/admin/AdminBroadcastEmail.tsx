@@ -402,7 +402,12 @@ export default function AdminBroadcastEmail() {
       category: string,
       selectedPerkId?: string,
     ) => {
-      if (getAudienceTargetingValidationError(targeting)) {
+      // Perk mode ignores profile targeting (backend uses the perk's stored
+      // audience), so invalid panel state must not block the count.
+      if (
+        !selectedPerkId &&
+        getAudienceTargetingValidationError(targeting)
+      ) {
         return;
       }
 
@@ -419,7 +424,7 @@ export default function AdminBroadcastEmail() {
       // the number that will actually be mailed (KVPN-602).
       const result = await adminFetchBroadcastAudience(
         targetAudience,
-        targeting,
+        selectedPerkId ? createDefaultAudienceTargeting() : targeting,
         category === "none" ? undefined : category,
         selectedPerkId || undefined,
       );
@@ -487,7 +492,11 @@ export default function AdminBroadcastEmail() {
 
   useEffect(() => {
     if (!canBroadcast) return;
-    if (audienceTargetingError) {
+
+    // Perk announcement audience is only meaningful after a perk is chosen;
+    // otherwise we'd count every perks_offers recipient (and Export would too).
+    // Check this before profile-targeting errors: perk mode ignores the panel.
+    if (isPerkAnnouncementTemplate && !perkId) {
       audienceRequestIdRef.current += 1;
       setRecipientCount(null);
       setTotalAudience(null);
@@ -499,9 +508,7 @@ export default function AdminBroadcastEmail() {
       return;
     }
 
-    // Perk announcement audience is only meaningful after a perk is chosen;
-    // otherwise we'd count every perks_offers recipient (and Export would too).
-    if (isPerkAnnouncementTemplate && !perkId) {
+    if (!isPerkAnnouncementTemplate && audienceTargetingError) {
       audienceRequestIdRef.current += 1;
       setRecipientCount(null);
       setTotalAudience(null);
@@ -542,7 +549,7 @@ export default function AdminBroadcastEmail() {
   ]);
 
   const handleExport = async () => {
-    if (audienceTargetingError) {
+    if (!isPerkAnnouncementTemplate && audienceTargetingError) {
       toast({
         title: "Invalid audience",
         description: audienceTargetingError,
@@ -562,7 +569,9 @@ export default function AdminBroadcastEmail() {
     setExporting(true);
     const result = await adminExportBroadcastAudienceCsv(
       audience,
-      profileTargeting,
+      isPerkAnnouncementTemplate
+        ? createDefaultAudienceTargeting()
+        : profileTargeting,
       isPerkAnnouncementTemplate
         ? "perks_offers"
         : emailCategory === "none"
@@ -588,7 +597,7 @@ export default function AdminBroadcastEmail() {
   };
 
   const handlePreview = async () => {
-    if (audienceTargetingError) {
+    if (!isPerkAnnouncementTemplate && audienceTargetingError) {
       toast({
         title: "Invalid audience",
         description: audienceTargetingError,
@@ -615,7 +624,7 @@ export default function AdminBroadcastEmail() {
   };
 
   const handleSend = async () => {
-    if (audienceTargetingError) {
+    if (!isPerkAnnouncementTemplate && audienceTargetingError) {
       toast({
         title: "Invalid audience",
         description: audienceTargetingError,
@@ -916,7 +925,7 @@ export default function AdminBroadcastEmail() {
               }
               disabled={
                 loadingAudience ||
-                !!audienceTargetingError ||
+                (!isPerkAnnouncementTemplate && !!audienceTargetingError) ||
                 (isPerkAnnouncementTemplate && !perkId)
               }
             >
@@ -927,7 +936,7 @@ export default function AdminBroadcastEmail() {
               onClick={() => void handleExport()}
               disabled={
                 exporting ||
-                !!audienceTargetingError ||
+                (!isPerkAnnouncementTemplate && !!audienceTargetingError) ||
                 loadingAudience ||
                 (isPerkAnnouncementTemplate && !perkId)
               }
@@ -1133,7 +1142,9 @@ export default function AdminBroadcastEmail() {
           variant="outline"
           onClick={() => void handlePreview()}
           disabled={
-            previewing || !composeReady || !!audienceTargetingError
+            previewing ||
+            !composeReady ||
+            (!isPerkAnnouncementTemplate && !!audienceTargetingError)
           }
         >
           {previewing ? "Sending preview…" : "Send preview to me"}
@@ -1143,7 +1154,7 @@ export default function AdminBroadcastEmail() {
           disabled={
             sending ||
             loadingAudience ||
-            !!audienceTargetingError ||
+            (!isPerkAnnouncementTemplate && !!audienceTargetingError) ||
             !composeReady ||
             recipientCount == null ||
             recipientCount < 1
