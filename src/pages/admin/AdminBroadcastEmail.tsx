@@ -326,6 +326,7 @@ export default function AdminBroadcastEmail() {
 
   useEffect(() => {
     if (!canBroadcast || !isPerkAnnouncementTemplate) return;
+    if (perksCatalogLoadedRef.current) return;
     let cancelled = false;
     setLoadingPerks(true);
     void adminListPerks({ includeInactive: false }).then((result) => {
@@ -498,6 +499,20 @@ export default function AdminBroadcastEmail() {
       return;
     }
 
+    // Perk announcement audience is only meaningful after a perk is chosen;
+    // otherwise we'd count every perks_offers recipient (and Export would too).
+    if (isPerkAnnouncementTemplate && !perkId) {
+      audienceRequestIdRef.current += 1;
+      setRecipientCount(null);
+      setTotalAudience(null);
+      setMatchPercentage(null);
+      setOptedInCount(null);
+      setDeliverableBase(null);
+      setFilteredOut(null);
+      setLoadingAudience(false);
+      return;
+    }
+
     setRecipientCount(null);
     setTotalAudience(null);
     setMatchPercentage(null);
@@ -531,6 +546,14 @@ export default function AdminBroadcastEmail() {
       toast({
         title: "Invalid audience",
         description: audienceTargetingError,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (isPerkAnnouncementTemplate && !perkId) {
+      toast({
+        title: "Select a perk",
+        description: "Choose an active perk before exporting its audience.",
         variant: "destructive",
       });
       return;
@@ -891,34 +914,53 @@ export default function AdminBroadcastEmail() {
                   isPerkAnnouncementTemplate ? perkId : undefined,
                 )
               }
-              disabled={loadingAudience || !!audienceTargetingError}
+              disabled={
+                loadingAudience ||
+                !!audienceTargetingError ||
+                (isPerkAnnouncementTemplate && !perkId)
+              }
             >
               Refresh count
             </Button>
             <Button
               variant="outline"
               onClick={() => void handleExport()}
-              disabled={exporting || !!audienceTargetingError || loadingAudience}
+              disabled={
+                exporting ||
+                !!audienceTargetingError ||
+                loadingAudience ||
+                (isPerkAnnouncementTemplate && !perkId)
+              }
             >
               {exporting ? "Exporting…" : "Export CSV"}
             </Button>
           </div>
         </div>
+        {isPerkAnnouncementTemplate ? (
+          <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 space-y-1">
+            <p className="text-sm font-medium">Perk audience</p>
+            <p className="text-xs text-muted-foreground">
+              {perkId
+                ? "Recipient count uses this perk’s stored audience targeting and access level (not the profile filters below)."
+                : "Select a perk to load the audience that will actually receive this send."}
+            </p>
+          </div>
+        ) : null}
         <AudienceTargetingPanel
           value={profileTargeting}
           onChange={setProfileTargeting}
           context="broadcast"
           deliverability={audience}
+          disabled={isPerkAnnouncementTemplate}
           sharedPreview={{
-            data: sharedAudiencePreview,
-            loading: loadingAudience,
+            data: isPerkAnnouncementTemplate ? null : sharedAudiencePreview,
+            loading: isPerkAnnouncementTemplate ? false : loadingAudience,
           }}
         />
-        {isPerkAnnouncementTemplate && perkId ? (
+        {isPerkAnnouncementTemplate ? (
           <p className="text-xs text-muted-foreground">
-            Perk announcement sends ignore the profile panel above and use the
-            selected perk&apos;s stored audience targeting plus its access
-            level.
+            Profile targeting is locked for perk announcements so the count
+            always matches the selected perk.
           </p>
         ) : null}
       </section>

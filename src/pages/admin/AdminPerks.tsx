@@ -465,6 +465,8 @@ export default function AdminPerks() {
   const { admin, can } = useAdminAuth();
   const { workflowsEnabled } = useFeatureFlags();
   const canWrite = can("subscriptions.write");
+  const canBroadcastEmail = can("emails.broadcast");
+  const showPerkActions = canWrite || canBroadcastEmail;
   const adminId = admin?.id ?? "";
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -1284,7 +1286,7 @@ export default function AdminPerks() {
                   <th className="px-4 py-3 font-medium">Schedule</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Visibility</th>
-                  {canWrite ? (
+                  {showPerkActions ? (
                     <th className="px-4 py-3 font-medium text-right">Actions</th>
                   ) : null}
                 </tr>
@@ -1293,7 +1295,7 @@ export default function AdminPerks() {
                 {loading ? (
                   <tr>
                     <td
-                      colSpan={canWrite ? 7 : 6}
+                      colSpan={showPerkActions ? 7 : 6}
                       className="px-4 py-10 text-center text-muted-foreground"
                     >
                       Loading catalog…
@@ -1302,7 +1304,7 @@ export default function AdminPerks() {
                 ) : perks.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={canWrite ? 7 : 6}
+                      colSpan={showPerkActions ? 7 : 6}
                       className="px-4 py-10 text-center text-muted-foreground"
                     >
                       No perks configured yet.
@@ -1442,10 +1444,10 @@ export default function AdminPerks() {
                           </div>
                         </div>
                       </td>
-                      {canWrite ? (
+                      {showPerkActions ? (
                         <td className="px-4 py-3.5 align-top">
                           <div className="flex justify-end gap-2 opacity-90 transition-opacity group-hover:opacity-100">
-                            {can("emails.broadcast") && perk.isActive ? (
+                            {canBroadcastEmail && perk.isActive ? (
                               <Button
                                 type="button"
                                 variant="outline"
@@ -1459,23 +1461,27 @@ export default function AdminPerks() {
                                 </Link>
                               </Button>
                             ) : null}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openEdit(perk)}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => void deletePerk(perk)}
-                            >
-                              Delete
-                            </Button>
+                            {canWrite ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openEdit(perk)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => void deletePerk(perk)}
+                                >
+                                  Delete
+                                </Button>
+                              </>
+                            ) : null}
                           </div>
                         </td>
                       ) : null}
