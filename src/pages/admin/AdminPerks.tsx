@@ -403,6 +403,8 @@ function statusLabel(status: AdminPerk["status"]) {
       return "Active";
     case "scheduled":
       return "Scheduled";
+    case "draft":
+      return "Pending review";
     case "expired":
       return "Expired";
     case "cooling_off":
@@ -421,6 +423,7 @@ function statusBadgeVariant(
     case "active":
       return "default";
     case "scheduled":
+    case "draft":
       return "secondary";
     case "expired":
     case "cooling_off":
@@ -1442,6 +1445,20 @@ export default function AdminPerks() {
                       {canWrite ? (
                         <td className="px-4 py-3.5 align-top">
                           <div className="flex justify-end gap-2 opacity-90 transition-opacity group-hover:opacity-100">
+                            {can("emails.broadcast") && perk.isActive ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                asChild
+                              >
+                                <Link
+                                  to={`/admin/broadcast-email?perkId=${encodeURIComponent(perk.id)}`}
+                                >
+                                  Email members
+                                </Link>
+                              </Button>
+                            ) : null}
                             <Button
                               type="button"
                               variant="outline"

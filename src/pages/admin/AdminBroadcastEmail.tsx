@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,10 +16,13 @@ import {
   adminExportBroadcastAudienceCsv,
   adminFetchBroadcastAudience,
   adminFetchBroadcastEmailJob,
+  adminListPerks,
   adminSendBroadcastEmail,
   adminSendBroadcastPreview,
   MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS,
   MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE,
+  PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE,
+  type AdminPerk,
   type AudienceTargeting,
   type AudienceTargetingPreview,
   type BroadcastEmailAudience,
@@ -75,6 +79,8 @@ interface BroadcastComposeDraft {
   preheader: string;
   ctaLabel: string;
   ctaUrl: string;
+  category: BroadcastEmailCategory | "none";
+  emailCategory: string;
 }
 
 const EMPTY_CUSTOM_DRAFT: BroadcastComposeDraft = {
@@ -84,6 +90,8 @@ const EMPTY_CUSTOM_DRAFT: BroadcastComposeDraft = {
   preheader: "",
   ctaLabel: DEFAULT_CTA_LABEL,
   ctaUrl: DEFAULT_CTA_URL,
+  category: "none",
+  emailCategory: "none",
 };
 
 const TEMPLATE_OPTIONS: {
@@ -95,6 +103,10 @@ const TEMPLATE_OPTIONS: {
     value: MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE,
     label: "Membership transfer",
   },
+  {
+    value: PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE,
+    label: "Perk announcement",
+  },
 ];
 
 function sleep(ms: number) {
@@ -104,6 +116,7 @@ function sleep(ms: number) {
 export default function AdminBroadcastEmail() {
   const { admin, can } = useAdminAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const canBroadcast = can("emails.broadcast");
 
   const [audience, setAudience] =
@@ -118,6 +131,10 @@ export default function AdminBroadcastEmail() {
   const [template, setTemplate] = useState<BroadcastEmailTemplate | "custom">(
     "custom",
   );
+  const [perkId, setPerkId] = useState("");
+  const [activePerks, setActivePerks] = useState<AdminPerk[]>([]);
+  const [loadingPerks, setLoadingPerks] = useState(false);
+  const perksCatalogLoadedRef = useRef(false);
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [totalAudience, setTotalAudience] = useState<number | null>(null);
   const [matchPercentage, setMatchPercentage] = useState<number | null>(null);
@@ -142,6 +159,7 @@ export default function AdminBroadcastEmail() {
   const audienceRequestIdRef = useRef(0);
   const broadcastPollActiveRef = useRef(false);
   const customDraftRef = useRef<BroadcastComposeDraft>(EMPTY_CUSTOM_DRAFT);
+  const perkQueryAppliedRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -151,25 +169,70 @@ export default function AdminBroadcastEmail() {
 
   const isMembershipTransferTemplate =
     template === MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE;
+  const isPerkAnnouncementTemplate =
+    template === PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE;
+  const selectedPerk = useMemo(
+    () => activePerks.find((perk) => perk.id === perkId) ?? null,
+    [activePerks, perkId],
+  );
 
   const composeReady = useMemo(
     () =>
       isMembershipTransferTemplate ||
-      (subject.trim().length > 0 &&
+      (isPerkAnnouncementTemplate && !!selectedPerk) ||
+      (!isPerkAnnouncementTemplate &&
+        subject.trim().length > 0 &&
         headline.trim().length > 0 &&
         body.trim().length > 0),
-    [isMembershipTransferTemplate, subject, headline, body],
+    [
+      isMembershipTransferTemplate,
+      isPerkAnnouncementTemplate,
+      selectedPerk,
+      subject,
+      headline,
+      body,
+    ],
   );
 
   const resetComposeForm = useCallback(() => {
     customDraftRef.current = { ...EMPTY_CUSTOM_DRAFT };
     setTemplate("custom");
+    setPerkId("");
     setSubject("");
     setHeadline("");
     setBody("");
     setPreheader("");
     setCtaLabel(DEFAULT_CTA_LABEL);
     setCtaUrl(DEFAULT_CTA_URL);
+    setCategory("none");
+    setEmailCategory("none");
+  }, []);
+
+  const applyPerkDefaults = useCallback((perk: AdminPerk) => {
+    const isClassAction = perk.category === "class_action";
+    const title = perk.title.replace(/^Class Action:\s*/i, "").trim();
+    setSubject(
+      isClassAction
+        ? `New class action settlement: ${title}`
+        : `New perk: ${title}`,
+    );
+    setHeadline(
+      isClassAction ? "New Class Action Opportunity" : title,
+    );
+    setBody(
+      isClassAction
+        ? "We found a new settlement opportunity you may be eligible to claim."
+        : `A new partner perk is available for KeenVPN members: ${perk.offerText}`,
+    );
+    setPreheader(
+      isClassAction
+        ? `New settlement alert — ${title}`
+        : `New perk available — ${title}`,
+    );
+    setCtaLabel(isClassAction ? "Claim Settlement →" : "View perk");
+    setCtaUrl(perk.redemptionUrl?.trim() || DEFAULT_CTA_URL);
+    setEmailCategory("perks_offers");
+    setCategory("announcement");
   }, []);
 
   const applyTemplate = (
@@ -183,12 +246,15 @@ export default function AdminBroadcastEmail() {
         preheader,
         ctaLabel,
         ctaUrl,
+        category,
+        emailCategory,
       };
     }
 
     setTemplate(next);
 
     if (next === MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE) {
+      setPerkId("");
       setSubject(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.subject);
       setHeadline(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.headline);
       setBody(MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.body);
@@ -198,6 +264,23 @@ export default function AdminBroadcastEmail() {
       return;
     }
 
+    if (next === PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE) {
+      setEmailCategory("perks_offers");
+      setCategory("announcement");
+      if (selectedPerk) {
+        applyPerkDefaults(selectedPerk);
+      } else {
+        setSubject("");
+        setHeadline("");
+        setBody("");
+        setPreheader("");
+        setCtaLabel(DEFAULT_CTA_LABEL);
+        setCtaUrl(DEFAULT_CTA_URL);
+      }
+      return;
+    }
+
+    setPerkId("");
     const draft = customDraftRef.current;
     setSubject(draft.subject);
     setHeadline(draft.headline);
@@ -205,6 +288,8 @@ export default function AdminBroadcastEmail() {
     setPreheader(draft.preheader);
     setCtaLabel(draft.ctaLabel);
     setCtaUrl(draft.ctaUrl);
+    setCategory(draft.category);
+    setEmailCategory(draft.emailCategory);
   };
 
   const composePayload = useCallback(
@@ -215,6 +300,7 @@ export default function AdminBroadcastEmail() {
         profileTargeting,
         emailCategory,
         template,
+        perkId: perkId || undefined,
         subject,
         headline,
         body,
@@ -228,6 +314,7 @@ export default function AdminBroadcastEmail() {
       profileTargeting,
       emailCategory,
       template,
+      perkId,
       subject,
       headline,
       body,
@@ -237,11 +324,82 @@ export default function AdminBroadcastEmail() {
     ],
   );
 
+  useEffect(() => {
+    if (!canBroadcast || !isPerkAnnouncementTemplate) return;
+    let cancelled = false;
+    setLoadingPerks(true);
+    void adminListPerks({ includeInactive: false }).then((result) => {
+      if (cancelled) return;
+      setLoadingPerks(false);
+      if (!result.ok || !result.data) {
+        toast({
+          title: "Could not load perks",
+          description: result.error ?? "Try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      perksCatalogLoadedRef.current = true;
+      const active = result.data.filter((perk) => perk.isActive);
+      setActivePerks(active);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [canBroadcast, isPerkAnnouncementTemplate, toast]);
+
+  useEffect(() => {
+    if (perkQueryAppliedRef.current) return;
+    const queryPerkId = searchParams.get("perkId")?.trim();
+    if (!queryPerkId) return;
+    perkQueryAppliedRef.current = true;
+    setTemplate(PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE);
+    setPerkId(queryPerkId);
+    setEmailCategory("perks_offers");
+    setCategory("announcement");
+  }, [searchParams]);
+
+  // If Email members / URL preselected a perk that isn't active, clear it and
+  // explain why preview/send stays disabled.
+  useEffect(() => {
+    if (!isPerkAnnouncementTemplate || loadingPerks || !perkId) return;
+    if (!perksCatalogLoadedRef.current) return;
+    if (activePerks.some((perk) => perk.id === perkId)) return;
+    setPerkId("");
+    toast({
+      title: "Perk not available to email",
+      description:
+        "That perk is inactive or still pending review. Activate it first, then try Email members again.",
+      variant: "destructive",
+    });
+  }, [
+    isPerkAnnouncementTemplate,
+    loadingPerks,
+    activePerks,
+    perkId,
+    toast,
+  ]);
+
+  const lastAppliedPerkIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isPerkAnnouncementTemplate) {
+      lastAppliedPerkIdRef.current = null;
+      return;
+    }
+    if (!perkId || lastAppliedPerkIdRef.current === perkId) return;
+    const perk = activePerks.find((entry) => entry.id === perkId);
+    if (!perk) return;
+    lastAppliedPerkIdRef.current = perkId;
+    applyPerkDefaults(perk);
+  }, [isPerkAnnouncementTemplate, perkId, activePerks, applyPerkDefaults]);
+
   const refreshAudience = useCallback(
     async (
       targetAudience: BroadcastEmailAudience,
       targeting: AudienceTargeting,
       category: string,
+      selectedPerkId?: string,
     ) => {
       if (getAudienceTargetingValidationError(targeting)) {
         return;
@@ -262,6 +420,7 @@ export default function AdminBroadcastEmail() {
         targetAudience,
         targeting,
         category === "none" ? undefined : category,
+        selectedPerkId || undefined,
       );
       if (requestId !== audienceRequestIdRef.current) {
         return;
@@ -348,7 +507,12 @@ export default function AdminBroadcastEmail() {
     setLoadingAudience(true);
 
     const timer = window.setTimeout(() => {
-      void refreshAudience(audience, profileTargeting, emailCategory);
+      void refreshAudience(
+        audience,
+        profileTargeting,
+        isPerkAnnouncementTemplate ? "perks_offers" : emailCategory,
+        isPerkAnnouncementTemplate ? perkId : undefined,
+      );
     }, 300);
     return () => window.clearTimeout(timer);
   }, [
@@ -356,6 +520,8 @@ export default function AdminBroadcastEmail() {
     audience,
     profileTargeting,
     emailCategory,
+    perkId,
+    isPerkAnnouncementTemplate,
     refreshAudience,
     audienceTargetingError,
   ]);
@@ -374,7 +540,12 @@ export default function AdminBroadcastEmail() {
     const result = await adminExportBroadcastAudienceCsv(
       audience,
       profileTargeting,
-      emailCategory === "none" ? undefined : emailCategory,
+      isPerkAnnouncementTemplate
+        ? "perks_offers"
+        : emailCategory === "none"
+          ? undefined
+          : emailCategory,
+      isPerkAnnouncementTemplate ? perkId || undefined : undefined,
     );
     setExporting(false);
     if (!result.ok || !result.blob) {
@@ -632,7 +803,13 @@ export default function AdminBroadcastEmail() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="email-category">Email category</Label>
-            <Select value={emailCategory} onValueChange={setEmailCategory}>
+            <Select
+              value={
+                isPerkAnnouncementTemplate ? "perks_offers" : emailCategory
+              }
+              onValueChange={setEmailCategory}
+              disabled={isPerkAnnouncementTemplate}
+            >
               <SelectTrigger id="email-category">
                 <SelectValue />
               </SelectTrigger>
@@ -645,8 +822,9 @@ export default function AdminBroadcastEmail() {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Recipients who turned this category off in their email preferences
-              are excluded.
+              {isPerkAnnouncementTemplate
+                ? "Perk announcements always use Class Actions & Perks preferences."
+                : "Recipients who turned this category off in their email preferences are excluded."}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -706,7 +884,12 @@ export default function AdminBroadcastEmail() {
             <Button
               variant="outline"
               onClick={() =>
-                void refreshAudience(audience, profileTargeting, emailCategory)
+                void refreshAudience(
+                  audience,
+                  profileTargeting,
+                  isPerkAnnouncementTemplate ? "perks_offers" : emailCategory,
+                  isPerkAnnouncementTemplate ? perkId : undefined,
+                )
               }
               disabled={loadingAudience || !!audienceTargetingError}
             >
@@ -731,6 +914,13 @@ export default function AdminBroadcastEmail() {
             loading: loadingAudience,
           }}
         />
+        {isPerkAnnouncementTemplate && perkId ? (
+          <p className="text-xs text-muted-foreground">
+            Perk announcement sends ignore the profile panel above and use the
+            selected perk&apos;s stored audience targeting plus its access
+            level.
+          </p>
+        ) : null}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5 space-y-4">
@@ -761,13 +951,51 @@ export default function AdminBroadcastEmail() {
                 always goes to {MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.ctaUrl}.
                 Edit the subject to override the template default.
               </p>
+            ) : isPerkAnnouncementTemplate ? (
+              <p className="text-xs text-muted-foreground">
+                Uses the designed perk layout for the selected perk type (class
+                action settlement card or generic perk card). Audience is
+                everyone that perk is available to, under Class Actions &amp;
+                Perks preferences.
+              </p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Write a one-off broadcast. Use Membership transfer to send the
-                designed campaign instead.
+                Write a one-off broadcast. Use Membership transfer or Perk
+                announcement for designed campaigns.
               </p>
             )}
           </div>
+          {isPerkAnnouncementTemplate ? (
+            <div className="space-y-2">
+              <Label htmlFor="perkId">Perk</Label>
+              <Select
+                value={perkId || undefined}
+                onValueChange={(value) => setPerkId(value)}
+                disabled={loadingPerks}
+              >
+                <SelectTrigger id="perkId">
+                  <SelectValue
+                    placeholder={
+                      loadingPerks ? "Loading perks…" : "Select an active perk"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {activePerks.map((perk) => (
+                    <SelectItem key={perk.id} value={perk.id}>
+                      {perk.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedPerk ? (
+                <p className="text-xs text-muted-foreground">
+                  Access: {selectedPerk.accessLevel} · Category:{" "}
+                  {selectedPerk.category.replace(/_/g, " ")}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           {isMembershipTransferTemplate ? (
             <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 space-y-2 text-sm">
               <p className="font-medium">Designed membership-transfer email</p>
@@ -785,7 +1013,9 @@ export default function AdminBroadcastEmail() {
           ) : null}
           <div className="space-y-2">
             <Label htmlFor="subject">
-              {isMembershipTransferTemplate ? "Subject (optional)" : "Subject"}
+              {isMembershipTransferTemplate || isPerkAnnouncementTemplate
+                ? "Subject (optional)"
+                : "Subject"}
             </Label>
             <Input
               id="subject"

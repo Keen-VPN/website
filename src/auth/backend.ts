@@ -5176,7 +5176,12 @@ export interface AdminPerk {
   endsAt: string | null;
   daysRemaining: number | null;
   status:
-    "active" | "scheduled" | "expired" | "cooling_off" | "eligible_for_readd";
+    | "active"
+    | "scheduled"
+    | "draft"
+    | "expired"
+    | "cooling_off"
+    | "eligible_for_readd";
   reactivationCount: number;
   lastExpiredAt: string | null;
   eligibleForReactivationAt: string | null;
@@ -6918,11 +6923,16 @@ export type BroadcastEmailCategory =
   | "product"
   | "announcement";
 
-/** Named designed templates. `membership_transfer` uses the membership-transfer layout. */
-export type BroadcastEmailTemplate = "membership_transfer";
+/** Named designed templates. */
+export type BroadcastEmailTemplate =
+  | "membership_transfer"
+  | "perk_announcement";
 
 export const MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE: BroadcastEmailTemplate =
   "membership_transfer";
+
+export const PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE: BroadcastEmailTemplate =
+  "perk_announcement";
 
 export const MEMBERSHIP_TRANSFER_PAGE_URL = "https://vpnkeen.com/transfer.html";
 
@@ -6942,6 +6952,8 @@ export interface AdminBroadcastComposePayload {
   profileTargeting?: AudienceTargeting;
   emailCategory?: string;
   template?: BroadcastEmailTemplate;
+  /** Required for perk_announcement template. Audience = everyone the perk is available to. */
+  perkId?: string;
   /** Required for custom broadcasts. Optional when `template` is set. */
   subject?: string;
   headline?: string;
@@ -6984,6 +6996,7 @@ export async function adminFetchBroadcastAudience(
   audience: BroadcastEmailAudience = "all_deliverable",
   profileTargeting?: AudienceTargeting,
   emailCategory?: string,
+  perkId?: string,
 ): Promise<{
   ok: boolean;
   data?: AdminBroadcastAudienceSummary;
@@ -6996,6 +7009,9 @@ export async function adminFetchBroadcastAudience(
     }
     if (emailCategory) {
       query.set("emailCategory", emailCategory);
+    }
+    if (perkId) {
+      query.set("perkId", perkId);
     }
     const response = await fetch(
       `${BACKEND_URL}/admin/broadcast-email/audience?${query.toString()}`,
@@ -7025,6 +7041,7 @@ export async function adminExportBroadcastAudienceCsv(
   audience: BroadcastEmailAudience = "all_deliverable",
   profileTargeting?: AudienceTargeting,
   emailCategory?: string,
+  perkId?: string,
 ): Promise<{ ok: boolean; blob?: Blob; error?: string }> {
   try {
     const response = await fetch(
@@ -7037,6 +7054,7 @@ export async function adminExportBroadcastAudienceCsv(
           audience,
           ...(profileTargeting ? { profileTargeting } : {}),
           ...(emailCategory ? { emailCategory } : {}),
+          ...(perkId ? { perkId } : {}),
         }),
       },
     );
