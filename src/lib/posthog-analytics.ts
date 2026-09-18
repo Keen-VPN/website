@@ -625,19 +625,31 @@ export function trackPostHogSignupMethodSelected(
   clearPostHogPendingSignupMethod();
   applyEmailAwareOptOut(options?.email);
   if (isReturningSignupBrowser()) return;
-  trackPostHogEvent("signup_method_selected", {
-    ...properties,
-    signup_method: method,
-    platform: "web",
-  });
+  // Once per browser for email so OTP/magic-link retries do not inflate the funnel.
+  const dedupeKey =
+    method === "email" ? "signup_method_selected:email" : undefined;
+  trackPostHogEvent(
+    "signup_method_selected",
+    {
+      ...properties,
+      signup_method: method,
+      platform: "web",
+    },
+    dedupeKey,
+    dedupeKey ? { persistent: true } : undefined,
+  );
 }
 
 export function trackPostHogEmailVerified(
   properties: PostHogPayload = {},
-  options?: { email?: string | null },
+  options?: { email?: string | null; isNewSignup?: boolean },
 ): void {
   try {
     applyEmailAwareOptOut(options?.email);
+    // Call before storeSessionToken so returning browsers are still detectable.
+    if (isReturningSignupBrowser()) return;
+    // Existing accounts signing in via OTP/magic link must not inflate signup funnels.
+    if (options?.isNewSignup !== true) return;
     trackPostHogEvent("email_verified", {
       ...properties,
       platform: "web",

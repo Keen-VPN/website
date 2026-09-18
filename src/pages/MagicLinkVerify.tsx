@@ -39,15 +39,20 @@ const MagicLinkVerify = () => {
         return;
       }
 
-      storeSessionToken(response.sessionToken);
       try {
         trackPostHogEmailVerified(
           { signup_method: "email" },
-          { email: response.user?.email ?? null },
+          {
+            email: response.user?.email ?? null,
+            isNewSignup:
+              response.createdUser === true ||
+              response.user?.createdUser === true,
+          },
         );
       } catch {
         /* analytics must not block sign-in */
       }
+      storeSessionToken(response.sessionToken);
       setState("success");
       setMessage("Signed in successfully. Redirecting...");
       const isASWebSession =

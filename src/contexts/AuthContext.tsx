@@ -456,6 +456,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { checkRedirectResult } = await import('@/auth');
       const redirectResult = await checkRedirectResult();
 
+      if (redirectResult && (!redirectResult.success || !redirectResult.user)) {
+        // Redirect OAuth cancelled/failed on the return page — drop queued method.
+        clearPostHogPendingSignupMethod();
+      }
+
       if (redirectResult && redirectResult.success && redirectResult.user) {
         // Set user immediately so UI updates
         setUser(redirectResult.user);
@@ -562,6 +567,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else if (backendResponse?.error?.includes('recently deleted')) {
               // Handle case where user account was deleted but Firebase auth is still active
               console.log('🚨 Account was recently deleted, clearing Firebase auth and redirecting to sign-in');
+              clearPostHogPendingSignupMethod();
 
               // Clear Firebase auth
               const { signOut } = await import('@/auth');
@@ -591,6 +597,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               return;
             } else if (backendResponse?.error) {
               // Clear Firebase auth so user can't access protected pages
+              clearPostHogPendingSignupMethod();
               const { signOut: signOutAuth } = await import('@/auth');
               await signOutAuth();
               clearSessionToken();

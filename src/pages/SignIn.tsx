@@ -222,13 +222,17 @@ const SignIn = () => {
     }
 
     setOtpCode("");
+    trackPostHogEmailVerified(
+      { signup_method: "email" },
+      {
+        email: emailForOtp,
+        isNewSignup:
+          result.createdUser === true || result.user?.createdUser === true,
+      },
+    );
     storeSessionToken(result.sessionToken);
     localStorage.setItem("auth_provider", "email");
     sessionStorage.setItem("auth_provider", "email");
-    trackPostHogEmailVerified(
-      { signup_method: "email" },
-      { email: emailForOtp },
-    );
     window.location.href = postOtpLoginUrl();
   };
 

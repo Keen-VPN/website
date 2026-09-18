@@ -9,8 +9,8 @@ Reuse these names — do not invent aliases (`signup_completed` → use `user_ac
 | --- | --- | --- |
 | 1 | `$pageview` / `website_visit` | Portal page views |
 | 2 | `signup_started` | Sign-in / subscribe / magic-link entry (once per browser) |
-| 3 | `signup_method_selected` | User chooses Google, Apple, or email |
-| 4 | `email_verified` | Email signup branch only: OTP or magic-link verification succeeds (not required for Google/Apple) |
+| 3 | `signup_method_selected` | Email: at OTP/magic-link request (once per browser). Google/Apple: emitted after successful authentication (not on cancel/fail) |
+| 4 | `email_verified` | Email signup branch only: OTP or magic-link verification succeeds for a **new** account (not required for Google/Apple; not emitted for returning email sign-ins) |
 | 5 | `user_account_created` | New KeenVPN account created |
 | 6 | `app_download_clicked` | Store / download CTA clicked (intent only) |
 | 7 | `app_authenticated` | Native app first authenticated session (backend `product_events`; not yet mirrored to PostHog from apps) |
@@ -22,7 +22,8 @@ Reuse these names — do not invent aliases (`signup_completed` → use `user_ac
 - PostHog distinct id = stable KeenVPN `user.id` via `posthog.identify`
 - Person properties (when known): `email`, `auth_provider`, `keen_environment`
 - Anonymous pre-signup activity merges into the identified person when PostHog identity linking applies
-- Internal/test traffic (`@keenvpn.com`, `@vpnkeen.com`, `?ph_internal=1`) is opted out
+- Internal/test traffic (`@keenvpn.com`, `@vpnkeen.com`, `?ph_internal=1`) is opted out when the email is known
+- Caveat: Google/Apple `signup_started` can fire anonymously before auth reveals a staff email; after identify, staff are opted out and later events stop. Email-path events opt out before capture when the address is known.
 
 ## Standard properties
 

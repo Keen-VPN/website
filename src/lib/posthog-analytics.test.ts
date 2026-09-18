@@ -199,9 +199,45 @@ describe("posthog analytics", () => {
     );
   });
 
+  it("dedupes email signup_method_selected across retries", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogSignupMethodSelected(
+      "email",
+      {},
+      { email: "user@example.com" },
+    );
+    analytics.trackPostHogSignupMethodSelected(
+      "email",
+      {},
+      { email: "user@example.com" },
+    );
+    expect(capture).toHaveBeenCalledTimes(1);
+  });
+
+  it("captures email_verified only for new signup flows", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogEmailVerified(
+      { signup_method: "email" },
+      { email: "user@example.com" },
+    );
+    expect(capture).not.toHaveBeenCalled();
+
+    analytics.trackPostHogEmailVerified(
+      { signup_method: "email" },
+      { email: "user@example.com", isNewSignup: true },
+    );
+    expect(capture).toHaveBeenCalledWith(
+      "email_verified",
+      expect.objectContaining({ signup_method: "email", platform: "web" }),
+    );
+  });
+
   it("captures email_verified and app_download_clicked", async () => {
     const analytics = await import("./posthog-analytics");
-    analytics.trackPostHogEmailVerified({ signup_method: "email" });
+    analytics.trackPostHogEmailVerified(
+      { signup_method: "email" },
+      { isNewSignup: true },
+    );
     analytics.trackPostHogAppDownloadClicked("windows", {
       source_page: "/downloads",
       cta: "downloads_windows",
