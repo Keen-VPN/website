@@ -47,7 +47,6 @@ import { useTwoYearPlanChange } from '@/hooks/use-plan-change';
 import {
   canSwitchStripeToTwoYear,
   canUpgradeStripeToAnnual,
-  canUpgradeToBusinessPlan,
   hasManageableSubscription,
   hasScheduledAnnualBilling,
   hasScheduledTwoYearBilling,
@@ -547,29 +546,15 @@ function PlansTab() {
     openBillingPortal,
     openPlanChangePortal,
     portalLoading,
-    upgradeToBusinessPlan,
-    businessUpgradeLoading,
   } = useSubscriptionBillingActions();
   const { upgrading: upgradingToAnnual, upgradeToAnnual } = useAnnualUpgrade();
   const { changing: switchingToTwoYear, switchToTwoYear } =
     useTwoYearPlanChange();
-  const { dashboard: membershipDashboard, loading: membershipLoading } =
+  const { dashboard: membershipDashboard } =
     useMembershipSharingContext();
   const isManageable = hasManageableSubscription(subscription);
   const canOpenStripePortal =
     isStripeSubscription(subscription) && Boolean(subscription?.canManageBilling);
-  const membershipBlocksBusinessUpgrade =
-    membershipLoading ||
-    membershipDashboard?.role === 'transfer_pending' ||
-    Boolean(membershipDashboard?.pendingTransfer);
-  const canFreeBusinessUpgrade =
-    Boolean(subscription) &&
-    canUpgradeToBusinessPlan(subscription) &&
-    !membershipBlocksBusinessUpgrade;
-  const businessUpgradeEligible =
-    Boolean(subscription) && canUpgradeToBusinessPlan(subscription);
-  const businessActionBlocked =
-    membershipLoading && businessUpgradeEligible;
   const isIndividualSubscriber =
     resolveMembershipPlanTier(subscription) === 'individual';
   const canOneClickAnnual =
@@ -584,12 +569,33 @@ function PlansTab() {
   );
   const teamOwnerEmail =
     membershipDashboard?.membership?.ownerEmail?.trim() || null;
+  const hasFamilyCatalog = useMemo(
+    () => plans.some((plan) => getPlanTier(plan) === 'family'),
+    [plans],
+  );
+  const planTierOptions = useMemo(
+    () =>
+      (
+        [
+          { id: 'premium', label: 'Individual' },
+          ...(hasFamilyCatalog
+            ? ([{ id: 'family', label: 'Family' }] as const)
+            : []),
+        ] as const
+      ),
+    [hasFamilyCatalog],
+  );
+
+  useEffect(() => {
+    if (!hasFamilyCatalog && tier === 'family') {
+      setTier('premium');
+    }
+  }, [hasFamilyCatalog, tier]);
 
   useEffect(() => {
     if (
       !upgradingToAnnual &&
       !switchingToTwoYear &&
-      !businessUpgradeLoading &&
       !portalLoading &&
       !checkoutLoadingId
     ) {
@@ -598,7 +604,6 @@ function PlansTab() {
   }, [
     upgradingToAnnual,
     switchingToTwoYear,
-    businessUpgradeLoading,
     portalLoading,
     checkoutLoadingId,
   ]);
@@ -661,7 +666,7 @@ function PlansTab() {
         sessionStorage.getItem('asweb_session') === '1' ? '&asweb=1' : '';
       const isFamily = getPlanTier(plan) === 'family';
       const successUrl = isFamily
-        ? `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}&tab=team${aswebSuffix}`
+        ? `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}&tab=team${aswebSuffix}`
         : `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}${aswebSuffix}`;
       const cancelUrl = `${window.location.origin}/subscription?tab=plans`;
 
@@ -734,10 +739,7 @@ function PlansTab() {
       <div className="mb-8 flex justify-center sm:mb-12">
         <div className="inline-flex w-full max-w-[380px] rounded-[21px] border border-[#0f2040] bg-white p-1.5 sm:min-w-[380px] sm:w-auto">
           {(
-            [
-              { id: 'premium', label: 'Individual' },
-              { id: 'family', label: 'Family' },
-            ] as const
+            planTierOptions
           ).map((option) => (
             <button
               key={option.id}
@@ -841,10 +843,6 @@ function PlansTab() {
             twoYear &&
             canOneClickTwoYear &&
             isIndividualSubscriber;
-          const useFreeBusiness = false;
-          const useBusinessTermChange = false;
-          const businessTermAlreadyScheduled = false;
-          const businessPlanWaiting = false;
           const isThisPlanLoading = activeLoadingPlanId === plan.id;
           const isAnotherPlanLoading =
             activeLoadingPlanId !== null && activeLoadingPlanId !== plan.id;
@@ -914,7 +912,7 @@ function PlansTab() {
               <button
                 type="button"
                 onClick={() => {
-                  if (businessPlanWaiting || isAnotherPlanLoading) return;
+                  if (isAnotherPlanLoading) return;
 
                   const token = getSessionToken();
                   if (!token) {
@@ -957,19 +955,6 @@ function PlansTab() {
                           : 'Open billing to change your plan.',
                     });
                     navigate('/subscription');
-                    return;
-                  }
-                  if (useFreeBusiness && subscription) {
-                    void upgradeToBusinessPlan(plan.id, 1);
-                    return;
-                  }
-                  if (useBusinessTermChange && subscription) {
-                    const minSeats = plan.minSeats ?? 2;
-                    const seatCount = Math.max(
-                      subscription.seatLimit ?? plan.defaultSeats ?? minSeats,
-                      minSeats,
-                    );
-                    void upgradeToBusinessPlan(plan.id, seatCount);
                     return;
                   }
                   if (useOneClickTwoYear) {
@@ -1018,8 +1003,6 @@ function PlansTab() {
                 }}
                 disabled={
                   isAnotherPlanLoading ||
-                  businessPlanWaiting ||
-                  businessTermAlreadyScheduled ||
                   (twoYearAlreadyScheduled && twoYear && !isCurrentPlan) ||
                   (annualAlreadyScheduled &&
                     annual &&
@@ -1040,7 +1023,6 @@ function PlansTab() {
                 (checkoutLoadingId === plan.id ||
                   upgradingToAnnual ||
                   switchingToTwoYear ||
-                  businessUpgradeLoading ||
                   portalLoading) ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                 ) : isCurrentPlan ? (

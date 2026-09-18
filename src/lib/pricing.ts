@@ -251,12 +251,9 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       buttonText: "Start Free Trial",
       popular: isFamily,
       isPerSeat: false,
-      minSeats: isFamily
-        ? (monthly?.minSeats ?? annual?.minSeats ?? 5)
-        : undefined,
-      defaultSeats: isFamily
-        ? (monthly?.defaultSeats ?? annual?.defaultSeats ?? 5)
-        : undefined,
+      // Classic Family is always a fixed household of 5 — ignore any seat metadata.
+      minSeats: isFamily ? 5 : undefined,
+      defaultSeats: isFamily ? 5 : undefined,
       monthlyPriceId: monthly?.priceId,
       annualPriceId: annual?.priceId,
       twoYearId: twoYear?.id,

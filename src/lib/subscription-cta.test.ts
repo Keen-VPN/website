@@ -49,7 +49,7 @@ describe("membership plan tier helpers", () => {
     ).toBe("business");
   });
 
-  it("detects upgrade eligibility to Business for Stripe and Apple IAP", () => {
+  it("is unavailable for all tiers while Business new sales are paused", () => {
     const individual = stripeSub({
       plan: "Premium VPN - Monthly",
       planId: "premium_monthly",
@@ -68,7 +68,6 @@ describe("membership plan tier helpers", () => {
       subscriptionType: "apple_iap",
     });
 
-    // Business new sales are paused; Family is the shared plan.
     expect(canUpgradeToBusinessPlan(individual)).toBe(false);
     expect(canUpgradeToBusinessPlan(family)).toBe(false);
     expect(canUpgradeToBusinessPlan(apple)).toBe(false);

@@ -73,6 +73,11 @@ const PLAN_TIER_OPTIONS = [
   { id: "family", label: "Family" },
 ] as const;
 
+const isPurchasablePlan = (plan: ApiPlan): boolean => {
+  const tier = getPlanTier(plan);
+  return tier === "premium" || tier === "family";
+};
+
 const isFamilyPlan = (plan: ApiPlan | PricingPlan | null): boolean => {
   if (!plan) return false;
   if ("id" in plan) {
@@ -448,10 +453,11 @@ const Subscribe = () => {
         const response = await fetchSubscriptionPlans();
 
         if (response.success && response.plans && response.plans.length > 0) {
-          setAllPlans(response.plans);
+          const purchasablePlans = response.plans.filter(isPurchasablePlan);
+          setAllPlans(purchasablePlans);
 
           const requestedReturnedPlan = planIdParam
-            ? response.plans.find((plan) =>
+            ? purchasablePlans.find((plan) =>
                 matchesRequestedPlan(plan, planIdParam),
               )
             : null;
@@ -459,17 +465,21 @@ const Subscribe = () => {
           const initialTier = requestedReturnedPlan
             ? getPlanTier(requestedReturnedPlan)
             : (tierOrder.find((tier) =>
-                response.plans.some((plan) => getPlanTier(plan) === tier),
+                purchasablePlans.some((plan) => getPlanTier(plan) === tier),
               ) ?? "premium");
 
-          applyTierSelection(initialTier, response.plans, planIdParam);
+          applyTierSelection(initialTier, purchasablePlans, planIdParam);
         } else {
           console.error("Failed to load plan:", response.error);
           if (planIdParam) {
             const planResponse = await fetchSubscriptionPlanById(planIdParam);
-            setSelectedPlan(
+            const fallbackPlan =
               planResponse.success && planResponse.plan
                 ? (planResponse.plan as unknown as ApiPlan)
+                : null;
+            setSelectedPlan(
+              fallbackPlan && isPurchasablePlan(fallbackPlan)
+                ? fallbackPlan
                 : null,
             );
           } else {
