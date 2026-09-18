@@ -328,8 +328,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isServerConfirmedFreshPaidSubscription(response.subscription);
           // Fresh trial on checkout return (or Reddit-attributed trial) — do not
           // require redditTrialConversionId for PostHog, or most trials never emit.
+          // Exclude paidActive: converted users can still have trial.active true.
           const freshTrialConfirmed =
             trialActive &&
+            !paidActive &&
             (Boolean(response.redditTrialConversionId) ||
               checkoutSignal.active ||
               (subscriptionStatus === "trialing" &&
