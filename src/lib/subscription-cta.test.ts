@@ -68,9 +68,10 @@ describe("membership plan tier helpers", () => {
       subscriptionType: "apple_iap",
     });
 
-    expect(canUpgradeToBusinessPlan(individual)).toBe(true);
-    expect(canUpgradeToBusinessPlan(family)).toBe(true);
-    expect(canUpgradeToBusinessPlan(apple)).toBe(true);
+    // Business new sales are paused; Family is the shared plan.
+    expect(canUpgradeToBusinessPlan(individual)).toBe(false);
+    expect(canUpgradeToBusinessPlan(family)).toBe(false);
+    expect(canUpgradeToBusinessPlan(apple)).toBe(false);
     expect(canUpgradeToBusinessPlan(business)).toBe(false);
   });
 

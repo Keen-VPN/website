@@ -129,22 +129,23 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
   const plansByType = apiPlans.reduce(
     (acc, plan) => {
       const id = plan.id.toLowerCase();
-      const isLegacyFamilyOnly =
-        id.includes("family") &&
-        !id.includes("family_plus") &&
-        !id.includes("familyplus");
-      if (isLegacyFamilyOnly) {
-        return acc;
-      }
-      // Family is retired from the purchasable catalog; any legacy family_plus/familyplus
-      // price ids the backend might still return are folded into Business (seat-based).
-      const isTeam =
+      // Business / Family Plus stay off the purchasable catalog (grandfathered only).
+      const isRetiredBusiness =
+        plan.isPerSeat === true ||
         id.includes("team") ||
         id.includes("business") ||
         id.includes("family_plus") ||
         id.includes("familyplus");
-      const isPremium = id.includes("premium") && !isTeam;
-      const key = isPremium ? "premium" : isTeam ? "team" : "other";
+      if (isRetiredBusiness) {
+        return acc;
+      }
+
+      const isFamily =
+        id.includes("family") &&
+        !id.includes("family_plus") &&
+        !id.includes("familyplus");
+      const isPremium = id.includes("premium") && !isFamily;
+      const key = isPremium ? "premium" : isFamily ? "family" : "other";
 
       if (!acc[key]) {
         acc[key] = { monthly: null, annual: null, twoYear: null };
@@ -172,7 +173,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
     if (!monthly && !annual && !twoYear) return;
 
     const isPremium = type === "premium";
-    const isTeam = type === "team";
+    const isFamily = type === "family";
     const monthlyPrice = monthly?.price || annual?.price || 0;
     const annualPrice =
       annual?.price || (monthly?.price ? monthly.price * 12 : 0);
@@ -211,10 +212,9 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
         ? monthly.features
         : (twoYear?.features ?? []);
 
-    // Business bills per seat: `monthlyPrice`/`annualPrice` here is the per-seat price.
     const deviceConnectionFeature = {
-      name: isTeam
-        ? "5 connected devices per seat"
+      name: isFamily
+        ? "Share with up to 5 members"
         : "Up to 3 connected devices",
       included: true,
       highlighted: true,
@@ -223,18 +223,21 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
     const mergedFeatures = [
       deviceConnectionFeature,
       ...features.filter(
-        (f) => !/simultaneous device|connected device/i.test(f.name),
+        (f) =>
+          !/simultaneous device|connected device|share premium with up to/i.test(
+            f.name,
+          ),
       ),
     ];
 
     transformedPlans.push({
       monthlyId: monthly?.id,
       annualId: annual?.id,
-      name: isPremium ? "Individual" : isTeam ? "Business" : "Premium",
+      name: isPremium ? "Individual" : isFamily ? "Family" : "Premium",
       description: isPremium
         ? "Perfect for personal use"
-        : isTeam
-          ? "Buy seats for your whole team, pay per person"
+        : isFamily
+          ? "One plan for your household — invite up to 5 people"
           : "Premium VPN service",
       monthlyPrice,
       annualPrice,
@@ -246,16 +249,13 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       annualSavingsLabel,
       features: mergedFeatures,
       buttonText: "Start Free Trial",
-      popular: isTeam,
-      isPerSeat: isTeam,
-      minSeats: isTeam
-        ? (monthly?.minSeats ?? annual?.minSeats ?? 2)
+      popular: isFamily,
+      isPerSeat: false,
+      minSeats: isFamily
+        ? (monthly?.minSeats ?? annual?.minSeats ?? 5)
         : undefined,
-      defaultSeats: isTeam
-        ? Math.max(
-            monthly?.minSeats ?? annual?.minSeats ?? 2,
-            monthly?.defaultSeats ?? annual?.defaultSeats ?? 5,
-          )
+      defaultSeats: isFamily
+        ? (monthly?.defaultSeats ?? annual?.defaultSeats ?? 5)
         : undefined,
       monthlyPriceId: monthly?.priceId,
       annualPriceId: annual?.priceId,
@@ -280,8 +280,9 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
     const order: Record<string, number> = {
       Individual: 0,
       Premium: 0,
-      Business: 1,
-      Team: 1,
+      Family: 1,
+      Business: 2,
+      Team: 2,
     };
     return (
       (order[a.name as keyof typeof order] ?? 99) -

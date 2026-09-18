@@ -308,12 +308,19 @@ function isEligibleBusinessPlanManager(
 }
 
 /**
+ * New Business upgrades are paused — Family is the shared plan for new customers.
+ * Existing Business subscribers keep their plan UI via resolveMembershipPlanTier.
+ */
+export const BUSINESS_PLAN_PURCHASABLE = false;
+
+/**
  * Owner with an active/trialing subscription not already on Business — eligible to
  * start Business (in-place Stripe upgrade or Stripe checkout migration).
  */
 export function canUpgradeToBusinessPlan(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
+  if (!BUSINESS_PLAN_PURCHASABLE) return false;
   return (
     isEligibleBusinessPlanManager(subscription) &&
     resolveMembershipPlanTier(subscription) !== "business"
