@@ -47,11 +47,9 @@ import { useTwoYearPlanChange } from '@/hooks/use-plan-change';
 import {
   canSwitchStripeToTwoYear,
   canUpgradeStripeToAnnual,
-  canUpgradeToBusinessPlan,
   hasManageableSubscription,
   hasScheduledAnnualBilling,
   hasScheduledTwoYearBilling,
-  isAppleIapSubscription,
   isStripeSubscription,
   resolveMembershipPlanTier,
   resolveSubscriptionBillingPeriod,
@@ -59,7 +57,7 @@ import {
 import type { SubscriptionData } from '@/auth/types';
 
 type TabId = 'subscription' | 'plans' | 'billing';
-type PlanTier = 'premium' | 'team';
+type PlanTier = 'premium' | 'family';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'subscription', label: 'Subscription' },
@@ -88,15 +86,7 @@ function isAnnualPlan(plan: ApiPlan) {
 
 function getPlanTier(plan: ApiPlan): PlanTier | 'other' {
   const id = plan.id.toLowerCase();
-  // Retired Family catalog IDs should not appear under Individual checkout.
-  // Keep family_plus / familyplus as Business (team).
-  if (
-    id.includes('family') &&
-    !id.includes('family_plus') &&
-    !id.includes('familyplus')
-  ) {
-    return 'other';
-  }
+  // Business / Family Plus stay off the purchasable Plans tab.
   if (
     plan.isPerSeat ||
     id.includes('team') ||
@@ -104,9 +94,15 @@ function getPlanTier(plan: ApiPlan): PlanTier | 'other' {
     id.includes('family_plus') ||
     id.includes('familyplus')
   ) {
-    return 'team';
+    return 'other';
   }
-  return 'premium';
+  if (id.includes('family')) {
+    return 'family';
+  }
+  if (id.includes('premium')) {
+    return 'premium';
+  }
+  return 'other';
 }
 
 function isCurrentCatalogPlan(
@@ -117,9 +113,13 @@ function isCurrentCatalogPlan(
   if (subscription.planId && plan.id === subscription.planId) return true;
 
   const subTier = resolveMembershipPlanTier(subscription);
-  const planTier = getPlanTier(plan) === 'team' ? 'business' : 'individual';
-  if (subTier === 'family') return false;
-  if (subTier !== planTier) return false;
+  const planTier = getPlanTier(plan);
+  if (planTier === 'other') return false;
+
+  const tierMatches =
+    (subTier === 'individual' && planTier === 'premium') ||
+    (subTier === 'family' && planTier === 'family');
+  if (!tierMatches) return false;
 
   const subPeriod = resolveSubscriptionBillingPeriod(subscription);
   const planPeriod = isTwoYearApiPlan(plan)
@@ -140,31 +140,27 @@ function planChangeCtaLabel(
   plan: ApiPlan,
   subscription: SubscriptionData,
 ): string {
-  const targetBusiness = getPlanTier(plan) === 'team';
+  const targetFamily = getPlanTier(plan) === 'family';
   const targetPeriod = isTwoYearApiPlan(plan)
     ? '2year'
     : isAnnualPlan(plan)
       ? 'year'
       : 'month';
-  const currentBusiness =
-    resolveMembershipPlanTier(subscription) === 'business';
+  const currentFamily = resolveMembershipPlanTier(subscription) === 'family';
   const currentPeriod = resolveSubscriptionBillingPeriod(subscription);
 
   const isUpgrade =
-    (targetBusiness && !currentBusiness) ||
-    (targetBusiness === currentBusiness &&
+    (targetFamily && !currentFamily) ||
+    (targetFamily === currentFamily &&
       BILLING_PERIOD_RANK[targetPeriod] > BILLING_PERIOD_RANK[currentPeriod]);
 
   const verb = isUpgrade ? 'Upgrade to' : 'Switch to';
 
-  if (targetBusiness && targetPeriod === 'year') {
-    return `${verb} Business annual`;
+  if (targetFamily && targetPeriod === 'year') {
+    return `${verb} Family annual`;
   }
-  if (targetBusiness && targetPeriod === 'month') {
-    return `${verb} Business monthly`;
-  }
-  if (targetBusiness && targetPeriod === '2year') {
-    return `${verb} Business 2-year`;
+  if (targetFamily && targetPeriod === 'month') {
+    return `${verb} Family monthly`;
   }
   if (targetPeriod === '2year') return `${verb} 2-year`;
   if (targetPeriod === 'year') return `${verb} 1-year`;
@@ -549,29 +545,15 @@ function PlansTab() {
     openBillingPortal,
     openPlanChangePortal,
     portalLoading,
-    upgradeToBusinessPlan,
-    businessUpgradeLoading,
   } = useSubscriptionBillingActions();
   const { upgrading: upgradingToAnnual, upgradeToAnnual } = useAnnualUpgrade();
   const { changing: switchingToTwoYear, switchToTwoYear } =
     useTwoYearPlanChange();
-  const { dashboard: membershipDashboard, loading: membershipLoading } =
+  const { dashboard: membershipDashboard } =
     useMembershipSharingContext();
   const isManageable = hasManageableSubscription(subscription);
   const canOpenStripePortal =
     isStripeSubscription(subscription) && Boolean(subscription?.canManageBilling);
-  const membershipBlocksBusinessUpgrade =
-    membershipLoading ||
-    membershipDashboard?.role === 'transfer_pending' ||
-    Boolean(membershipDashboard?.pendingTransfer);
-  const canFreeBusinessUpgrade =
-    Boolean(subscription) &&
-    canUpgradeToBusinessPlan(subscription) &&
-    !membershipBlocksBusinessUpgrade;
-  const businessUpgradeEligible =
-    Boolean(subscription) && canUpgradeToBusinessPlan(subscription);
-  const businessActionBlocked =
-    membershipLoading && businessUpgradeEligible;
   const isIndividualSubscriber =
     resolveMembershipPlanTier(subscription) === 'individual';
   const canOneClickAnnual =
@@ -586,12 +568,33 @@ function PlansTab() {
   );
   const teamOwnerEmail =
     membershipDashboard?.membership?.ownerEmail?.trim() || null;
+  const hasFamilyCatalog = useMemo(
+    () => plans.some((plan) => getPlanTier(plan) === 'family'),
+    [plans],
+  );
+  const planTierOptions = useMemo(
+    () =>
+      (
+        [
+          { id: 'premium', label: 'Individual' },
+          ...(hasFamilyCatalog
+            ? ([{ id: 'family', label: 'Family' }] as const)
+            : []),
+        ] as const
+      ),
+    [hasFamilyCatalog],
+  );
+
+  useEffect(() => {
+    if (!hasFamilyCatalog && tier === 'family') {
+      setTier('premium');
+    }
+  }, [hasFamilyCatalog, tier]);
 
   useEffect(() => {
     if (
       !upgradingToAnnual &&
       !switchingToTwoYear &&
-      !businessUpgradeLoading &&
       !portalLoading &&
       !checkoutLoadingId
     ) {
@@ -600,7 +603,6 @@ function PlansTab() {
   }, [
     upgradingToAnnual,
     switchingToTwoYear,
-    businessUpgradeLoading,
     portalLoading,
     checkoutLoadingId,
   ]);
@@ -661,9 +663,9 @@ function PlansTab() {
       setCheckoutLoadingId(plan.id);
       const aswebSuffix =
         sessionStorage.getItem('asweb_session') === '1' ? '&asweb=1' : '';
-      const isBusiness = getPlanTier(plan) === 'team';
-      const successUrl = isBusiness
-        ? `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}&business=upgraded${aswebSuffix}`
+      const isFamily = getPlanTier(plan) === 'family';
+      const successUrl = isFamily
+        ? `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}&tab=team${aswebSuffix}`
         : `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}${aswebSuffix}`;
       const cancelUrl = `${window.location.origin}/subscription?tab=plans`;
 
@@ -672,7 +674,6 @@ function PlansTab() {
         plan.id,
         successUrl,
         cancelUrl,
-        isBusiness ? 1 : undefined,
       );
 
       if (!result.success) {
@@ -737,10 +738,7 @@ function PlansTab() {
       <div className="mb-8 flex justify-center sm:mb-12">
         <div className="inline-flex w-full max-w-[380px] rounded-[21px] border border-[#0f2040] bg-white p-1.5 sm:min-w-[380px] sm:w-auto">
           {(
-            [
-              { id: 'premium', label: 'Individual' },
-              { id: 'team', label: 'Business' },
-            ] as const
+            planTierOptions
           ).map((option) => (
             <button
               key={option.id}
@@ -772,9 +770,9 @@ function PlansTab() {
         {tierPlans.map((plan) => {
           const twoYear = isTwoYearApiPlan(plan);
           const annual = isAnnualPlan(plan);
-          const isBusiness = tier === 'team';
+          const isFamily = tier === 'family';
           // The longest available term is the single featured value card.
-          const featured = twoYear || (isBusiness && annual && !tierHasTwoYear);
+          const featured = twoYear || (isFamily && annual && !tierHasTwoYear);
           const monthly = monthlyEquivalent(plan);
           const coveredMonths = getApiPlanPaidMonths(plan);
           const standardTermPrice = monthlyPlan
@@ -786,12 +784,12 @@ function PlansTab() {
                   ((standardTermPrice - plan.price) / standardTermPrice) * 100,
                 )
               : null;
-          const planFeatures = isBusiness
+          const planFeatures = isFamily
             ? [
-                '5 connected devices per seat',
+                'Share with up to 5 members',
                 ...FEATURES.slice(1),
                 'Invite by email, separate logins',
-                'Owner manages seats and members',
+                'Owner manages members anytime',
               ]
             : FEATURES;
 
@@ -805,7 +803,7 @@ function PlansTab() {
             subtitle = 'Best value. Lock in the lowest monthly price.';
             cta = 'Get the 2-year plan';
             footer = 'Best savings with full KeenVPN protection.';
-          } else if (annual && isBusiness) {
+          } else if (annual && isFamily) {
             title = 'Annual plan';
             subtitle = 'Best value. Lock in the lowest monthly price.';
             cta = 'Get the 1-year plan';
@@ -820,17 +818,13 @@ function PlansTab() {
           const isCurrentPlan = isCurrentCatalogPlan(plan, subscription);
 
           if (isManageable && !isCurrentPlan && subscription) {
-            if (isBusiness && canFreeBusinessUpgrade) {
-              cta = isAppleIapSubscription(subscription)
-                ? 'Set up future Business billing'
-                : 'Enable Business for free';
-            } else if (twoYear && twoYearAlreadyScheduled) {
+            if (twoYear && twoYearAlreadyScheduled) {
               cta = '2-year scheduled';
             } else if (twoYear && canOneClickTwoYear) {
               cta = 'Switch to 2-year';
-            } else if (annual && !isBusiness && canOneClickAnnual) {
+            } else if (annual && !isFamily && canOneClickAnnual) {
               cta = 'Upgrade to annual';
-            } else if (annual && !isBusiness && annualAlreadyScheduled) {
+            } else if (annual && !isFamily && annualAlreadyScheduled) {
               cta = 'Annual scheduled';
             } else {
               cta = planChangeCtaLabel(plan, subscription);
@@ -839,7 +833,7 @@ function PlansTab() {
 
           const useOneClickAnnual =
             !isCurrentPlan &&
-            !isBusiness &&
+            !isFamily &&
             annual &&
             canOneClickAnnual &&
             isIndividualSubscriber;
@@ -848,38 +842,6 @@ function PlansTab() {
             twoYear &&
             canOneClickTwoYear &&
             isIndividualSubscriber;
-          const useFreeBusiness =
-            !isCurrentPlan && isBusiness && canFreeBusinessUpgrade;
-          const existingBusinessOwner =
-            subscription != null &&
-            hasManageableSubscription(subscription) &&
-            subscription.cancelAtPeriodEnd !== true &&
-            resolveMembershipPlanTier(subscription) === 'business' &&
-            isStripeSubscription(subscription) &&
-            subscription.canManageBilling === true;
-          const useBusinessTermChange =
-            !isCurrentPlan && isBusiness && existingBusinessOwner;
-          const targetBusinessPeriod = twoYear
-            ? '2year'
-            : annual
-              ? 'year'
-              : 'month';
-          const businessTermAlreadyScheduled =
-            useBusinessTermChange &&
-            (subscription?.scheduledBillingInterval?.to ===
-              targetBusinessPeriod ||
-              subscription?.scheduledPlanChange?.to === targetBusinessPeriod);
-          if (businessTermAlreadyScheduled) {
-            cta = `${
-              targetBusinessPeriod === '2year'
-                ? '2-year'
-                : targetBusinessPeriod === 'year'
-                  ? 'Annual'
-                  : 'Monthly'
-            } scheduled`;
-          }
-          const businessPlanWaiting =
-            !isCurrentPlan && isBusiness && businessActionBlocked;
           const isThisPlanLoading = activeLoadingPlanId === plan.id;
           const isAnotherPlanLoading =
             activeLoadingPlanId !== null && activeLoadingPlanId !== plan.id;
@@ -949,7 +911,7 @@ function PlansTab() {
               <button
                 type="button"
                 onClick={() => {
-                  if (businessPlanWaiting || isAnotherPlanLoading) return;
+                  if (isAnotherPlanLoading) return;
 
                   const token = getSessionToken();
                   if (!token) {
@@ -994,19 +956,6 @@ function PlansTab() {
                     navigate('/subscription');
                     return;
                   }
-                  if (useFreeBusiness && subscription) {
-                    void upgradeToBusinessPlan(plan.id, 1);
-                    return;
-                  }
-                  if (useBusinessTermChange && subscription) {
-                    const minSeats = plan.minSeats ?? 2;
-                    const seatCount = Math.max(
-                      subscription.seatLimit ?? plan.defaultSeats ?? minSeats,
-                      minSeats,
-                    );
-                    void upgradeToBusinessPlan(plan.id, seatCount);
-                    return;
-                  }
                   if (useOneClickTwoYear) {
                     void switchToTwoYear(plan.id, 'dashboard_plans');
                     return;
@@ -1024,7 +973,7 @@ function PlansTab() {
                     });
                     return;
                   }
-                  if (annual && !isBusiness && annualAlreadyScheduled) {
+                  if (annual && !isFamily && annualAlreadyScheduled) {
                     setActiveLoadingPlanId(null);
                     toast({
                       title: 'Annual already scheduled',
@@ -1053,12 +1002,10 @@ function PlansTab() {
                 }}
                 disabled={
                   isAnotherPlanLoading ||
-                  businessPlanWaiting ||
-                  businessTermAlreadyScheduled ||
                   (twoYearAlreadyScheduled && twoYear && !isCurrentPlan) ||
                   (annualAlreadyScheduled &&
                     annual &&
-                    !isBusiness &&
+                    !isFamily &&
                     !isCurrentPlan) ||
                   checkoutLoadingId === plan.id ||
                   isThisPlanLoading ||
@@ -1075,7 +1022,6 @@ function PlansTab() {
                 (checkoutLoadingId === plan.id ||
                   upgradingToAnnual ||
                   switchingToTwoYear ||
-                  businessUpgradeLoading ||
                   portalLoading) ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                 ) : isCurrentPlan ? (

@@ -40,9 +40,9 @@ export const faqs = [
       "Annual plans are billed once per year upfront. You'll save significantly compared to monthly billing — that's equivalent to getting 2 months free on Individual plans.",
   },
   {
-    question: "How does Business seat billing work?",
+    question: "How does Family sharing work?",
     answer:
-      "Business is priced per active team member. Start with your seat and invite teammates by email for free. Your subscription and billing update only after a teammate creates or signs in to a KeenVPN account and accepts. Available trial or already-paid seats are used first, and trial seats are billed when the trial ends. Each seat includes 5 connected devices.",
+      "Family is one flat-price plan for up to 5 people. After checkout, invite friends or family by email — they get their own logins under your plan. No per-seat charges when someone accepts.",
   },
   {
     question: "Do you keep logs of my activity?",
@@ -69,61 +69,61 @@ export const allFeatures = [
   "Kill switch protection",
   "24/7 customer support",
   "Free trial duration",
-  "Team management dashboard",
+  "Share with friends & family",
   "Priority support",
 ];
 
 export interface FeatureComparisonRow {
   feature: string;
   individual: string | boolean;
-  business: string | boolean;
+  family: string | boolean;
 }
 
 export const featureComparison: FeatureComparisonRow[] = [
   {
     feature: "Simultaneous device connections",
     individual: "Up to 3",
-    business: "5 per seat",
+    family: "Shared household plan",
   },
   {
     feature: "Bandwidth",
     individual: "Unlimited",
-    business: "Unlimited",
+    family: "Unlimited",
   },
   {
     feature: "Military-grade encryption",
     individual: true,
-    business: true,
+    family: true,
   },
   {
     feature: "No-log policy",
     individual: true,
-    business: true,
+    family: true,
   },
   {
     feature: "Kill switch protection",
     individual: true,
-    business: true,
+    family: true,
   },
   {
     feature: "24/7 customer support",
     individual: true,
-    business: true,
+    family: true,
   },
   {
     feature: "Free trial duration",
     individual: "1 month",
-    business: "1 month",
+    family: "1 month",
   },
   {
-    feature: "Team management dashboard",
+    feature: "Share with friends & family",
     individual: false,
-    business: true,
+    family: "Up to 5 members",
   },
   {
     feature: "Priority support",
     individual: false,
-    business: true,
+    family: true,
   },
 ];
 
@@ -133,9 +133,11 @@ export function featureComparisonValueForPlan(
   row: FeatureComparisonRow,
 ): string | boolean {
   switch (planName) {
+    case "Family":
+      return row.family;
     case "Business":
     case "Team":
-      return row.business;
+      return row.family;
     default:
       return row.individual;
   }

@@ -333,10 +333,10 @@ export function MembershipTeamPanel({
     return (
       <div className={cn(shellClass, className)}>
         <p className="text-sm text-muted-foreground">
-          Upgrade to Business to invite teammates with their own logins.
+          Upgrade to Family to invite friends with their own logins.
         </p>
         <Button asChild variant="outline" size="sm" className="mt-2">
-          <Link to="/subscription?tab=plans">View Business plan</Link>
+          <Link to="/pricing">View Family plan</Link>
         </Button>
       </div>
     );
