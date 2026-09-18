@@ -45,7 +45,8 @@ Do not ask users for country. Enable GeoIP in the PostHog project if missing.
 - Exclude internal users with the existing Internal / Test filter (`is_internal` / opted-out staff)
 - Trial and paid remain separate events
 - `app_download_clicked` is intent, not a confirmed install
-- `app_authenticated` lives in backend product events today; PostHog funnel step 7 may be incomplete until native apps (or a server forwarder) emit it to PostHog
+- `trial_started` / `subscription_started` are emitted from the web portal on fresh trial/paid transitions (checkout return or in-session). They also exist as **backend** `product_events` for admin UTM reports — that is separate from PostHog. Until at least one non-staff web conversion fires into your PostHog project, the event picker will show “No results”.
+- Apple/Google Play trials started only in native apps do **not** currently send these to PostHog (backend only).
 
 ## PostHog UI — Signup conversion funnel
 
