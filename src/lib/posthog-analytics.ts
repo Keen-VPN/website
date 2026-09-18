@@ -506,12 +506,53 @@ export function trackPostHogPageView(pathname: string, search = ""): void {
   trackPostHogEvent("website_visit", { path });
 }
 
+export type SignupMethod = "google" | "apple" | "email";
+
+export type AppDownloadPlatform =
+  | "windows"
+  | "macos"
+  | "ios"
+  | "android"
+  | "chrome"
+  | "unknown";
+
 export function trackPostHogSignupStarted(): void {
   // Returning / already-authenticated users re-entering SignIn should not
   // inflate the signup_started funnel step.
   if (hadIdentifiedPostHogUser() || hasExistingSessionToken()) return;
   trackPostHogEvent("signup_started", {}, "signup_started", {
     persistent: true,
+  });
+}
+
+export function trackPostHogSignupMethodSelected(
+  method: SignupMethod,
+  properties: PostHogPayload = {},
+): void {
+  trackPostHogEvent("signup_method_selected", {
+    signup_method: method,
+    platform: "web",
+    ...properties,
+  });
+}
+
+export function trackPostHogEmailVerified(
+  properties: PostHogPayload = {},
+): void {
+  trackPostHogEvent("email_verified", {
+    platform: "web",
+    ...properties,
+  });
+}
+
+export function trackPostHogAppDownloadClicked(
+  downloadPlatform: AppDownloadPlatform,
+  properties: PostHogPayload = {},
+): void {
+  trackPostHogEvent("app_download_clicked", {
+    download_platform: downloadPlatform,
+    platform: "web",
+    ...properties,
   });
 }
 

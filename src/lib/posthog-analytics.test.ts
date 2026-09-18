@@ -110,6 +110,37 @@ describe("posthog analytics", () => {
     expect(analytics.hadIdentifiedPostHogUser()).toBe(true);
   });
 
+  it("captures signup_method_selected with method property", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogSignupMethodSelected("google");
+    expect(capture).toHaveBeenCalledWith(
+      "signup_method_selected",
+      expect.objectContaining({ signup_method: "google", platform: "web" }),
+    );
+  });
+
+  it("captures email_verified and app_download_clicked", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogEmailVerified({ signup_method: "email" });
+    analytics.trackPostHogAppDownloadClicked("windows", {
+      source_page: "/downloads",
+      cta: "downloads_windows",
+    });
+
+    expect(capture).toHaveBeenCalledWith(
+      "email_verified",
+      expect.objectContaining({ signup_method: "email", platform: "web" }),
+    );
+    expect(capture).toHaveBeenCalledWith(
+      "app_download_clicked",
+      expect.objectContaining({
+        download_platform: "windows",
+        source_page: "/downloads",
+        cta: "downloads_windows",
+      }),
+    );
+  });
+
   it("skips signup_started for returning/authenticated browsers", async () => {
     localStorage.setItem("keen_posthog_identified", "1");
     const analytics = await import("./posthog-analytics");

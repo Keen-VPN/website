@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { storeSessionToken, verifyMagicLink } from "@/auth";
+import { trackPostHogEmailVerified } from "@/lib/posthog-analytics";
 
 const MagicLinkVerify = () => {
   const [searchParams] = useSearchParams();
@@ -39,6 +40,7 @@ const MagicLinkVerify = () => {
       }
 
       storeSessionToken(response.sessionToken);
+      trackPostHogEmailVerified({ signup_method: "email" });
       setState("success");
       setMessage("Signed in successfully. Redirecting...");
       const isASWebSession =
