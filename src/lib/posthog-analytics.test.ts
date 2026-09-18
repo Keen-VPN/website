@@ -119,6 +119,52 @@ describe("posthog analytics", () => {
     );
   });
 
+  it("skips signup_method_selected for returning browsers", async () => {
+    localStorage.setItem("keen_posthog_identified", "1");
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogSignupMethodSelected("google");
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("opts out before email signup captures for staff emails", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogSignupMethodSelected(
+      "email",
+      {},
+      { email: "dev@keenvpn.com" },
+    );
+    expect(optOut).toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("flushes queued OAuth method after email is known", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.queuePostHogSignupMethodSelected("apple");
+    expect(capture).not.toHaveBeenCalled();
+    analytics.flushPostHogSignupMethodSelected("user@example.com");
+    expect(capture).toHaveBeenCalledWith(
+      "signup_method_selected",
+      expect.objectContaining({ signup_method: "apple", platform: "web" }),
+    );
+  });
+
+  it("keeps canonical fields when properties try to override them", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogAppDownloadClicked("windows", {
+      download_platform: "ios",
+      platform: "ios",
+      source_page: "/downloads",
+    });
+    expect(capture).toHaveBeenCalledWith(
+      "app_download_clicked",
+      expect.objectContaining({
+        download_platform: "windows",
+        platform: "web",
+        source_page: "/downloads",
+      }),
+    );
+  });
+
   it("captures email_verified and app_download_clicked", async () => {
     const analytics = await import("./posthog-analytics");
     analytics.trackPostHogEmailVerified({ signup_method: "email" });

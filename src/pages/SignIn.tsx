@@ -29,6 +29,7 @@ import {
 import { peekPendingMembershipInviteAcceptRedirect } from "@/auth/membership-invite-accept-intent";
 import { recordSignupStarted } from "@/auth/backend";
 import {
+  queuePostHogSignupMethodSelected,
   trackPostHogEmailVerified,
   trackPostHogSignupMethodSelected,
 } from "@/lib/posthog-analytics";
@@ -153,13 +154,13 @@ const SignIn = () => {
   // Debounce sign-in to prevent double-clicks
   const [handleGoogleSignIn, isGoogleDebouncing] = useDebounce(async () => {
     await recordSignupStarted();
-    trackPostHogSignupMethodSelected("google");
+    queuePostHogSignupMethodSelected("google");
     await signIn("google");
   }, 2000);
 
   const [handleAppleSignIn, isAppleDebouncing] = useDebounce(async () => {
     await recordSignupStarted();
-    trackPostHogSignupMethodSelected("apple");
+    queuePostHogSignupMethodSelected("apple");
     await signIn("apple");
   }, 2000);
 
@@ -172,8 +173,10 @@ const SignIn = () => {
 
     setOtpLoading(true);
     setOtpMessage("");
-    await recordSignupStarted();
-    trackPostHogSignupMethodSelected("email");
+    await recordSignupStarted(emailForOtp);
+    if (!otpSent) {
+      trackPostHogSignupMethodSelected("email", {}, { email: emailForOtp });
+    }
     const result = await requestEmailOtp(emailForOtp);
     setOtpLoading(false);
 
@@ -222,7 +225,10 @@ const SignIn = () => {
     storeSessionToken(result.sessionToken);
     localStorage.setItem("auth_provider", "email");
     sessionStorage.setItem("auth_provider", "email");
-    trackPostHogEmailVerified({ signup_method: "email" });
+    trackPostHogEmailVerified(
+      { signup_method: "email" },
+      { email: emailForOtp },
+    );
     window.location.href = postOtpLoginUrl();
   };
 

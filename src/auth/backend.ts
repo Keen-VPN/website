@@ -3930,9 +3930,9 @@ let signupStartedInFlight: Promise<void> | null = null;
 const stickerLandingInFlightByKey = new Map<string, Promise<void>>();
 
 /** Records signup_started with stored first-touch UTMs (pre-account). */
-export async function recordSignupStarted(): Promise<void> {
+export async function recordSignupStarted(email?: string | null): Promise<void> {
   // PostHog funnel step must fire for direct/no-UTM signups too.
-  trackPostHogSignupStarted();
+  trackPostHogSignupStarted(email);
 
   const payload = getUtmAttributionAuthPayload();
   if (!payload.utmAttribution) return;

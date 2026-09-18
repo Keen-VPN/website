@@ -30,8 +30,8 @@ const MagicLinkRequest = () => {
     }
 
     setLoading(true);
-    await recordSignupStarted();
-    trackPostHogSignupMethodSelected("email");
+    await recordSignupStarted(trimmedEmail);
+    trackPostHogSignupMethodSelected("email", {}, { email: trimmedEmail });
     const result = await requestMagicLink(trimmedEmail);
     setLoading(false);
 

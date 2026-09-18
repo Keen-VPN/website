@@ -40,7 +40,14 @@ const MagicLinkVerify = () => {
       }
 
       storeSessionToken(response.sessionToken);
-      trackPostHogEmailVerified({ signup_method: "email" });
+      try {
+        trackPostHogEmailVerified(
+          { signup_method: "email" },
+          { email: response.user?.email ?? null },
+        );
+      } catch {
+        /* analytics must not block sign-in */
+      }
       setState("success");
       setMessage("Signed in successfully. Redirecting...");
       const isASWebSession =

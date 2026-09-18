@@ -110,7 +110,7 @@ function DownloadRow({ item }: { item: DownloadItem }) {
       platform: item.id,
       sourcePage: "/downloads",
       cta: `downloads_${item.id}`,
-      storeUrl: href ?? item.href,
+      storeUrl: item.href,
     });
   };
 

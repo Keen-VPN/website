@@ -10,7 +10,7 @@ Reuse these names — do not invent aliases (`signup_completed` → use `user_ac
 | 1 | `$pageview` / `website_visit` | Portal page views |
 | 2 | `signup_started` | Sign-in / subscribe / magic-link entry (once per browser) |
 | 3 | `signup_method_selected` | User chooses Google, Apple, or email |
-| 4 | `email_verified` | Email OTP or magic-link verify succeeds |
+| 4 | `email_verified` | Email signup branch only: OTP or magic-link verification succeeds (not required for Google/Apple) |
 | 5 | `user_account_created` | New KeenVPN account created |
 | 6 | `app_download_clicked` | Store / download CTA clicked (intent only) |
 | 7 | `app_authenticated` | Native app first authenticated session (backend `product_events`; not yet mirrored to PostHog from apps) |
@@ -75,7 +75,7 @@ Create a **Funnel** insight named **Signup conversion journey**.
 Optional intermediate steps for deeper drop-off analysis:
 
 - `signup_method_selected` after `signup_started`
-- `email_verified` after method select (email path)
+- `email_verified` after method select (email path only; skip for Google/Apple funnels)
 - `app_download_clicked` after `user_account_created`
 
 ## PostHog UI — USA acquisition view
