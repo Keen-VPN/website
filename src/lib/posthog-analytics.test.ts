@@ -137,6 +137,14 @@ describe("posthog analytics", () => {
     expect(capture).not.toHaveBeenCalled();
   });
 
+  it("opts out staff email even when returning-browser guard skips capture", async () => {
+    localStorage.setItem("keen_posthog_identified", "1");
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogSignupStarted("dev@keenvpn.com");
+    expect(optOut).toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
+  });
+
   it("flushes queued OAuth method after email is known", async () => {
     const analytics = await import("./posthog-analytics");
     analytics.queuePostHogSignupMethodSelected("apple");
@@ -146,6 +154,32 @@ describe("posthog analytics", () => {
       "signup_method_selected",
       expect.objectContaining({ signup_method: "apple", platform: "web" }),
     );
+  });
+
+  it("opts out and skips capture when flushing queued method for staff email", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.queuePostHogSignupMethodSelected("google");
+    analytics.flushPostHogSignupMethodSelected("dev@keenvpn.com");
+    expect(optOut).toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("clears stale queued OAuth method when email path starts", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.queuePostHogSignupMethodSelected("google");
+    analytics.trackPostHogSignupMethodSelected(
+      "email",
+      {},
+      { email: "user@example.com" },
+    );
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(capture).toHaveBeenCalledWith(
+      "signup_method_selected",
+      expect.objectContaining({ signup_method: "email" }),
+    );
+    // Stale google queue must not flush later
+    analytics.flushPostHogSignupMethodSelected("user@example.com");
+    expect(capture).toHaveBeenCalledTimes(1);
   });
 
   it("keeps canonical fields when properties try to override them", async () => {

@@ -517,6 +517,7 @@ export type AppDownloadPlatform =
   | "unknown";
 
 const PENDING_SIGNUP_METHOD_KEY = "keen_pending_signup_method";
+const PENDING_SIGNUP_METHOD_TTL_MS = 30 * 60 * 1000;
 
 function isReturningSignupBrowser(): boolean {
   return hadIdentifiedPostHogUser() || hasExistingSessionToken();
@@ -529,11 +530,57 @@ function applyEmailAwareOptOut(email?: string | null): void {
   markInternalTraffic(email);
 }
 
+export function clearPostHogPendingSignupMethod(): void {
+  try {
+    sessionStorage.removeItem(PENDING_SIGNUP_METHOD_KEY);
+  } catch {
+    /* storage blocked */
+  }
+}
+
+function readPendingSignupMethod(): SignupMethod | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_SIGNUP_METHOD_KEY);
+    if (!raw) return null;
+
+    // Legacy plain method string
+    if (raw === "google" || raw === "apple" || raw === "email") {
+      return raw;
+    }
+
+    const parsed = JSON.parse(raw) as {
+      method?: string;
+      queuedAt?: number;
+    };
+    if (
+      parsed.method !== "google" &&
+      parsed.method !== "apple" &&
+      parsed.method !== "email"
+    ) {
+      clearPostHogPendingSignupMethod();
+      return null;
+    }
+    if (
+      typeof parsed.queuedAt === "number" &&
+      Date.now() - parsed.queuedAt > PENDING_SIGNUP_METHOD_TTL_MS
+    ) {
+      clearPostHogPendingSignupMethod();
+      return null;
+    }
+    return parsed.method;
+  } catch {
+    clearPostHogPendingSignupMethod();
+    return null;
+  }
+}
+
 export function trackPostHogSignupStarted(email?: string | null): void {
+  // Staff email must still opt out even when we skip funnel capture for
+  // returning browsers (existing identify/session markers).
+  applyEmailAwareOptOut(email);
   // Returning / already-authenticated users re-entering SignIn should not
   // inflate the signup_started funnel step.
   if (isReturningSignupBrowser()) return;
-  applyEmailAwareOptOut(email);
   trackPostHogEvent("signup_started", {}, "signup_started", {
     persistent: true,
   });
@@ -546,7 +593,10 @@ export function trackPostHogSignupStarted(email?: string | null): void {
 export function queuePostHogSignupMethodSelected(method: SignupMethod): void {
   if (isReturningSignupBrowser()) return;
   try {
-    sessionStorage.setItem(PENDING_SIGNUP_METHOD_KEY, method);
+    sessionStorage.setItem(
+      PENDING_SIGNUP_METHOD_KEY,
+      JSON.stringify({ method, queuedAt: Date.now() }),
+    );
   } catch {
     /* storage blocked */
   }
@@ -556,16 +606,9 @@ export function queuePostHogSignupMethodSelected(method: SignupMethod): void {
 export function flushPostHogSignupMethodSelected(
   email?: string | null,
 ): void {
-  let method: string | null = null;
-  try {
-    method = sessionStorage.getItem(PENDING_SIGNUP_METHOD_KEY);
-    sessionStorage.removeItem(PENDING_SIGNUP_METHOD_KEY);
-  } catch {
-    /* storage blocked */
-  }
-  if (method !== "google" && method !== "apple" && method !== "email") {
-    return;
-  }
+  const method = readPendingSignupMethod();
+  clearPostHogPendingSignupMethod();
+  if (!method) return;
   applyEmailAwareOptOut(email);
   trackPostHogEvent("signup_method_selected", {
     signup_method: method,
@@ -578,8 +621,10 @@ export function trackPostHogSignupMethodSelected(
   properties: PostHogPayload = {},
   options?: { email?: string | null },
 ): void {
-  if (isReturningSignupBrowser()) return;
+  // Email / magic-link path replaces any stale OAuth queue from a cancelled popup.
+  clearPostHogPendingSignupMethod();
   applyEmailAwareOptOut(options?.email);
+  if (isReturningSignupBrowser()) return;
   trackPostHogEvent("signup_method_selected", {
     ...properties,
     signup_method: method,
