@@ -155,11 +155,13 @@ describe("transformApiPlans with a 2-year price", () => {
       familyTwoYear,
     ]);
     const family = plans.find((p) => p.id === "family");
+    expect(family).toBeDefined();
+    if (!family) return;
 
-    expect(family?.twoYearId).toBe("family_2year");
-    expect(family?.twoYearPriceId).toBe("price_family_2year");
-    expect(family?.twoYearPrice).toBe(179.99);
-    expect(resolvePricingPlanSelection(family!, "twoYear")).toEqual({
+    expect(family.twoYearId).toBe("family_2year");
+    expect(family.twoYearPriceId).toBe("price_family_2year");
+    expect(family.twoYearPrice).toBe(179.99);
+    expect(resolvePricingPlanSelection(family, "twoYear")).toEqual({
       planId: "family_2year",
       billingPeriod: "2year",
     });

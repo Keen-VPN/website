@@ -359,8 +359,11 @@ const Subscribe = () => {
     navigate,
   ]);
 
-  // Get URL parameters
-  const planIdParam = searchParams.get("planId");
+  // Prefer planId (Pricing CTAs); also accept plan for documented deep links.
+  const planIdParam =
+    searchParams.get("planId")?.trim() ||
+    searchParams.get("plan")?.trim() ||
+    null;
 
   // Single place for "session expired" flow: show one toast and attempt logout without rethrowing,
   // so the outer catch never runs and we avoid double toasts.
