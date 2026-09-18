@@ -440,7 +440,7 @@ export default function DashboardHome() {
                   ? "Annual"
                   : "Monthly"
             } billing starts on ${scheduledBillingDate}, after your current paid period ends.`
-          : "Business is enabled. Invite teammates in the Team section below.",
+          : "Business is enabled. Invite teammates in the Sharing section below.",
     });
 
     const next = new URLSearchParams(searchParams);

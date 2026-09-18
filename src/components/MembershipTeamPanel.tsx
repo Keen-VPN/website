@@ -24,6 +24,7 @@ import {
   formatChargeOnAcceptInviteCopy,
   formatTrialSeatBillingCopy,
 } from "@/lib/business-seat-billing-copy";
+import { resolveMembershipPlanTier } from "@/lib/subscription-cta";
 
 function formatDate(iso: string): string {
   const date = new Date(iso);
@@ -35,13 +36,11 @@ function formatDate(iso: string): string {
   });
 }
 
-function isFamilySharingPlan(planId?: string | null, planName?: string | null): boolean {
-  const raw = `${planId ?? ""} ${planName ?? ""}`.toLowerCase();
-  return (
-    raw.includes("family") &&
-    !raw.includes("family_plus") &&
-    !raw.includes("familyplus")
-  );
+function isFamilySharingPlan(
+  planId?: string | null,
+  planName?: string | null,
+): boolean {
+  return resolveMembershipPlanTier({ planId, plan: planName }) === "family";
 }
 
 interface MembershipTeamPanelProps {
