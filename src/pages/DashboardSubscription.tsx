@@ -50,7 +50,6 @@ import {
   hasManageableSubscription,
   hasScheduledAnnualBilling,
   hasScheduledTwoYearBilling,
-  isAppleIapSubscription,
   isStripeSubscription,
   resolveMembershipPlanTier,
   resolveSubscriptionBillingPeriod,
