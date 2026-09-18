@@ -9226,3 +9226,242 @@ export async function updateSplitTunnelingPreference(
     return { ok: false, error: "Network error saving website exclusions" };
   }
 }
+
+// --- Promotional Trial QR Codes ---
+
+export interface AdminPromoTrialQr {
+  id: string;
+  name: string;
+  code: string;
+  trialDays: number;
+  isActive: boolean;
+  scanCount: number;
+  redemptionCount: number;
+  paidConversionCount: number;
+  landingUrl: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminPromoTrialQrDetail extends AdminPromoTrialQr {
+  recentRedemptions: Array<{
+    id: string;
+    userId: string;
+    redeemedAt: string;
+    trialEndsAt: string;
+    convertedPaidAt: string | null;
+  }>;
+}
+
+export async function adminListPromoTrialQr(): Promise<{
+  ok: boolean;
+  data?: AdminPromoTrialQr[];
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/promo-trial-qr`, {
+      credentials: "include",
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      items?: AdminPromoTrialQr[];
+      message?: string;
+    };
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: raw.message ?? "Failed to load promotional trial QR codes",
+      };
+    }
+    return { ok: true, data: raw.items ?? [] };
+  } catch {
+    return {
+      ok: false,
+      error: "Network error loading promotional trial QR codes",
+    };
+  }
+}
+
+export async function adminCreatePromoTrialQr(payload: {
+  name: string;
+  trialDays: number;
+}): Promise<{ ok: boolean; data?: AdminPromoTrialQr; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/admin/promo-trial-qr`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw = (await response.json().catch(() => ({}))) as {
+      item?: AdminPromoTrialQr;
+      message?: string;
+    };
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: raw.message ?? "Failed to create promotional trial QR code",
+      };
+    }
+    return { ok: true, data: raw.item };
+  } catch {
+    return {
+      ok: false,
+      error: "Network error creating promotional trial QR code",
+    };
+  }
+}
+
+export async function adminUpdatePromoTrialQr(
+  id: string,
+  patch: { name?: string; isActive?: boolean },
+): Promise<{ ok: boolean; data?: AdminPromoTrialQr; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/promo-trial-qr/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      },
+    );
+    const raw = (await response.json().catch(() => ({}))) as {
+      item?: AdminPromoTrialQr;
+      message?: string;
+    };
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: raw.message ?? "Failed to update promotional trial QR code",
+      };
+    }
+    return { ok: true, data: raw.item };
+  } catch {
+    return {
+      ok: false,
+      error: "Network error updating promotional trial QR code",
+    };
+  }
+}
+
+export async function resolvePromoTrialQr(code: string): Promise<{
+  ok: boolean;
+  data?: {
+    found: boolean;
+    active: boolean;
+    name: string | null;
+    trialDays: number | null;
+  };
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/promo-trial-qr/${encodeURIComponent(code)}`,
+    );
+    const raw = (await response.json().catch(() => ({}))) as {
+      found?: boolean;
+      active?: boolean;
+      name?: string | null;
+      trialDays?: number | null;
+      message?: string;
+    };
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: raw.message ?? "Failed to resolve promotional offer",
+      };
+    }
+    return {
+      ok: true,
+      data: {
+        found: Boolean(raw.found),
+        active: Boolean(raw.active),
+        name: raw.name ?? null,
+        trialDays: raw.trialDays ?? null,
+      },
+    };
+  } catch {
+    return { ok: false, error: "Network error resolving promotional offer" };
+  }
+}
+
+export async function recordPromoTrialQrScan(
+  code: string,
+  anonymousId?: string,
+): Promise<{ ok: boolean }> {
+  try {
+    await fetch(
+      `${BACKEND_URL}/promo-trial-qr/${encodeURIComponent(code)}/scan`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          anonymousId ? { anonymousId } : {},
+        ),
+      },
+    );
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export type PromoTrialRedeemReason =
+  | "inactive"
+  | "not_found"
+  | "existing_subscriber"
+  | "already_used_trial"
+  | "already_redeemed"
+  | "device_hash_exists"
+  | "feature_disabled";
+
+export async function redeemPromoTrialQr(
+  code: string,
+  sessionToken: string,
+): Promise<{
+  ok: boolean;
+  success?: boolean;
+  reason?: PromoTrialRedeemReason;
+  trialEndsAt?: string;
+  trialStartsAt?: string;
+  trialDays?: number;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/promo-trial-qr/${encodeURIComponent(code)}/redeem`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      },
+    );
+    const raw = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      reason?: PromoTrialRedeemReason;
+      trialEndsAt?: string;
+      trialStartsAt?: string;
+      trialDays?: number;
+      message?: string;
+    };
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: raw.message ?? "Failed to redeem promotional trial",
+      };
+    }
+    return {
+      ok: true,
+      success: raw.success,
+      reason: raw.reason,
+      trialEndsAt: raw.trialEndsAt,
+      trialStartsAt: raw.trialStartsAt,
+      trialDays: raw.trialDays,
+    };
+  } catch {
+    return { ok: false, error: "Network error redeeming promotional trial" };
+  }
+}
