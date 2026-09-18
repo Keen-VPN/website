@@ -37,6 +37,7 @@ import {
   clearPostLoginRedirect,
   consumePostLoginRedirect,
 } from "@/auth/post-login-redirect";
+import { getPromoTrialCodeFromStorage } from "@/auth/promo-trial-code";
 import { peekPendingMembershipInviteAcceptRedirect } from "@/auth/membership-invite-accept-intent";
 import {
   clearStripeCheckoutReturn,
@@ -235,6 +236,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const pendingInviteAcceptUrl = peekPendingMembershipInviteAcceptRedirect();
     if (pendingInviteAcceptUrl) {
       return pendingInviteAcceptUrl;
+    }
+    const promoTrialCode = getPromoTrialCodeFromStorage();
+    if (promoTrialCode) {
+      return `/promo/${encodeURIComponent(promoTrialCode)}`;
     }
     return accountUrl();
   }, [accountUrl, isASWebSession]);

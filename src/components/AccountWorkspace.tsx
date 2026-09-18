@@ -46,9 +46,9 @@ function teamTabDescription(role: string | undefined): string | null {
     return null;
   }
   if (role === "owner") {
-    return "Invite teammates and manage seats";
+    return "Invite members and manage seats";
   }
-  return "Upgrade to invite teammates";
+  return "Upgrade to invite members";
 }
 
 const TAB_META: Record<
@@ -71,8 +71,8 @@ const TAB_META: Record<
     icon: Lock,
   },
   team: {
-    label: "Team",
-    description: "Business team membership",
+    label: "Sharing",
+    description: "Shared Family or Business membership",
     icon: Users,
   },
   connections: {
@@ -225,7 +225,7 @@ export function AccountWorkspace({
                     ? "Annual"
                     : "Monthly"
               } billing starts on ${scheduledBillingDate}, after your current paid period ends.`
-            : "Business is enabled. Invite teammates in the Team section; their existing paid time is always used first.",
+            : "Business is enabled. Invite teammates in the Sharing section; their existing paid time is always used first.",
       });
     }
 

@@ -24,6 +24,7 @@ import {
   formatChargeOnAcceptInviteCopy,
   formatTrialSeatBillingCopy,
 } from "@/lib/business-seat-billing-copy";
+import { resolveMembershipPlanTier } from "@/lib/subscription-cta";
 
 function formatDate(iso: string): string {
   const date = new Date(iso);
@@ -33,6 +34,13 @@ function formatDate(iso: string): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function isFamilySharingPlan(
+  planId?: string | null,
+  planName?: string | null,
+): boolean {
+  return resolveMembershipPlanTier({ planId, plan: planName }) === "family";
 }
 
 interface MembershipTeamPanelProps {
@@ -167,13 +175,21 @@ export function MembershipTeamPanel({
   }
 
   if (dashboard.role === "member" && dashboard.membership) {
+    const familyShare = isFamilySharingPlan(
+      dashboard.membership.planId ?? dashboard.planId,
+      dashboard.membership.planName ?? dashboard.planName,
+    );
     return (
       <div className={cn(shellClass, className)}>
         {isDashboard ? (
           <div className="mb-1">
-            <h2 className="text-[16px] font-semibold text-[#0f2040]">Team</h2>
+            <h2 className="text-[16px] font-semibold text-[#0f2040]">
+              {familyShare ? "Family" : "Team"}
+            </h2>
             <p className="mt-1 text-[13px] text-[#627086]">
-              You have shared Business access.
+              {familyShare
+                ? "You have shared Family access."
+                : "You have shared Business access."}
             </p>
           </div>
         ) : null}
@@ -260,7 +276,11 @@ export function MembershipTeamPanel({
       <div className={cn(shellClass, className)}>
         {isDashboard ? (
           <div className="mb-1">
-            <h2 className="text-[16px] font-semibold text-[#0f2040]">Team</h2>
+            <h2 className="text-[16px] font-semibold text-[#0f2040]">
+              {isFamilySharingPlan(dashboard.planId, dashboard.planName)
+                ? "Family"
+                : "Team"}
+            </h2>
           </div>
         ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -333,10 +353,10 @@ export function MembershipTeamPanel({
     return (
       <div className={cn(shellClass, className)}>
         <p className="text-sm text-muted-foreground">
-          Upgrade to Business to invite teammates with their own logins.
+          Upgrade to Family to invite friends with their own logins.
         </p>
         <Button asChild variant="outline" size="sm" className="mt-2">
-          <Link to="/subscription?tab=plans">View Business plan</Link>
+          <Link to="/pricing">View Family plan</Link>
         </Button>
       </div>
     );
@@ -366,6 +386,15 @@ export function MembershipTeamPanel({
         ? formatChargeOnAcceptInviteCopy(billingCopyInput)
         : formatChargeAfterPrepaidSeatsCopy(billingCopyInput)
     : null;
+
+  const familyShare = isFamilySharingPlan(dashboard.planId, dashboard.planName);
+  const inviteTitle = familyShare
+    ? isDashboard
+      ? "Family members"
+      : "Invite your family"
+    : isDashboard
+      ? "Team members"
+      : "Invite your team";
 
   const mutedText = isDashboard ? "text-[#627086]" : "text-muted-foreground";
   const headingText = isDashboard
@@ -400,7 +429,7 @@ export function MembershipTeamPanel({
               isDashboard && "text-[16px] font-semibold text-[#0f2040]",
             )}
           >
-            {isDashboard ? "Team members" : "Invite your team"}
+            {inviteTitle}
           </p>
           <p className={cn("text-xs leading-relaxed", mutedText, isDashboard && "text-[13px]")}>
             {chargeOnAccept

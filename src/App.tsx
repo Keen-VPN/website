@@ -34,6 +34,9 @@ const ContextualEmailUnsubscribe = lazy(
   () => import("./pages/ContextualEmailUnsubscribe"),
 );
 const ReferralLanding = lazy(() => import("./pages/ReferralLanding"));
+const PromotionalTrialLanding = lazy(
+  () => import("./pages/PromotionalTrialLanding"),
+);
 const Friends = lazy(() => import("./pages/Friends"));
 const FriendsAccept = lazy(() => import("./pages/FriendsAccept"));
 const FriendsJoin = lazy(() => import("./pages/FriendsJoin"));
@@ -66,6 +69,9 @@ const AdminPerks = lazy(() => import("./pages/admin/AdminPerks"));
 const AdminHotLinks = lazy(() => import("./pages/admin/AdminHotLinks"));
 const AdminAffiliateLinks = lazy(
   () => import("./pages/admin/AdminAffiliateLinks"),
+);
+const AdminPromotionalTrialQr = lazy(
+  () => import("./pages/admin/AdminPromotionalTrialQr"),
 );
 const AdminPerkRequests = lazy(() => import("./pages/admin/AdminPerkRequests"));
 const AdminProductEvents = lazy(
@@ -235,6 +241,10 @@ const App = () => (
               <Route path="/email/preferences" element={<EmailPreferences />} />
               <Route path="/r/:token" element={<ReferralLanding />} />
               <Route
+                path="/promo/:code"
+                element={<PromotionalTrialLanding />}
+              />
+              <Route
                 path="/friends"
                 element={
                   <ProtectedRoute>
@@ -385,6 +395,10 @@ const App = () => (
                 <Route
                   path="sticker-campaigns"
                   element={<AdminStickerCampaigns />}
+                />
+                <Route
+                  path="promotional-trial-qr"
+                  element={<AdminPromotionalTrialQr />}
                 />
                 <Route path="broadcast-email" element={<AdminBroadcastEmail />} />
                 <Route
