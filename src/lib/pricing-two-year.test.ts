@@ -118,6 +118,52 @@ describe("transformApiPlans with a 2-year price", () => {
     expect(individual.twoYearPrice).toBeNull();
     expect(individual.annualSavingsLabel).toBe("Save 37.5%");
   });
+
+  it("maps Family 2-year onto the Family pricing card", () => {
+    const familyMonthly = apiPlan({
+      id: "family_monthly",
+      name: "KeenVPN Family - Monthly",
+      price: 14.99,
+      priceId: "price_family_monthly",
+    });
+    const familyAnnual = apiPlan({
+      id: "family_yearly",
+      name: "KeenVPN Family - Annual",
+      price: 119.99,
+      period: "year",
+      interval: "year",
+      billingPeriod: "year",
+      priceId: "price_family_annual",
+    });
+    const familyTwoYear = apiPlan({
+      id: "family_2year",
+      name: "KeenVPN Family - 2 Years",
+      price: 179.99,
+      period: "2 years",
+      interval: "year",
+      billingPeriod: "2year",
+      priceId: "price_family_2year",
+      intervalCount: 2,
+      paidMonths: 24,
+    });
+
+    const plans = transformApiPlans([
+      monthlyPlan,
+      annualPlan,
+      familyMonthly,
+      familyAnnual,
+      familyTwoYear,
+    ]);
+    const family = plans.find((p) => p.id === "family");
+
+    expect(family?.twoYearId).toBe("family_2year");
+    expect(family?.twoYearPriceId).toBe("price_family_2year");
+    expect(family?.twoYearPrice).toBe(179.99);
+    expect(resolvePricingPlanSelection(family!, "twoYear")).toEqual({
+      planId: "family_2year",
+      billingPeriod: "2year",
+    });
+  });
 });
 
 describe("resolvePricingPlanSelection for the 2-year term", () => {
