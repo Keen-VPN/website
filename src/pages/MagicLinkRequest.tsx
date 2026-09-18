@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { requestMagicLink } from "@/auth";
 import { recordSignupStarted } from "@/auth/backend";
+import { trackPostHogSignupMethodSelected } from "@/lib/posthog-analytics";
 import { Loader2, MailCheck } from "lucide-react";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,7 +30,8 @@ const MagicLinkRequest = () => {
     }
 
     setLoading(true);
-    await recordSignupStarted();
+    await recordSignupStarted(trimmedEmail);
+    trackPostHogSignupMethodSelected("email", {}, { email: trimmedEmail });
     const result = await requestMagicLink(trimmedEmail);
     setLoading(false);
 

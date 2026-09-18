@@ -48,6 +48,7 @@ import {
 import {
   trackPostHogSubscriptionStarted,
   trackPostHogTrialStarted,
+  clearPostHogPendingSignupMethod,
 } from "@/lib/posthog-analytics";
 import { trackRedditConfirmedTrial } from "@/lib/reddit-analytics";
 
@@ -889,6 +890,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setIsAuthenticating(true);
+    // Cleared on OAuth failure so a later email login does not flush a stale method.
+    // Kept on redirect/success so PostHogTracker can flush after identity is known.
+    let clearPendingMethodOnExit = true;
 
     try {
       const providerName = provider === 'apple' ? 'Apple' : 'Google';
@@ -905,6 +909,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // If redirect was used, the page will redirect away
       if (result.usedRedirect) {
+        clearPendingMethodOnExit = false;
         return { success: true };
       }
 
@@ -996,6 +1001,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (refAlreadyClaimed || !backendAuthInProgressRef.current) {
         if (refAlreadyClaimed) {
           // Listener owns the backend call; let it store token and redirect.
+          clearPendingMethodOnExit = false;
           setIsAuthenticating(false);
           return { success: true };
         }
@@ -1030,9 +1036,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               maybeAutoReturnToKeenVpnAppAfterAuth(token);
             }
             window.location.href = postLoginUrl();
+            clearPendingMethodOnExit = false;
             setIsAuthenticating(false);
             return { success: true };
           }
+          clearPendingMethodOnExit = false;
           setIsAuthenticating(false);
           return { success: true };
         }
@@ -1099,6 +1107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           window.location.href = postLoginUrl();
         }
 
+        clearPendingMethodOnExit = false;
         return { success: true, shouldRedirect: undefined };
       } else if (backendResponse.error?.includes('recently deleted')) {
         // Handle case where user account was deleted but Firebase auth is still active
@@ -1176,6 +1185,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setIsAuthenticating(false);
       return { success: false };
+    } finally {
+      if (clearPendingMethodOnExit) {
+        clearPostHogPendingSignupMethod();
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshLinkedProviders is stable but declared after signIn
   }, [isAuthenticating, toast, postLoginUrl]);

@@ -28,6 +28,7 @@ import {
   recordSignupStarted,
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
+import { queuePostHogSignupMethodSelected } from "@/lib/posthog-analytics";
 import {
   canStartFreeTrial,
   getSubscriptionCtaLabel,
@@ -483,6 +484,7 @@ const Subscribe = () => {
 
   const handleSignIn = async () => {
     await recordSignupStarted();
+    queuePostHogSignupMethodSelected("google");
     const result = await signIn();
     if (result.success && result.shouldRedirect) {
       navigate(result.shouldRedirect);

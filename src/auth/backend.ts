@@ -21,7 +21,9 @@ import {
 import { buildAuthDeepLink } from "@/lib/keenvpn-deep-links";
 import {
   trackPostHogAccountCreated,
+  trackPostHogAppDownloadClicked,
   trackPostHogSignupStarted,
+  type AppDownloadPlatform,
 } from "@/lib/posthog-analytics";
 import { trackRedditLeadCompleted } from "@/lib/reddit-analytics";
 import { storeBusinessInviteAutoAcceptedNotice, clearBusinessInviteAutoAcceptedNotice } from "@/auth/business-invite-auto-accepted";
@@ -3928,9 +3930,9 @@ let signupStartedInFlight: Promise<void> | null = null;
 const stickerLandingInFlightByKey = new Map<string, Promise<void>>();
 
 /** Records signup_started with stored first-touch UTMs (pre-account). */
-export async function recordSignupStarted(): Promise<void> {
+export async function recordSignupStarted(email?: string | null): Promise<void> {
   // PostHog funnel step must fire for direct/no-UTM signups too.
-  trackPostHogSignupStarted();
+  trackPostHogSignupStarted(email);
 
   const payload = getUtmAttributionAuthPayload();
   if (!payload.utmAttribution) return;
@@ -3982,6 +3984,48 @@ export async function recordSignupStarted(): Promise<void> {
   })();
 
   return signupStartedInFlight;
+}
+
+/**
+ * Records app_download_clicked (PostHog + backend product event).
+ * Intent only — not a confirmed install.
+ */
+export async function recordAppDownloadClicked(input: {
+  platform: AppDownloadPlatform;
+  sourcePage?: string;
+  cta?: string;
+  storeUrl?: string;
+}): Promise<void> {
+  const downloadPlatform = input.platform;
+  const sourcePage =
+    input.sourcePage ??
+    (typeof window !== "undefined" ? window.location.pathname : undefined);
+  const storeUrl = input.storeUrl ?? null;
+  const cta = input.cta ?? null;
+
+  trackPostHogAppDownloadClicked(downloadPlatform, {
+    source_page: sourcePage ?? null,
+    cta,
+    store_url: storeUrl,
+  });
+
+  try {
+    const payload = getUtmAttributionAuthPayload();
+    await fetch(`${BACKEND_URL}/marketing-attribution/app-download-clicked`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        platform: downloadPlatform,
+        source_page: sourcePage,
+        cta: cta ?? undefined,
+        store_url: storeUrl ?? undefined,
+        ...payload,
+      }),
+      keepalive: true,
+    });
+  } catch {
+    /* non-fatal */
+  }
 }
 
 /** Records sticker_landing when a sticker QR/URL is opened (pre-account). */

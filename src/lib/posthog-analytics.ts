@@ -506,12 +506,155 @@ export function trackPostHogPageView(pathname: string, search = ""): void {
   trackPostHogEvent("website_visit", { path });
 }
 
-export function trackPostHogSignupStarted(): void {
+export type SignupMethod = "google" | "apple" | "email";
+
+export type AppDownloadPlatform =
+  | "windows"
+  | "macos"
+  | "ios"
+  | "android"
+  | "chrome"
+  | "unknown";
+
+const PENDING_SIGNUP_METHOD_KEY = "keen_pending_signup_method";
+const PENDING_SIGNUP_METHOD_TTL_MS = 30 * 60 * 1000;
+
+function isReturningSignupBrowser(): boolean {
+  return hadIdentifiedPostHogUser() || hasExistingSessionToken();
+}
+
+/** Opt out before capture when the email is already known (staff / internal). */
+function applyEmailAwareOptOut(email?: string | null): void {
+  if (!email) return;
+  initializePostHog({ email });
+  markInternalTraffic(email);
+}
+
+export function clearPostHogPendingSignupMethod(): void {
+  try {
+    sessionStorage.removeItem(PENDING_SIGNUP_METHOD_KEY);
+  } catch {
+    /* storage blocked */
+  }
+}
+
+function readPendingSignupMethod(): SignupMethod | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_SIGNUP_METHOD_KEY);
+    if (!raw) return null;
+
+    // Legacy plain method string
+    if (raw === "google" || raw === "apple" || raw === "email") {
+      return raw;
+    }
+
+    const parsed = JSON.parse(raw) as {
+      method?: string;
+      queuedAt?: number;
+    };
+    if (
+      parsed.method !== "google" &&
+      parsed.method !== "apple" &&
+      parsed.method !== "email"
+    ) {
+      clearPostHogPendingSignupMethod();
+      return null;
+    }
+    if (
+      typeof parsed.queuedAt === "number" &&
+      Date.now() - parsed.queuedAt > PENDING_SIGNUP_METHOD_TTL_MS
+    ) {
+      clearPostHogPendingSignupMethod();
+      return null;
+    }
+    return parsed.method;
+  } catch {
+    clearPostHogPendingSignupMethod();
+    return null;
+  }
+}
+
+export function trackPostHogSignupStarted(email?: string | null): void {
+  // Staff email must still opt out even when we skip funnel capture for
+  // returning browsers (existing identify/session markers).
+  applyEmailAwareOptOut(email);
   // Returning / already-authenticated users re-entering SignIn should not
   // inflate the signup_started funnel step.
-  if (hadIdentifiedPostHogUser() || hasExistingSessionToken()) return;
+  if (isReturningSignupBrowser()) return;
   trackPostHogEvent("signup_started", {}, "signup_started", {
     persistent: true,
+  });
+}
+
+/**
+ * Queue OAuth method until after auth reveals email (so staff can opt out first).
+ * No-op for returning browsers.
+ */
+export function queuePostHogSignupMethodSelected(method: SignupMethod): void {
+  if (isReturningSignupBrowser()) return;
+  try {
+    sessionStorage.setItem(
+      PENDING_SIGNUP_METHOD_KEY,
+      JSON.stringify({ method, queuedAt: Date.now() }),
+    );
+  } catch {
+    /* storage blocked */
+  }
+}
+
+/** Flush a queued OAuth signup_method_selected after identity/email is known. */
+export function flushPostHogSignupMethodSelected(
+  email?: string | null,
+): void {
+  const method = readPendingSignupMethod();
+  clearPostHogPendingSignupMethod();
+  if (!method) return;
+  applyEmailAwareOptOut(email);
+  trackPostHogEvent("signup_method_selected", {
+    signup_method: method,
+    platform: "web",
+  });
+}
+
+export function trackPostHogSignupMethodSelected(
+  method: SignupMethod,
+  properties: PostHogPayload = {},
+  options?: { email?: string | null },
+): void {
+  // Email / magic-link path replaces any stale OAuth queue from a cancelled popup.
+  clearPostHogPendingSignupMethod();
+  applyEmailAwareOptOut(options?.email);
+  if (isReturningSignupBrowser()) return;
+  trackPostHogEvent("signup_method_selected", {
+    ...properties,
+    signup_method: method,
+    platform: "web",
+  });
+}
+
+export function trackPostHogEmailVerified(
+  properties: PostHogPayload = {},
+  options?: { email?: string | null },
+): void {
+  try {
+    applyEmailAwareOptOut(options?.email);
+    trackPostHogEvent("email_verified", {
+      ...properties,
+      platform: "web",
+    });
+  } catch {
+    /* analytics must not block sign-in */
+  }
+}
+
+export function trackPostHogAppDownloadClicked(
+  downloadPlatform: AppDownloadPlatform,
+  properties: PostHogPayload = {},
+): void {
+  trackPostHogEvent("app_download_clicked", {
+    ...properties,
+    download_platform: downloadPlatform,
+    platform: "web",
   });
 }
 
