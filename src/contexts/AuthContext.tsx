@@ -326,6 +326,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             paidActive &&
             checkoutSignal.active &&
             isServerConfirmedFreshPaidSubscription(response.subscription);
+          // Fresh trial on checkout return (or Reddit-attributed trial) — do not
+          // require redditTrialConversionId for PostHog, or most trials never emit.
+          // Exclude paidActive: converted users can still have trial.active true.
+          const freshTrialConfirmed =
+            trialActive &&
+            !paidActive &&
+            (Boolean(response.redditTrialConversionId) ||
+              checkoutSignal.active ||
+              (subscriptionStatus === "trialing" &&
+                isServerConfirmedFreshPaidSubscription(response.subscription)));
 
           prevTrialActiveRef.current = trialActive;
           // If checkout is still hydrating, keep prior paid=false so a later
@@ -334,10 +344,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             paidActive && !(checkoutSignal.active && !freshPaidConfirmed);
           subscriptionLifecycleSeededRef.current = true;
 
-          if (trialActive && response.redditTrialConversionId) {
+          if (freshTrialConfirmed) {
             trackPostHogTrialStarted(
               userId,
-              response.redditTrialConversionId,
+              response.redditTrialConversionId ?? undefined,
             );
           }
           if (freshPaidConfirmed) {
