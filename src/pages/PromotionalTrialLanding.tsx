@@ -23,6 +23,7 @@ import {
 import { buildSignInUrl } from "@/auth/post-login-redirect";
 import {
   clearPromoTrialCodeStorage,
+  getPromoTrialCodeFromStorage,
   setPromoTrialCodeStorage,
 } from "@/auth/promo-trial-code";
 
@@ -118,7 +119,7 @@ function getOrCreateAnonymousId(): string {
 const PromotionalTrialLanding = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { user, loading: authLoading, hasSessionToken, refreshSubscription } =
+  const { loading: authLoading, hasSessionToken, refreshSubscription } =
     useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -155,10 +156,9 @@ const PromotionalTrialLanding = () => {
     let cancelled = false;
 
     void (async () => {
-      const [resolveRes] = await Promise.all([
-        resolvePromoTrialQr(code),
-        recordPromoTrialQrScan(code, getOrCreateAnonymousId()),
-      ]);
+      // Scan is best-effort analytics — never block resolving the offer.
+      void recordPromoTrialQrScan(code, getOrCreateAnonymousId());
+      const resolveRes = await resolvePromoTrialQr(code);
       if (cancelled) return;
 
       if (!resolveRes.ok || !resolveRes.data) {
@@ -193,11 +193,14 @@ const PromotionalTrialLanding = () => {
     const sessionToken = getSessionToken();
     if (!sessionToken) return;
 
+    const redeemCode = code;
     redeemAttempted.current = true;
     setRedeeming(true);
     setRedeemError(null);
 
-    void redeemPromoTrialQr(code, sessionToken).then((result) => {
+    let cancelled = false;
+    void redeemPromoTrialQr(redeemCode, sessionToken).then((result) => {
+      if (cancelled) return;
       setRedeeming(false);
       if (!result.ok) {
         setRedeemError(result.error ?? "Failed to redeem promotional trial");
@@ -212,6 +215,10 @@ const PromotionalTrialLanding = () => {
       }
       setRedeemError(redeemMessage(result.reason));
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [authLoading, loading, code, found, active, hasSessionToken, redeemed, refreshSubscription]);
 
   if (loading || authLoading) {
@@ -354,7 +361,7 @@ const PromotionalTrialLanding = () => {
     );
   }
 
-  if (hasSessionToken || user) {
+  if (hasSessionToken && getSessionToken()) {
     return (
       <HeroShell>
         <div className="mx-auto max-w-xl text-center">
@@ -384,8 +391,11 @@ const PromotionalTrialLanding = () => {
     );
   }
 
+  const promoPathCode = (code ?? getPromoTrialCodeFromStorage()).trim();
   const signInUrl = buildSignInUrl({
-    redirect: `/promo/${encodeURIComponent(code!)}`,
+    redirect: promoPathCode
+      ? `/promo/${encodeURIComponent(promoPathCode)}`
+      : "/promo",
   });
 
   return (

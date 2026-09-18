@@ -9244,13 +9244,13 @@ export interface AdminPromoTrialQr {
 }
 
 export interface AdminPromoTrialQrDetail extends AdminPromoTrialQr {
-  recentRedemptions: Array<{
+  recentRedemptions: {
     id: string;
     userId: string;
     redeemedAt: string;
     trialEndsAt: string;
     convertedPaidAt: string | null;
-  }>;
+  }[];
 }
 
 export async function adminListPromoTrialQr(): Promise<{
@@ -9390,16 +9390,15 @@ export async function recordPromoTrialQrScan(
   anonymousId?: string,
 ): Promise<{ ok: boolean }> {
   try {
-    await fetch(
+    const response = await fetch(
       `${BACKEND_URL}/promo-trial-qr/${encodeURIComponent(code)}/scan`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          anonymousId ? { anonymousId } : {},
-        ),
+        body: JSON.stringify(anonymousId ? { anonymousId } : {}),
       },
     );
+    if (!response.ok) return { ok: false };
     return { ok: true };
   } catch {
     return { ok: false };

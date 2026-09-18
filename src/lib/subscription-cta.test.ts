@@ -4,6 +4,7 @@ import {
   canSwitchStripeToTwoYear,
   canUpgradeStripeToAnnual,
   canUpgradeToBusinessPlan,
+  isEligibleToUpgradeToBusinessPlan,
   hasScheduledAnnualBilling,
   hasScheduledTwoYearBilling,
   isTwoYearSubscription,
@@ -72,6 +73,43 @@ describe("membership plan tier helpers", () => {
     expect(canUpgradeToBusinessPlan(family)).toBe(false);
     expect(canUpgradeToBusinessPlan(apple)).toBe(false);
     expect(canUpgradeToBusinessPlan(business)).toBe(false);
+  });
+
+  it("detects Business upgrade eligibility independent of the pause flag", () => {
+    const individual = stripeSub({
+      plan: "Premium VPN - Monthly",
+      planId: "premium_monthly",
+    });
+    const family = stripeSub({
+      plan: "KeenVPN Family - Monthly",
+      planId: "family_monthly",
+    });
+    const business = stripeSub({
+      plan: "KeenVPN Business - Monthly",
+      planId: "team_monthly",
+    });
+    const apple = stripeSub({
+      plan: "Premium VPN - Annual",
+      planId: "premium_yearly",
+      subscriptionType: "apple_iap",
+    });
+    const cancelling = stripeSub({
+      plan: "Premium VPN - Monthly",
+      planId: "premium_monthly",
+      cancelAtPeriodEnd: true,
+    });
+    const memberOnly = stripeSub({
+      plan: "Premium VPN - Monthly",
+      planId: "premium_monthly",
+      canManageBilling: false,
+    });
+
+    expect(isEligibleToUpgradeToBusinessPlan(individual)).toBe(true);
+    expect(isEligibleToUpgradeToBusinessPlan(family)).toBe(true);
+    expect(isEligibleToUpgradeToBusinessPlan(apple)).toBe(true);
+    expect(isEligibleToUpgradeToBusinessPlan(business)).toBe(false);
+    expect(isEligibleToUpgradeToBusinessPlan(cancelling)).toBe(false);
+    expect(isEligibleToUpgradeToBusinessPlan(memberOnly)).toBe(false);
   });
 
   it("uses the backend billing period before legacy plan-name fallbacks", () => {

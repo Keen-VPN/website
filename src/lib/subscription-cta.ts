@@ -314,6 +314,19 @@ function isEligibleBusinessPlanManager(
 export const BUSINESS_PLAN_PURCHASABLE = false;
 
 /**
+ * Owner eligibility for Business (status / billing / tier), independent of the
+ * temporary new-sales pause flag.
+ */
+export function isEligibleToUpgradeToBusinessPlan(
+  subscription: SubscriptionData | null | undefined,
+): boolean {
+  return (
+    isEligibleBusinessPlanManager(subscription) &&
+    resolveMembershipPlanTier(subscription) !== "business"
+  );
+}
+
+/**
  * Owner with an active/trialing subscription not already on Business — eligible to
  * start Business (in-place Stripe upgrade or Stripe checkout migration).
  */
@@ -321,8 +334,5 @@ export function canUpgradeToBusinessPlan(
   subscription: SubscriptionData | null | undefined,
 ): boolean {
   if (!BUSINESS_PLAN_PURCHASABLE) return false;
-  return (
-    isEligibleBusinessPlanManager(subscription) &&
-    resolveMembershipPlanTier(subscription) !== "business"
-  );
+  return isEligibleToUpgradeToBusinessPlan(subscription);
 }

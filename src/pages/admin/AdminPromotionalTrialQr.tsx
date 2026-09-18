@@ -89,10 +89,14 @@ export default function AdminPromotionalTrialQr() {
       setError(result.error ?? "Failed to create");
       return;
     }
+    // Invalidate any in-flight list refresh so it cannot overwrite this create.
+    loadSequence.current += 1;
+    setError(null);
     setCreateOpen(false);
     setName("");
     setTrialDays("7");
-    setItems((prev) => [result.data!, ...prev]);
+    const created = result.data;
+    setItems((prev) => [created, ...prev.filter((row) => row.id !== created.id)]);
   }
 
   async function toggleActive(item: AdminPromoTrialQr) {
@@ -105,8 +109,11 @@ export default function AdminPromotionalTrialQr() {
       setError(result.error ?? "Failed to update");
       return;
     }
+    loadSequence.current += 1;
+    setError(null);
+    const updated = result.data;
     setItems((prev) =>
-      prev.map((row) => (row.id === item.id ? result.data! : row)),
+      prev.map((row) => (row.id === item.id ? updated : row)),
     );
   }
 

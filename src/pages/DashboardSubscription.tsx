@@ -820,7 +820,7 @@ function PlansTab() {
           if (isManageable && !isCurrentPlan && subscription) {
             if (twoYear && twoYearAlreadyScheduled) {
               cta = '2-year scheduled';
-            } else if (twoYear && canOneClickTwoYear) {
+            } else if (twoYear && !isFamily && canOneClickTwoYear) {
               cta = 'Switch to 2-year';
             } else if (annual && !isFamily && canOneClickAnnual) {
               cta = 'Upgrade to annual';
@@ -839,6 +839,7 @@ function PlansTab() {
             isIndividualSubscriber;
           const useOneClickTwoYear =
             !isCurrentPlan &&
+            !isFamily &&
             twoYear &&
             canOneClickTwoYear &&
             isIndividualSubscriber;

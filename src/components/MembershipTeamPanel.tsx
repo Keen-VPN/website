@@ -35,6 +35,15 @@ function formatDate(iso: string): string {
   });
 }
 
+function isFamilySharingPlan(planId?: string | null, planName?: string | null): boolean {
+  const raw = `${planId ?? ""} ${planName ?? ""}`.toLowerCase();
+  return (
+    raw.includes("family") &&
+    !raw.includes("family_plus") &&
+    !raw.includes("familyplus")
+  );
+}
+
 interface MembershipTeamPanelProps {
   /** Kept for call-site compatibility; dashboard state comes from context. */
   sessionToken?: string;
@@ -167,13 +176,21 @@ export function MembershipTeamPanel({
   }
 
   if (dashboard.role === "member" && dashboard.membership) {
+    const familyShare = isFamilySharingPlan(
+      dashboard.membership.planId ?? dashboard.planId,
+      dashboard.membership.planName ?? dashboard.planName,
+    );
     return (
       <div className={cn(shellClass, className)}>
         {isDashboard ? (
           <div className="mb-1">
-            <h2 className="text-[16px] font-semibold text-[#0f2040]">Team</h2>
+            <h2 className="text-[16px] font-semibold text-[#0f2040]">
+              {familyShare ? "Family" : "Team"}
+            </h2>
             <p className="mt-1 text-[13px] text-[#627086]">
-              You have shared Business access.
+              {familyShare
+                ? "You have shared Family access."
+                : "You have shared Business access."}
             </p>
           </div>
         ) : null}
@@ -260,7 +277,11 @@ export function MembershipTeamPanel({
       <div className={cn(shellClass, className)}>
         {isDashboard ? (
           <div className="mb-1">
-            <h2 className="text-[16px] font-semibold text-[#0f2040]">Team</h2>
+            <h2 className="text-[16px] font-semibold text-[#0f2040]">
+              {isFamilySharingPlan(dashboard.planId, dashboard.planName)
+                ? "Family"
+                : "Team"}
+            </h2>
           </div>
         ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -367,6 +388,15 @@ export function MembershipTeamPanel({
         : formatChargeAfterPrepaidSeatsCopy(billingCopyInput)
     : null;
 
+  const familyShare = isFamilySharingPlan(dashboard.planId, dashboard.planName);
+  const inviteTitle = familyShare
+    ? isDashboard
+      ? "Family members"
+      : "Invite your family"
+    : isDashboard
+      ? "Team members"
+      : "Invite your team";
+
   const mutedText = isDashboard ? "text-[#627086]" : "text-muted-foreground";
   const headingText = isDashboard
     ? "text-[14px] font-semibold text-[#0f2040]"
@@ -400,7 +430,7 @@ export function MembershipTeamPanel({
               isDashboard && "text-[16px] font-semibold text-[#0f2040]",
             )}
           >
-            {isDashboard ? "Team members" : "Invite your team"}
+            {inviteTitle}
           </p>
           <p className={cn("text-xs leading-relaxed", mutedText, isDashboard && "text-[13px]")}>
             {chargeOnAccept

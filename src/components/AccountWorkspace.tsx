@@ -46,9 +46,9 @@ function teamTabDescription(role: string | undefined): string | null {
     return null;
   }
   if (role === "owner") {
-    return "Invite teammates and manage seats";
+    return "Invite friends and manage seats";
   }
-  return "Upgrade to invite teammates";
+  return "Upgrade to invite friends";
 }
 
 const TAB_META: Record<
@@ -71,8 +71,8 @@ const TAB_META: Record<
     icon: Lock,
   },
   team: {
-    label: "Team",
-    description: "Business team membership",
+    label: "Sharing",
+    description: "Shared Family or Business membership",
     icon: Users,
   },
   connections: {
