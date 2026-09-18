@@ -139,6 +139,19 @@ const matchesRequestedPlan = (plan: ApiPlan, requestedPlanId: string) => {
   ) {
     return isTwoYearApiPlan(plan) && plan.id.toLowerCase().includes("premium");
   }
+  if (
+    requestedPlanId === "family_2year" ||
+    requestedPlanId === "family_two_year" ||
+    requestedPlanId === "family-2year" ||
+    requestedPlanId === "family-two-year"
+  ) {
+    return (
+      isTwoYearApiPlan(plan) &&
+      plan.id.toLowerCase().includes("family") &&
+      !plan.id.toLowerCase().includes("family_plus") &&
+      !plan.id.toLowerCase().includes("familyplus")
+    );
+  }
   if (requestedPlanId === "premium_monthly") {
     return (
       !isAnnualPlan(plan) &&
@@ -346,8 +359,11 @@ const Subscribe = () => {
     navigate,
   ]);
 
-  // Get URL parameters
-  const planIdParam = searchParams.get("planId");
+  // Prefer planId (Pricing CTAs); also accept plan for documented deep links.
+  const planIdParam =
+    searchParams.get("planId")?.trim() ||
+    searchParams.get("plan")?.trim() ||
+    null;
 
   // Single place for "session expired" flow: show one toast and attempt logout without rethrowing,
   // so the outer catch never runs and we avoid double toasts.
