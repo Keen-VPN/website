@@ -110,6 +110,153 @@ describe("posthog analytics", () => {
     expect(analytics.hadIdentifiedPostHogUser()).toBe(true);
   });
 
+  it("captures signup_method_selected with method property", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogSignupMethodSelected("google");
+    expect(capture).toHaveBeenCalledWith(
+      "signup_method_selected",
+      expect.objectContaining({ signup_method: "google", platform: "web" }),
+    );
+  });
+
+  it("skips signup_method_selected for returning browsers", async () => {
+    localStorage.setItem("keen_posthog_identified", "1");
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogSignupMethodSelected("google");
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("opts out before email signup captures for staff emails", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogSignupMethodSelected(
+      "email",
+      {},
+      { email: "dev@keenvpn.com" },
+    );
+    expect(optOut).toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("opts out staff email even when returning-browser guard skips capture", async () => {
+    localStorage.setItem("keen_posthog_identified", "1");
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogSignupStarted("dev@keenvpn.com");
+    expect(optOut).toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("flushes queued OAuth method after email is known", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.queuePostHogSignupMethodSelected("apple");
+    expect(capture).not.toHaveBeenCalled();
+    analytics.flushPostHogSignupMethodSelected("user@example.com");
+    expect(capture).toHaveBeenCalledWith(
+      "signup_method_selected",
+      expect.objectContaining({ signup_method: "apple", platform: "web" }),
+    );
+  });
+
+  it("opts out and skips capture when flushing queued method for staff email", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.queuePostHogSignupMethodSelected("google");
+    analytics.flushPostHogSignupMethodSelected("dev@keenvpn.com");
+    expect(optOut).toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("clears stale queued OAuth method when email path starts", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.queuePostHogSignupMethodSelected("google");
+    analytics.trackPostHogSignupMethodSelected(
+      "email",
+      {},
+      { email: "user@example.com" },
+    );
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(capture).toHaveBeenCalledWith(
+      "signup_method_selected",
+      expect.objectContaining({ signup_method: "email" }),
+    );
+    // Stale google queue must not flush later
+    analytics.flushPostHogSignupMethodSelected("user@example.com");
+    expect(capture).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps canonical fields when properties try to override them", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogAppDownloadClicked("windows", {
+      download_platform: "ios",
+      platform: "ios",
+      source_page: "/downloads",
+    });
+    expect(capture).toHaveBeenCalledWith(
+      "app_download_clicked",
+      expect.objectContaining({
+        download_platform: "windows",
+        platform: "web",
+        source_page: "/downloads",
+      }),
+    );
+  });
+
+  it("dedupes email signup_method_selected across retries", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogSignupMethodSelected(
+      "email",
+      {},
+      { email: "user@example.com" },
+    );
+    analytics.trackPostHogSignupMethodSelected(
+      "email",
+      {},
+      { email: "user@example.com" },
+    );
+    expect(capture).toHaveBeenCalledTimes(1);
+  });
+
+  it("captures email_verified only for new signup flows", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogEmailVerified(
+      { signup_method: "email" },
+      { email: "user@example.com" },
+    );
+    expect(capture).not.toHaveBeenCalled();
+
+    analytics.trackPostHogEmailVerified(
+      { signup_method: "email" },
+      { email: "user@example.com", isNewSignup: true },
+    );
+    expect(capture).toHaveBeenCalledWith(
+      "email_verified",
+      expect.objectContaining({ signup_method: "email", platform: "web" }),
+    );
+  });
+
+  it("captures email_verified and app_download_clicked", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogEmailVerified(
+      { signup_method: "email" },
+      { isNewSignup: true },
+    );
+    analytics.trackPostHogAppDownloadClicked("windows", {
+      source_page: "/downloads",
+      cta: "downloads_windows",
+    });
+
+    expect(capture).toHaveBeenCalledWith(
+      "email_verified",
+      expect.objectContaining({ signup_method: "email", platform: "web" }),
+    );
+    expect(capture).toHaveBeenCalledWith(
+      "app_download_clicked",
+      expect.objectContaining({
+        download_platform: "windows",
+        source_page: "/downloads",
+        cta: "downloads_windows",
+      }),
+    );
+  });
+
   it("skips signup_started for returning/authenticated browsers", async () => {
     localStorage.setItem("keen_posthog_identified", "1");
     const analytics = await import("./posthog-analytics");

@@ -8,9 +8,11 @@ import {
 import type { ReactNode } from "react";
 import { APP_STORE_URLS, toNativeAppStoreSchemeUrl } from "@/constants/app-store-urls";
 import { detectDevice } from "@/lib/device-detection";
+import { recordAppDownloadClicked } from "@/auth/backend";
+import type { AppDownloadPlatform } from "@/lib/posthog-analytics";
 
 interface DownloadItem {
-  id: string;
+  id: AppDownloadPlatform;
   title: string;
   subtitle: string;
   cta: string;
@@ -103,6 +105,15 @@ function DownloadRow({ item }: { item: DownloadItem }) {
       ? toNativeAppStoreSchemeUrl(item.href, device)
       : item.href;
 
+  const onDownloadClick = () => {
+    void recordAppDownloadClicked({
+      platform: item.id,
+      sourcePage: "/downloads",
+      cta: `downloads_${item.id}`,
+      storeUrl: item.href,
+    });
+  };
+
   return (
     <div className="flex flex-col gap-3 rounded-[10px] border border-dash-border bg-dash-surface-muted px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4">
       <div className="flex min-w-0 flex-1 items-center gap-4">
@@ -123,6 +134,7 @@ function DownloadRow({ item }: { item: DownloadItem }) {
           href={href}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={onDownloadClick}
           className="inline-flex h-9 shrink-0 items-center justify-center rounded-[8px] bg-dash-ink px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 sm:self-auto"
         >
           {item.cta}

@@ -8,6 +8,7 @@ import {
   resetPostHogUser,
   hadIdentifiedPostHogUser,
   trackPostHogPageView,
+  flushPostHogSignupMethodSelected,
 } from "@/lib/posthog-analytics";
 
 export default function PostHogTracker() {
@@ -36,8 +37,10 @@ export default function PostHogTracker() {
     } else {
       markInternalTraffic(user.email);
       identifyPostHogUser(keenUserId, {
+        email: user.email ?? null,
         auth_provider: authProvider ?? user.providerData[0]?.providerId ?? null,
       });
+      flushPostHogSignupMethodSelected(user.email);
       wasIdentifiedRef.current = true;
     }
 

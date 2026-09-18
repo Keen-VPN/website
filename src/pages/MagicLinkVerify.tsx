@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { storeSessionToken, verifyMagicLink } from "@/auth";
+import { trackPostHogEmailVerified } from "@/lib/posthog-analytics";
 
 const MagicLinkVerify = () => {
   const [searchParams] = useSearchParams();
@@ -38,6 +39,19 @@ const MagicLinkVerify = () => {
         return;
       }
 
+      try {
+        trackPostHogEmailVerified(
+          { signup_method: "email" },
+          {
+            email: response.user?.email ?? null,
+            isNewSignup:
+              response.createdUser === true ||
+              response.user?.createdUser === true,
+          },
+        );
+      } catch {
+        /* analytics must not block sign-in */
+      }
       storeSessionToken(response.sessionToken);
       setState("success");
       setMessage("Signed in successfully. Redirecting...");
