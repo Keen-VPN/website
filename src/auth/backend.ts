@@ -4380,6 +4380,22 @@ export interface AdminDownloadFunnelReport {
   };
 }
 
+export type AdminDownloadsByOsKey = 'ios' | 'macos' | 'android' | 'windows';
+
+export interface AdminDownloadsByOsReport {
+  from: string;
+  to: string;
+  source: 'app_first_open';
+  total: number;
+  by_os: Record<
+    AdminDownloadsByOsKey,
+    {
+      count: number;
+      percent_of_total: number;
+    }
+  >;
+}
+
 export async function adminFetchDownloadFunnelReport(params?: {
   from?: string;
   to?: string;
@@ -4415,6 +4431,54 @@ export async function adminFetchDownloadFunnelReport(params?: {
     const record = data as { data?: AdminDownloadFunnelReport };
     if (!record.data) {
       return { ok: false, error: "Invalid download funnel report response" };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchDownloadsByOs(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminDownloadsByOsReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/utm-attribution/downloads/by-os${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load downloads by OS",
+        ),
+      };
+    }
+    const record = data as { data?: AdminDownloadsByOsReport };
+    if (!record.data) {
+      return { ok: false, error: "Invalid downloads by OS response" };
     }
     return { ok: true, data: record.data };
   } catch (e) {
