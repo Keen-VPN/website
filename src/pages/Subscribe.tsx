@@ -57,28 +57,38 @@ const getPlanTier = (plan: ApiPlan) => {
   ) {
     return "team";
   }
+  if (
+    id.includes("family") &&
+    !id.includes("family_plus") &&
+    !id.includes("familyplus")
+  ) {
+    return "family";
+  }
   if (id.includes("premium")) return "premium";
   return id.replace(/[-_]?(monthly|month|annual|yearly|year)$/, "");
 };
 
 const PLAN_TIER_OPTIONS = [
   { id: "premium", label: "Individual" },
-  { id: "team", label: "Business" },
+  { id: "family", label: "Family" },
 ] as const;
 
-const isPerSeatPlan = (plan: ApiPlan | PricingPlan | null): boolean => {
+const isPurchasablePlan = (plan: ApiPlan): boolean => {
+  const tier = getPlanTier(plan);
+  return tier === "premium" || tier === "family";
+};
+
+const isFamilyPlan = (plan: ApiPlan | PricingPlan | null): boolean => {
   if (!plan) return false;
-  if ("isPerSeat" in plan && plan.isPerSeat) return true;
   if ("id" in plan) {
     const id = plan.id.toLowerCase();
     return (
-      id.includes("team") ||
-      id.includes("business") ||
-      id.includes("family_plus") ||
-      id.includes("familyplus")
+      id.includes("family") &&
+      !id.includes("family_plus") &&
+      !id.includes("familyplus")
     );
   }
-  return false;
+  return "name" in plan && plan.name === "Family";
 };
 
 const getTierLabel = (tier: string) =>
@@ -128,6 +138,19 @@ const matchesRequestedPlan = (plan: ApiPlan, requestedPlanId: string) => {
     requestedPlanId === "premium-2year"
   ) {
     return isTwoYearApiPlan(plan) && plan.id.toLowerCase().includes("premium");
+  }
+  if (
+    requestedPlanId === "family_2year" ||
+    requestedPlanId === "family_two_year" ||
+    requestedPlanId === "family-2year" ||
+    requestedPlanId === "family-two-year"
+  ) {
+    return (
+      isTwoYearApiPlan(plan) &&
+      plan.id.toLowerCase().includes("family") &&
+      !plan.id.toLowerCase().includes("family_plus") &&
+      !plan.id.toLowerCase().includes("familyplus")
+    );
   }
   if (requestedPlanId === "premium_monthly") {
     return (
@@ -336,8 +359,11 @@ const Subscribe = () => {
     navigate,
   ]);
 
-  // Get URL parameters
-  const planIdParam = searchParams.get("planId");
+  // Prefer planId (Pricing CTAs); also accept plan for documented deep links.
+  const planIdParam =
+    searchParams.get("planId")?.trim() ||
+    searchParams.get("plan")?.trim() ||
+    null;
 
   // Single place for "session expired" flow: show one toast and attempt logout without rethrowing,
   // so the outer catch never runs and we avoid double toasts.
@@ -443,28 +469,33 @@ const Subscribe = () => {
         const response = await fetchSubscriptionPlans();
 
         if (response.success && response.plans && response.plans.length > 0) {
-          setAllPlans(response.plans);
+          const purchasablePlans = response.plans.filter(isPurchasablePlan);
+          setAllPlans(purchasablePlans);
 
           const requestedReturnedPlan = planIdParam
-            ? response.plans.find((plan) =>
+            ? purchasablePlans.find((plan) =>
                 matchesRequestedPlan(plan, planIdParam),
               )
             : null;
-          const tierOrder = ["premium", "team"];
+          const tierOrder = ["premium", "family"];
           const initialTier = requestedReturnedPlan
             ? getPlanTier(requestedReturnedPlan)
             : (tierOrder.find((tier) =>
-                response.plans.some((plan) => getPlanTier(plan) === tier),
+                purchasablePlans.some((plan) => getPlanTier(plan) === tier),
               ) ?? "premium");
 
-          applyTierSelection(initialTier, response.plans, planIdParam);
+          applyTierSelection(initialTier, purchasablePlans, planIdParam);
         } else {
           console.error("Failed to load plan:", response.error);
           if (planIdParam) {
             const planResponse = await fetchSubscriptionPlanById(planIdParam);
-            setSelectedPlan(
+            const fallbackPlan =
               planResponse.success && planResponse.plan
                 ? (planResponse.plan as unknown as ApiPlan)
+                : null;
+            setSelectedPlan(
+              fallbackPlan && isPurchasablePlan(fallbackPlan)
+                ? fallbackPlan
                 : null,
             );
           } else {
@@ -543,9 +574,9 @@ const Subscribe = () => {
 
       const aswebSuffix =
         sessionStorage.getItem("asweb_session") === "1" ? "&asweb=1" : "";
-      const businessCheckout = isPerSeatPlan(selectedPlan);
-      const successUrl = businessCheckout
-        ? `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}&tab=team&business=upgraded${aswebSuffix}`
+      const familyCheckout = isFamilyPlan(selectedPlan);
+      const successUrl = familyCheckout
+        ? `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}&tab=team${aswebSuffix}`
         : `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}${aswebSuffix}`;
       const cancelUrl = `${window.location.origin}/pricing`;
 
@@ -554,7 +585,6 @@ const Subscribe = () => {
         planId,
         successUrl,
         cancelUrl,
-        isPerSeatPlan(selectedPlan) ? 1 : undefined,
       );
 
       if (!result.success) {
@@ -752,15 +782,14 @@ const Subscribe = () => {
                   className="mb-6"
                 />
 
-                {isPerSeatPlan(selectedPlan) && "price" in selectedPlan ? (
+                {isFamilyPlan(selectedPlan) ? (
                   <div className="mb-6 space-y-2 rounded-lg border border-border/80 bg-muted/30 p-4">
                     <p className="text-sm font-medium text-foreground">
-                      Starts with your seat
+                      Share with up to 5 people
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {startsWithFreeTrial
-                        ? "Send team invitations for free after checkout. Seats are added only after teammates create or sign in to KeenVPN and accept, then billed when your free trial ends."
-                        : "Send team invitations for free after checkout. Additional seats are added and billed only after teammates create or sign in to KeenVPN and accept."}
+                      After checkout, invite friends or family by email. One flat
+                      price covers everyone on your plan — no per-seat charges.
                     </p>
                   </div>
                 ) : null}

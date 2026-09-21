@@ -196,6 +196,13 @@ export default function AdminSidebarLayout() {
               Sticker Campaigns
             </NavLink>
             <NavLink
+              to="/admin/promotional-trial-qr"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Gift className="h-4 w-4" />
+              Promo Trial QR
+            </NavLink>
+            <NavLink
               to="/admin/landing-attribution"
               className={({ isActive }) => linkClass(isActive)}
             >
