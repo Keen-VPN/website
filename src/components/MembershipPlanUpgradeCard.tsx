@@ -41,6 +41,11 @@ export function MembershipPlanUpgradeCard({
         setPlans(
           res.plans.filter((plan) => {
             const id = plan.id.toLowerCase();
+            const isFamily =
+              id.includes("family") &&
+              !id.includes("family_plus") &&
+              !id.includes("familyplus");
+            if (isFamily) return false;
             return (
               plan.isPerSeat === true ||
               id.includes("team") ||
