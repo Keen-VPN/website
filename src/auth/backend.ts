@@ -2784,6 +2784,78 @@ export async function upgradeSubscriptionToBusiness(
 }
 
 /**
+ * Enable Family on the current Stripe Individual subscription in place
+ * (same Individual price — no Checkout / Portal for Stripe owners).
+ */
+export async function upgradeSubscriptionToFamily(
+  sessionToken: string,
+  planId: string,
+): Promise<{
+  success: boolean;
+  mode?: "upgraded";
+  planId?: string;
+  seatLimit?: number;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/payment/stripe/upgrade-family`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ planId }),
+      },
+    );
+
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      mode?: "upgraded";
+      planId?: string;
+      seatLimit?: number;
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to upgrade to Family",
+        ),
+      };
+    }
+
+    if (data?.success === true) {
+      return {
+        success: true,
+        mode: data.mode ?? "upgraded",
+        planId: data.planId,
+        seatLimit: data.seatLimit,
+        message: data.message,
+      };
+    }
+
+    return {
+      success: false,
+      error: data?.error || data?.message || "Family upgrade failed",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to upgrade to Family",
+    };
+  }
+}
+
+/**
  * Create a Stripe Billing Portal session for the current user.
  * Allows managing subscription (upgrade, downgrade, update payment method, etc.)
  */

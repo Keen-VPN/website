@@ -563,8 +563,8 @@ const Subscribe = () => {
         sessionStorage.getItem("asweb_session") === "1" ? "&asweb=1" : "";
       const familyCheckout = isFamilyPlan(selectedPlan);
       const successUrl = familyCheckout
-        ? `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}&tab=team${aswebSuffix}`
-        : `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}${aswebSuffix}`;
+        ? `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}&family=upgraded${aswebSuffix}`
+        : `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}${aswebSuffix}`;
       const cancelUrl = `${window.location.origin}/pricing`;
 
       const result = await createCheckoutSession(
@@ -775,13 +775,9 @@ const Subscribe = () => {
                       Share with up to 5 people total
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      After checkout, invite friends or family by email. Each
-                      accepted invite adds one Individual seat to your plan (you
-                      + up to 4 others)
                       {startsWithFreeTrial
-                        ? "; seat billing follows your trial and renewal"
-                        : ""}
-                      .
+                        ? "After checkout, invite friends or family by email. Each accepted invite adds one Individual seat (you + up to 4 others); seat billing follows your trial and renewal."
+                        : "After checkout, invite friends or family by email. You are billed one more Individual seat when they accept (you + up to 4 others)."}
                     </p>
                   </div>
                 ) : null}

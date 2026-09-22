@@ -342,12 +342,19 @@ export function transformApiPlans(
 /**
  * Business stays off the public Pricing catalog, but upgrade CTAs still need a
  * PricingPlan selection wired to the raw Business/team Stripe catalog ids.
+ * Prefer current `business*` ids over grandfathered team / Family Plus entries.
  */
 export function extractBusinessPricingPlan(
   apiPlans: ApiPlan[],
 ): PricingPlan | null {
+  const businessClass = apiPlans.filter(isBusinessCatalogPlan);
+  if (businessClass.length === 0) return null;
+  const preferred = businessClass.filter((plan) =>
+    plan.id.toLowerCase().includes("business"),
+  );
+  const source = preferred.length > 0 ? preferred : businessClass;
   return (
-    transformApiPlans(apiPlans, { includeBusiness: true }).find(
+    transformApiPlans(source, { includeBusiness: true }).find(
       (plan) => plan.name === "Business",
     ) ?? null
   );

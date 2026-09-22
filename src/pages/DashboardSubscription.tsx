@@ -551,6 +551,8 @@ function PlansTab() {
     openBillingPortal,
     openPlanChangePortal,
     portalLoading,
+    upgradeToFamilyPlan,
+    familyUpgradeLoading,
   } = useSubscriptionBillingActions();
   const { upgrading: upgradingToAnnual, upgradeToAnnual } = useAnnualUpgrade();
   const { changing: switchingToTwoYear, switchToTwoYear } =
@@ -602,7 +604,8 @@ function PlansTab() {
       !upgradingToAnnual &&
       !switchingToTwoYear &&
       !portalLoading &&
-      !checkoutLoadingId
+      !checkoutLoadingId &&
+      !familyUpgradeLoading
     ) {
       setActiveLoadingPlanId(null);
     }
@@ -611,6 +614,7 @@ function PlansTab() {
     switchingToTwoYear,
     portalLoading,
     checkoutLoadingId,
+    familyUpgradeLoading,
   ]);
 
   useEffect(() => {
@@ -671,7 +675,7 @@ function PlansTab() {
         sessionStorage.getItem('asweb_session') === '1' ? '&asweb=1' : '';
       const isFamily = getPlanTier(plan) === 'family';
       const successUrl = isFamily
-        ? `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}&tab=team${aswebSuffix}`
+        ? `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}&family=upgraded${aswebSuffix}`
         : `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}${aswebSuffix}`;
       const cancelUrl = `${window.location.origin}/subscription?tab=plans`;
 
@@ -969,6 +973,16 @@ function PlansTab() {
                   }
                   if (useOneClickAnnual) {
                     void upgradeToAnnual('dashboard_plans');
+                    return;
+                  }
+                  // Individual → Family: same Stripe price, flip entitlement in place.
+                  if (
+                    isFamily &&
+                    isIndividualSubscriber &&
+                    isManageable &&
+                    canOpenStripePortal
+                  ) {
+                    void upgradeToFamilyPlan(plan.id);
                     return;
                   }
                   if (twoYear && twoYearAlreadyScheduled) {

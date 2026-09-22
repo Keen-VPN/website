@@ -188,7 +188,7 @@ export default function AdminDownloadFunnel() {
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-sm text-muted-foreground">Total</p>
             <p className="text-2xl font-semibold">
-              {loading || byOsError ? "—" : (confirmed?.total ?? 0)}
+              {loading || error || byOsError ? "—" : (confirmed?.total ?? 0)}
             </p>
           </div>
           {DOWNLOAD_OS_ORDER.map((os) => {
@@ -202,10 +202,10 @@ export default function AdminDownloadFunnel() {
                   {DOWNLOAD_OS_LABELS[os]}
                 </p>
                 <p className="text-2xl font-semibold">
-                  {loading || byOsError ? "—" : (row?.count ?? 0)}
+                  {loading || error || byOsError ? "—" : (row?.count ?? 0)}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {loading || byOsError
+                  {loading || error || byOsError
                     ? "—"
                     : formatAdminRate(row?.percent_of_total ?? 0)}
                 </p>

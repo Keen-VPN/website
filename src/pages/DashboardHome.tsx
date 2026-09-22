@@ -408,6 +408,7 @@ export default function DashboardHome() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const businessUpgradeHandledRef = useRef(false);
+  const familyUpgradeHandledRef = useRef(false);
   const appStoreUrl = useAppStoreUrl();
   const {
     checkoutHydrating,
@@ -447,6 +448,22 @@ export default function DashboardHome() {
     next.delete("business");
     next.delete("billing");
     next.delete("billingEffectiveAt");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, toast]);
+
+  useEffect(() => {
+    if (searchParams.get("family") !== "upgraded") return;
+    if (familyUpgradeHandledRef.current) return;
+    familyUpgradeHandledRef.current = true;
+
+    toast({
+      title: "Family plan updated",
+      description:
+        "Family is enabled with no upgrade charge. Invite friends or family in the Sharing section below.",
+    });
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("family");
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, toast]);
 
