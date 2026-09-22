@@ -192,7 +192,15 @@ const Pricing = () => {
     () => plans.find((p) => p.name === "Individual" || p.name === "Premium"),
     [plans],
   );
-  const businessPlan = useMemo(() => plans.find((p) => p.isPerSeat), [plans]);
+  const businessPlan = useMemo(
+    () =>
+      plans.find(
+        (p) =>
+          p.name === "Business" ||
+          (p.isPerSeat === true && p.name !== "Family"),
+      ),
+    [plans],
+  );
   const businessPlanSelection = useMemo(
     () => resolvePricingPlanSelection(businessPlan, billingPeriod),
     [billingPeriod, businessPlan],
@@ -503,12 +511,14 @@ const Pricing = () => {
                     !showBusinessPlanUpgrade ? (
                       <div className="mt-4 space-y-2 rounded-lg border border-border/80 bg-muted/30 p-3">
                         <p className="text-sm font-medium text-foreground">
-                          Per-seat pricing
+                          {plan.name === "Family"
+                            ? "Pay per person"
+                            : "Per-seat pricing"}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Starts with you — add teammates later; each member is
-                          billed only after they accept and use any KeenVPN time
-                          they already paid for.
+                          {plan.name === "Family"
+                            ? "Starts with you — invite family or friends; you are billed their Individual price only after they accept."
+                            : "Starts with you — add teammates later; each member is billed only after they accept and use any KeenVPN time they already paid for."}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           From $

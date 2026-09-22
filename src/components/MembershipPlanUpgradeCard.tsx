@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, Users } from "lucide-react";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import type { SubscriptionData } from "@/auth/types";
-import { isTwoYearApiPlan, type ApiPlan } from "@/lib/pricing";
+import { isTwoYearApiPlan, type ApiPlan, isClassicFamilyPlanId } from "@/lib/pricing";
 import { useMembershipSharingContext } from "@/contexts/MembershipSharingContext";
 import {
   canUpgradeToBusinessPlan,
@@ -41,6 +41,7 @@ export function MembershipPlanUpgradeCard({
         setPlans(
           res.plans.filter((plan) => {
             const id = plan.id.toLowerCase();
+            if (isClassicFamilyPlanId(id)) return false;
             return (
               plan.isPerSeat === true ||
               id.includes("team") ||

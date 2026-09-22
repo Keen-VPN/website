@@ -12,6 +12,7 @@ import {
   PricingPlan,
   ApiPlan,
   getApiPlanPaidMonths,
+  isClassicFamilyPlanId,
   isTwoYearApiPlan,
 } from "@/lib/pricing";
 import { Check, Gift, Loader2, ExternalLink, LayoutGrid } from "lucide-react";
@@ -57,11 +58,7 @@ const getPlanTier = (plan: ApiPlan) => {
   ) {
     return "team";
   }
-  if (
-    id.includes("family") &&
-    !id.includes("family_plus") &&
-    !id.includes("familyplus")
-  ) {
+  if (isClassicFamilyPlanId(id)) {
     return "family";
   }
   if (id.includes("premium")) return "premium";
@@ -81,12 +78,7 @@ const isPurchasablePlan = (plan: ApiPlan): boolean => {
 const isFamilyPlan = (plan: ApiPlan | PricingPlan | null): boolean => {
   if (!plan) return false;
   if ("id" in plan) {
-    const id = plan.id.toLowerCase();
-    return (
-      id.includes("family") &&
-      !id.includes("family_plus") &&
-      !id.includes("familyplus")
-    );
+    return isClassicFamilyPlanId(plan.id);
   }
   return "name" in plan && plan.name === "Family";
 };
@@ -145,12 +137,7 @@ const matchesRequestedPlan = (plan: ApiPlan, requestedPlanId: string) => {
     requestedPlanId === "family-2year" ||
     requestedPlanId === "family-two-year"
   ) {
-    return (
-      isTwoYearApiPlan(plan) &&
-      plan.id.toLowerCase().includes("family") &&
-      !plan.id.toLowerCase().includes("family_plus") &&
-      !plan.id.toLowerCase().includes("familyplus")
-    );
+    return isTwoYearApiPlan(plan) && isClassicFamilyPlanId(plan.id);
   }
   if (requestedPlanId === "premium_monthly") {
     return (
@@ -785,11 +772,12 @@ const Subscribe = () => {
                 {isFamilyPlan(selectedPlan) ? (
                   <div className="mb-6 space-y-2 rounded-lg border border-border/80 bg-muted/30 p-4">
                     <p className="text-sm font-medium text-foreground">
-                      Share with up to 5 people
+                      Share with up to 5 people total
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      After checkout, invite friends or family by email. One flat
-                      price covers everyone on your plan — no per-seat charges.
+                      After checkout, invite friends or family by email. You are
+                      billed one more Individual seat when they accept (you + up
+                      to 4 others).
                     </p>
                   </div>
                 ) : null}

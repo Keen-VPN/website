@@ -786,7 +786,7 @@ function PlansTab() {
               : null;
           const planFeatures = isFamily
             ? [
-                'Share with up to 5 members',
+                'Share with up to 5 people total',
                 ...FEATURES.slice(1),
                 'Invite by email, separate logins',
                 'Owner manages members anytime',

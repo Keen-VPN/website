@@ -44,6 +44,21 @@ export function isTwoYearApiPlan(plan: ApiPlan): boolean {
   return plan.interval === "year" && plan.intervalCount === 2;
 }
 
+/**
+ * Classic Family catalog ids (charge-on-accept household sharing).
+ * Excludes Family Plus / familyplus, which map to Business.
+ */
+export function isClassicFamilyPlanId(
+  planId: string | null | undefined,
+): boolean {
+  if (!planId) return false;
+  const id = planId.toLowerCase();
+  if (id.includes("family_plus") || id.includes("familyplus")) {
+    return false;
+  }
+  return id.includes("family");
+}
+
 /** Canonical number of months covered by one charge for a catalog term. */
 export function getApiPlanPaidMonths(plan: ApiPlan): number {
   if (isTwoYearApiPlan(plan)) return TWO_YEAR_PAID_MONTHS;
@@ -129,21 +144,20 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
   const plansByType = apiPlans.reduce(
     (acc, plan) => {
       const id = plan.id.toLowerCase();
+      const isFamily = isClassicFamilyPlanId(id);
       // Business / Family Plus stay off the purchasable catalog (grandfathered only).
+      // Family is per-seat (charge-on-accept) but remains purchasable.
       const isRetiredBusiness =
-        plan.isPerSeat === true ||
-        id.includes("team") ||
-        id.includes("business") ||
-        id.includes("family_plus") ||
-        id.includes("familyplus");
+        !isFamily &&
+        (plan.isPerSeat === true ||
+          id.includes("team") ||
+          id.includes("business") ||
+          id.includes("family_plus") ||
+          id.includes("familyplus"));
       if (isRetiredBusiness) {
         return acc;
       }
 
-      const isFamily =
-        id.includes("family") &&
-        !id.includes("family_plus") &&
-        !id.includes("familyplus");
       const isPremium = id.includes("premium") && !isFamily;
       const key = isPremium ? "premium" : isFamily ? "family" : "other";
 
@@ -214,7 +228,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
 
     const deviceConnectionFeature = {
       name: isFamily
-        ? "Share with up to 5 members"
+        ? "Share with up to 5 people total"
         : "Up to 3 connected devices",
       included: true,
       highlighted: true,
@@ -237,7 +251,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       description: isPremium
         ? "Perfect for personal use"
         : isFamily
-          ? "One plan for your household — invite up to 5 people"
+          ? "Invite family — you pay their Individual price when they accept"
           : "Premium VPN service",
       monthlyPrice,
       annualPrice,
@@ -250,10 +264,10 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       features: mergedFeatures,
       buttonText: "Start Free Trial",
       popular: isFamily,
-      isPerSeat: false,
-      // Classic Family is always a fixed household of 5 — ignore any seat metadata.
-      minSeats: isFamily ? 5 : undefined,
-      defaultSeats: isFamily ? 5 : undefined,
+      isPerSeat: isFamily,
+      // Family charge-on-accept: checkout is owner-only; seats grow on accept.
+      minSeats: isFamily ? 1 : undefined,
+      defaultSeats: isFamily ? 1 : undefined,
       monthlyPriceId: monthly?.priceId,
       annualPriceId: annual?.priceId,
       twoYearId: twoYear?.id,
