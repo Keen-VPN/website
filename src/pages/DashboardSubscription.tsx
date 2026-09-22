@@ -22,7 +22,12 @@ import {
   getSessionToken,
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from '@/auth/backend';
-import { ApiPlan, getApiPlanPaidMonths, isTwoYearApiPlan } from '@/lib/pricing';
+import {
+  ApiPlan,
+  getApiPlanPaidMonths,
+  isClassicFamilyPlanId,
+  isTwoYearApiPlan,
+} from '@/lib/pricing';
 import {
   formatCurrency,
   formatEventDate,
@@ -86,6 +91,10 @@ function isAnnualPlan(plan: ApiPlan) {
 
 function getPlanTier(plan: ApiPlan): PlanTier | 'other' {
   const id = plan.id.toLowerCase();
+  // Charge-on-accept Family is isPerSeat but remains purchasable.
+  if (isClassicFamilyPlanId(id)) {
+    return 'family';
+  }
   // Business / Family Plus stay off the purchasable Plans tab.
   if (
     plan.isPerSeat ||
@@ -95,9 +104,6 @@ function getPlanTier(plan: ApiPlan): PlanTier | 'other' {
     id.includes('familyplus')
   ) {
     return 'other';
-  }
-  if (id.includes('family')) {
-    return 'family';
   }
   if (id.includes('premium')) {
     return 'premium';
