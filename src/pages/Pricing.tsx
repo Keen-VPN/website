@@ -30,6 +30,7 @@ import { useTwoYearPlanChange } from "@/hooks/use-plan-change";
 import { useMembershipSharing } from "@/hooks/use-membership-sharing";
 import {
   annualHeroPriceDisplay,
+  extractBusinessPricingPlan,
   formatAnnualBillingDetail,
   formatAnnualComparisonPrice,
   formatTwoYearBillingDetail,
@@ -185,20 +186,12 @@ const Pricing = () => {
   }, [authLoading, user, searchParams, navigate, setSearchParams]);
 
   const [plans, setPlans] = useState<PricingPlan[]>([]);
+  const [businessPlan, setBusinessPlan] = useState<PricingPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const premiumPlan = useMemo(
     () => plans.find((p) => p.name === "Individual" || p.name === "Premium"),
-    [plans],
-  );
-  const businessPlan = useMemo(
-    () =>
-      plans.find(
-        (p) =>
-          p.name === "Business" ||
-          (p.isPerSeat === true && p.name !== "Family"),
-      ),
     [plans],
   );
   const businessPlanSelection = useMemo(
@@ -263,17 +256,21 @@ const Pricing = () => {
           if (transformedPlans.length > 0) {
             setError(null);
             setPlans(transformedPlans);
+            setBusinessPlan(extractBusinessPricingPlan(response.plans));
           } else {
             setError(response.error || "Failed to load plans");
             setPlans([]);
+            setBusinessPlan(null);
           }
         } else {
           setError(response.error || "Failed to load plans");
           setPlans([]);
+          setBusinessPlan(null);
         }
       } catch {
         setError("Failed to load plans");
         setPlans([]);
+        setBusinessPlan(null);
       } finally {
         setLoading(false);
       }

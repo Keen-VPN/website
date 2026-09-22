@@ -37,6 +37,7 @@ export default function AdminDownloadFunnel() {
     useState<AdminDownloadsByOsReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [byOsError, setByOsError] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
 
   const load = useCallback(async (from: string, to: string) => {
@@ -44,6 +45,7 @@ export default function AdminDownloadFunnel() {
       setReport(null);
       setDownloadsByOs(null);
       setError(null);
+      setByOsError(null);
       setLoading(false);
       return;
     }
@@ -54,6 +56,7 @@ export default function AdminDownloadFunnel() {
       setReport(null);
       setDownloadsByOs(null);
       setError("From date must be on or before To date.");
+      setByOsError(null);
       setLoading(false);
       return;
     }
@@ -64,6 +67,7 @@ export default function AdminDownloadFunnel() {
 
     setLoading(true);
     setError(null);
+    setByOsError(null);
 
     const range = {
       from: `${from}T00:00:00.000Z`,
@@ -84,22 +88,22 @@ export default function AdminDownloadFunnel() {
       setReport(null);
       setDownloadsByOs(null);
       setError(funnelResponse.error ?? "Failed to load download funnel report");
-      setLoading(false);
-      activeRequest.current = null;
-      return;
-    }
-
-    if (!byOsResponse.ok || !byOsResponse.data) {
-      setReport(null);
-      setDownloadsByOs(null);
-      setError(byOsResponse.error ?? "Failed to load downloads by OS");
+      setByOsError(null);
       setLoading(false);
       activeRequest.current = null;
       return;
     }
 
     setReport(funnelResponse.data);
-    setDownloadsByOs(byOsResponse.data);
+    if (byOsResponse.ok && byOsResponse.data) {
+      setDownloadsByOs(byOsResponse.data);
+      setByOsError(null);
+    } else {
+      setDownloadsByOs(null);
+      setByOsError(
+        byOsResponse.error ?? "Failed to load downloads by OS",
+      );
+    }
     setLoading(false);
     activeRequest.current = null;
   }, []);
@@ -109,10 +113,11 @@ export default function AdminDownloadFunnel() {
     return () => activeRequest.current?.abort();
   }, [load, fromInput, toInput]);
 
-  const showData = !loading && !error && report != null && downloadsByOs != null;
+  const showData = !loading && !error && report != null;
   const downloads = showData ? report.downloads : null;
   const webToApp = showData ? report.web_to_app : null;
-  const confirmed = showData ? downloadsByOs : null;
+  const confirmed =
+    showData && !byOsError && downloadsByOs != null ? downloadsByOs : null;
   const platformEntries = Object.entries(downloads?.by_platform ?? {}).sort(
     (a, b) => b[1] - a[1],
   );
@@ -176,11 +181,14 @@ export default function AdminDownloadFunnel() {
             install open), not website CTA clicks.
           </p>
         </div>
+        {byOsError ? (
+          <p className="text-sm text-destructive">{byOsError}</p>
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-sm text-muted-foreground">Total</p>
             <p className="text-2xl font-semibold">
-              {loading || error ? "—" : (confirmed?.total ?? 0)}
+              {loading || byOsError ? "—" : (confirmed?.total ?? 0)}
             </p>
           </div>
           {DOWNLOAD_OS_ORDER.map((os) => {
@@ -194,10 +202,10 @@ export default function AdminDownloadFunnel() {
                   {DOWNLOAD_OS_LABELS[os]}
                 </p>
                 <p className="text-2xl font-semibold">
-                  {loading || error ? "—" : (row?.count ?? 0)}
+                  {loading || byOsError ? "—" : (row?.count ?? 0)}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {loading || error
+                  {loading || byOsError
                     ? "—"
                     : formatAdminRate(row?.percent_of_total ?? 0)}
                 </p>

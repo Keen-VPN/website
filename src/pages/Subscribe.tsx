@@ -775,9 +775,13 @@ const Subscribe = () => {
                       Share with up to 5 people total
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      After checkout, invite friends or family by email. You are
-                      billed one more Individual seat when they accept (you + up
-                      to 4 others).
+                      After checkout, invite friends or family by email. Each
+                      accepted invite adds one Individual seat to your plan (you
+                      + up to 4 others)
+                      {startsWithFreeTrial
+                        ? "; seat billing follows your trial and renewal"
+                        : ""}
+                      .
                     </p>
                   </div>
                 ) : null}

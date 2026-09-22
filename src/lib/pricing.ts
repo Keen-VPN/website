@@ -59,6 +59,19 @@ export function isClassicFamilyPlanId(
   return id.includes("family");
 }
 
+/** Business / Family Plus / legacy team catalog entries (not classic Family). */
+export function isBusinessCatalogPlan(plan: ApiPlan): boolean {
+  if (isClassicFamilyPlanId(plan.id)) return false;
+  const id = plan.id.toLowerCase();
+  return (
+    plan.isPerSeat === true ||
+    id.includes("team") ||
+    id.includes("business") ||
+    id.includes("family_plus") ||
+    id.includes("familyplus")
+  );
+}
+
 /** Canonical number of months covered by one charge for a catalog term. */
 export function getApiPlanPaidMonths(plan: ApiPlan): number {
   if (isTwoYearApiPlan(plan)) return TWO_YEAR_PAID_MONTHS;
@@ -140,26 +153,29 @@ export function resolvePricingPlanSelection(
     : null;
 }
 
-export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
+export function transformApiPlans(
+  apiPlans: ApiPlan[],
+  options?: { includeBusiness?: boolean },
+): PricingPlan[] {
   const plansByType = apiPlans.reduce(
     (acc, plan) => {
       const id = plan.id.toLowerCase();
       const isFamily = isClassicFamilyPlanId(id);
-      // Business / Family Plus stay off the purchasable catalog (grandfathered only).
+      const isBusiness = isBusinessCatalogPlan(plan);
+      // Business / Family Plus stay off the purchasable catalog by default.
       // Family is per-seat (charge-on-accept) but remains purchasable.
-      const isRetiredBusiness =
-        !isFamily &&
-        (plan.isPerSeat === true ||
-          id.includes("team") ||
-          id.includes("business") ||
-          id.includes("family_plus") ||
-          id.includes("familyplus"));
-      if (isRetiredBusiness) {
+      if (isBusiness && !options?.includeBusiness) {
         return acc;
       }
 
-      const isPremium = id.includes("premium") && !isFamily;
-      const key = isPremium ? "premium" : isFamily ? "family" : "other";
+      const isPremium = id.includes("premium") && !isFamily && !isBusiness;
+      const key = isPremium
+        ? "premium"
+        : isFamily
+          ? "family"
+          : isBusiness
+            ? "business"
+            : "other";
 
       if (!acc[key]) {
         acc[key] = { monthly: null, annual: null, twoYear: null };
@@ -188,6 +204,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
 
     const isPremium = type === "premium";
     const isFamily = type === "family";
+    const isBusiness = type === "business";
     const monthlyPrice = monthly?.price || annual?.price || 0;
     const annualPrice =
       annual?.price || (monthly?.price ? monthly.price * 12 : 0);
@@ -229,7 +246,9 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
     const deviceConnectionFeature = {
       name: isFamily
         ? "Share with up to 5 people total"
-        : "Up to 3 connected devices",
+        : isBusiness
+          ? "5 connected devices per seat"
+          : "Up to 3 connected devices",
       included: true,
       highlighted: true,
     };
@@ -247,12 +266,20 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
     transformedPlans.push({
       monthlyId: monthly?.id,
       annualId: annual?.id,
-      name: isPremium ? "Individual" : isFamily ? "Family" : "Premium",
+      name: isPremium
+        ? "Individual"
+        : isFamily
+          ? "Family"
+          : isBusiness
+            ? "Business"
+            : "Premium",
       description: isPremium
         ? "Perfect for personal use"
         : isFamily
           ? "Invite family — you pay their Individual price when they accept"
-          : "Premium VPN service",
+          : isBusiness
+            ? "Shared seats for your team"
+            : "Premium VPN service",
       monthlyPrice,
       annualPrice,
       monthlyPriceDisplay: `$${monthlyPrice}`,
@@ -264,10 +291,20 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       features: mergedFeatures,
       buttonText: "Start Free Trial",
       popular: isFamily,
-      isPerSeat: isFamily,
+      isPerSeat: isFamily || isBusiness,
       // Family charge-on-accept: checkout is owner-only; seats grow on accept.
-      minSeats: isFamily ? 1 : undefined,
-      defaultSeats: isFamily ? 1 : undefined,
+      minSeats: isFamily
+        ? 1
+        : isBusiness
+          ? (monthly?.minSeats ?? annual?.minSeats ?? twoYear?.minSeats)
+          : undefined,
+      defaultSeats: isFamily
+        ? 1
+        : isBusiness
+          ? (monthly?.defaultSeats ??
+            annual?.defaultSeats ??
+            twoYear?.defaultSeats)
+          : undefined,
       monthlyPriceId: monthly?.priceId,
       annualPriceId: annual?.priceId,
       twoYearId: twoYear?.id,
@@ -300,6 +337,20 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
       (order[b.name as keyof typeof order] ?? 99)
     );
   });
+}
+
+/**
+ * Business stays off the public Pricing catalog, but upgrade CTAs still need a
+ * PricingPlan selection wired to the raw Business/team Stripe catalog ids.
+ */
+export function extractBusinessPricingPlan(
+  apiPlans: ApiPlan[],
+): PricingPlan | null {
+  return (
+    transformApiPlans(apiPlans, { includeBusiness: true }).find(
+      (plan) => plan.name === "Business",
+    ) ?? null
+  );
 }
 
 /** Hero price on plan cards when annual billing is selected. */
