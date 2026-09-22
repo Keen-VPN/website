@@ -83,7 +83,7 @@ export const featureComparison: FeatureComparisonRow[] = [
   {
     feature: "Simultaneous device connections",
     individual: "Up to 3",
-    family: "Pay per person on accept",
+    family: "Up to 3 per person",
   },
   {
     feature: "Bandwidth",
@@ -118,7 +118,7 @@ export const featureComparison: FeatureComparisonRow[] = [
   {
     feature: "Share with friends & family",
     individual: false,
-    family: "Invite up to 5, pay when they accept",
+    family: "Up to 5 people total, pay on accept",
   },
   {
     feature: "Priority support",

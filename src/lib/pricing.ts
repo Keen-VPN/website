@@ -44,6 +44,21 @@ export function isTwoYearApiPlan(plan: ApiPlan): boolean {
   return plan.interval === "year" && plan.intervalCount === 2;
 }
 
+/**
+ * Classic Family catalog ids (charge-on-accept household sharing).
+ * Excludes Family Plus / familyplus, which map to Business.
+ */
+export function isClassicFamilyPlanId(
+  planId: string | null | undefined,
+): boolean {
+  if (!planId) return false;
+  const id = planId.toLowerCase();
+  if (id.includes("family_plus") || id.includes("familyplus")) {
+    return false;
+  }
+  return id.includes("family");
+}
+
 /** Canonical number of months covered by one charge for a catalog term. */
 export function getApiPlanPaidMonths(plan: ApiPlan): number {
   if (isTwoYearApiPlan(plan)) return TWO_YEAR_PAID_MONTHS;
@@ -129,10 +144,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
   const plansByType = apiPlans.reduce(
     (acc, plan) => {
       const id = plan.id.toLowerCase();
-      const isFamily =
-        id.includes("family") &&
-        !id.includes("family_plus") &&
-        !id.includes("familyplus");
+      const isFamily = isClassicFamilyPlanId(id);
       // Business / Family Plus stay off the purchasable catalog (grandfathered only).
       // Family is per-seat (charge-on-accept) but remains purchasable.
       const isRetiredBusiness =
@@ -216,7 +228,7 @@ export function transformApiPlans(apiPlans: ApiPlan[]): PricingPlan[] {
 
     const deviceConnectionFeature = {
       name: isFamily
-        ? "Share with up to 5 members"
+        ? "Share with up to 5 people total"
         : "Up to 3 connected devices",
       included: true,
       highlighted: true,
