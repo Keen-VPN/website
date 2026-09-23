@@ -23,6 +23,8 @@ import {
   MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE,
   PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE,
   type AdminPerk,
+  CHROME_EXTENSION_BROADCAST_DEFAULTS,
+  CHROME_EXTENSION_BROADCAST_TEMPLATE,
   type AudienceTargeting,
   type AudienceTargetingPreview,
   type BroadcastEmailAudience,
@@ -107,6 +109,10 @@ const TEMPLATE_OPTIONS: {
     value: PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE,
     label: "Perk announcement",
   },
+  {
+    value: CHROME_EXTENSION_BROADCAST_TEMPLATE,
+    label: "Chrome extension",
+  },
 ];
 
 function sleep(ms: number) {
@@ -171,6 +177,12 @@ export default function AdminBroadcastEmail() {
     template === MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE;
   const isPerkAnnouncementTemplate =
     template === PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE;
+  const isChromeExtensionTemplate =
+    template === CHROME_EXTENSION_BROADCAST_TEMPLATE;
+  const isDesignedTemplate =
+    isMembershipTransferTemplate ||
+    isPerkAnnouncementTemplate ||
+    isChromeExtensionTemplate;
   const selectedPerk = useMemo(
     () => activePerks.find((perk) => perk.id === perkId) ?? null,
     [activePerks, perkId],
@@ -179,6 +191,7 @@ export default function AdminBroadcastEmail() {
   const composeReady = useMemo(
     () =>
       isMembershipTransferTemplate ||
+      isChromeExtensionTemplate ||
       (isPerkAnnouncementTemplate && !!selectedPerk) ||
       (!isPerkAnnouncementTemplate &&
         subject.trim().length > 0 &&
@@ -186,6 +199,7 @@ export default function AdminBroadcastEmail() {
         body.trim().length > 0),
     [
       isMembershipTransferTemplate,
+      isChromeExtensionTemplate,
       isPerkAnnouncementTemplate,
       selectedPerk,
       subject,
@@ -277,6 +291,17 @@ export default function AdminBroadcastEmail() {
         setCtaLabel(DEFAULT_CTA_LABEL);
         setCtaUrl(DEFAULT_CTA_URL);
       }
+      return;
+    }
+
+    if (next === CHROME_EXTENSION_BROADCAST_TEMPLATE) {
+      setPerkId("");
+      setSubject(CHROME_EXTENSION_BROADCAST_DEFAULTS.subject);
+      setHeadline(CHROME_EXTENSION_BROADCAST_DEFAULTS.headline);
+      setBody(CHROME_EXTENSION_BROADCAST_DEFAULTS.body);
+      setPreheader(CHROME_EXTENSION_BROADCAST_DEFAULTS.preheader);
+      setCtaLabel(CHROME_EXTENSION_BROADCAST_DEFAULTS.ctaLabel);
+      setCtaUrl(CHROME_EXTENSION_BROADCAST_DEFAULTS.ctaUrl);
       return;
     }
 
@@ -1009,10 +1034,17 @@ export default function AdminBroadcastEmail() {
                 everyone that perk is available to, under Class Actions &amp;
                 Perks preferences.
               </p>
+            ) : isChromeExtensionTemplate ? (
+              <p className="text-xs text-muted-foreground">
+                Sends the designed Chrome extension layout. Both CTAs always
+                go to the Chrome Web Store listing with campaign attribution,
+                regardless of any CTA URL. Edit the subject to override the
+                template default.
+              </p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Write a one-off broadcast. Use Membership transfer or Perk
-                announcement for designed campaigns.
+                Write a one-off broadcast. Use a designed template to send one
+                of the designed campaigns instead.
               </p>
             )}
           </div>
@@ -1062,11 +1094,23 @@ export default function AdminBroadcastEmail() {
               </p>
             </div>
           ) : null}
+          {isChromeExtensionTemplate ? (
+            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 space-y-2 text-sm">
+              <p className="font-medium">Designed Chrome extension email</p>
+              <p className="text-muted-foreground">
+                {CHROME_EXTENSION_BROADCAST_DEFAULTS.headline}
+              </p>
+              <p>
+                CTA: {CHROME_EXTENSION_BROADCAST_DEFAULTS.ctaLabel} →{" "}
+                <span className="font-mono text-xs break-all">
+                  {CHROME_EXTENSION_BROADCAST_DEFAULTS.ctaUrl}
+                </span>
+              </p>
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="subject">
-              {isMembershipTransferTemplate || isPerkAnnouncementTemplate
-                ? "Subject (optional)"
-                : "Subject"}
+              {isDesignedTemplate ? "Subject (optional)" : "Subject"}
             </Label>
             <Input
               id="subject"
@@ -1075,11 +1119,13 @@ export default function AdminBroadcastEmail() {
               placeholder={
                 isMembershipTransferTemplate
                   ? MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS.subject
-                  : "New partner perk for KeenVPN members"
+                  : isChromeExtensionTemplate
+                    ? CHROME_EXTENSION_BROADCAST_DEFAULTS.subject
+                    : "New partner perk for KeenVPN members"
               }
             />
           </div>
-          {isMembershipTransferTemplate ? null : (
+          {isDesignedTemplate ? null : (
             <>
               <div className="space-y-2">
                 <Label htmlFor="headline">Headline</Label>
