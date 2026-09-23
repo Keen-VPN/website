@@ -1125,7 +1125,7 @@ export default function AdminBroadcastEmail() {
               }
             />
           </div>
-          {isDesignedTemplate ? null : (
+          {isMembershipTransferTemplate || isChromeExtensionTemplate ? null : (
             <>
               <div className="space-y-2">
                 <Label htmlFor="headline">Headline</Label>
