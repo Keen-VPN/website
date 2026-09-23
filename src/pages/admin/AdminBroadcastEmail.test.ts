@@ -76,6 +76,37 @@ describe("buildBroadcastComposePayload", () => {
     ).toThrow(/perkId is required/i);
   });
 
+  it("sends template only for chrome extension when copy is blank", () => {
+    expect(
+      buildBroadcastComposePayload({
+        ...baseInput,
+        template: "chrome_extension",
+      }),
+    ).toEqual({
+      audience: "all_deliverable",
+      profileTargeting: createDefaultAudienceTargeting(),
+      template: "chrome_extension",
+    });
+  });
+
+  it("keeps an optional subject override on the chrome extension template and drops any ctaUrl override", () => {
+    expect(
+      buildBroadcastComposePayload({
+        ...baseInput,
+        template: "chrome_extension",
+        subject: "  Try the extension  ",
+        headline: "ignored",
+        body: "ignored",
+        ctaUrl: "https://vpnkeen.com/chrome",
+      }),
+    ).toEqual({
+      audience: "all_deliverable",
+      profileTargeting: createDefaultAudienceTargeting(),
+      template: "chrome_extension",
+      subject: "Try the extension",
+    });
+  });
+
   it("still requires custom copy on a one-off broadcast", () => {
     expect(
       buildBroadcastComposePayload({

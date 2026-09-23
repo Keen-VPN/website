@@ -1,6 +1,7 @@
 import {
   MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE,
   PERK_ANNOUNCEMENT_BROADCAST_TEMPLATE,
+  CHROME_EXTENSION_BROADCAST_TEMPLATE,
   type AdminBroadcastComposePayload,
   type AudienceTargeting,
   type BroadcastEmailAudience,
@@ -65,6 +66,13 @@ export function buildBroadcastComposePayload(input: {
     if (ctaLabel) payload.ctaLabel = ctaLabel;
     const ctaUrl = optionalTrim(input.ctaUrl);
     if (ctaUrl) payload.ctaUrl = ctaUrl;
+    return payload;
+  }
+
+  if (input.template === CHROME_EXTENSION_BROADCAST_TEMPLATE) {
+    payload.template = CHROME_EXTENSION_BROADCAST_TEMPLATE;
+    const subject = optionalTrim(input.subject);
+    if (subject) payload.subject = subject;
     return payload;
   }
 
