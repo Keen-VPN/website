@@ -564,10 +564,14 @@ function PlansTab() {
     isStripeSubscription(subscription) && Boolean(subscription?.canManageBilling);
   const isIndividualSubscriber =
     resolveMembershipPlanTier(subscription) === 'individual';
+  const isFamilySubscriber =
+    resolveMembershipPlanTier(subscription) === 'family';
   const canOneClickAnnual =
-    isIndividualSubscriber && canUpgradeStripeToAnnual(subscription);
+    (isIndividualSubscriber || isFamilySubscriber) &&
+    canUpgradeStripeToAnnual(subscription);
   const canOneClickTwoYear =
-    isIndividualSubscriber && canSwitchStripeToTwoYear(subscription);
+    (isIndividualSubscriber || isFamilySubscriber) &&
+    canSwitchStripeToTwoYear(subscription);
   const annualAlreadyScheduled = hasScheduledAnnualBilling(subscription);
   const twoYearAlreadyScheduled = hasScheduledTwoYearBilling(subscription);
   const isSharedMember = isSharedBusinessMember(
@@ -830,11 +834,11 @@ function PlansTab() {
           if (isManageable && !isCurrentPlan && subscription) {
             if (twoYear && twoYearAlreadyScheduled) {
               cta = '2-year scheduled';
-            } else if (twoYear && !isFamily && canOneClickTwoYear) {
+            } else if (twoYear && canOneClickTwoYear) {
               cta = 'Switch to 2-year';
-            } else if (annual && !isFamily && canOneClickAnnual) {
+            } else if (annual && canOneClickAnnual) {
               cta = 'Upgrade to annual';
-            } else if (annual && !isFamily && annualAlreadyScheduled) {
+            } else if (annual && annualAlreadyScheduled) {
               cta = 'Annual scheduled';
             } else {
               cta = planChangeCtaLabel(plan, subscription);
@@ -843,16 +847,16 @@ function PlansTab() {
 
           const useOneClickAnnual =
             !isCurrentPlan &&
-            !isFamily &&
             annual &&
             canOneClickAnnual &&
-            isIndividualSubscriber;
+            ((isIndividualSubscriber && !isFamily) ||
+              (isFamilySubscriber && isFamily));
           const useOneClickTwoYear =
             !isCurrentPlan &&
-            !isFamily &&
             twoYear &&
             canOneClickTwoYear &&
-            isIndividualSubscriber;
+            ((isIndividualSubscriber && !isFamily) ||
+              (isFamilySubscriber && isFamily));
           const isThisPlanLoading = activeLoadingPlanId === plan.id;
           const isAnotherPlanLoading =
             activeLoadingPlanId !== null && activeLoadingPlanId !== plan.id;
@@ -994,7 +998,7 @@ function PlansTab() {
                     });
                     return;
                   }
-                  if (annual && !isFamily && annualAlreadyScheduled) {
+                  if (annual && annualAlreadyScheduled) {
                     setActiveLoadingPlanId(null);
                     toast({
                       title: 'Annual already scheduled',
@@ -1026,7 +1030,6 @@ function PlansTab() {
                   (twoYearAlreadyScheduled && twoYear && !isCurrentPlan) ||
                   (annualAlreadyScheduled &&
                     annual &&
-                    !isFamily &&
                     !isCurrentPlan) ||
                   checkoutLoadingId === plan.id ||
                   isThisPlanLoading ||

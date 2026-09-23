@@ -133,7 +133,8 @@ export function canSwitchStripeToTwoYear(
   if (isTwoYearSubscription(subscription)) return false;
   if (subscription.scheduledPlanChange?.to === "2year") return false;
   if (subscription.scheduledBillingInterval?.to === "2year") return false;
-  if (resolveMembershipPlanTier(subscription) !== "individual") return false;
+  const tier = resolveMembershipPlanTier(subscription);
+  if (tier !== "individual" && tier !== "family") return false;
 
   const status = getSubscriptionStatus(subscription);
   return status === "active" || status === "trialing";

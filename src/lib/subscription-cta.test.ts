@@ -186,6 +186,15 @@ describe("membership plan tier helpers", () => {
     expect(
       canSwitchStripeToTwoYear(stripeSub({ billingPeriod: "month" })),
     ).toBe(true);
+    expect(
+      canSwitchStripeToTwoYear(
+        stripeSub({
+          billingPeriod: "month",
+          plan: "KeenVPN Family - Monthly",
+          planId: "family_monthly",
+        }),
+      ),
+    ).toBe(true);
     // Already on the 2-year term, or leaving at period end.
     expect(canSwitchStripeToTwoYear(twoYear)).toBe(false);
     expect(
