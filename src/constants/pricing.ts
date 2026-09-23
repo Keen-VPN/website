@@ -42,7 +42,7 @@ export const faqs = [
   {
     question: "How does Family sharing work?",
     answer:
-      "Family is one flat-price plan for up to 5 people. After checkout, invite friends or family by email — they get their own logins under your plan. No per-seat charges when someone accepts.",
+      "With Family, you start on the same Individual price. Invite friends or family by email — when they accept, you pay one more Individual seat for them (up to 5 people total). They get their own logins under your plan.",
   },
   {
     question: "Do you keep logs of my activity?",
@@ -83,7 +83,7 @@ export const featureComparison: FeatureComparisonRow[] = [
   {
     feature: "Simultaneous device connections",
     individual: "Up to 3",
-    family: "Shared household plan",
+    family: "Up to 3 per person",
   },
   {
     feature: "Bandwidth",
@@ -118,7 +118,7 @@ export const featureComparison: FeatureComparisonRow[] = [
   {
     feature: "Share with friends & family",
     individual: false,
-    family: "Up to 5 members",
+    family: "Up to 5 people total, pay on accept",
   },
   {
     feature: "Priority support",

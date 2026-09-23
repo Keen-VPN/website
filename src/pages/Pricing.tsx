@@ -30,6 +30,7 @@ import { useTwoYearPlanChange } from "@/hooks/use-plan-change";
 import { useMembershipSharing } from "@/hooks/use-membership-sharing";
 import {
   annualHeroPriceDisplay,
+  extractBusinessPricingPlan,
   formatAnnualBillingDetail,
   formatAnnualComparisonPrice,
   formatTwoYearBillingDetail,
@@ -185,6 +186,7 @@ const Pricing = () => {
   }, [authLoading, user, searchParams, navigate, setSearchParams]);
 
   const [plans, setPlans] = useState<PricingPlan[]>([]);
+  const [businessPlan, setBusinessPlan] = useState<PricingPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -192,7 +194,6 @@ const Pricing = () => {
     () => plans.find((p) => p.name === "Individual" || p.name === "Premium"),
     [plans],
   );
-  const businessPlan = useMemo(() => plans.find((p) => p.isPerSeat), [plans]);
   const businessPlanSelection = useMemo(
     () => resolvePricingPlanSelection(businessPlan, billingPeriod),
     [billingPeriod, businessPlan],
@@ -255,17 +256,21 @@ const Pricing = () => {
           if (transformedPlans.length > 0) {
             setError(null);
             setPlans(transformedPlans);
+            setBusinessPlan(extractBusinessPricingPlan(response.plans));
           } else {
             setError(response.error || "Failed to load plans");
             setPlans([]);
+            setBusinessPlan(null);
           }
         } else {
           setError(response.error || "Failed to load plans");
           setPlans([]);
+          setBusinessPlan(null);
         }
       } catch {
         setError("Failed to load plans");
         setPlans([]);
+        setBusinessPlan(null);
       } finally {
         setLoading(false);
       }
@@ -503,12 +508,14 @@ const Pricing = () => {
                     !showBusinessPlanUpgrade ? (
                       <div className="mt-4 space-y-2 rounded-lg border border-border/80 bg-muted/30 p-3">
                         <p className="text-sm font-medium text-foreground">
-                          Per-seat pricing
+                          {plan.name === "Family"
+                            ? "Pay per person"
+                            : "Per-seat pricing"}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Starts with you — add teammates later; each member is
-                          billed only after they accept and use any KeenVPN time
-                          they already paid for.
+                          {plan.name === "Family"
+                            ? "Starts with you — invite family or friends; you are billed their Individual price only after they accept."
+                            : "Starts with you — add teammates later; each member is billed only after they accept and use any KeenVPN time they already paid for."}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           From $

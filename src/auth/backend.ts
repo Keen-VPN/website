@@ -2784,6 +2784,78 @@ export async function upgradeSubscriptionToBusiness(
 }
 
 /**
+ * Enable Family on the current Stripe Individual subscription in place
+ * (same Individual price — no Checkout / Portal for Stripe owners).
+ */
+export async function upgradeSubscriptionToFamily(
+  sessionToken: string,
+  planId: string,
+): Promise<{
+  success: boolean;
+  mode?: "upgraded";
+  planId?: string;
+  seatLimit?: number;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/payment/stripe/upgrade-family`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ planId }),
+      },
+    );
+
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      mode?: "upgraded";
+      planId?: string;
+      seatLimit?: number;
+      message?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to upgrade to Family",
+        ),
+      };
+    }
+
+    if (data?.success === true) {
+      return {
+        success: true,
+        mode: data.mode ?? "upgraded",
+        planId: data.planId,
+        seatLimit: data.seatLimit,
+        message: data.message,
+      };
+    }
+
+    return {
+      success: false,
+      error: data?.error || data?.message || "Family upgrade failed",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to upgrade to Family",
+    };
+  }
+}
+
+/**
  * Create a Stripe Billing Portal session for the current user.
  * Allows managing subscription (upgrade, downgrade, update payment method, etc.)
  */
@@ -4380,6 +4452,22 @@ export interface AdminDownloadFunnelReport {
   };
 }
 
+export type AdminDownloadsByOsKey = 'ios' | 'macos' | 'android' | 'windows';
+
+export interface AdminDownloadsByOsReport {
+  from: string;
+  to: string;
+  source: 'app_first_open';
+  total: number;
+  by_os: Record<
+    AdminDownloadsByOsKey,
+    {
+      count: number;
+      percent_of_total: number;
+    }
+  >;
+}
+
 export async function adminFetchDownloadFunnelReport(params?: {
   from?: string;
   to?: string;
@@ -4415,6 +4503,54 @@ export async function adminFetchDownloadFunnelReport(params?: {
     const record = data as { data?: AdminDownloadFunnelReport };
     if (!record.data) {
       return { ok: false, error: "Invalid download funnel report response" };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchDownloadsByOs(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminDownloadsByOsReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/utm-attribution/downloads/by-os${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load downloads by OS",
+        ),
+      };
+    }
+    const record = data as { data?: AdminDownloadsByOsReport };
+    if (!record.data) {
+      return { ok: false, error: "Invalid downloads by OS response" };
     }
     return { ok: true, data: record.data };
   } catch (e) {

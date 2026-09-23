@@ -95,6 +95,7 @@ export {
   upgradeSubscriptionToAnnual,
   changeSubscriptionPlan,
   upgradeSubscriptionToBusiness,
+  upgradeSubscriptionToFamily,
   recordSubscriptionProductEvent,
   cancelSubscription,
   previewRetentionWinbackOffer,

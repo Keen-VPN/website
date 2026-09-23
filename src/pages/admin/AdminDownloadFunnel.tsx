@@ -3,7 +3,10 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   adminFetchDownloadFunnelReport,
+  adminFetchDownloadsByOs,
   type AdminDownloadFunnelReport,
+  type AdminDownloadsByOsKey,
+  type AdminDownloadsByOsReport,
 } from "@/auth/backend";
 import {
   defaultAdminReportFromValue,
@@ -12,18 +15,37 @@ import {
   isAdminReportDateRangeValid,
 } from "@/lib/admin-utils";
 
+const DOWNLOAD_OS_LABELS: Record<AdminDownloadsByOsKey, string> = {
+  ios: "iOS",
+  macos: "macOS",
+  android: "Android",
+  windows: "Windows",
+};
+
+const DOWNLOAD_OS_ORDER: AdminDownloadsByOsKey[] = [
+  "ios",
+  "macos",
+  "android",
+  "windows",
+];
+
 export default function AdminDownloadFunnel() {
   const [fromInput, setFromInput] = useState(defaultAdminReportFromValue);
   const [toInput, setToInput] = useState(defaultAdminReportToValue);
   const [report, setReport] = useState<AdminDownloadFunnelReport | null>(null);
+  const [downloadsByOs, setDownloadsByOs] =
+    useState<AdminDownloadsByOsReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [byOsError, setByOsError] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
 
   const load = useCallback(async (from: string, to: string) => {
     if (!from.trim() || !to.trim()) {
       setReport(null);
+      setDownloadsByOs(null);
       setError(null);
+      setByOsError(null);
       setLoading(false);
       return;
     }
@@ -32,7 +54,9 @@ export default function AdminDownloadFunnel() {
       activeRequest.current?.abort();
       activeRequest.current = null;
       setReport(null);
+      setDownloadsByOs(null);
       setError("From date must be on or before To date.");
+      setByOsError(null);
       setLoading(false);
       return;
     }
@@ -43,26 +67,43 @@ export default function AdminDownloadFunnel() {
 
     setLoading(true);
     setError(null);
+    setByOsError(null);
 
-    const response = await adminFetchDownloadFunnelReport({
+    const range = {
       from: `${from}T00:00:00.000Z`,
       to: `${to}T00:00:00.000Z`,
       signal: controller.signal,
-    });
+    };
+
+    const [funnelResponse, byOsResponse] = await Promise.all([
+      adminFetchDownloadFunnelReport(range),
+      adminFetchDownloadsByOs(range),
+    ]);
 
     if (controller.signal.aborted || activeRequest.current !== controller) {
       return;
     }
 
-    if (!response.ok || !response.data) {
+    if (!funnelResponse.ok || !funnelResponse.data) {
       setReport(null);
-      setError(response.error ?? "Failed to load download funnel report");
+      setDownloadsByOs(null);
+      setError(funnelResponse.error ?? "Failed to load download funnel report");
+      setByOsError(null);
       setLoading(false);
       activeRequest.current = null;
       return;
     }
 
-    setReport(response.data);
+    setReport(funnelResponse.data);
+    if (byOsResponse.ok && byOsResponse.data) {
+      setDownloadsByOs(byOsResponse.data);
+      setByOsError(null);
+    } else {
+      setDownloadsByOs(null);
+      setByOsError(
+        byOsResponse.error ?? "Failed to load downloads by OS",
+      );
+    }
     setLoading(false);
     activeRequest.current = null;
   }, []);
@@ -75,6 +116,8 @@ export default function AdminDownloadFunnel() {
   const showData = !loading && !error && report != null;
   const downloads = showData ? report.downloads : null;
   const webToApp = showData ? report.web_to_app : null;
+  const confirmed =
+    showData && !byOsError && downloadsByOs != null ? downloadsByOs : null;
   const platformEntries = Object.entries(downloads?.by_platform ?? {}).sort(
     (a, b) => b[1] - a[1],
   );
@@ -86,9 +129,9 @@ export default function AdminDownloadFunnel() {
           Download funnel
         </h2>
         <p className="text-sm text-muted-foreground">
-          Website store CTA clicks are download intent only — not confirmed
-          installs. Web → app usage uses later native VPN sessions after
-          signup. See also{" "}
+          Confirmed downloads use first app open installs. Website store CTA
+          clicks are download intent only. Web → app usage uses later native VPN
+          sessions after signup. See also{" "}
           <Link
             to="/admin/utm-attribution"
             className="text-primary underline-offset-4 hover:underline"
@@ -131,7 +174,56 @@ export default function AdminDownloadFunnel() {
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       <section className="space-y-4">
-        <h3 className="text-lg font-medium">Website download clicks</h3>
+        <div>
+          <h3 className="text-lg font-medium">Confirmed downloads by OS</h3>
+          <p className="text-sm text-muted-foreground">
+            Counts from <code className="text-xs">app_first_open</code> (first
+            install open), not website CTA clicks.
+          </p>
+        </div>
+        {byOsError ? (
+          <p className="text-sm text-destructive">{byOsError}</p>
+        ) : null}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="rounded-xl border border-border bg-card p-4">
+            <p className="text-sm text-muted-foreground">Total</p>
+            <p className="text-2xl font-semibold">
+              {loading || error || byOsError ? "—" : (confirmed?.total ?? 0)}
+            </p>
+          </div>
+          {DOWNLOAD_OS_ORDER.map((os) => {
+            const row = confirmed?.by_os[os];
+            return (
+              <div
+                key={os}
+                className="rounded-xl border border-border bg-card p-4"
+              >
+                <p className="text-sm text-muted-foreground">
+                  {DOWNLOAD_OS_LABELS[os]}
+                </p>
+                <p className="text-2xl font-semibold">
+                  {loading || error || byOsError ? "—" : (row?.count ?? 0)}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {loading || error || byOsError
+                    ? "—"
+                    : formatAdminRate(row?.percent_of_total ?? 0)}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-lg font-medium">
+            Website download CTA clicks (intent only)
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Store button clicks on the website — not confirmed installs.
+          </p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-sm text-muted-foreground">Total clicks</p>

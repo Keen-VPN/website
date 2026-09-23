@@ -6,6 +6,7 @@ import {
   createBillingPortalSession,
   getSessionToken,
   upgradeSubscriptionToBusiness,
+  upgradeSubscriptionToFamily,
   upgradeSubscriptionToAnnual,
 } from "@/auth";
 import type { SubscriptionData } from "@/auth/types";
@@ -343,15 +344,50 @@ export function useSubscriptionBillingActions(
     ],
   );
 
+  const [familyUpgradeLoading, setFamilyUpgradeLoading] = useState(false);
+
+  const upgradeToFamilyPlan = useCallback(
+    async (planId: string) => {
+      const token = requireSessionToken();
+      if (!token) {
+        return;
+      }
+
+      try {
+        setFamilyUpgradeLoading(true);
+        const result = await upgradeSubscriptionToFamily(token, planId);
+
+        if (result.success) {
+          await refreshSubscription();
+          window.location.href = `${window.location.origin}/dashboard?family=upgraded`;
+          return;
+        }
+        throw new Error(result.error || "Failed to upgrade to Family");
+      } catch (error) {
+        toast({
+          title: "Family upgrade failed",
+          description:
+            error instanceof Error ? error.message : "Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setFamilyUpgradeLoading(false);
+      }
+    },
+    [requireSessionToken, refreshSubscription, toast],
+  );
+
   return {
     cancelling,
     portalLoading,
     upgradingToAnnual,
     businessUpgradeLoading,
+    familyUpgradeLoading,
     cancelSubscriptionAtPeriodEnd,
     openBillingPortal,
     openPlanChangePortal,
     upgradeToAnnualPlan,
     upgradeToBusinessPlan,
+    upgradeToFamilyPlan,
   };
 }

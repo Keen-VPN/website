@@ -22,7 +22,12 @@ import {
   getSessionToken,
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from '@/auth/backend';
-import { ApiPlan, getApiPlanPaidMonths, isTwoYearApiPlan } from '@/lib/pricing';
+import {
+  ApiPlan,
+  getApiPlanPaidMonths,
+  isClassicFamilyPlanId,
+  isTwoYearApiPlan,
+} from '@/lib/pricing';
 import {
   formatCurrency,
   formatEventDate,
@@ -86,6 +91,10 @@ function isAnnualPlan(plan: ApiPlan) {
 
 function getPlanTier(plan: ApiPlan): PlanTier | 'other' {
   const id = plan.id.toLowerCase();
+  // Charge-on-accept Family is isPerSeat but remains purchasable.
+  if (isClassicFamilyPlanId(id)) {
+    return 'family';
+  }
   // Business / Family Plus stay off the purchasable Plans tab.
   if (
     plan.isPerSeat ||
@@ -95,9 +104,6 @@ function getPlanTier(plan: ApiPlan): PlanTier | 'other' {
     id.includes('familyplus')
   ) {
     return 'other';
-  }
-  if (id.includes('family')) {
-    return 'family';
   }
   if (id.includes('premium')) {
     return 'premium';
@@ -545,6 +551,8 @@ function PlansTab() {
     openBillingPortal,
     openPlanChangePortal,
     portalLoading,
+    upgradeToFamilyPlan,
+    familyUpgradeLoading,
   } = useSubscriptionBillingActions();
   const { upgrading: upgradingToAnnual, upgradeToAnnual } = useAnnualUpgrade();
   const { changing: switchingToTwoYear, switchToTwoYear } =
@@ -556,10 +564,14 @@ function PlansTab() {
     isStripeSubscription(subscription) && Boolean(subscription?.canManageBilling);
   const isIndividualSubscriber =
     resolveMembershipPlanTier(subscription) === 'individual';
+  const isFamilySubscriber =
+    resolveMembershipPlanTier(subscription) === 'family';
   const canOneClickAnnual =
-    isIndividualSubscriber && canUpgradeStripeToAnnual(subscription);
+    (isIndividualSubscriber || isFamilySubscriber) &&
+    canUpgradeStripeToAnnual(subscription);
   const canOneClickTwoYear =
-    isIndividualSubscriber && canSwitchStripeToTwoYear(subscription);
+    (isIndividualSubscriber || isFamilySubscriber) &&
+    canSwitchStripeToTwoYear(subscription);
   const annualAlreadyScheduled = hasScheduledAnnualBilling(subscription);
   const twoYearAlreadyScheduled = hasScheduledTwoYearBilling(subscription);
   const isSharedMember = isSharedBusinessMember(
@@ -596,7 +608,8 @@ function PlansTab() {
       !upgradingToAnnual &&
       !switchingToTwoYear &&
       !portalLoading &&
-      !checkoutLoadingId
+      !checkoutLoadingId &&
+      !familyUpgradeLoading
     ) {
       setActiveLoadingPlanId(null);
     }
@@ -605,6 +618,7 @@ function PlansTab() {
     switchingToTwoYear,
     portalLoading,
     checkoutLoadingId,
+    familyUpgradeLoading,
   ]);
 
   useEffect(() => {
@@ -665,7 +679,7 @@ function PlansTab() {
         sessionStorage.getItem('asweb_session') === '1' ? '&asweb=1' : '';
       const isFamily = getPlanTier(plan) === 'family';
       const successUrl = isFamily
-        ? `${window.location.origin}/account?session_id={CHECKOUT_SESSION_ID}&tab=team${aswebSuffix}`
+        ? `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}&family=activated${aswebSuffix}`
         : `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}${aswebSuffix}`;
       const cancelUrl = `${window.location.origin}/subscription?tab=plans`;
 
@@ -786,7 +800,7 @@ function PlansTab() {
               : null;
           const planFeatures = isFamily
             ? [
-                'Share with up to 5 members',
+                'Share with up to 5 people total',
                 ...FEATURES.slice(1),
                 'Invite by email, separate logins',
                 'Owner manages members anytime',
@@ -816,15 +830,20 @@ function PlansTab() {
           }
 
           const isCurrentPlan = isCurrentCatalogPlan(plan, subscription);
+          // One-click term CTAs only apply when the card matches the owner's tier
+          // (Individual cards for Individual, Family cards for Family).
+          const matchesSubscriberTier =
+            (isIndividualSubscriber && !isFamily) ||
+            (isFamilySubscriber && isFamily);
 
           if (isManageable && !isCurrentPlan && subscription) {
             if (twoYear && twoYearAlreadyScheduled) {
               cta = '2-year scheduled';
-            } else if (twoYear && !isFamily && canOneClickTwoYear) {
+            } else if (twoYear && canOneClickTwoYear && matchesSubscriberTier) {
               cta = 'Switch to 2-year';
-            } else if (annual && !isFamily && canOneClickAnnual) {
+            } else if (annual && canOneClickAnnual && matchesSubscriberTier) {
               cta = 'Upgrade to annual';
-            } else if (annual && !isFamily && annualAlreadyScheduled) {
+            } else if (annual && annualAlreadyScheduled && matchesSubscriberTier) {
               cta = 'Annual scheduled';
             } else {
               cta = planChangeCtaLabel(plan, subscription);
@@ -833,16 +852,14 @@ function PlansTab() {
 
           const useOneClickAnnual =
             !isCurrentPlan &&
-            !isFamily &&
             annual &&
             canOneClickAnnual &&
-            isIndividualSubscriber;
+            matchesSubscriberTier;
           const useOneClickTwoYear =
             !isCurrentPlan &&
-            !isFamily &&
             twoYear &&
             canOneClickTwoYear &&
-            isIndividualSubscriber;
+            matchesSubscriberTier;
           const isThisPlanLoading = activeLoadingPlanId === plan.id;
           const isAnotherPlanLoading =
             activeLoadingPlanId !== null && activeLoadingPlanId !== plan.id;
@@ -965,6 +982,16 @@ function PlansTab() {
                     void upgradeToAnnual('dashboard_plans');
                     return;
                   }
+                  // Individual → Family: same Stripe price, flip entitlement in place.
+                  if (
+                    isFamily &&
+                    isIndividualSubscriber &&
+                    isManageable &&
+                    canOpenStripePortal
+                  ) {
+                    void upgradeToFamilyPlan(plan.id);
+                    return;
+                  }
                   if (twoYear && twoYearAlreadyScheduled) {
                     setActiveLoadingPlanId(null);
                     toast({
@@ -974,7 +1001,7 @@ function PlansTab() {
                     });
                     return;
                   }
-                  if (annual && !isFamily && annualAlreadyScheduled) {
+                  if (annual && annualAlreadyScheduled) {
                     setActiveLoadingPlanId(null);
                     toast({
                       title: 'Annual already scheduled',
@@ -1006,7 +1033,6 @@ function PlansTab() {
                   (twoYearAlreadyScheduled && twoYear && !isCurrentPlan) ||
                   (annualAlreadyScheduled &&
                     annual &&
-                    !isFamily &&
                     !isCurrentPlan) ||
                   checkoutLoadingId === plan.id ||
                   isThisPlanLoading ||
@@ -1023,7 +1049,8 @@ function PlansTab() {
                 (checkoutLoadingId === plan.id ||
                   upgradingToAnnual ||
                   switchingToTwoYear ||
-                  portalLoading) ? (
+                  portalLoading ||
+                  familyUpgradeLoading) ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                 ) : isCurrentPlan ? (
                   canOpenStripePortal ? 'Manage billing' : 'Current plan'
