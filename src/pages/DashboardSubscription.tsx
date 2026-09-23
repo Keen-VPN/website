@@ -830,15 +830,20 @@ function PlansTab() {
           }
 
           const isCurrentPlan = isCurrentCatalogPlan(plan, subscription);
+          // One-click term CTAs only apply when the card matches the owner's tier
+          // (Individual cards for Individual, Family cards for Family).
+          const matchesSubscriberTier =
+            (isIndividualSubscriber && !isFamily) ||
+            (isFamilySubscriber && isFamily);
 
           if (isManageable && !isCurrentPlan && subscription) {
             if (twoYear && twoYearAlreadyScheduled) {
               cta = '2-year scheduled';
-            } else if (twoYear && canOneClickTwoYear) {
+            } else if (twoYear && canOneClickTwoYear && matchesSubscriberTier) {
               cta = 'Switch to 2-year';
-            } else if (annual && canOneClickAnnual) {
+            } else if (annual && canOneClickAnnual && matchesSubscriberTier) {
               cta = 'Upgrade to annual';
-            } else if (annual && annualAlreadyScheduled) {
+            } else if (annual && annualAlreadyScheduled && matchesSubscriberTier) {
               cta = 'Annual scheduled';
             } else {
               cta = planChangeCtaLabel(plan, subscription);
@@ -849,14 +854,12 @@ function PlansTab() {
             !isCurrentPlan &&
             annual &&
             canOneClickAnnual &&
-            ((isIndividualSubscriber && !isFamily) ||
-              (isFamilySubscriber && isFamily));
+            matchesSubscriberTier;
           const useOneClickTwoYear =
             !isCurrentPlan &&
             twoYear &&
             canOneClickTwoYear &&
-            ((isIndividualSubscriber && !isFamily) ||
-              (isFamilySubscriber && isFamily));
+            matchesSubscriberTier;
           const isThisPlanLoading = activeLoadingPlanId === plan.id;
           const isAnotherPlanLoading =
             activeLoadingPlanId !== null && activeLoadingPlanId !== plan.id;
