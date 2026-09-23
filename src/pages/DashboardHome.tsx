@@ -452,14 +452,20 @@ export default function DashboardHome() {
   }, [searchParams, setSearchParams, toast]);
 
   useEffect(() => {
-    if (searchParams.get("family") !== "upgraded") return;
+    const familyParam = searchParams.get("family");
+    if (familyParam !== "upgraded" && familyParam !== "activated") return;
     if (familyUpgradeHandledRef.current) return;
     familyUpgradeHandledRef.current = true;
 
     toast({
-      title: "Family plan updated",
+      title:
+        familyParam === "upgraded"
+          ? "Family plan updated"
+          : "Welcome to Family",
       description:
-        "Family is enabled with no upgrade charge. Invite friends or family in the Sharing section below.",
+        familyParam === "upgraded"
+          ? "Family is enabled with no upgrade charge. Invite friends or family in the Sharing section below."
+          : "Your Family plan is active. Invite friends or family in the Sharing section below.",
     });
 
     const next = new URLSearchParams(searchParams);

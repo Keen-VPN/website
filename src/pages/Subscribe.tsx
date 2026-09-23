@@ -563,7 +563,7 @@ const Subscribe = () => {
         sessionStorage.getItem("asweb_session") === "1" ? "&asweb=1" : "";
       const familyCheckout = isFamilyPlan(selectedPlan);
       const successUrl = familyCheckout
-        ? `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}&family=upgraded${aswebSuffix}`
+        ? `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}&family=activated${aswebSuffix}`
         : `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}${aswebSuffix}`;
       const cancelUrl = `${window.location.origin}/pricing`;
 

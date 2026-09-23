@@ -675,7 +675,7 @@ function PlansTab() {
         sessionStorage.getItem('asweb_session') === '1' ? '&asweb=1' : '';
       const isFamily = getPlanTier(plan) === 'family';
       const successUrl = isFamily
-        ? `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}&family=upgraded${aswebSuffix}`
+        ? `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}&family=activated${aswebSuffix}`
         : `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}${aswebSuffix}`;
       const cancelUrl = `${window.location.origin}/subscription?tab=plans`;
 
@@ -1043,7 +1043,8 @@ function PlansTab() {
                 (checkoutLoadingId === plan.id ||
                   upgradingToAnnual ||
                   switchingToTwoYear ||
-                  portalLoading) ? (
+                  portalLoading ||
+                  familyUpgradeLoading) ? (
                   <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                 ) : isCurrentPlan ? (
                   canOpenStripePortal ? 'Manage billing' : 'Current plan'
