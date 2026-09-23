@@ -7103,10 +7103,15 @@ export type BroadcastEmailCategory =
   | "product"
   | "announcement";
 
-/** Named designed templates. */
+/**
+ * Named designed templates. `membership_transfer` uses the membership-transfer
+ * layout; `chrome_extension` promotes the Chrome extension and always sends
+ * to the Chrome Web Store listing regardless of any submitted ctaUrl.
+ */
 export type BroadcastEmailTemplate =
   | "membership_transfer"
-  | "perk_announcement";
+  | "perk_announcement"
+  | "chrome_extension";
 
 export const MEMBERSHIP_TRANSFER_BROADCAST_TEMPLATE: BroadcastEmailTemplate =
   "membership_transfer";
@@ -7124,6 +7129,22 @@ export const MEMBERSHIP_TRANSFER_BROADCAST_DEFAULTS = {
   ctaLabel: "TRANSFER YOUR MEMBERSHIP",
   ctaUrl: MEMBERSHIP_TRANSFER_PAGE_URL,
   body: "Ready to switch VPNs? You don't have to lose the time you've already paid for. Transfer your eligible membership to KeenVPN and we'll apply the verified remaining time from your current VPN, so you can switch today without waiting for that subscription to expire.",
+} as const;
+
+export const CHROME_EXTENSION_BROADCAST_TEMPLATE: BroadcastEmailTemplate =
+  "chrome_extension";
+
+export const CHROME_EXTENSION_CWS_URL =
+  "https://chromewebstore.google.com/detail/keenvpn-%E2%80%94-browser-protect/fdmiheabmohipekdgphijdboekojllfh?utm_source=email&utm_medium=email&utm_campaign=chrome_extension";
+
+export const CHROME_EXTENSION_BROADCAST_DEFAULTS = {
+  subject: "Take KeenVPN into your browser",
+  headline: "Take KeenVPN into your browser",
+  preheader:
+    "A new Chrome extension: switch your browser location and catch Class Actions while you browse.",
+  ctaLabel: "Download KeenVPN for Chrome",
+  ctaUrl: CHROME_EXTENSION_CWS_URL,
+  body: "Use a different VPN location in Chrome, discover relevant Class Actions while you browse, and get KeenVPN's newest browser features.",
 } as const;
 
 export interface AdminBroadcastComposePayload {
