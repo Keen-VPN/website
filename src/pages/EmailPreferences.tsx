@@ -113,16 +113,17 @@ const EmailPreferences = () => {
         if (cancelled) return;
         if (applyResponse(response)) {
           setNotice(IMPORTANT_ONLY_NOTICE);
-        } else {
-          toast({
-            title: "Could not save preferences",
-            description: response.error,
-            variant: "destructive",
-          });
+          dropIntentFromUrl();
+          setLoading(false);
+          return;
         }
-        dropIntentFromUrl();
-        setLoading(false);
-        return;
+        // Keep the intent so a reload retries, and fall through to the
+        // normal load so the current preferences are still shown.
+        toast({
+          title: "Could not save preferences",
+          description: response.error,
+          variant: "destructive",
+        });
       }
       const response =
         mode === "token"
@@ -316,6 +317,7 @@ const EmailPreferences = () => {
 
               {!loading &&
               pendingIntent &&
+              preferences.length > 0 &&
               intentAction === "confirm-important-only" ? (
                 <div className="space-y-3 rounded-md border p-3">
                   <p className="text-sm">
@@ -334,6 +336,7 @@ const EmailPreferences = () => {
 
               {!loading &&
               pendingIntent &&
+              preferences.length > 0 &&
               intentAction === "highlight-unsubscribe" ? (
                 <p className="rounded-md border p-3 text-sm">
                   To stop optional KeenVPN emails, choose{" "}
