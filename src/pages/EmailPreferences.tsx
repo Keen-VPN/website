@@ -1,6 +1,6 @@
 import React from "react";
 import { useSearchParams } from "react-router-dom";
-import { Loader2, Mail } from "lucide-react";
+import { CheckCircle2, Loader2, Mail } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SEOHead from "@/components/SEOHead";
@@ -28,14 +28,30 @@ import {
   type EmailCategoryPreferencesResponse,
 } from "@/auth";
 
-type Mode = "token" | "session" | "identify";
+import {
+  IMPORTANT_ONLY_PREFERENCES,
+  parseEmailPreferencesIntent,
+  resolveIntentAction,
+  type EmailPreferencesMode as Mode,
+} from "@/lib/email-preferences-intent";
+
+const IMPORTANT_ONLY_NOTICE =
+  "Saved. You'll now only get important KeenVPN updates. Everything else optional is turned off.";
 
 const EmailPreferences = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const token = searchParams.get("token")?.trim() ?? "";
   const sessionToken = getSessionToken();
   const mode: Mode = token ? "token" : sessionToken ? "session" : "identify";
+  // Read once: the intent is dropped from the URL after it is handled, and a
+  // reload must show the saved card instead of repeating the action.
+  const [initialIntent] = React.useState(() =>
+    parseEmailPreferencesIntent(searchParams.get("intent")),
+  );
+  const intentAction = resolveIntentAction(initialIntent, mode);
+  const intentHandled = React.useRef(false);
+  const unsubscribeButtonRef = React.useRef<HTMLButtonElement>(null);
 
   const [loading, setLoading] = React.useState(mode !== "identify");
   const [saving, setSaving] = React.useState(false);
@@ -47,6 +63,23 @@ const EmailPreferences = () => {
   const [unsubscribedFromAll, setUnsubscribedFromAll] = React.useState(false);
   const [identifyEmail, setIdentifyEmail] = React.useState("");
   const [linkSent, setLinkSent] = React.useState("");
+  const [notice, setNotice] = React.useState("");
+  const [pendingIntent, setPendingIntent] = React.useState(
+    intentAction === "confirm-important-only" ||
+      intentAction === "highlight-unsubscribe",
+  );
+
+  const dropIntentFromUrl = React.useCallback(() => {
+    setPendingIntent(false);
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("intent");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
 
   const applyResponse = React.useCallback(
     (response: EmailCategoryPreferencesResponse): boolean => {
@@ -68,6 +101,30 @@ const EmailPreferences = () => {
     let cancelled = false;
     void (async () => {
       setLoading(true);
+      if (intentAction === "apply-important-only" && !intentHandled.current) {
+        // Signed link from the email footer: one POST applies the preset and
+        // returns the saved state, so no separate load is needed.
+        intentHandled.current = true;
+        const response = await updateEmailCategoryPreferencesByToken(
+          token,
+          IMPORTANT_ONLY_PREFERENCES,
+          "important-only",
+        );
+        if (cancelled) return;
+        if (applyResponse(response)) {
+          setNotice(IMPORTANT_ONLY_NOTICE);
+          dropIntentFromUrl();
+          setLoading(false);
+          return;
+        }
+        // Keep the intent so a reload retries, and fall through to the
+        // normal load so the current preferences are still shown.
+        toast({
+          title: "Could not save preferences",
+          description: response.error,
+          variant: "destructive",
+        });
+      }
       const response =
         mode === "token"
           ? await fetchEmailCategoryPreferencesByToken(token)
@@ -79,7 +136,30 @@ const EmailPreferences = () => {
     return () => {
       cancelled = true;
     };
-  }, [applyResponse, mode, sessionToken, token]);
+  }, [
+    applyResponse,
+    dropIntentFromUrl,
+    intentAction,
+    mode,
+    sessionToken,
+    toast,
+    token,
+  ]);
+
+  React.useEffect(() => {
+    if (
+      !loading &&
+      pendingIntent &&
+      intentAction === "highlight-unsubscribe" &&
+      unsubscribeButtonRef.current
+    ) {
+      unsubscribeButtonRef.current.scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
+      unsubscribeButtonRef.current.focus({ preventScroll: true });
+    }
+  }, [loading, pendingIntent, intentAction, preferences.length]);
 
   const toggleCategory = (category: string, subscribed: boolean) => {
     setPreferences((current) =>
@@ -113,10 +193,33 @@ const EmailPreferences = () => {
       });
       return;
     }
+    setNotice("");
+    if (pendingIntent) dropIntentFromUrl();
     toast({
       title: "Preferences saved",
       description: "Your email preferences have been updated.",
     });
+  };
+
+  /** Signed-in visitor on an unsigned link: apply the preset on confirm. */
+  const handleConfirmImportantOnly = async () => {
+    setSaving(true);
+    const response = await updateMyEmailCategoryPreferences(
+      sessionToken as string,
+      IMPORTANT_ONLY_PREFERENCES,
+      "important-only",
+    );
+    setSaving(false);
+    if (!applyResponse(response)) {
+      toast({
+        title: "Could not save preferences",
+        description: response.error,
+        variant: "destructive",
+      });
+      return;
+    }
+    setNotice(IMPORTANT_ONLY_NOTICE);
+    dropIntentFromUrl();
   };
 
   const handleUnsubscribeAll = async () => {
@@ -134,6 +237,8 @@ const EmailPreferences = () => {
       });
       return;
     }
+    setNotice("");
+    dropIntentFromUrl();
     toast({
       title: "Unsubscribed",
       description:
@@ -144,7 +249,10 @@ const EmailPreferences = () => {
   const handleRequestLink = async (event: React.FormEvent) => {
     event.preventDefault();
     setSaving(true);
-    const response = await requestEmailPreferencesLink(identifyEmail.trim());
+    const response = await requestEmailPreferencesLink(
+      identifyEmail.trim(),
+      initialIntent ?? undefined,
+    );
     setSaving(false);
     if (!response.success) {
       setError(response.error || "We could not send a preference link.");
@@ -195,6 +303,46 @@ const EmailPreferences = () => {
 
               {error ? (
                 <p className="text-sm text-destructive">{error}</p>
+              ) : null}
+
+              {notice ? (
+                <p
+                  role="status"
+                  className="flex items-start gap-2 rounded-md bg-muted p-3 text-sm"
+                >
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span>{notice}</span>
+                </p>
+              ) : null}
+
+              {!loading &&
+              pendingIntent &&
+              preferences.length > 0 &&
+              intentAction === "confirm-important-only" ? (
+                <div className="space-y-3 rounded-md border p-3">
+                  <p className="text-sm">
+                    Only get important KeenVPN updates? This turns off Privacy
+                    tips, Perks and Referral emails.
+                  </p>
+                  <Button
+                    className="w-full"
+                    disabled={saving}
+                    onClick={() => void handleConfirmImportantOnly()}
+                  >
+                    Get important updates only
+                  </Button>
+                </div>
+              ) : null}
+
+              {!loading &&
+              pendingIntent &&
+              preferences.length > 0 &&
+              intentAction === "highlight-unsubscribe" ? (
+                <p className="rounded-md border p-3 text-sm">
+                  To stop optional KeenVPN emails, choose{" "}
+                  <span className="font-medium">Unsubscribe from all</span>{" "}
+                  below.
+                </p>
               ) : null}
 
               {mode === "identify" ? (
@@ -270,8 +418,14 @@ const EmailPreferences = () => {
                       )}
                     </Button>
                     <Button
+                      ref={unsubscribeButtonRef}
                       className="w-full"
-                      variant="outline"
+                      variant={
+                        pendingIntent &&
+                        intentAction === "highlight-unsubscribe"
+                          ? "default"
+                          : "outline"
+                      }
                       disabled={saving || unsubscribedFromAll}
                       onClick={() => void handleUnsubscribeAll()}
                     >
