@@ -1318,11 +1318,16 @@ export function fetchEmailCategoryPreferencesByToken(token: string) {
 export function updateEmailCategoryPreferencesByToken(
   token: string,
   preferences: Record<string, boolean>,
+  intent?: "important-only",
 ) {
   return emailCategoryPreferencesRequest("/email-preferences", {
     method: "PATCH",
     headers: JSON_HEADERS,
-    body: JSON.stringify({ token, preferences }),
+    body: JSON.stringify({
+      token,
+      preferences,
+      ...(intent ? { intent } : {}),
+    }),
   });
 }
 
@@ -1344,11 +1349,12 @@ export function fetchMyEmailCategoryPreferences(sessionToken: string) {
 export function updateMyEmailCategoryPreferences(
   sessionToken: string,
   preferences: Record<string, boolean>,
+  intent?: "important-only",
 ) {
   return emailCategoryPreferencesRequest("/email-preferences/me", {
     method: "PATCH",
     headers: { ...JSON_HEADERS, Authorization: `Bearer ${sessionToken}` },
-    body: JSON.stringify({ preferences }),
+    body: JSON.stringify({ preferences, ...(intent ? { intent } : {}) }),
   });
 }
 
@@ -1365,12 +1371,13 @@ export function unsubscribeAllForCurrentUser(sessionToken: string) {
 /** Untokenised visitor: mail them their own preference link. */
 export async function requestEmailPreferencesLink(
   email: string,
+  intent?: "important-only" | "unsubscribe",
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/email-preferences/request-link`, {
       method: "POST",
       headers: JSON_HEADERS,
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, ...(intent ? { intent } : {}) }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
