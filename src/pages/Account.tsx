@@ -83,7 +83,9 @@ import {
 import {
   RETURN_TO_APP_LABEL,
   clearStripeCheckoutReturn,
+  dismissAsWebAuthReturn,
   dismissStripePostCheckoutUi,
+  isAsWebAuthReturnDismissed,
   markStripeAutoOpenDone,
   isStripeCheckoutReturn,
   markStripeCheckoutReturn,
@@ -310,6 +312,21 @@ const AccountInner = () => {
     }, 200);
     return () => clearInterval(id);
   }, [hasSessionToken, sessionToken]);
+
+  // asweb_session lives for the whole tab, so let the user leave the return
+  // screen for this sign-in and reach the account page on later visits.
+  const [dismissedAuthReturnToken, setDismissedAuthReturnToken] = useState<
+    string | null
+  >(null);
+  const authReturnDismissed =
+    Boolean(sessionToken) &&
+    (dismissedAuthReturnToken === sessionToken ||
+      isAsWebAuthReturnDismissed(sessionToken));
+  const dismissAuthReturn = () => {
+    if (!sessionToken) return;
+    dismissAsWebAuthReturn(sessionToken);
+    setDismissedAuthReturnToken(sessionToken);
+  };
 
   // Auto-return to the macOS app after ASWeb Google login (fallback if AuthContext handoff missed).
   useEffect(() => {
@@ -639,7 +656,8 @@ const AccountInner = () => {
     !showPostCheckoutUi &&
     !hasStripeSessionId &&
     !isStripeCheckoutReturn() &&
-    !isLegacyAccountMode
+    !isLegacyAccountMode &&
+    !authReturnDismissed
   ) {
     return (
       <AppAuthReturn
@@ -647,6 +665,7 @@ const AccountInner = () => {
         appStoreUrl={appStoreUrl}
         isDeepLinkSupported={isDeepLinkSupported}
         unsupportedDeviceName={unsupportedDeviceName}
+        onContinueOnWeb={dismissAuthReturn}
       />
     );
   }
