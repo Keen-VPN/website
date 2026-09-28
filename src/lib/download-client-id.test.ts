@@ -141,12 +141,13 @@ describe("download-client-id", () => {
     const search = await signedHandoffSearch(
       "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
     );
-    const sig = new URLSearchParams(search).get("download_client_sig")!;
+    const sig = new URLSearchParams(search).get("download_client_sig");
+    expect(sig).toBeTruthy();
     await expect(
       verifyDownloadClientHandoffSignature({
         clientId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
         capturedAt: "2026-04-21T12:00:00.000Z",
-        signature: sig,
+        signature: sig ?? "",
         secret: HANDOFF_SECRET,
       }),
     ).resolves.toBe(true);
