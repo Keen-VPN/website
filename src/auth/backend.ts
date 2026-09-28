@@ -4110,22 +4110,38 @@ export async function recordAppDownloadClicked(input: {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
+    // OptionalSessionGuard on this endpoint treats invalid/expired Bearer tokens as
+    // anonymous (never 401). Attach when present so logged-in clicks link to the user.
     if (sessionToken) {
       headers.Authorization = `Bearer ${sessionToken}`;
     }
-    await fetch(`${BACKEND_URL}/marketing-attribution/app-download-clicked`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        platform: downloadPlatform,
-        source_page: sourcePage,
-        cta: cta ?? undefined,
-        store_url: storeUrl ?? undefined,
-        download_client_id: downloadClientId,
-        ...payload,
-      }),
-      keepalive: true,
+    const body = JSON.stringify({
+      platform: downloadPlatform,
+      source_page: sourcePage,
+      cta: cta ?? undefined,
+      store_url: storeUrl ?? undefined,
+      download_client_id: downloadClientId,
+      ...payload,
     });
+    const response = await fetch(
+      `${BACKEND_URL}/marketing-attribution/app-download-clicked`,
+      {
+        method: "POST",
+        headers,
+        body,
+        keepalive: true,
+      },
+    );
+    // Defensive: if auth ever starts rejecting, retry anonymous so the click is not lost.
+    if (response.status === 401 && sessionToken) {
+      const anonymousHeaders = { "Content-Type": "application/json" };
+      await fetch(`${BACKEND_URL}/marketing-attribution/app-download-clicked`, {
+        method: "POST",
+        headers: anonymousHeaders,
+        body,
+        keepalive: true,
+      });
+    }
   } catch {
     /* non-fatal */
   }

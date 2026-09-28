@@ -24,7 +24,7 @@ export default function UtmCapture() {
       captureFirstLandingPage(location.pathname);
     }
     captureUtmFromSearch(location.search, location.pathname);
-    captureDownloadClientIdFromSearch(location.search);
+    void captureDownloadClientIdFromSearch(location.search);
 
     const stickerAttribution = parseUtmAttributionFromSearch(
       location.search,

@@ -62,6 +62,7 @@ function UserDrilldownPanel({
   error,
   summary,
   users,
+  emptyMessage,
   onClose,
 }: {
   title: string;
@@ -70,6 +71,7 @@ function UserDrilldownPanel({
   error: string | null;
   summary?: string | null;
   users: AdminDownloadFunnelUserRow[];
+  emptyMessage: string;
   onClose: () => void;
 }) {
   return (
@@ -106,12 +108,10 @@ function UserDrilldownPanel({
                   Loading…
                 </td>
               </tr>
-            ) : users.length === 0 ? (
+            ) : !error && users.length === 0 ? (
               <tr>
                 <td className="p-3 text-muted-foreground" colSpan={6}>
-                  No identified users for this row yet. Anonymous clicks link
-                  after signup when the same browser still has the download
-                  client id.
+                  {emptyMessage}
                 </td>
               </tr>
             ) : (
@@ -174,8 +174,22 @@ export default function AdminDownloadFunnel() {
   );
   const drilldownRequest = useRef<AbortController | null>(null);
 
+  const closeDrilldown = useCallback(() => {
+    drilldownRequest.current?.abort();
+    drilldownRequest.current = null;
+    setSelection(null);
+    setClickUsers(null);
+    setWebUsers(null);
+    setDrilldownError(null);
+    setDrilldownLoading(false);
+  }, []);
+
   const load = useCallback(async (from: string, to: string) => {
     if (!from.trim() || !to.trim()) {
+      activeRequest.current?.abort();
+      activeRequest.current = null;
+      drilldownRequest.current?.abort();
+      drilldownRequest.current = null;
       setReport(null);
       setDownloadsByOs(null);
       setError(null);
@@ -184,6 +198,7 @@ export default function AdminDownloadFunnel() {
       setClickUsers(null);
       setWebUsers(null);
       setDrilldownError(null);
+      setDrilldownLoading(false);
       setLoading(false);
       return;
     }
@@ -191,6 +206,8 @@ export default function AdminDownloadFunnel() {
     if (!isAdminReportDateRangeValid(from, to)) {
       activeRequest.current?.abort();
       activeRequest.current = null;
+      drilldownRequest.current?.abort();
+      drilldownRequest.current = null;
       setReport(null);
       setDownloadsByOs(null);
       setError("From date must be on or before To date.");
@@ -199,6 +216,7 @@ export default function AdminDownloadFunnel() {
       setClickUsers(null);
       setWebUsers(null);
       setDrilldownError(null);
+      setDrilldownLoading(false);
       setLoading(false);
       return;
     }
@@ -207,12 +225,17 @@ export default function AdminDownloadFunnel() {
     const controller = new AbortController();
     activeRequest.current = controller;
 
+    drilldownRequest.current?.abort();
+    drilldownRequest.current = null;
+
     setLoading(true);
     setError(null);
     setByOsError(null);
     setSelection(null);
     setClickUsers(null);
     setWebUsers(null);
+    setDrilldownError(null);
+    setDrilldownLoading(false);
 
     const range = {
       from: `${from}T00:00:00.000Z`,
@@ -568,11 +591,8 @@ export default function AdminDownloadFunnel() {
             loading={drilldownLoading}
             error={drilldownError}
             users={drilldownUsers}
-            onClose={() => {
-              setSelection(null);
-              setClickUsers(null);
-              setDrilldownError(null);
-            }}
+            emptyMessage="No identified users for this row yet. Anonymous clicks link after signup when the same browser still has the download client id."
+            onClose={closeDrilldown}
           />
         ) : null}
       </section>
@@ -745,11 +765,8 @@ export default function AdminDownloadFunnel() {
             loading={drilldownLoading}
             error={drilldownError}
             users={drilldownUsers}
-            onClose={() => {
-              setSelection(null);
-              setWebUsers(null);
-              setDrilldownError(null);
-            }}
+            emptyMessage="No users matched for this row in this range yet."
+            onClose={closeDrilldown}
           />
         ) : null}
       </section>
