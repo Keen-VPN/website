@@ -329,6 +329,7 @@ const AccountInner = () => {
   };
 
   // Auto-return to the macOS app after ASWeb Google login (fallback if AuthContext handoff missed).
+  // "Continue on web" cancels a pending handoff for this token.
   useEffect(() => {
     if (
       !isASWeb ||
@@ -336,7 +337,8 @@ const AccountInner = () => {
       !isDeepLinkSupported ||
       showPostCheckoutUi ||
       hasStripeSessionId ||
-      isStripeCheckoutReturn()
+      isStripeCheckoutReturn() ||
+      authReturnDismissed
     ) {
       return;
     }
@@ -352,6 +354,7 @@ const AccountInner = () => {
     isDeepLinkSupported,
     showPostCheckoutUi,
     hasStripeSessionId,
+    authReturnDismissed,
   ]);
 
   // On first account view, ensure subscription is hydrated before rendering
