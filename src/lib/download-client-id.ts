@@ -2,6 +2,10 @@
  * Stable anonymous id for linking pre-signup download CTA clicks to a later account.
  * Same-browser only; cleared storage / other devices cannot be linked.
  * Marketing site (vpnkeen.com) hands this off via signed query params on portal links.
+ *
+ * Signature checks use VITE_LANDING_HANDOFF_SECRET, which is inlined into the public
+ * client bundle (same model as marketing LANDING_HANDOFF_SECRET). Treat this as
+ * lightweight defense-in-depth / casual-link friction — not a security boundary.
  */
 
 import { parseValidHandoffCapturedAt } from "@/lib/landing-handoff";
@@ -130,9 +134,10 @@ export function getOrCreateDownloadClientId(): string {
 
 /**
  * Capture from marketing → portal signed handoff query params.
- * Requires download_client_id + download_client_at + download_client_sig;
- * rejects unsigned / forged values so crafted links cannot overwrite the local id.
+ * Requires download_client_id + download_client_at + download_client_sig.
+ * Signature verification is defense-in-depth only (secret is public via VITE_).
  * First-touch among verified handoffs; a verified handoff replaces a portal-local id.
+ * Re-reads storage after await so a concurrent local CTA click is not lost/raced.
  */
 export async function captureDownloadClientIdFromSearch(
   search: string,
@@ -144,9 +149,8 @@ export async function captureDownloadClientIdFromSearch(
       search.startsWith("?") ? search : `?${search}`,
     );
     const fromQuery = params.get(DOWNLOAD_CLIENT_ID_QUERY_PARAM)?.trim();
-    const existing = readStoredDownloadClientId();
     if (!fromQuery || !isValidDownloadClientId(fromQuery)) {
-      return existing;
+      return readStoredDownloadClientId();
     }
 
     const capturedAt = parseValidHandoffCapturedAt(
@@ -154,7 +158,7 @@ export async function captureDownloadClientIdFromSearch(
     );
     const signature = params.get(DOWNLOAD_CLIENT_ID_SIG_PARAM)?.trim();
     if (!capturedAt || !signature) {
-      return existing;
+      return readStoredDownloadClientId();
     }
 
     const verified = await verifyDownloadClientHandoffSignature({
@@ -162,13 +166,17 @@ export async function captureDownloadClientIdFromSearch(
       capturedAt,
       signature,
     });
+    // Re-read after await — a portal CTA may have created a local id meanwhile.
+    const existingAfterVerify = readStoredDownloadClientId();
+    const sourceAfterVerify = readStoredDownloadClientIdSource();
     if (!verified) {
-      return existing;
+      return existingAfterVerify;
     }
 
-    const source = readStoredDownloadClientIdSource();
     // Keep first verified handoff; allow handoff to replace portal-local CTA ids.
-    if (existing && source === "handoff") return existing;
+    if (existingAfterVerify && sourceAfterVerify === "handoff") {
+      return existingAfterVerify;
+    }
 
     writeStoredDownloadClientId(fromQuery, "handoff");
     return fromQuery;
