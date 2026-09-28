@@ -27,6 +27,7 @@ export const AUTH_DEEP_LINK_PREFIX = `${KEENVPN_URL_SCHEME}://auth`;
 export const RETURN_TO_APP_LABEL = "Return to KeenVPN App";
 
 const ASWEB_AUTH_AUTO_OPEN_DONE_KEY = "keenvpn_asweb_auth_auto_open_done";
+const ASWEB_AUTH_RETURN_DISMISSED_KEY = "keenvpn_asweb_auth_return_dismissed";
 
 const STRIPE_CHECKOUT_RETURN_KEY = "keenvpn_stripe_checkout_return";
 const STRIPE_AUTO_OPEN_DONE_KEY = "keenvpn_stripe_auto_open_done";
@@ -325,6 +326,36 @@ export function markAsWebAuthAutoOpenDone(sessionToken: string): void {
   }
   try {
     sessionStorage.setItem(ASWEB_AUTH_AUTO_OPEN_DONE_KEY, sessionToken);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * True once the user chose "Continue on web" on the app sign-in return screen
+ * for this session token. A new sign-in (new token) shows the screen again.
+ */
+export function isAsWebAuthReturnDismissed(
+  sessionToken: string | null | undefined,
+): boolean {
+  if (!sessionToken) {
+    return false;
+  }
+  try {
+    return (
+      sessionStorage.getItem(ASWEB_AUTH_RETURN_DISMISSED_KEY) === sessionToken
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function dismissAsWebAuthReturn(sessionToken: string): void {
+  if (!sessionToken) {
+    return;
+  }
+  try {
+    sessionStorage.setItem(ASWEB_AUTH_RETURN_DISMISSED_KEY, sessionToken);
   } catch {
     /* ignore */
   }

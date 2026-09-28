@@ -47,6 +47,7 @@ import Footer from "@/components/Footer";
 import { AccountWorkspace } from "@/components/AccountWorkspace";
 import { MembershipPlanUpgradeCard } from "@/components/MembershipPlanUpgradeCard";
 import { ReceivedMembershipInviteBanner } from "@/components/ReceivedMembershipInviteBanner";
+import AppAuthReturn from "@/components/auth/AppAuthReturn";
 import { ScheduledAnnualBillingNotice } from "@/components/ScheduledAnnualBillingNotice";
 import { SubscriptionCancellationControls } from "@/components/SubscriptionCancellationControls";
 import {
@@ -82,12 +83,13 @@ import {
 import {
   RETURN_TO_APP_LABEL,
   clearStripeCheckoutReturn,
+  dismissAsWebAuthReturn,
   dismissStripePostCheckoutUi,
+  isAsWebAuthReturnDismissed,
   markStripeAutoOpenDone,
   isStripeCheckoutReturn,
   markStripeCheckoutReturn,
   maybeAutoReturnToKeenVpnAppAfterAuth,
-  returnToKeenVpnAppAfterAuth,
   returnToKeenVpnAppAfterPayment,
   shouldAutoOpenAppAfterStripeCheckout,
   shouldShowStripePostCheckoutUi,
@@ -182,6 +184,17 @@ const AccountInner = () => {
     const urlParams = new URLSearchParams(location.search);
     return Boolean(urlParams.get("session_id"));
   }, [location.search]);
+  // Same query modes AccountRoute keeps on legacy /account. Remember the first
+  // visit too: the email_prefs effect below strips its param after the toast.
+  const hasLegacyAccountModeInUrl = useMemo(() => {
+    const urlParams = new URLSearchParams(location.search);
+    return ["tab", "billing", "business", "email_prefs"].some((key) =>
+      urlParams.has(key),
+    );
+  }, [location.search]);
+  const [openedInLegacyAccountMode] = useState(hasLegacyAccountModeInUrl);
+  const isLegacyAccountMode =
+    hasLegacyAccountModeInUrl || openedInLegacyAccountMode;
   const stripeSessionId = useMemo(() => {
     const urlParams = new URLSearchParams(location.search);
     return urlParams.get("session_id");
@@ -300,7 +313,23 @@ const AccountInner = () => {
     return () => clearInterval(id);
   }, [hasSessionToken, sessionToken]);
 
+  // asweb_session lives for the whole tab, so let the user leave the return
+  // screen for this sign-in and reach the account page on later visits.
+  const [dismissedAuthReturnToken, setDismissedAuthReturnToken] = useState<
+    string | null
+  >(null);
+  const authReturnDismissed =
+    Boolean(sessionToken) &&
+    (dismissedAuthReturnToken === sessionToken ||
+      isAsWebAuthReturnDismissed(sessionToken));
+  const dismissAuthReturn = () => {
+    if (!sessionToken) return;
+    dismissAsWebAuthReturn(sessionToken);
+    setDismissedAuthReturnToken(sessionToken);
+  };
+
   // Auto-return to the macOS app after ASWeb Google login (fallback if AuthContext handoff missed).
+  // "Continue on web" cancels a pending handoff for this token.
   useEffect(() => {
     if (
       !isASWeb ||
@@ -308,7 +337,8 @@ const AccountInner = () => {
       !isDeepLinkSupported ||
       showPostCheckoutUi ||
       hasStripeSessionId ||
-      isStripeCheckoutReturn()
+      isStripeCheckoutReturn() ||
+      authReturnDismissed
     ) {
       return;
     }
@@ -324,6 +354,7 @@ const AccountInner = () => {
     isDeepLinkSupported,
     showPostCheckoutUi,
     hasStripeSessionId,
+    authReturnDismissed,
   ]);
 
   // On first account view, ensure subscription is hydrated before rendering
@@ -621,6 +652,27 @@ const AccountInner = () => {
     );
   }
 
+  // ASWeb auth return — not during Stripe checkout return (payment banner uses
+  // vpnkeen://success) or the tab/billing/business/email_prefs account modes.
+  if (
+    isASWeb &&
+    !showPostCheckoutUi &&
+    !hasStripeSessionId &&
+    !isStripeCheckoutReturn() &&
+    !isLegacyAccountMode &&
+    !authReturnDismissed
+  ) {
+    return (
+      <AppAuthReturn
+        sessionToken={sessionToken}
+        appStoreUrl={appStoreUrl}
+        isDeepLinkSupported={isDeepLinkSupported}
+        unsupportedDeviceName={unsupportedDeviceName}
+        onContinueOnWeb={dismissAuthReturn}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -702,57 +754,6 @@ const AccountInner = () => {
               </CardContent>
             </Card>
           ) : null}
-
-          {/* ASWeb auth return — not during Stripe checkout return (payment banner uses vpnkeen://success) */}
-          {isASWeb &&
-            !showPostCheckoutUi &&
-            !hasStripeSessionId &&
-            !isStripeCheckoutReturn() && (
-              <Card className="mb-8 border-primary/50 shadow-glow bg-primary/5">
-                <CardContent className="flex flex-col items-center gap-4 py-6">
-                  {isDeepLinkSupported ? (
-                    sessionToken ? (
-                      <>
-                        <div className="text-center">
-                          <h3 className="text-lg font-semibold text-foreground">
-                            Authentication Successful
-                          </h3>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Click below to return to the KeenVPN app
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          className="bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow"
-                          size="lg"
-                          onClick={() =>
-                            returnToKeenVpnAppAfterAuth(
-                              sessionToken,
-                              appStoreUrl,
-                            )
-                          }
-                        >
-                          Return to KeenVPN App
-                        </Button>
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                        <p className="text-sm text-muted-foreground">
-                          Preparing your session...
-                        </p>
-                      </div>
-                    )
-                  ) : (
-                    <div className="text-center">
-                      <h3 className="text-lg font-semibold text-foreground">
-                        Your {unsupportedDeviceName} is not currently supported
-                      </h3>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
 
           <div className="grid md:grid-cols-2 gap-8 items-start">
             {/* Account Info */}
