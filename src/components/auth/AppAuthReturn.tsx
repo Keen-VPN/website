@@ -10,6 +10,7 @@ interface AppAuthReturnProps {
   appStoreUrl: string;
   isDeepLinkSupported: boolean;
   unsupportedDeviceName: string;
+  onContinueOnWeb: () => void;
 }
 
 /** Shown on /account?asweb=1 after a native app's browser sign-in succeeds. */
@@ -18,6 +19,7 @@ export default function AppAuthReturn({
   appStoreUrl,
   isDeepLinkSupported,
   unsupportedDeviceName,
+  onContinueOnWeb,
 }: AppAuthReturnProps) {
   return (
     <div className="min-h-[100dvh] bg-[#faf6ec] text-[#0f2040] lg:grid lg:grid-cols-[44.4%_55.6%]">
@@ -76,6 +78,17 @@ export default function AppAuthReturn({
                 Preparing your session...
               </p>
             )}
+
+            {sessionToken ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={onContinueOnWeb}
+                className="mt-4 h-11 w-full text-base text-[#e85c04] hover:bg-[#e85c04]/10 hover:text-[#c84d00]"
+              >
+                Continue on web
+              </Button>
+            ) : null}
           </section>
         </div>
 
