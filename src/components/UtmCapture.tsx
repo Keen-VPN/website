@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { recordStickerLanding } from "@/auth/backend";
+import { captureDownloadClientIdFromSearch } from "@/lib/download-client-id";
 import {
   captureUtmFromSearch,
   captureFirstLandingPage,
@@ -23,6 +24,7 @@ export default function UtmCapture() {
       captureFirstLandingPage(location.pathname);
     }
     captureUtmFromSearch(location.search, location.pathname);
+    void captureDownloadClientIdFromSearch(location.search);
 
     const stickerAttribution = parseUtmAttributionFromSearch(
       location.search,

@@ -18,6 +18,10 @@ import {
   clearUtmAttributionStorage,
   getUtmAttributionAuthPayload,
 } from "@/lib/utm-attribution";
+import {
+  getDownloadClientIdAuthPayload,
+  getOrCreateDownloadClientId,
+} from "@/lib/download-client-id";
 import { buildAuthDeepLink } from "@/lib/keenvpn-deep-links";
 import {
   trackPostHogAccountCreated,
@@ -352,6 +356,7 @@ export async function loginWithFirebaseToken(
         ...(provider ? { provider } : {}),
         ...(referralToken ? { referralToken } : {}),
         ...getUtmAttributionAuthPayload(),
+        ...getDownloadClientIdAuthPayload(),
       }),
     });
     const data: unknown = await response.json().catch(() => ({}));
@@ -396,6 +401,7 @@ export async function authenticateWithBackend(
     const endpoint =
       provider === "apple" ? "/auth/apple/signin" : "/auth/google/signin";
     const utmPayload = getUtmAttributionAuthPayload();
+    const downloadClientPayload = getDownloadClientIdAuthPayload();
     const body =
       provider === "apple"
         ? {
@@ -405,11 +411,13 @@ export async function authenticateWithBackend(
             fullName: additionalData?.fullName,
             ...(referralToken ? { referralToken } : {}),
             ...utmPayload,
+            ...downloadClientPayload,
           }
         : {
             idToken: accessToken, // Backend expects 'idToken' parameter for Google
             ...(referralToken ? { referralToken } : {}),
             ...utmPayload,
+            ...downloadClientPayload,
           };
 
     const response = await fetch(`${BACKEND_URL}${endpoint}`, {
@@ -1036,6 +1044,7 @@ export async function verifyMagicLink(
         token,
         ...(referralToken ? { referralToken } : {}),
         ...getUtmAttributionAuthPayload(),
+        ...getDownloadClientIdAuthPayload(),
       }),
     });
     const data: unknown = await response.json().catch(() => ({}));
@@ -2144,6 +2153,7 @@ export async function verifyEmailOtp(
         code,
         ...(referralToken ? { referralToken } : {}),
         ...getUtmAttributionAuthPayload(),
+        ...getDownloadClientIdAuthPayload(),
       }),
     });
     const data: unknown = await response.json().catch(() => ({}));
@@ -4090,18 +4100,48 @@ export async function recordAppDownloadClicked(input: {
 
   try {
     const payload = getUtmAttributionAuthPayload();
-    await fetch(`${BACKEND_URL}/marketing-attribution/app-download-clicked`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        platform: downloadPlatform,
-        source_page: sourcePage,
-        cta: cta ?? undefined,
-        store_url: storeUrl ?? undefined,
-        ...payload,
-      }),
-      keepalive: true,
+    let sessionToken: string | null = null;
+    try {
+      sessionToken = getSessionToken();
+    } catch {
+      /* private mode / blocked storage — still record an anonymous click */
+    }
+    const downloadClientId = getOrCreateDownloadClientId();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    // OptionalSessionGuard on this endpoint treats invalid/expired Bearer tokens as
+    // anonymous (never 401). Attach when present so logged-in clicks link to the user.
+    if (sessionToken) {
+      headers.Authorization = `Bearer ${sessionToken}`;
+    }
+    const body = JSON.stringify({
+      platform: downloadPlatform,
+      source_page: sourcePage,
+      cta: cta ?? undefined,
+      store_url: storeUrl ?? undefined,
+      download_client_id: downloadClientId,
+      ...payload,
     });
+    const response = await fetch(
+      `${BACKEND_URL}/marketing-attribution/app-download-clicked`,
+      {
+        method: "POST",
+        headers,
+        body,
+        keepalive: true,
+      },
+    );
+    // Defensive: if auth ever starts rejecting, retry anonymous so the click is not lost.
+    if (response.status === 401 && sessionToken) {
+      const anonymousHeaders = { "Content-Type": "application/json" };
+      await fetch(`${BACKEND_URL}/marketing-attribution/app-download-clicked`, {
+        method: "POST",
+        headers: anonymousHeaders,
+        body,
+        keepalive: true,
+      });
+    }
   } catch {
     /* non-fatal */
   }
@@ -4431,6 +4471,22 @@ export interface AdminDownloadClickRow {
   utm_medium: string;
   utm_campaign: string;
   clicks: number;
+  identified_clicks: number;
+  identified_users: number;
+}
+
+export interface AdminWebToAppFunnelRow {
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  web_signups: number;
+  later_app_authenticated: number;
+  never_used_app: number;
+  trials: number;
+  subscriptions: number;
+  web_signup_to_app_rate: number;
+  web_signup_to_trial_rate: number;
+  web_signup_to_paid_rate: number;
 }
 
 export interface AdminDownloadFunnelReport {
@@ -4456,7 +4512,43 @@ export interface AdminDownloadFunnelReport {
     web_signup_to_app_rate: number;
     web_signup_to_trial_rate: number;
     web_signup_to_paid_rate: number;
+    rows: AdminWebToAppFunnelRow[];
   };
+}
+
+export interface AdminDownloadFunnelUserRow {
+  user_id: string | null;
+  email: string | null;
+  contact_email: string | null;
+  clicked_at?: string;
+  signed_up_at?: string;
+  has_account: boolean;
+  later_app_used: boolean;
+  trial_started: boolean;
+  subscription_started: boolean;
+  download_platform?: string;
+}
+
+export interface AdminDownloadClickUsersReport {
+  from: string;
+  to: string;
+  platform: string;
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  total_clicks: number;
+  anonymous_clicks: number;
+  identified_clicks: number;
+  rows: AdminDownloadFunnelUserRow[];
+}
+
+export interface AdminWebToAppUsersReport {
+  from: string;
+  to: string;
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  rows: AdminDownloadFunnelUserRow[];
 }
 
 export type AdminDownloadsByOsKey = 'ios' | 'macos' | 'android' | 'windows';
@@ -4510,6 +4602,114 @@ export async function adminFetchDownloadFunnelReport(params?: {
     const record = data as { data?: AdminDownloadFunnelReport };
     if (!record.data) {
       return { ok: false, error: "Invalid download funnel report response" };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchDownloadClickUsers(params: {
+  from?: string;
+  to?: string;
+  platform: string;
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminDownloadClickUsersReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+    query.set("platform", params.platform);
+    query.set("utm_source", params.utm_source);
+    query.set("utm_medium", params.utm_medium);
+    query.set("utm_campaign", params.utm_campaign);
+    const response = await fetch(
+      `${BACKEND_URL}/admin/utm-attribution/downloads/clicks/users?${query.toString()}`,
+      {
+        method: "GET",
+        credentials: "include",
+        signal: params.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load download click users",
+        ),
+      };
+    }
+    const record = data as { data?: AdminDownloadClickUsersReport };
+    if (!record.data) {
+      return { ok: false, error: "Invalid download click users response" };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminFetchWebToAppUsers(params: {
+  from?: string;
+  to?: string;
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminWebToAppUsersReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+    query.set("utm_source", params.utm_source);
+    query.set("utm_medium", params.utm_medium);
+    query.set("utm_campaign", params.utm_campaign);
+    const response = await fetch(
+      `${BACKEND_URL}/admin/utm-attribution/downloads/web-to-app/users?${query.toString()}`,
+      {
+        method: "GET",
+        credentials: "include",
+        signal: params.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load web-to-app users",
+        ),
+      };
+    }
+    const record = data as { data?: AdminWebToAppUsersReport };
+    if (!record.data) {
+      return { ok: false, error: "Invalid web-to-app users response" };
     }
     return { ok: true, data: record.data };
   } catch (e) {
