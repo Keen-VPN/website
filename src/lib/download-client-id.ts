@@ -1,15 +1,24 @@
 /**
  * Stable anonymous id for linking pre-signup download CTA clicks to a later account.
  * Same-browser only; cleared storage / other devices cannot be linked.
- * Marketing site (vpnkeen.com) may hand this off via ?download_client_id= on portal links.
+ * Marketing site (vpnkeen.com) hands this off via signed query params on portal links.
+ *
+ * Signature checks use VITE_LANDING_HANDOFF_SECRET, which is inlined into the public
+ * client bundle (same model as marketing LANDING_HANDOFF_SECRET). Treat this as
+ * lightweight defense-in-depth / casual-link friction — not a security boundary.
  */
+
+import { parseValidHandoffCapturedAt } from "@/lib/landing-handoff";
 
 export const DOWNLOAD_CLIENT_ID_STORAGE_KEY = "keen_download_client_id";
 export const DOWNLOAD_CLIENT_ID_SOURCE_KEY = "keen_download_client_id_source";
 export const DOWNLOAD_CLIENT_ID_QUERY_PARAM = "download_client_id";
+export const DOWNLOAD_CLIENT_ID_AT_PARAM = "download_client_at";
+export const DOWNLOAD_CLIENT_ID_SIG_PARAM = "download_client_sig";
 
 /** UUID or website fallback `dl-...` ids (aligned with backend normalizeDownloadClientId). */
 const DOWNLOAD_CLIENT_ID_PATTERN = /^[A-Za-z0-9._:-]{1,80}$/;
+const DOWNLOAD_CLIENT_SIG_PATTERN = /^[0-9a-f]{32,256}$/i;
 
 type DownloadClientIdSource = "local" | "handoff";
 
@@ -52,6 +61,60 @@ function writeStoredDownloadClientId(
   }
 }
 
+function bytesToHex(bytes: ArrayBuffer): string {
+  return Array.from(new Uint8Array(bytes))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function timingSafeEqualHex(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+/** HMAC-SHA256 hex over `${clientId}|${capturedAt}` (same payload as marketing). */
+export async function verifyDownloadClientHandoffSignature(input: {
+  clientId: string;
+  capturedAt: string;
+  signature: string;
+  secret?: string | null;
+}): Promise<boolean> {
+  const secret = (input.secret ?? import.meta.env.VITE_LANDING_HANDOFF_SECRET)
+    ?.toString()
+    .trim();
+  if (!secret) return false;
+  if (!DOWNLOAD_CLIENT_SIG_PATTERN.test(input.signature)) return false;
+  if (
+    typeof crypto === "undefined" ||
+    !crypto.subtle ||
+    typeof TextEncoder === "undefined"
+  ) {
+    return false;
+  }
+
+  try {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const mac = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      new TextEncoder().encode(`${input.clientId}|${input.capturedAt}`),
+    );
+    return timingSafeEqualHex(bytesToHex(mac), input.signature.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 /** Existing id only — do not invent one at signup time. */
 export function getDownloadClientId(): string | null {
   return readStoredDownloadClientId();
@@ -70,13 +133,15 @@ export function getOrCreateDownloadClientId(): string {
 }
 
 /**
- * Capture from marketing → portal handoff query param.
- * First-touch among handoff ids; a genuine handoff replaces a portal-local id
- * so marketing→app funnel entries keyed on the marketing id are not lost.
+ * Capture from marketing → portal signed handoff query params.
+ * Requires download_client_id + download_client_at + download_client_sig.
+ * Signature verification is defense-in-depth only (secret is public via VITE_).
+ * First-touch among verified handoffs; a verified handoff replaces a portal-local id.
+ * Re-reads storage after await so a concurrent local CTA click is not lost/raced.
  */
-export function captureDownloadClientIdFromSearch(
+export async function captureDownloadClientIdFromSearch(
   search: string,
-): string | null {
+): Promise<string | null> {
   if (typeof window === "undefined") return null;
 
   try {
@@ -88,10 +153,30 @@ export function captureDownloadClientIdFromSearch(
       return readStoredDownloadClientId();
     }
 
-    const existing = readStoredDownloadClientId();
-    const source = readStoredDownloadClientIdSource();
-    // Keep first handoff; allow handoff to replace portal-local CTA ids.
-    if (existing && source === "handoff") return existing;
+    const capturedAt = parseValidHandoffCapturedAt(
+      params.get(DOWNLOAD_CLIENT_ID_AT_PARAM)?.trim(),
+    );
+    const signature = params.get(DOWNLOAD_CLIENT_ID_SIG_PARAM)?.trim();
+    if (!capturedAt || !signature) {
+      return readStoredDownloadClientId();
+    }
+
+    const verified = await verifyDownloadClientHandoffSignature({
+      clientId: fromQuery,
+      capturedAt,
+      signature,
+    });
+    // Re-read after await — a portal CTA may have created a local id meanwhile.
+    const existingAfterVerify = readStoredDownloadClientId();
+    const sourceAfterVerify = readStoredDownloadClientIdSource();
+    if (!verified) {
+      return existingAfterVerify;
+    }
+
+    // Keep first verified handoff; allow handoff to replace portal-local CTA ids.
+    if (existingAfterVerify && sourceAfterVerify === "handoff") {
+      return existingAfterVerify;
+    }
 
     writeStoredDownloadClientId(fromQuery, "handoff");
     return fromQuery;
