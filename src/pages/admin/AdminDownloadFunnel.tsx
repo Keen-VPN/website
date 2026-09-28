@@ -2,11 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
+  adminFetchDownloadClickUsers,
   adminFetchDownloadFunnelReport,
   adminFetchDownloadsByOs,
+  adminFetchWebToAppUsers,
+  type AdminDownloadClickRow,
+  type AdminDownloadClickUsersReport,
   type AdminDownloadFunnelReport,
+  type AdminDownloadFunnelUserRow,
   type AdminDownloadsByOsKey,
   type AdminDownloadsByOsReport,
+  type AdminWebToAppFunnelRow,
+  type AdminWebToAppUsersReport,
 } from "@/auth/backend";
 import {
   defaultAdminReportFromValue,
@@ -29,6 +36,124 @@ const DOWNLOAD_OS_ORDER: AdminDownloadsByOsKey[] = [
   "windows",
 ];
 
+type DrilldownKind = "download_click" | "web_to_app";
+
+type DrilldownSelection =
+  | {
+      kind: "download_click";
+      row: AdminDownloadClickRow;
+    }
+  | {
+      kind: "web_to_app";
+      row: AdminWebToAppFunnelRow;
+    };
+
+function formatWhen(iso?: string): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
+  }
+}
+
+function UserDrilldownPanel({
+  title,
+  subtitle,
+  loading,
+  error,
+  summary,
+  users,
+  onClose,
+}: {
+  title: string;
+  subtitle: string;
+  loading: boolean;
+  error: string | null;
+  summary?: string | null;
+  users: AdminDownloadFunnelUserRow[];
+  onClose: () => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h4 className="text-base font-medium">{title}</h4>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+          {summary ? (
+            <p className="mt-1 text-xs text-muted-foreground">{summary}</p>
+          ) : null}
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="min-w-full text-sm">
+          <thead className="border-b border-border bg-muted/40 text-left">
+            <tr>
+              <th className="p-3 font-medium">Email</th>
+              <th className="p-3 font-medium">When</th>
+              <th className="p-3 font-medium">Used app</th>
+              <th className="p-3 font-medium">Trial</th>
+              <th className="p-3 font-medium">Paid</th>
+              <th className="p-3 font-medium">Profile</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td className="p-3 text-muted-foreground" colSpan={6}>
+                  Loading…
+                </td>
+              </tr>
+            ) : users.length === 0 ? (
+              <tr>
+                <td className="p-3 text-muted-foreground" colSpan={6}>
+                  No identified users for this row. Anonymous clicks cannot be
+                  traced to sign-ups.
+                </td>
+              </tr>
+            ) : (
+              users.map((user, index) => (
+                <tr
+                  key={`${user.user_id ?? "anon"}-${user.clicked_at ?? user.signed_up_at ?? index}`}
+                  className="border-b border-border/60"
+                >
+                  <td className="p-3">
+                    {user.email ?? user.contact_email ?? "—"}
+                  </td>
+                  <td className="p-3">
+                    {formatWhen(user.clicked_at ?? user.signed_up_at)}
+                  </td>
+                  <td className="p-3">{user.later_app_used ? "Yes" : "No"}</td>
+                  <td className="p-3">{user.trial_started ? "Yes" : "No"}</td>
+                  <td className="p-3">
+                    {user.subscription_started ? "Yes" : "No"}
+                  </td>
+                  <td className="p-3">
+                    {user.user_id ? (
+                      <Link
+                        to={`/admin/users/${user.user_id}`}
+                        className="text-primary underline-offset-4 hover:underline"
+                      >
+                        Open
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDownloadFunnel() {
   const [fromInput, setFromInput] = useState(defaultAdminReportFromValue);
   const [toInput, setToInput] = useState(defaultAdminReportToValue);
@@ -39,6 +164,16 @@ export default function AdminDownloadFunnel() {
   const [error, setError] = useState<string | null>(null);
   const [byOsError, setByOsError] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
+
+  const [selection, setSelection] = useState<DrilldownSelection | null>(null);
+  const [drilldownLoading, setDrilldownLoading] = useState(false);
+  const [drilldownError, setDrilldownError] = useState<string | null>(null);
+  const [clickUsers, setClickUsers] =
+    useState<AdminDownloadClickUsersReport | null>(null);
+  const [webUsers, setWebUsers] = useState<AdminWebToAppUsersReport | null>(
+    null,
+  );
+  const drilldownRequest = useRef<AbortController | null>(null);
 
   const load = useCallback(async (from: string, to: string) => {
     if (!from.trim() || !to.trim()) {
@@ -68,6 +203,9 @@ export default function AdminDownloadFunnel() {
     setLoading(true);
     setError(null);
     setByOsError(null);
+    setSelection(null);
+    setClickUsers(null);
+    setWebUsers(null);
 
     const range = {
       from: `${from}T00:00:00.000Z`,
@@ -94,15 +232,22 @@ export default function AdminDownloadFunnel() {
       return;
     }
 
-    setReport(funnelResponse.data);
+    const funnelData = funnelResponse.data;
+    if (!Array.isArray(funnelData.web_to_app.rows)) {
+      funnelData.web_to_app.rows = [];
+    }
+    for (const row of funnelData.downloads.rows) {
+      row.identified_clicks = row.identified_clicks ?? 0;
+      row.identified_users = row.identified_users ?? 0;
+    }
+
+    setReport(funnelData);
     if (byOsResponse.ok && byOsResponse.data) {
       setDownloadsByOs(byOsResponse.data);
       setByOsError(null);
     } else {
       setDownloadsByOs(null);
-      setByOsError(
-        byOsResponse.error ?? "Failed to load downloads by OS",
-      );
+      setByOsError(byOsResponse.error ?? "Failed to load downloads by OS");
     }
     setLoading(false);
     activeRequest.current = null;
@@ -113,6 +258,70 @@ export default function AdminDownloadFunnel() {
     return () => activeRequest.current?.abort();
   }, [load, fromInput, toInput]);
 
+  const openDrilldown = useCallback(
+    async (next: DrilldownSelection) => {
+      setSelection(next);
+      setDrilldownError(null);
+      setClickUsers(null);
+      setWebUsers(null);
+      drilldownRequest.current?.abort();
+      const controller = new AbortController();
+      drilldownRequest.current = controller;
+      setDrilldownLoading(true);
+
+      const range = {
+        from: `${fromInput}T00:00:00.000Z`,
+        to: `${toInput}T00:00:00.000Z`,
+        signal: controller.signal,
+      };
+
+      if (next.kind === "download_click") {
+        const response = await adminFetchDownloadClickUsers({
+          ...range,
+          platform: next.row.platform,
+          utm_source: next.row.utm_source,
+          utm_medium: next.row.utm_medium,
+          utm_campaign: next.row.utm_campaign,
+        });
+        if (controller.signal.aborted || drilldownRequest.current !== controller) {
+          return;
+        }
+        if (!response.ok || !response.data) {
+          setDrilldownError(
+            response.error ?? "Failed to load download click users",
+          );
+          setDrilldownLoading(false);
+          return;
+        }
+        setClickUsers(response.data);
+        setDrilldownLoading(false);
+        return;
+      }
+
+      const response = await adminFetchWebToAppUsers({
+        ...range,
+        utm_source: next.row.utm_source,
+        utm_medium: next.row.utm_medium,
+        utm_campaign: next.row.utm_campaign,
+      });
+      if (controller.signal.aborted || drilldownRequest.current !== controller) {
+        return;
+      }
+      if (!response.ok || !response.data) {
+        setDrilldownError(response.error ?? "Failed to load web-to-app users");
+        setDrilldownLoading(false);
+        return;
+      }
+      setWebUsers(response.data);
+      setDrilldownLoading(false);
+    },
+    [fromInput, toInput],
+  );
+
+  useEffect(() => {
+    return () => drilldownRequest.current?.abort();
+  }, []);
+
   const showData = !loading && !error && report != null;
   const downloads = showData ? report.downloads : null;
   const webToApp = showData ? report.web_to_app : null;
@@ -122,6 +331,14 @@ export default function AdminDownloadFunnel() {
     (a, b) => b[1] - a[1],
   );
 
+  const drilldownKind: DrilldownKind | null = selection?.kind ?? null;
+  const drilldownUsers =
+    drilldownKind === "download_click"
+      ? (clickUsers?.rows ?? [])
+      : drilldownKind === "web_to_app"
+        ? (webUsers?.rows ?? [])
+        : [];
+
   return (
     <div className="space-y-8">
       <div>
@@ -130,8 +347,9 @@ export default function AdminDownloadFunnel() {
         </h2>
         <p className="text-sm text-muted-foreground">
           Confirmed downloads use first app open installs. Website store CTA
-          clicks are download intent only. Web → app usage uses later native VPN
-          sessions after signup. See also{" "}
+          clicks are download intent only — click a row to see identified users
+          who signed up / used the app. Web → app usage includes a UTM breakdown.
+          See also{" "}
           <Link
             to="/admin/utm-attribution"
             className="text-primary underline-offset-4 hover:underline"
@@ -178,7 +396,8 @@ export default function AdminDownloadFunnel() {
           <h3 className="text-lg font-medium">Confirmed downloads by OS</h3>
           <p className="text-sm text-muted-foreground">
             Counts from <code className="text-xs">app_first_open</code> (first
-            install open), not website CTA clicks.
+            install open), not website CTA clicks. These installs are anonymous
+            and cannot be linked to accounts yet.
           </p>
         </div>
         {byOsError ? (
@@ -221,7 +440,9 @@ export default function AdminDownloadFunnel() {
             Website download CTA clicks (intent only)
           </h3>
           <p className="text-sm text-muted-foreground">
-            Store button clicks on the website — not confirmed installs.
+            Store button clicks on the website — not confirmed installs. Click a
+            row to see which logged-in users clicked and whether they later used
+            an app.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -255,49 +476,88 @@ export default function AdminDownloadFunnel() {
                 <th className="p-3 font-medium">Medium</th>
                 <th className="p-3 font-medium">Campaign</th>
                 <th className="p-3 font-medium text-right">Clicks</th>
+                <th className="p-3 font-medium text-right">Identified</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={5}>
+                  <td className="p-3 text-muted-foreground" colSpan={6}>
                     Loading…
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={5}>
+                  <td className="p-3 text-muted-foreground" colSpan={6}>
                     Report unavailable.
                   </td>
                 </tr>
               ) : (downloads?.rows.length ?? 0) === 0 ? (
                 <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={5}>
+                  <td className="p-3 text-muted-foreground" colSpan={6}>
                     No download clicks in this range.
                   </td>
                 </tr>
               ) : (
-                downloads?.rows.map((row) => (
-                  <tr
-                    key={JSON.stringify([
-                      row.platform,
-                      row.utm_source,
-                      row.utm_medium,
-                      row.utm_campaign,
-                    ])}
-                    className="border-b border-border/60"
-                  >
-                    <td className="p-3 capitalize">{row.platform}</td>
-                    <td className="p-3">{row.utm_source}</td>
-                    <td className="p-3">{row.utm_medium}</td>
-                    <td className="p-3">{row.utm_campaign}</td>
-                    <td className="p-3 text-right">{row.clicks}</td>
-                  </tr>
-                ))
+                downloads?.rows.map((row) => {
+                  const selected =
+                    selection?.kind === "download_click" &&
+                    selection.row.platform === row.platform &&
+                    selection.row.utm_source === row.utm_source &&
+                    selection.row.utm_medium === row.utm_medium &&
+                    selection.row.utm_campaign === row.utm_campaign;
+                  return (
+                    <tr
+                      key={JSON.stringify([
+                        row.platform,
+                        row.utm_source,
+                        row.utm_medium,
+                        row.utm_campaign,
+                      ])}
+                      className={`border-b border-border/60 cursor-pointer hover:bg-muted/30 ${
+                        selected ? "bg-muted/40" : ""
+                      }`}
+                      onClick={() =>
+                        void openDrilldown({ kind: "download_click", row })
+                      }
+                    >
+                      <td className="p-3 capitalize text-primary underline-offset-4">
+                        {row.platform}
+                      </td>
+                      <td className="p-3">{row.utm_source}</td>
+                      <td className="p-3">{row.utm_medium}</td>
+                      <td className="p-3">{row.utm_campaign}</td>
+                      <td className="p-3 text-right">{row.clicks}</td>
+                      <td className="p-3 text-right">
+                        {row.identified_users}/{row.identified_clicks}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
+
+        {selection?.kind === "download_click" ? (
+          <UserDrilldownPanel
+            title="Download CTA → users"
+            subtitle={`${selection.row.platform} · ${selection.row.utm_source} / ${selection.row.utm_medium} / ${selection.row.utm_campaign}`}
+            summary={
+              clickUsers
+                ? `${clickUsers.identified_clicks} identified · ${clickUsers.anonymous_clicks} anonymous (not traceable)`
+                : null
+            }
+            loading={drilldownLoading}
+            error={drilldownError}
+            users={drilldownUsers}
+            onClose={() => {
+              setSelection(null);
+              setClickUsers(null);
+              setDrilldownError(null);
+            }}
+          />
+        ) : null}
       </section>
 
       <section className="space-y-4">
@@ -305,7 +565,9 @@ export default function AdminDownloadFunnel() {
         <p className="text-sm text-muted-foreground">
           Cohort is web <code className="text-xs">user_account_created</code>{" "}
           in the date window. App usage is later native{" "}
-          <code className="text-xs">connection_sessions</code> after signup.
+          <code className="text-xs">app_authenticated</code> (preferred) or{" "}
+          <code className="text-xs">connection_sessions</code>. Click a UTM row
+          to open the users.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-border bg-card p-4">
@@ -370,6 +632,99 @@ export default function AdminDownloadFunnel() {
             </div>
           ))}
         </div>
+
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <table className="min-w-full text-sm">
+            <thead className="border-b border-border bg-muted/40 text-left">
+              <tr>
+                <th className="p-3 font-medium">UTM source</th>
+                <th className="p-3 font-medium">Medium</th>
+                <th className="p-3 font-medium">Campaign</th>
+                <th className="p-3 font-medium text-right">Sign-ups</th>
+                <th className="p-3 font-medium text-right">Used app</th>
+                <th className="p-3 font-medium text-right">Never app</th>
+                <th className="p-3 font-medium text-right">Trials</th>
+                <th className="p-3 font-medium text-right">Paid</th>
+                <th className="p-3 font-medium text-right">App rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td className="p-3 text-muted-foreground" colSpan={9}>
+                    Loading…
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td className="p-3 text-muted-foreground" colSpan={9}>
+                    Report unavailable.
+                  </td>
+                </tr>
+              ) : (webToApp?.rows.length ?? 0) === 0 ? (
+                <tr>
+                  <td className="p-3 text-muted-foreground" colSpan={9}>
+                    No web sign-ups in this range.
+                  </td>
+                </tr>
+              ) : (
+                webToApp?.rows.map((row) => {
+                  const selected =
+                    selection?.kind === "web_to_app" &&
+                    selection.row.utm_source === row.utm_source &&
+                    selection.row.utm_medium === row.utm_medium &&
+                    selection.row.utm_campaign === row.utm_campaign;
+                  return (
+                    <tr
+                      key={JSON.stringify([
+                        row.utm_source,
+                        row.utm_medium,
+                        row.utm_campaign,
+                      ])}
+                      className={`border-b border-border/60 cursor-pointer hover:bg-muted/30 ${
+                        selected ? "bg-muted/40" : ""
+                      }`}
+                      onClick={() =>
+                        void openDrilldown({ kind: "web_to_app", row })
+                      }
+                    >
+                      <td className="p-3 text-primary underline-offset-4">
+                        {row.utm_source}
+                      </td>
+                      <td className="p-3">{row.utm_medium}</td>
+                      <td className="p-3">{row.utm_campaign}</td>
+                      <td className="p-3 text-right">{row.web_signups}</td>
+                      <td className="p-3 text-right">
+                        {row.later_app_authenticated}
+                      </td>
+                      <td className="p-3 text-right">{row.never_used_app}</td>
+                      <td className="p-3 text-right">{row.trials}</td>
+                      <td className="p-3 text-right">{row.subscriptions}</td>
+                      <td className="p-3 text-right">
+                        {formatAdminRate(row.web_signup_to_app_rate)}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {selection?.kind === "web_to_app" ? (
+          <UserDrilldownPanel
+            title="Web signup → app users"
+            subtitle={`${selection.row.utm_source} / ${selection.row.utm_medium} / ${selection.row.utm_campaign}`}
+            loading={drilldownLoading}
+            error={drilldownError}
+            users={drilldownUsers}
+            onClose={() => {
+              setSelection(null);
+              setWebUsers(null);
+              setDrilldownError(null);
+            }}
+          />
+        ) : null}
       </section>
     </div>
   );
