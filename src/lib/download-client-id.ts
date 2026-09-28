@@ -5,10 +5,13 @@
  */
 
 export const DOWNLOAD_CLIENT_ID_STORAGE_KEY = "keen_download_client_id";
+export const DOWNLOAD_CLIENT_ID_SOURCE_KEY = "keen_download_client_id_source";
 export const DOWNLOAD_CLIENT_ID_QUERY_PARAM = "download_client_id";
 
 /** UUID or website fallback `dl-...` ids (aligned with backend normalizeDownloadClientId). */
 const DOWNLOAD_CLIENT_ID_PATTERN = /^[A-Za-z0-9._:-]{1,80}$/;
+
+type DownloadClientIdSource = "local" | "handoff";
 
 function isValidDownloadClientId(value: string): boolean {
   return DOWNLOAD_CLIENT_ID_PATTERN.test(value);
@@ -25,10 +28,25 @@ function readStoredDownloadClientId(): string | null {
   }
 }
 
-function writeStoredDownloadClientId(id: string): void {
+function readStoredDownloadClientIdSource(): DownloadClientIdSource | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(DOWNLOAD_CLIENT_ID_SOURCE_KEY)?.trim();
+    if (raw === "local" || raw === "handoff") return raw;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredDownloadClientId(
+  id: string,
+  source: DownloadClientIdSource,
+): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(DOWNLOAD_CLIENT_ID_STORAGE_KEY, id);
+    localStorage.setItem(DOWNLOAD_CLIENT_ID_SOURCE_KEY, source);
   } catch {
     /* private mode / blocked storage */
   }
@@ -47,32 +65,38 @@ export function getOrCreateDownloadClientId(): string {
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
       : `dl-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
-  writeStoredDownloadClientId(created);
+  writeStoredDownloadClientId(created, "local");
   return created;
 }
 
 /**
- * First-touch capture from marketing → portal handoff query param.
- * Does not overwrite an id already stored in this browser.
+ * Capture from marketing → portal handoff query param.
+ * First-touch among handoff ids; a genuine handoff replaces a portal-local id
+ * so marketing→app funnel entries keyed on the marketing id are not lost.
  */
 export function captureDownloadClientIdFromSearch(
   search: string,
 ): string | null {
   if (typeof window === "undefined") return null;
 
-  const existing = readStoredDownloadClientId();
-  if (existing) return existing;
-
   try {
     const params = new URLSearchParams(
       search.startsWith("?") ? search : `?${search}`,
     );
     const fromQuery = params.get(DOWNLOAD_CLIENT_ID_QUERY_PARAM)?.trim();
-    if (!fromQuery || !isValidDownloadClientId(fromQuery)) return null;
-    writeStoredDownloadClientId(fromQuery);
+    if (!fromQuery || !isValidDownloadClientId(fromQuery)) {
+      return readStoredDownloadClientId();
+    }
+
+    const existing = readStoredDownloadClientId();
+    const source = readStoredDownloadClientIdSource();
+    // Keep first handoff; allow handoff to replace portal-local CTA ids.
+    if (existing && source === "handoff") return existing;
+
+    writeStoredDownloadClientId(fromQuery, "handoff");
     return fromQuery;
   } catch {
-    return null;
+    return readStoredDownloadClientId();
   }
 }
 
