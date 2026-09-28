@@ -1,18 +1,24 @@
 /**
  * Stable anonymous id for linking pre-signup download CTA clicks to a later account.
  * Same-browser only; cleared storage / other devices cannot be linked.
+ * Marketing site (vpnkeen.com) may hand this off via ?download_client_id= on portal links.
  */
 
 export const DOWNLOAD_CLIENT_ID_STORAGE_KEY = "keen_download_client_id";
+export const DOWNLOAD_CLIENT_ID_QUERY_PARAM = "download_client_id";
 
-const DOWNLOAD_CLIENT_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+/** UUID or website fallback `dl-...` ids (aligned with backend normalizeDownloadClientId). */
+const DOWNLOAD_CLIENT_ID_PATTERN = /^[A-Za-z0-9._:-]{1,80}$/;
+
+function isValidDownloadClientId(value: string): boolean {
+  return DOWNLOAD_CLIENT_ID_PATTERN.test(value);
+}
 
 function readStoredDownloadClientId(): string | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(DOWNLOAD_CLIENT_ID_STORAGE_KEY)?.trim();
-    if (!raw || !DOWNLOAD_CLIENT_ID_PATTERN.test(raw)) return null;
+    if (!raw || !isValidDownloadClientId(raw)) return null;
     return raw;
   } catch {
     return null;
@@ -43,6 +49,31 @@ export function getOrCreateDownloadClientId(): string {
       : `dl-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
   writeStoredDownloadClientId(created);
   return created;
+}
+
+/**
+ * First-touch capture from marketing → portal handoff query param.
+ * Does not overwrite an id already stored in this browser.
+ */
+export function captureDownloadClientIdFromSearch(
+  search: string,
+): string | null {
+  if (typeof window === "undefined") return null;
+
+  const existing = readStoredDownloadClientId();
+  if (existing) return existing;
+
+  try {
+    const params = new URLSearchParams(
+      search.startsWith("?") ? search : `?${search}`,
+    );
+    const fromQuery = params.get(DOWNLOAD_CLIENT_ID_QUERY_PARAM)?.trim();
+    if (!fromQuery || !isValidDownloadClientId(fromQuery)) return null;
+    writeStoredDownloadClientId(fromQuery);
+    return fromQuery;
+  } catch {
+    return null;
+  }
 }
 
 export function getDownloadClientIdAuthPayload(): {
