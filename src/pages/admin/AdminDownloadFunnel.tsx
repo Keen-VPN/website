@@ -50,11 +50,9 @@ type DrilldownSelection =
 
 function formatWhen(iso?: string): string {
   if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return iso;
-  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleString();
 }
 
 function UserDrilldownPanel({
@@ -111,8 +109,9 @@ function UserDrilldownPanel({
             ) : users.length === 0 ? (
               <tr>
                 <td className="p-3 text-muted-foreground" colSpan={6}>
-                  No identified users for this row. Anonymous clicks cannot be
-                  traced to sign-ups.
+                  No identified users for this row yet. Anonymous clicks link
+                  after signup when the same browser still has the download
+                  client id.
                 </td>
               </tr>
             ) : (
@@ -181,6 +180,10 @@ export default function AdminDownloadFunnel() {
       setDownloadsByOs(null);
       setError(null);
       setByOsError(null);
+      setSelection(null);
+      setClickUsers(null);
+      setWebUsers(null);
+      setDrilldownError(null);
       setLoading(false);
       return;
     }
@@ -192,6 +195,10 @@ export default function AdminDownloadFunnel() {
       setDownloadsByOs(null);
       setError("From date must be on or before To date.");
       setByOsError(null);
+      setSelection(null);
+      setClickUsers(null);
+      setWebUsers(null);
+      setDrilldownError(null);
       setLoading(false);
       return;
     }
@@ -506,6 +513,8 @@ export default function AdminDownloadFunnel() {
                     selection.row.utm_source === row.utm_source &&
                     selection.row.utm_medium === row.utm_medium &&
                     selection.row.utm_campaign === row.utm_campaign;
+                  const open = () =>
+                    void openDrilldown({ kind: "download_click", row });
                   return (
                     <tr
                       key={JSON.stringify([
@@ -514,12 +523,20 @@ export default function AdminDownloadFunnel() {
                         row.utm_medium,
                         row.utm_campaign,
                       ])}
-                      className={`border-b border-border/60 cursor-pointer hover:bg-muted/30 ${
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={selected}
+                      aria-label={`Open users for ${row.platform} download clicks, ${row.utm_source} ${row.utm_medium} ${row.utm_campaign}`}
+                      className={`border-b border-border/60 cursor-pointer hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                         selected ? "bg-muted/40" : ""
                       }`}
-                      onClick={() =>
-                        void openDrilldown({ kind: "download_click", row })
-                      }
+                      onClick={open}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          open();
+                        }
+                      }}
                     >
                       <td className="p-3 capitalize text-primary underline-offset-4">
                         {row.platform}
@@ -545,7 +562,7 @@ export default function AdminDownloadFunnel() {
             subtitle={`${selection.row.platform} · ${selection.row.utm_source} / ${selection.row.utm_medium} / ${selection.row.utm_campaign}`}
             summary={
               clickUsers
-                ? `${clickUsers.identified_clicks} identified · ${clickUsers.anonymous_clicks} anonymous (not traceable)`
+                ? `${clickUsers.identified_clicks} identified · ${clickUsers.anonymous_clicks} anonymous (link after signup in same browser)`
                 : null
             }
             loading={drilldownLoading}
@@ -674,6 +691,8 @@ export default function AdminDownloadFunnel() {
                     selection.row.utm_source === row.utm_source &&
                     selection.row.utm_medium === row.utm_medium &&
                     selection.row.utm_campaign === row.utm_campaign;
+                  const open = () =>
+                    void openDrilldown({ kind: "web_to_app", row });
                   return (
                     <tr
                       key={JSON.stringify([
@@ -681,12 +700,20 @@ export default function AdminDownloadFunnel() {
                         row.utm_medium,
                         row.utm_campaign,
                       ])}
-                      className={`border-b border-border/60 cursor-pointer hover:bg-muted/30 ${
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={selected}
+                      aria-label={`Open users for web signups ${row.utm_source} ${row.utm_medium} ${row.utm_campaign}`}
+                      className={`border-b border-border/60 cursor-pointer hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                         selected ? "bg-muted/40" : ""
                       }`}
-                      onClick={() =>
-                        void openDrilldown({ kind: "web_to_app", row })
-                      }
+                      onClick={open}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          open();
+                        }
+                      }}
                     >
                       <td className="p-3 text-primary underline-offset-4">
                         {row.utm_source}

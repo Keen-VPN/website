@@ -18,6 +18,10 @@ import {
   clearUtmAttributionStorage,
   getUtmAttributionAuthPayload,
 } from "@/lib/utm-attribution";
+import {
+  getDownloadClientIdAuthPayload,
+  getOrCreateDownloadClientId,
+} from "@/lib/download-client-id";
 import { buildAuthDeepLink } from "@/lib/keenvpn-deep-links";
 import {
   trackPostHogAccountCreated,
@@ -352,6 +356,7 @@ export async function loginWithFirebaseToken(
         ...(provider ? { provider } : {}),
         ...(referralToken ? { referralToken } : {}),
         ...getUtmAttributionAuthPayload(),
+        ...getDownloadClientIdAuthPayload(),
       }),
     });
     const data: unknown = await response.json().catch(() => ({}));
@@ -396,6 +401,7 @@ export async function authenticateWithBackend(
     const endpoint =
       provider === "apple" ? "/auth/apple/signin" : "/auth/google/signin";
     const utmPayload = getUtmAttributionAuthPayload();
+    const downloadClientPayload = getDownloadClientIdAuthPayload();
     const body =
       provider === "apple"
         ? {
@@ -405,11 +411,13 @@ export async function authenticateWithBackend(
             fullName: additionalData?.fullName,
             ...(referralToken ? { referralToken } : {}),
             ...utmPayload,
+            ...downloadClientPayload,
           }
         : {
             idToken: accessToken, // Backend expects 'idToken' parameter for Google
             ...(referralToken ? { referralToken } : {}),
             ...utmPayload,
+            ...downloadClientPayload,
           };
 
     const response = await fetch(`${BACKEND_URL}${endpoint}`, {
@@ -1036,6 +1044,7 @@ export async function verifyMagicLink(
         token,
         ...(referralToken ? { referralToken } : {}),
         ...getUtmAttributionAuthPayload(),
+        ...getDownloadClientIdAuthPayload(),
       }),
     });
     const data: unknown = await response.json().catch(() => ({}));
@@ -2144,6 +2153,7 @@ export async function verifyEmailOtp(
         code,
         ...(referralToken ? { referralToken } : {}),
         ...getUtmAttributionAuthPayload(),
+        ...getDownloadClientIdAuthPayload(),
       }),
     });
     const data: unknown = await response.json().catch(() => ({}));
@@ -4090,7 +4100,13 @@ export async function recordAppDownloadClicked(input: {
 
   try {
     const payload = getUtmAttributionAuthPayload();
-    const sessionToken = getSessionToken();
+    let sessionToken: string | null = null;
+    try {
+      sessionToken = getSessionToken();
+    } catch {
+      /* private mode / blocked storage — still record an anonymous click */
+    }
+    const downloadClientId = getOrCreateDownloadClientId();
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -4105,6 +4121,7 @@ export async function recordAppDownloadClicked(input: {
         source_page: sourcePage,
         cta: cta ?? undefined,
         store_url: storeUrl ?? undefined,
+        download_client_id: downloadClientId,
         ...payload,
       }),
       keepalive: true,
