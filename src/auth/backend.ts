@@ -4707,17 +4707,24 @@ export async function adminFetchSignupTrialPaidFunnelReport(params?: {
         ),
       };
     }
-    const record = data as {
-      data?: AdminSignupTrialPaidFunnelReport & {
-        stages?: AdminSignupTrialPaidFunnelReport["stages"] & {
-          visitors?: number;
-        };
-      };
+    // Raw wire shape: signup_started may be absent; older APIs sent visitors.
+    type RawSignupTrialStages = Omit<
+      AdminSignupTrialPaidFunnelReport["stages"],
+      "signup_started"
+    > & {
+      signup_started?: number;
+      visitors?: number;
     };
+    type RawSignupTrialPaidFunnelReport = Omit<
+      AdminSignupTrialPaidFunnelReport,
+      "stages"
+    > & {
+      stages?: RawSignupTrialStages;
+    };
+    const record = data as { data?: RawSignupTrialPaidFunnelReport };
     if (!record.data?.stages) {
       return { ok: false, error: "Invalid signup-trial-paid funnel response" };
     }
-    // Rollout: old API used `visitors`; prefer signup_started when present.
     const stages = record.data.stages;
     const signupStarted =
       typeof stages.signup_started === "number"
@@ -4730,8 +4737,12 @@ export async function adminFetchSignupTrialPaidFunnelReport(params?: {
       data: {
         ...record.data,
         stages: {
-          ...stages,
           signup_started: signupStarted,
+          signups: stages.signups,
+          trial_cta_viewed: stages.trial_cta_viewed,
+          trial_cta_clicked: stages.trial_cta_clicked,
+          trial_started: stages.trial_started,
+          paid: stages.paid,
         },
       },
     };
