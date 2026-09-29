@@ -17,8 +17,16 @@ export type DownloadAppDestinationPlatform =
 export interface DownloadAppDecision {
   detectedPlatform: DeviceType | "bot" | "unknown";
   destinationPlatform: DownloadAppDestinationPlatform;
-  /** Absolute store URL, or null when showing the selection page. */
+  /**
+   * HTTPS store URL with campaign params (tracking + visible Continue link).
+   * Null when showing the selection page.
+   */
   storeUrl: string | null;
+  /**
+   * URL used for automatic/manual navigation. May use a native Apple scheme
+   * when the visitor is already on that Apple platform; otherwise matches storeUrl.
+   */
+  navigateUrl: string | null;
   shouldAutoRedirect: boolean;
 }
 
@@ -83,6 +91,47 @@ export function appendCampaignParamsToStoreUrl(
   }
 }
 
+/**
+ * Prefer native Apple store schemes only when the visitor is already on that
+ * platform. Cross-platform picks stay on HTTPS.
+ */
+export function navigateUrlForStore(
+  httpsStoreUrl: string,
+  storePlatform: DownloadAppStorePlatform,
+  detectedDevice: DeviceType,
+): string {
+  if (
+    (storePlatform === "ios" || storePlatform === "macos") &&
+    storePlatform === detectedDevice
+  ) {
+    return toNativeAppStoreSchemeUrl(httpsStoreUrl, detectedDevice);
+  }
+  return httpsStoreUrl;
+}
+
+function decisionForStorePlatform(params: {
+  detectedDevice: DeviceType;
+  storePlatform: DownloadAppStorePlatform;
+  search: string;
+  shouldAutoRedirect: boolean;
+}): DownloadAppDecision {
+  const httpsUrl = appendCampaignParamsToStoreUrl(
+    storeUrlForPlatform(params.storePlatform),
+    params.search,
+  );
+  return {
+    detectedPlatform: params.detectedDevice,
+    destinationPlatform: params.storePlatform,
+    storeUrl: httpsUrl,
+    navigateUrl: navigateUrlForStore(
+      httpsUrl,
+      params.storePlatform,
+      params.detectedDevice,
+    ),
+    shouldAutoRedirect: params.shouldAutoRedirect,
+  };
+}
+
 export function resolveDownloadAppDecision(params: {
   detectedDevice: DeviceType;
   userAgent?: string;
@@ -98,19 +147,18 @@ export function resolveDownloadAppDecision(params: {
       detectedPlatform: params.detectedDevice,
       destinationPlatform: "select",
       storeUrl: null,
+      navigateUrl: null,
       shouldAutoRedirect: false,
     };
   }
 
   if (isDownloadAppStorePlatform(override)) {
-    const raw = storeUrlForPlatform(override);
-    const withNative = toNativeAppStoreSchemeUrl(raw, params.detectedDevice);
-    return {
-      detectedPlatform: params.detectedDevice,
-      destinationPlatform: override,
-      storeUrl: appendCampaignParamsToStoreUrl(withNative, search),
+    return decisionForStorePlatform({
+      detectedDevice: params.detectedDevice,
+      storePlatform: override,
+      search,
       shouldAutoRedirect: true,
-    };
+    });
   }
 
   if (isLikelyBotUserAgent(params.userAgent)) {
@@ -118,6 +166,7 @@ export function resolveDownloadAppDecision(params: {
       detectedPlatform: "bot",
       destinationPlatform: "select",
       storeUrl: null,
+      navigateUrl: null,
       shouldAutoRedirect: false,
     };
   }
@@ -126,23 +175,20 @@ export function resolveDownloadAppDecision(params: {
     case "ios":
     case "macos":
     case "android":
-    case "windows": {
-      const platform = params.detectedDevice;
-      const raw = storeUrlForPlatform(platform);
-      const withNative = toNativeAppStoreSchemeUrl(raw, platform);
-      return {
-        detectedPlatform: platform,
-        destinationPlatform: platform,
-        storeUrl: appendCampaignParamsToStoreUrl(withNative, search),
+    case "windows":
+      return decisionForStorePlatform({
+        detectedDevice: params.detectedDevice,
+        storePlatform: params.detectedDevice,
+        search,
         shouldAutoRedirect: true,
-      };
-    }
+      });
     default:
       return {
         detectedPlatform:
           params.detectedDevice === "other" ? "unknown" : params.detectedDevice,
         destinationPlatform: "select",
         storeUrl: null,
+        navigateUrl: null,
         shouldAutoRedirect: false,
       };
   }

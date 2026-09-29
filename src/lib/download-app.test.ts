@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { APP_STORE_URLS } from "@/constants/app-store-urls";
 import {
   appendCampaignParamsToStoreUrl,
+  navigateUrlForStore,
   resolveDownloadAppDecision,
   storeUrlForPlatform,
   toAppDownloadPlatform,
@@ -9,16 +10,30 @@ import {
 
 describe("download-app routing", () => {
   it("routes known devices to the matching store", () => {
-    expect(
-      resolveDownloadAppDecision({
-        detectedDevice: "ios",
-        userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
-      }),
-    ).toMatchObject({
+    const ios = resolveDownloadAppDecision({
+      detectedDevice: "ios",
+      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+      search: "?utm_source=sms",
+    });
+    expect(ios).toMatchObject({
       destinationPlatform: "ios",
       shouldAutoRedirect: true,
-      storeUrl: expect.stringContaining("apps.apple.com"),
     });
+    expect(ios.storeUrl).toMatch(/^https:\/\/apps\.apple\.com\//);
+    expect(ios.storeUrl).toContain("utm_source=sms");
+    expect(ios.navigateUrl).toMatch(/^itms-apps:\/\/apps\.apple\.com\//);
+    expect(ios.navigateUrl).toContain("utm_source=sms");
+
+    const macos = resolveDownloadAppDecision({
+      detectedDevice: "macos",
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)",
+      search: "?utm_campaign=share",
+    });
+    expect(macos.destinationPlatform).toBe("macos");
+    expect(macos.storeUrl).toMatch(/^https:\/\/apps\.apple\.com\//);
+    expect(macos.storeUrl).toContain("utm_campaign=share");
+    expect(macos.navigateUrl).toMatch(/^macappstore:\/\/apps\.apple\.com\//);
+    expect(macos.navigateUrl).toContain("utm_campaign=share");
 
     expect(
       resolveDownloadAppDecision({
@@ -33,13 +48,19 @@ describe("download-app routing", () => {
         userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
       }).destinationPlatform,
     ).toBe("windows");
+  });
 
-    expect(
-      resolveDownloadAppDecision({
-        detectedDevice: "macos",
-        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)",
-      }).destinationPlatform,
-    ).toBe("macos");
+  it("keeps HTTPS for cross-platform Apple overrides", () => {
+    const decision = resolveDownloadAppDecision({
+      detectedDevice: "windows",
+      platformOverride: "ios",
+      userAgent: "Mozilla/5.0 (Windows NT 10.0)",
+      search: "?utm_source=sms",
+    });
+    expect(decision.storeUrl).toMatch(/^https:\/\/apps\.apple\.com\//);
+    expect(decision.storeUrl).toContain("utm_source=sms");
+    expect(decision.navigateUrl).toBe(decision.storeUrl);
+    expect(decision.navigateUrl).not.toMatch(/^itms-apps:/);
   });
 
   it("shows selection for unknown devices and bots", () => {
@@ -52,6 +73,7 @@ describe("download-app routing", () => {
       destinationPlatform: "select",
       shouldAutoRedirect: false,
       storeUrl: null,
+      navigateUrl: null,
     });
 
     expect(
@@ -77,6 +99,7 @@ describe("download-app routing", () => {
       destinationPlatform: "android",
       shouldAutoRedirect: true,
       storeUrl: APP_STORE_URLS.android,
+      navigateUrl: APP_STORE_URLS.android,
     });
 
     expect(
@@ -108,6 +131,14 @@ describe("download-app routing", () => {
       "?utm_source=sms",
     );
     expect(new URL(withParams).searchParams.get("utm_source")).toBe("keep");
+  });
+
+  it("only applies native Apple schemes on matching devices", () => {
+    const httpsIos = `${APP_STORE_URLS.ios}?utm_source=sms`;
+    expect(navigateUrlForStore(httpsIos, "ios", "ios")).toMatch(
+      /^itms-apps:\/\/apps\.apple\.com\//,
+    );
+    expect(navigateUrlForStore(httpsIos, "ios", "windows")).toBe(httpsIos);
   });
 
   it("maps destinations to app download platforms", () => {

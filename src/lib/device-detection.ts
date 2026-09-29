@@ -42,7 +42,7 @@ export function detectDevice(): DeviceType {
 export function isLikelyBotUserAgent(userAgent?: string): boolean {
   const ua = (userAgent ?? "").toLowerCase();
   if (!ua) return false;
-  return /bot|crawl|spider|slurp|facebookexternalhit|preview|whatsapp|telegram|discordbot|linkedinbot|twitterbot|embedly|quora|pinterest|slackbot|vkshare|w3c_validator|googlebot|bingbot|yandex|baidu|duckduck|semrush|ahrefs|mj12|dotbot|applebot|meta-externalagent/i.test(
+  return /bot|crawl|spider|slurp|facebookexternalhit|preview|whatsapp|telegram|discordbot|linkedinbot|twitterbot|embedly|quora|pinterest|slackbot|vkshare|w3c_validator|googlebot|bingbot|semrush|ahrefs|mj12|dotbot|applebot|meta-externalagent/i.test(
     ua,
   );
 }

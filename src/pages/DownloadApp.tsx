@@ -19,11 +19,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { toNativeAppStoreSchemeUrl } from "@/constants/app-store-urls";
 import { recordAppDownloadClicked } from "@/auth/backend";
 import {
   appendCampaignParamsToStoreUrl,
   DOWNLOAD_APP_PLATFORM_OPTIONS,
+  navigateUrlForStore,
   resolveDownloadAppDecision,
   storeUrlForPlatform,
   toAppDownloadPlatform,
@@ -82,7 +82,7 @@ export default function DownloadApp() {
   }, [searchParams]);
 
   const showRedirect = Boolean(
-    decision.shouldAutoRedirect && decision.storeUrl,
+    decision.shouldAutoRedirect && decision.storeUrl && decision.navigateUrl,
   );
 
   useEffect(() => {
@@ -101,17 +101,18 @@ export default function DownloadApp() {
       store_url: decision.storeUrl,
     });
 
-    if (!decision.shouldAutoRedirect || !decision.storeUrl) return;
+    if (!decision.shouldAutoRedirect || !decision.navigateUrl) return;
     if (redirectedRef.current) return;
     redirectedRef.current = true;
 
-    const destinationUrl = decision.storeUrl;
+    const destinationUrl = decision.navigateUrl;
+    const trackedStoreUrl = decision.storeUrl ?? destinationUrl;
 
     void recordAppDownloadClicked({
       platform: toAppDownloadPlatform(decision.destinationPlatform),
       sourcePage: "/download-app",
       cta: `download_app_auto_${decision.destinationPlatform}`,
-      storeUrl: destinationUrl,
+      storeUrl: trackedStoreUrl,
     });
 
     // Brief pause so analytics keepalive can flush before navigation.
@@ -124,31 +125,21 @@ export default function DownloadApp() {
 
   const onManualSelect = (platform: DownloadAppStorePlatform) => {
     const device = detectDevice();
-    const raw = storeUrlForPlatform(platform);
-    const withNative = toNativeAppStoreSchemeUrl(raw, device);
-    const storeUrl = appendCampaignParamsToStoreUrl(
-      withNative,
+    const httpsUrl = appendCampaignParamsToStoreUrl(
+      storeUrlForPlatform(platform),
       searchParams.toString(),
     );
+    const navigateUrl = navigateUrlForStore(httpsUrl, platform, device);
 
-    trackPostHogDownloadAppLinkOpened({
-      detected_platform: decision.detectedPlatform,
-      destination_platform: platform,
-      source_page: "/download-app",
-      referrer:
-        typeof document !== "undefined" ? document.referrer || null : null,
-      auto_redirect: false,
-      store_url: storeUrl,
-    });
-
+    // Mount already fired download_app_link_opened — only record the store CTA.
     void recordAppDownloadClicked({
       platform,
       sourcePage: "/download-app",
       cta: `download_app_manual_${platform}`,
-      storeUrl,
+      storeUrl: httpsUrl,
     });
 
-    window.location.assign(storeUrl);
+    window.location.assign(navigateUrl);
   };
 
   return (
@@ -161,7 +152,7 @@ export default function DownloadApp() {
       <Header />
 
       <main className="container mx-auto flex min-h-[72vh] items-center justify-center px-4 pb-16 pt-28">
-        {showRedirect && decision.storeUrl ? (
+        {showRedirect && decision.storeUrl && decision.navigateUrl ? (
           <Card className="w-full max-w-lg border-primary/40 text-center shadow-glow">
             <CardHeader className="space-y-3">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/15">
