@@ -199,7 +199,7 @@ export default function AdminSignupTrialFunnel() {
               Signup started (context only)
             </p>
             <p className="mt-1 text-muted-foreground">
-              {stages.signup_started.toLocaleString()}{" "}
+              {(stages.signup_started ?? 0).toLocaleString()}{" "}
               <code className="text-xs">signup_started</code> events in this
               window (often UTM-attributed intent). Not unique visitors and not
               used for conversion rates — can be lower than signups.
