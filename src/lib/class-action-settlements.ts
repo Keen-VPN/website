@@ -169,6 +169,16 @@ export function formatSettlementDate(iso: string | null | undefined): string | n
   return `${date.getUTCDate()} ${SHORT_MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
+/**
+ * Days left for list and detail alike: the detail glance value when present,
+ * else the perk's own. Both come from the same claim deadline on the backend.
+ */
+export function settlementDaysRemaining(
+  perk: Pick<PerkDetail, "daysRemaining" | "atAGlance">,
+): number | null {
+  return perk.atAGlance?.daysRemaining ?? perk.daysRemaining ?? null;
+}
+
 export function formatDaysLeft(days: number | null | undefined): string | null {
   if (days === null || days === undefined || days < 0) return null;
   if (days === 0) return "Closes today";

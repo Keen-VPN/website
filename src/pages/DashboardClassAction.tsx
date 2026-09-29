@@ -27,6 +27,7 @@ import {
   isSettlementClosed,
   isSubscribedToPerkOffers,
   parseClassActionFilter,
+  settlementDaysRemaining,
   settlementStats,
   sortSettlements,
   type ClassActionFilter,
@@ -89,7 +90,9 @@ function SettlementListCard({ perk }: { perk: PerkItem }) {
   const closed = isSettlementClosed(perk);
   const closingSoon = perk.settlementStatus === "closing_soon";
   const deadline = formatSettlementDate(perk.claimDeadline);
-  const daysLeft = closed ? null : formatDaysLeft(perk.daysRemaining);
+  const daysLeft = closed
+    ? null
+    : formatDaysLeft(settlementDaysRemaining(perk));
   const detailPath = `/class-action/${encodeURIComponent(perk.id)}`;
   const eligibility = perk.eligibilityTags?.filter(Boolean) ?? [];
 

@@ -10,6 +10,7 @@ import {
   isSubscribedToPerkOffers,
   parseClassActionFilter,
   resolveClaimActions,
+  settlementDaysRemaining,
   settlementInitials,
   settlementStats,
   sortSettlements,
@@ -279,5 +280,22 @@ describe("isClaimWindowClosed", () => {
     expect(
       isClaimWindowClosed({ settlementStatus: "open", cta: { ...cta, primaryDisabled: true } }),
     ).toBe(true);
+  });
+});
+
+describe("settlementDaysRemaining", () => {
+  const glance = {
+    status: "open" as const,
+    proof: "",
+    paymentMethod: "",
+    expectedPayout: "",
+    claimBy: null,
+  };
+
+  it("prefers the detail glance, then the perk value", () => {
+    expect(settlementDaysRemaining({ daysRemaining: 5, atAGlance: { ...glance, daysRemaining: 4 } })).toBe(4);
+    expect(settlementDaysRemaining({ daysRemaining: 5, atAGlance: { ...glance, daysRemaining: null } })).toBe(5);
+    expect(settlementDaysRemaining({ daysRemaining: 5 })).toBe(5);
+    expect(settlementDaysRemaining({ daysRemaining: null })).toBeNull();
   });
 });
