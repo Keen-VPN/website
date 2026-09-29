@@ -77,11 +77,10 @@ export default function AdminSignupTrialFunnel() {
   const stageRows = stages
     ? [
         {
-          label: "Visitors (signup_started)",
-          count: stages.visitors,
-          note: "Intent events in window — not unique browsers",
+          label: "Signups",
+          count: stages.signups,
+          note: "Accounts created (funnel denominator)",
         },
-        { label: "Signups", count: stages.signups, note: "Accounts created" },
         {
           label: "Trial CTA viewed",
           count: stages.trial_cta_viewed,
@@ -90,7 +89,7 @@ export default function AdminSignupTrialFunnel() {
         {
           label: "Trial CTA clicked",
           count: stages.trial_cta_clicked,
-          note: "Clicked Start free trial",
+          note: "Started checkout for free trial",
         },
         {
           label: "Trial started",
@@ -113,12 +112,12 @@ export default function AdminSignupTrialFunnel() {
         </h2>
         <p className="text-sm text-muted-foreground">
           Conversion funnel with Trial CTA view and click kept separate from
-          trial activation. Internal @keenvpn.com / @vpnkeen.com accounts are
-          excluded. PostHog events:{" "}
-          <code className="text-xs">trial_cta_viewed</code>,{" "}
-          <code className="text-xs">trial_cta_clicked</code>,{" "}
-          <code className="text-xs">trial_started</code>,{" "}
-          <code className="text-xs">subscription_started</code>. Also see{" "}
+          trial activation. Signup→CTA / trial / paid rates use{" "}
+          <strong>signups</strong> as the denominator; Trial → Paid uses{" "}
+          <strong>trials</strong>. Internal @keenvpn.com / @vpnkeen.com
+          accounts are excluded. Unique site visitors live in PostHog (
+          <code className="text-xs">$pageview</code>), not this report. Also
+          see{" "}
           <Link className="underline" to="/admin/utm-attribution">
             UTM attribution
           </Link>
@@ -166,10 +165,6 @@ export default function AdminSignupTrialFunnel() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
-                label: "Visitor → Signup",
-                value: formatAdminRate(rates.visitor_to_signup),
-              },
-              {
                 label: "Signup → CTA viewed",
                 value: formatAdminRate(rates.signup_to_cta_viewed),
               },
@@ -200,6 +195,18 @@ export default function AdminSignupTrialFunnel() {
             ))}
           </div>
 
+          <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm">
+            <p className="font-medium text-foreground">
+              Signup started (context only)
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              {(stages.signup_started ?? 0).toLocaleString()}{" "}
+              <code className="text-xs">signup_started</code> events in this
+              window (often UTM-attributed intent). Not unique visitors and not
+              used for conversion rates — can be lower than signups.
+            </p>
+          </div>
+
           <div className="overflow-x-auto rounded-xl border border-border">
             <table className="min-w-full text-sm">
               <thead className="border-b border-border bg-muted/40 text-left">
@@ -224,9 +231,6 @@ export default function AdminSignupTrialFunnel() {
           <div className="rounded-xl border border-border bg-card p-4">
             <h3 className="text-base font-medium">Drop-off (raw)</h3>
             <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-              <li>
-                Visitor → Signup: {dropOff.visitor_to_signup.toLocaleString()}
-              </li>
               <li>
                 Signup → CTA viewed:{" "}
                 {dropOff.signup_to_cta_viewed.toLocaleString()}
