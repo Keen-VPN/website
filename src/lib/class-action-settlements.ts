@@ -53,6 +53,13 @@ export function settlementStatusLabel(status: SettlementStatus | undefined): str
   return STATUS_LABELS[status ?? "open"];
 }
 
+/** Claiming is off: closed, or the API disabled the primary claim button. */
+export function isClaimWindowClosed(
+  perk: Pick<PerkDetail, "settlementStatus" | "cta">,
+): boolean {
+  return isSettlementClosed(perk) || perk.cta?.primaryDisabled === true;
+}
+
 export function filterSettlements(
   perks: PerkItem[],
   filter: ClassActionFilter,
@@ -193,7 +200,7 @@ export function resolveClaimActions(
 ): SettlementClaimActions {
   const raw = perk.claimUrl?.trim() ?? "";
   const claimUrl = raw && isSafeHttpUrl(raw) ? raw : null;
-  const closed = isSettlementClosed(perk) || perk.cta?.primaryDisabled === true;
+  const closed = isClaimWindowClosed(perk);
   const accessible = perk.accessible !== false;
   return {
     claimUrl,

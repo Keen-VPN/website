@@ -50,7 +50,7 @@ function StatTile({
       <p
         className={cn(
           "mt-1 text-[28px] font-bold leading-none",
-          accent ? "text-[#c2531b]" : "text-[#0f2040]",
+          accent ? "text-[#b24a14]" : "text-[#0f2040]",
         )}
       >
         {value}
@@ -100,12 +100,15 @@ function SettlementListCard({ perk }: { perk: PerkItem }) {
         closed ? "bg-[#fbfcfe]" : "bg-white",
       )}
     >
-      <div className={cn("flex min-w-0 flex-1 gap-4", closed && "opacity-80")}>
-        <SettlementLogo
-          imageUrl={perk.imageUrl}
-          partnerName={perk.partnerName}
-          title={perk.title}
-        />
+      <div className="flex min-w-0 flex-1 gap-4">
+        {/* Fade only the logo; text keeps full contrast on closed cards. */}
+        <div className={cn("shrink-0", closed && "opacity-70")}>
+          <SettlementLogo
+            imageUrl={perk.imageUrl}
+            partnerName={perk.partnerName}
+            title={perk.title}
+          />
+        </div>
         <div className="min-w-0 flex-1">
           <SettlementPartnerLine
             partnerName={perk.partnerName}
@@ -162,7 +165,7 @@ function SettlementListCard({ perk }: { perk: PerkItem }) {
             className={cn(
               "mt-0.5 text-[22px] font-bold leading-tight",
               closingSoon
-                ? "text-[#c2531b]"
+                ? "text-[#b24a14]"
                 : closed
                   ? "text-[#8390a5]"
                   : "text-[#0f2040]",
@@ -174,7 +177,7 @@ function SettlementListCard({ perk }: { perk: PerkItem }) {
             <p
               className={cn(
                 "text-[13px]",
-                closingSoon ? "text-[#c2531b]" : "text-[#627086]",
+                closingSoon ? "text-[#b24a14]" : "text-[#627086]",
               )}
             >
               {daysLeft}
@@ -202,7 +205,7 @@ function SettlementListCard({ perk }: { perk: PerkItem }) {
             </button>
             <Link
               to={detailPath}
-              className="text-center text-[14px] text-[#8390a5] hover:text-[#0f2040] hover:underline"
+              className="text-center text-[14px] text-[#627086] hover:text-[#0f2040] hover:underline"
             >
               View details
             </Link>
@@ -322,9 +325,11 @@ export default function DashboardClassAction() {
   );
   const noOpenSettlements = perks !== null && stats.openNow === 0;
 
-  // Only the empty state needs the email preference.
+  // Only the empty state needs the email preference. Keyed on the member so a
+  // different account never inherits the previous member's subscription state.
   useEffect(() => {
-    if (!noOpenSettlements) return;
+    setPerksOffersSubscribed(true);
+    if (!noOpenSettlements || !user) return;
     const session = getSessionToken();
     if (!session) return;
     let cancelled = false;
@@ -334,7 +339,7 @@ export default function DashboardClassAction() {
     return () => {
       cancelled = true;
     };
-  }, [noOpenSettlements]);
+  }, [noOpenSettlements, user]);
 
   const setFilter = (next: ClassActionFilter) => {
     setSearchParams(next === "all" ? {} : { filter: next }, { replace: true });
@@ -467,7 +472,7 @@ export default function DashboardClassAction() {
                   Closed ({stats.closed})
                 </FilterChip>
               </div>
-              <p className="hidden shrink-0 text-[14px] text-[#8390a5] md:block">
+              <p className="hidden shrink-0 text-[14px] text-[#627086] md:block">
                 Sorted by deadline
               </p>
             </div>

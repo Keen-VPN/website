@@ -6,6 +6,7 @@ import {
   filterSettlements,
   formatDaysLeft,
   formatSettlementDate,
+  isClaimWindowClosed,
   isSubscribedToPerkOffers,
   parseClassActionFilter,
   resolveClaimActions,
@@ -267,5 +268,16 @@ describe("settlementInitials", () => {
         expect([...settlementInitials(name, title)]).toHaveLength(2);
       }
     }
+  });
+});
+
+describe("isClaimWindowClosed", () => {
+  it("treats closed status or a disabled primary CTA as closed", () => {
+    const cta = { primary: "File claim", secondary: null, primaryDisabled: false };
+    expect(isClaimWindowClosed({ settlementStatus: "open", cta })).toBe(false);
+    expect(isClaimWindowClosed({ settlementStatus: "closed", cta })).toBe(true);
+    expect(
+      isClaimWindowClosed({ settlementStatus: "open", cta: { ...cta, primaryDisabled: true } }),
+    ).toBe(true);
   });
 });
