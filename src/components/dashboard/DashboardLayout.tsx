@@ -11,14 +11,16 @@ const PAGE_TITLES: Record<string, string> = {
   "/referrals": "Refer",
   "/profile": "Profile",
   "/downloads": "Downloads",
-  "/class-action": "Class Action",
+  "/class-action": "Class Actions",
   "/ai-assistant": "AI Assistant",
 };
 
 export default function DashboardLayout() {
   const location = useLocation();
   const pathname = location.pathname.replace(/\/+$/, "") || "/";
-  const title = PAGE_TITLES[pathname] ?? "Dashboard";
+  const title =
+    PAGE_TITLES[pathname] ??
+    (pathname.startsWith("/class-action/") ? "Class Actions" : "Dashboard");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {

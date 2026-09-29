@@ -124,6 +124,9 @@ const DashboardVpn = lazy(() => import("./pages/DashboardVpn"));
 const DashboardDownloads = lazy(() => import("./pages/DashboardDownloads"));
 const DashboardReferrals = lazy(() => import("./pages/DashboardReferrals"));
 const DashboardClassAction = lazy(() => import("./pages/DashboardClassAction"));
+const DashboardClassActionDetail = lazy(
+  () => import("./pages/DashboardClassActionDetail"),
+);
 const DashboardSubscription = lazy(
   () => import("./pages/DashboardSubscription"),
 );
@@ -315,6 +318,10 @@ const App = () => (
                 <Route path="/downloads" element={<DashboardDownloads />} />
                 <Route path="/referrals" element={<DashboardReferrals />} />
                 <Route path="/class-action" element={<DashboardClassAction />} />
+                <Route
+                  path="/class-action/:id"
+                  element={<DashboardClassActionDetail />}
+                />
                 <Route path="/ai-assistant" element={<DashboardAiAssistant />} />
                 <Route
                   path="/subscription"
