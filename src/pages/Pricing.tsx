@@ -107,23 +107,17 @@ const Pricing = () => {
 
   const trialCtaViewTrackedRef = useRef(false);
   useEffect(() => {
-    if (ctaKind !== "start_free_trial" || trialCtaViewTrackedRef.current) {
+    if (
+      ctaKind !== "start_free_trial" ||
+      !user?.id ||
+      trialCtaViewTrackedRef.current
+    ) {
       return;
     }
     trialCtaViewTrackedRef.current = true;
     void recordTrialCtaEvent({
       eventName: "trial_cta_viewed",
-      userId: user?.id,
-      sourcePage: "/pricing",
-      cta: "start_free_trial",
-    });
-  }, [ctaKind, user?.id]);
-
-  const trackTrialCtaClick = useCallback(() => {
-    if (ctaKind !== "start_free_trial") return;
-    void recordTrialCtaEvent({
-      eventName: "trial_cta_clicked",
-      userId: user?.id,
+      userId: user.id,
       sourcePage: "/pricing",
       cta: "start_free_trial",
     });
@@ -699,7 +693,6 @@ const Pricing = () => {
                     <Button
                       onClick={() => {
                         if (ctaKind === "loading") return;
-                        trackTrialCtaClick();
                         const queryParams = new URLSearchParams({
                           planId:
                             planSelection?.planId ??
@@ -1007,7 +1000,6 @@ const Pricing = () => {
                     navigate("/account");
                     return;
                   }
-                  trackTrialCtaClick();
                   navigate("/subscribe");
                 }}
                 disabled={ctaKind === "loading"}

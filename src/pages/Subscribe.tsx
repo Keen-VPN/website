@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -289,20 +289,6 @@ const Subscribe = () => {
       ? "Subscribe to Keen VPN"
       : "Re-subscribe to Keen VPN";
   const isManageableSubscription = hasManageableSubscription(subscription);
-
-  const trialCtaViewTrackedRef = useRef(false);
-  useEffect(() => {
-    if (!startsWithFreeTrial || !user?.id || trialCtaViewTrackedRef.current) {
-      return;
-    }
-    trialCtaViewTrackedRef.current = true;
-    void recordTrialCtaEvent({
-      eventName: "trial_cta_viewed",
-      userId: user.id,
-      sourcePage: "/subscribe",
-      cta: "start_free_trial",
-    });
-  }, [startsWithFreeTrial, user?.id]);
 
   // True while we are waiting for the first confirmed-fresh subscription status.
   // Guards the redirect effect so a stale "active" value in AuthContext state

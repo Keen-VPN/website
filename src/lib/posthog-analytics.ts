@@ -709,38 +709,28 @@ export function trackPostHogSubscriptionStarted(
   );
 }
 
-/** Impression of a Start Free Trial CTA (not activation). */
+/** Impression of a Start Free Trial CTA (not activation). Authenticated only. */
 export function trackPostHogTrialCtaViewed(
-  userId: string | null | undefined,
+  userId: string,
   properties: PostHogPayload = {},
 ): void {
-  if (userId) identifyPostHogUser(userId);
-  trackPostHogEvent(
-    "trial_cta_viewed",
-    {
-      user_id: userId ?? null,
-      ...properties,
-    },
-    userId ? `trial_cta_viewed:${userId}` : undefined,
-    { persistent: true },
-  );
+  identifyPostHogUser(userId);
+  trackPostHogEvent("trial_cta_viewed", {
+    user_id: userId,
+    ...properties,
+  });
 }
 
-/** Click on a Start Free Trial CTA (not activation). */
+/** Click on a Start Free Trial CTA (not activation). Authenticated only. */
 export function trackPostHogTrialCtaClicked(
-  userId: string | null | undefined,
+  userId: string,
   properties: PostHogPayload = {},
 ): void {
-  if (userId) identifyPostHogUser(userId);
-  trackPostHogEvent(
-    "trial_cta_clicked",
-    {
-      user_id: userId ?? null,
-      ...properties,
-    },
-    userId ? `trial_cta_clicked:${userId}` : undefined,
-    { persistent: true },
-  );
+  identifyPostHogUser(userId);
+  trackPostHogEvent("trial_cta_clicked", {
+    user_id: userId,
+    ...properties,
+  });
 }
 
 export function forwardProductEventToPostHog(

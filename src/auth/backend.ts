@@ -4151,8 +4151,11 @@ export async function recordAppDownloadClicked(input: {
 
 /**
  * Records trial CTA impression or click (PostHog + backend product_events).
- * Distinct from trial_started (activation). Requires a logged-in session for
- * backend persistence so admin KPI reports can attribute to a user id.
+ * Distinct from trial_started (activation). Requires a logged-in user id so
+ * admin KPI reports and PostHog funnel counts stay authenticated-only.
+ *
+ * View is session-deduped (Pricing → Subscribe should count once).
+ * Click is recorded on checkout start (/subscribe), not on Pricing navigation.
  */
 export async function recordTrialCtaEvent(input: {
   eventName: "trial_cta_viewed" | "trial_cta_clicked";
@@ -4160,18 +4163,30 @@ export async function recordTrialCtaEvent(input: {
   sourcePage?: string;
   cta?: string;
 }): Promise<void> {
+  const userId = input.userId?.trim();
+  if (!userId) return;
+
   const sourcePage =
     input.sourcePage ??
     (typeof window !== "undefined" ? window.location.pathname : undefined);
   const cta = input.cta ?? "start_free_trial";
 
   if (input.eventName === "trial_cta_viewed") {
-    trackPostHogTrialCtaViewed(input.userId, {
+    const viewKey = `keen_trial_cta_viewed:${userId}`;
+    if (typeof window !== "undefined") {
+      try {
+        if (sessionStorage.getItem(viewKey)) return;
+        sessionStorage.setItem(viewKey, "1");
+      } catch {
+        /* private mode — still emit once via caller refs */
+      }
+    }
+    trackPostHogTrialCtaViewed(userId, {
       source_page: sourcePage ?? null,
       cta,
     });
   } else {
-    trackPostHogTrialCtaClicked(input.userId, {
+    trackPostHogTrialCtaClicked(userId, {
       source_page: sourcePage ?? null,
       cta,
     });

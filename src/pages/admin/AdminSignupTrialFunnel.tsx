@@ -24,8 +24,14 @@ export default function AdminSignupTrialFunnel() {
 
   const load = useCallback(async (from: string, to: string) => {
     if (!isAdminReportDateRangeValid(from, to)) {
+      activeRequest.current?.abort();
+      activeRequest.current = null;
       setReport(null);
-      setError(null);
+      setError(
+        from.trim() && to.trim()
+          ? "From date must be on or before To date."
+          : "Select both dates.",
+      );
       setLoading(false);
       return;
     }
