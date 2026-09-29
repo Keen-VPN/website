@@ -709,6 +709,40 @@ export function trackPostHogSubscriptionStarted(
   );
 }
 
+/** Impression of a Start Free Trial CTA (not activation). */
+export function trackPostHogTrialCtaViewed(
+  userId: string | null | undefined,
+  properties: PostHogPayload = {},
+): void {
+  if (userId) identifyPostHogUser(userId);
+  trackPostHogEvent(
+    "trial_cta_viewed",
+    {
+      user_id: userId ?? null,
+      ...properties,
+    },
+    userId ? `trial_cta_viewed:${userId}` : undefined,
+    { persistent: true },
+  );
+}
+
+/** Click on a Start Free Trial CTA (not activation). */
+export function trackPostHogTrialCtaClicked(
+  userId: string | null | undefined,
+  properties: PostHogPayload = {},
+): void {
+  if (userId) identifyPostHogUser(userId);
+  trackPostHogEvent(
+    "trial_cta_clicked",
+    {
+      user_id: userId ?? null,
+      ...properties,
+    },
+    userId ? `trial_cta_clicked:${userId}` : undefined,
+    { persistent: true },
+  );
+}
+
 export function forwardProductEventToPostHog(
   eventName: string,
   payload: PostHogPayload = {},

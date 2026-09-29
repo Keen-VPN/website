@@ -217,6 +217,13 @@ export default function AdminSidebarLayout() {
               Download Funnel
             </NavLink>
             <NavLink
+              to="/admin/signup-trial-funnel"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              <Megaphone className="h-4 w-4" />
+              Signup → Trial
+            </NavLink>
+            <NavLink
               to="/admin/utm-attribution"
               className={({ isActive }) => linkClass(isActive)}
             >

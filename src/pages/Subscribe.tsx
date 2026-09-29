@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +27,7 @@ import {
   createCheckoutSession,
   getSessionToken,
   recordSignupStarted,
+  recordTrialCtaEvent,
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
 import { queuePostHogSignupMethodSelected } from "@/lib/posthog-analytics";
@@ -289,6 +290,20 @@ const Subscribe = () => {
       : "Re-subscribe to Keen VPN";
   const isManageableSubscription = hasManageableSubscription(subscription);
 
+  const trialCtaViewTrackedRef = useRef(false);
+  useEffect(() => {
+    if (!startsWithFreeTrial || !user?.id || trialCtaViewTrackedRef.current) {
+      return;
+    }
+    trialCtaViewTrackedRef.current = true;
+    void recordTrialCtaEvent({
+      eventName: "trial_cta_viewed",
+      userId: user.id,
+      sourcePage: "/subscribe",
+      cta: "start_free_trial",
+    });
+  }, [startsWithFreeTrial, user?.id]);
+
   // True while we are waiting for the first confirmed-fresh subscription status.
   // Guards the redirect effect so a stale "active" value in AuthContext state
   // (e.g. from a previous navigation within the SPA) can never trigger a premature
@@ -536,6 +551,15 @@ const Subscribe = () => {
       });
       navigate("/account");
       return;
+    }
+
+    if (startsWithFreeTrial) {
+      void recordTrialCtaEvent({
+        eventName: "trial_cta_clicked",
+        userId: user.id,
+        sourcePage: "/subscribe",
+        cta: "start_free_trial",
+      });
     }
 
     try {

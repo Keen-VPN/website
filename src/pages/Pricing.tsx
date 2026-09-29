@@ -24,7 +24,7 @@ import {
   featureComparisonValueForPlan,
   faqs,
 } from "@/constants/pricing";
-import { fetchSubscriptionPlans, getSessionToken } from "@/auth/backend";
+import { fetchSubscriptionPlans, getSessionToken, recordTrialCtaEvent } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import { useTwoYearPlanChange } from "@/hooks/use-plan-change";
 import { useMembershipSharing } from "@/hooks/use-membership-sharing";
@@ -104,6 +104,30 @@ const Pricing = () => {
     () => getPricingCtaKind(authLoading, user, subscription?.status, trial),
     [authLoading, user, subscription?.status, trial],
   );
+
+  const trialCtaViewTrackedRef = useRef(false);
+  useEffect(() => {
+    if (ctaKind !== "start_free_trial" || trialCtaViewTrackedRef.current) {
+      return;
+    }
+    trialCtaViewTrackedRef.current = true;
+    void recordTrialCtaEvent({
+      eventName: "trial_cta_viewed",
+      userId: user?.id,
+      sourcePage: "/pricing",
+      cta: "start_free_trial",
+    });
+  }, [ctaKind, user?.id]);
+
+  const trackTrialCtaClick = useCallback(() => {
+    if (ctaKind !== "start_free_trial") return;
+    void recordTrialCtaEvent({
+      eventName: "trial_cta_clicked",
+      userId: user?.id,
+      sourcePage: "/pricing",
+      cta: "start_free_trial",
+    });
+  }, [ctaKind, user?.id]);
 
   const isMonthlyStripeUpgradeEligible = canUpgradeStripeToAnnual(subscription);
   const annualBillingAlreadyScheduled = hasScheduledAnnualBilling(subscription);
@@ -675,6 +699,7 @@ const Pricing = () => {
                     <Button
                       onClick={() => {
                         if (ctaKind === "loading") return;
+                        trackTrialCtaClick();
                         const queryParams = new URLSearchParams({
                           planId:
                             planSelection?.planId ??
@@ -982,6 +1007,7 @@ const Pricing = () => {
                     navigate("/account");
                     return;
                   }
+                  trackTrialCtaClick();
                   navigate("/subscribe");
                 }}
                 disabled={ctaKind === "loading"}
