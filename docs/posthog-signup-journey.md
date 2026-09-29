@@ -14,8 +14,10 @@ Reuse these names — do not invent aliases (`signup_completed` → use `user_ac
 | 5 | `user_account_created` | New KeenVPN account created |
 | 6 | `app_download_clicked` | Store / download CTA clicked (intent only) |
 | 7 | `app_authenticated` | Native app first authenticated session (backend `product_events`; not yet mirrored to PostHog from apps) |
-| 8 | `trial_started` | Trial begins |
-| 9 | `subscription_started` | Paid subscription begins |
+| 8 | `trial_cta_viewed` | Authenticated user sees a Start free trial CTA (Pricing) — **not** trial activation |
+| 9 | `trial_cta_clicked` | Authenticated user clicks Start free trial — **not** trial activation |
+| 10 | `trial_started` | Trial begins |
+| 11 | `subscription_started` | Paid subscription begins |
 
 ## Identity
 
@@ -58,8 +60,10 @@ Create a **Funnel** insight named **Signup conversion journey**.
 2. `signup_started`
 3. `user_account_created`
 4. `app_authenticated` *(optional until native → PostHog; omit if empty)*
-5. `trial_started`
-6. `subscription_started`
+5. `trial_cta_viewed` *(impression — keep separate from click/activation)*
+6. `trial_cta_clicked` *(click — keep separate from activation)*
+7. `trial_started`
+8. `subscription_started`
 
 **Conversion window:** 14 days (adjust as needed).
 

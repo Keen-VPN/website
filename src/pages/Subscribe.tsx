@@ -27,6 +27,7 @@ import {
   createCheckoutSession,
   getSessionToken,
   recordSignupStarted,
+  recordTrialCtaEvent,
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
 import { queuePostHogSignupMethodSelected } from "@/lib/posthog-analytics";
@@ -536,6 +537,15 @@ const Subscribe = () => {
       });
       navigate("/account");
       return;
+    }
+
+    if (startsWithFreeTrial) {
+      void recordTrialCtaEvent({
+        eventName: "trial_cta_clicked",
+        userId: user.id,
+        sourcePage: "/subscribe",
+        cta: "start_free_trial",
+      });
     }
 
     try {

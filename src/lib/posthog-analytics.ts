@@ -709,6 +709,30 @@ export function trackPostHogSubscriptionStarted(
   );
 }
 
+/** Impression of a Start Free Trial CTA (not activation). Authenticated only. */
+export function trackPostHogTrialCtaViewed(
+  userId: string,
+  properties: PostHogPayload = {},
+): void {
+  identifyPostHogUser(userId);
+  trackPostHogEvent("trial_cta_viewed", {
+    user_id: userId,
+    ...properties,
+  });
+}
+
+/** Click on a Start Free Trial CTA (not activation). Authenticated only. */
+export function trackPostHogTrialCtaClicked(
+  userId: string,
+  properties: PostHogPayload = {},
+): void {
+  identifyPostHogUser(userId);
+  trackPostHogEvent("trial_cta_clicked", {
+    user_id: userId,
+    ...properties,
+  });
+}
+
 export function forwardProductEventToPostHog(
   eventName: string,
   payload: PostHogPayload = {},
