@@ -4653,7 +4653,7 @@ export interface AdminSignupTrialPaidFunnelReport {
   from: string;
   to: string;
   stages: {
-    visitors: number;
+    signup_started: number;
     signups: number;
     trial_cta_viewed: number;
     trial_cta_clicked: number;
@@ -4661,7 +4661,6 @@ export interface AdminSignupTrialPaidFunnelReport {
     paid: number;
   };
   rates: {
-    visitor_to_signup: number;
     signup_to_cta_viewed: number;
     signup_to_cta_clicked: number;
     signup_to_trial: number;
@@ -4669,7 +4668,6 @@ export interface AdminSignupTrialPaidFunnelReport {
     signup_to_paid: number;
   };
   drop_off: {
-    visitor_to_signup: number;
     signup_to_cta_viewed: number;
     cta_viewed_to_clicked: number;
     cta_clicked_to_trial: number;
