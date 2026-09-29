@@ -112,9 +112,10 @@ export default function AdminSignupTrialFunnel() {
         </h2>
         <p className="text-sm text-muted-foreground">
           Conversion funnel with Trial CTA view and click kept separate from
-          trial activation. Rates use <strong>signups</strong> as the
-          denominator. Internal @keenvpn.com / @vpnkeen.com accounts are
-          excluded. Unique site visitors live in PostHog (
+          trial activation. Signup→CTA / trial / paid rates use{" "}
+          <strong>signups</strong> as the denominator; Trial → Paid uses{" "}
+          <strong>trials</strong>. Internal @keenvpn.com / @vpnkeen.com
+          accounts are excluded. Unique site visitors live in PostHog (
           <code className="text-xs">$pageview</code>), not this report. Also
           see{" "}
           <Link className="underline" to="/admin/utm-attribution">
