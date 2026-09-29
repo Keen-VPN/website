@@ -4154,9 +4154,41 @@ export async function recordAppDownloadClicked(input: {
  * Distinct from trial_started (activation). Requires a logged-in user id so
  * admin KPI reports and PostHog funnel counts stay authenticated-only.
  *
- * View is session-deduped (Pricing → Subscribe should count once).
- * Click is recorded on checkout start (/subscribe), not on Pricing navigation.
+ * View is session-deduped (Pricing → Subscribe should count once). Backend also
+ * dedupes trial_cta_viewed per user. Click is recorded only when checkout starts.
  */
+const trialCtaViewSeenInMemory = new Set<string>();
+
+function hasTrialCtaViewDedupe(viewKey: string): boolean {
+  if (trialCtaViewSeenInMemory.has(viewKey)) return true;
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(viewKey) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Claim in-flight / in-memory immediately so concurrent callers skip. */
+function claimTrialCtaViewInMemory(viewKey: string): void {
+  trialCtaViewSeenInMemory.add(viewKey);
+}
+
+/** Persist across remounts only after backend confirms tracked. */
+function persistTrialCtaViewDedupe(viewKey: string): void {
+  trialCtaViewSeenInMemory.add(viewKey);
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(viewKey, "1");
+  } catch {
+    /* private mode — in-memory set still covers remounts in this tab */
+  }
+}
+
+function releaseTrialCtaViewInMemory(viewKey: string): void {
+  trialCtaViewSeenInMemory.delete(viewKey);
+}
+
 export async function recordTrialCtaEvent(input: {
   eventName: "trial_cta_viewed" | "trial_cta_clicked";
   userId?: string | null;
@@ -4170,52 +4202,81 @@ export async function recordTrialCtaEvent(input: {
     input.sourcePage ??
     (typeof window !== "undefined" ? window.location.pathname : undefined);
   const cta = input.cta ?? "start_free_trial";
+  const viewKey =
+    input.eventName === "trial_cta_viewed"
+      ? `keen_trial_cta_viewed:${userId}`
+      : null;
 
-  if (input.eventName === "trial_cta_viewed") {
-    const viewKey = `keen_trial_cta_viewed:${userId}`;
-    if (typeof window !== "undefined") {
-      try {
-        if (sessionStorage.getItem(viewKey)) return;
-        sessionStorage.setItem(viewKey, "1");
-      } catch {
-        /* private mode — still emit once via caller refs */
-      }
-    }
-    trackPostHogTrialCtaViewed(userId, {
-      source_page: sourcePage ?? null,
-      cta,
-    });
-  } else {
-    trackPostHogTrialCtaClicked(userId, {
-      source_page: sourcePage ?? null,
-      cta,
-    });
+  if (viewKey && hasTrialCtaViewDedupe(viewKey)) {
+    return;
+  }
+  // Close the concurrent-call window before the async fetch.
+  if (viewKey) {
+    claimTrialCtaViewInMemory(viewKey);
   }
 
   let sessionToken: string | null = null;
   try {
     sessionToken = getSessionToken();
   } catch {
+    if (viewKey) releaseTrialCtaViewInMemory(viewKey);
     return;
   }
-  if (!sessionToken) return;
+  if (!sessionToken) {
+    if (viewKey) releaseTrialCtaViewInMemory(viewKey);
+    return;
+  }
 
   try {
-    await fetch(`${BACKEND_URL}/marketing-attribution/trial-cta`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionToken}`,
+    const response = await fetch(
+      `${BACKEND_URL}/marketing-attribution/trial-cta`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({
+          event_name: input.eventName,
+          source_page: sourcePage,
+          cta,
+        }),
+        keepalive: true,
       },
-      body: JSON.stringify({
-        event_name: input.eventName,
-        source_page: sourcePage,
+    );
+    if (!response.ok) {
+      if (viewKey) releaseTrialCtaViewInMemory(viewKey);
+      return;
+    }
+    const data: unknown = await response.json().catch(() => ({}));
+    const tracked =
+      typeof data === "object" &&
+      data !== null &&
+      (data as { tracked?: boolean }).tracked === true;
+    if (!tracked) {
+      if (viewKey) releaseTrialCtaViewInMemory(viewKey);
+      return;
+    }
+
+    // Persist across remounts only after backend accepts / already-tracked.
+    if (viewKey) {
+      persistTrialCtaViewDedupe(viewKey);
+    }
+
+    if (input.eventName === "trial_cta_viewed") {
+      trackPostHogTrialCtaViewed(userId, {
+        source_page: sourcePage ?? null,
         cta,
-      }),
-      keepalive: true,
-    });
+      });
+    } else {
+      trackPostHogTrialCtaClicked(userId, {
+        source_page: sourcePage ?? null,
+        cta,
+      });
+    }
   } catch {
-    /* non-fatal */
+    if (viewKey) releaseTrialCtaViewInMemory(viewKey);
+    /* non-fatal — leave sessionStorage unset so a later attempt can retry */
   }
 }
 

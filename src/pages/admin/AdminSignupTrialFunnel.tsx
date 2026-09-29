@@ -128,7 +128,7 @@ export default function AdminSignupTrialFunnel() {
 
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-sm">
-          <span className="mb-1 block text-muted-foreground">From</span>
+          <span className="mb-1 block text-muted-foreground">From (UTC)</span>
           <input
             type="date"
             className="rounded-md border border-border bg-background px-3 py-2"
@@ -137,7 +137,9 @@ export default function AdminSignupTrialFunnel() {
           />
         </label>
         <label className="text-sm">
-          <span className="mb-1 block text-muted-foreground">To</span>
+          <span className="mb-1 block text-muted-foreground">
+            To (UTC, exclusive)
+          </span>
           <input
             type="date"
             className="rounded-md border border-border bg-background px-3 py-2"
