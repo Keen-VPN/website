@@ -670,6 +670,29 @@ export function trackPostHogAppDownloadClicked(
   });
 }
 
+/**
+ * Universal /download-app link opened — before redirect or selection.
+ * Complements app_download_clicked (store CTA) with routing context.
+ */
+export function trackPostHogDownloadAppLinkOpened(properties: {
+  detected_platform: string;
+  destination_platform: string;
+  source_page?: string | null;
+  referrer?: string | null;
+  auto_redirect?: boolean;
+  store_url?: string | null;
+}): void {
+  trackPostHogEvent("download_app_link_opened", {
+    detected_platform: properties.detected_platform,
+    destination_platform: properties.destination_platform,
+    source_page: properties.source_page ?? null,
+    referrer: properties.referrer ?? null,
+    auto_redirect: properties.auto_redirect ?? false,
+    store_url: properties.store_url ?? null,
+    platform: "web",
+  });
+}
+
 export function trackPostHogAccountCreated(userId: string): void {
   identifyPostHogUser(userId);
   trackPostHogEvent(

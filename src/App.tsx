@@ -51,6 +51,7 @@ const SubscriptionHistory = lazy(() => import("./pages/SubscriptionHistory"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const PaymentCancel = lazy(() => import("./pages/PaymentCancel"));
 const OpenApp = lazy(() => import("./pages/OpenApp"));
+const DownloadApp = lazy(() => import("./pages/DownloadApp"));
 const AuthDebug = lazy(() => import("./pages/AuthDebug"));
 const AppleDebug = lazy(() => import("./pages/AppleDebug"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -339,6 +340,7 @@ const App = () => (
               <Route path="/success" element={<PaymentSuccess />} />
               <Route path="/cancel" element={<PaymentCancel />} />
               <Route path="/open-app" element={<OpenApp />} />
+              <Route path="/download-app" element={<DownloadApp />} />
               <Route path="/auth/debug" element={<AuthDebug />} />
               <Route path="/apple/debug" element={<AppleDebug />} />
               <Route path="/admin/login" element={<AdminLogin />} />
