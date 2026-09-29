@@ -215,7 +215,7 @@ describe("posthog analytics", () => {
         detected_platform: "ios",
         destination_platform: "ios",
         source_page: "/download-app",
-        referrer: "https://example.com",
+        referrer: "https://example.com/",
         auto_redirect: true,
         platform: "web",
       }),
