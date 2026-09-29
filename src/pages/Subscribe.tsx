@@ -539,15 +539,6 @@ const Subscribe = () => {
       return;
     }
 
-    if (startsWithFreeTrial) {
-      void recordTrialCtaEvent({
-        eventName: "trial_cta_clicked",
-        userId: user.id,
-        sourcePage: "/subscribe",
-        cta: "start_free_trial",
-      });
-    }
-
     try {
       setCheckoutLoading(true);
 
@@ -594,6 +585,15 @@ const Subscribe = () => {
       }
 
       if (result.url) {
+        // Count click only when checkout actually starts (redirect imminent).
+        if (startsWithFreeTrial) {
+          void recordTrialCtaEvent({
+            eventName: "trial_cta_clicked",
+            userId: user.id,
+            sourcePage: "/subscribe",
+            cta: "start_free_trial",
+          });
+        }
         window.location.href = result.url;
       } else {
         throw new Error("No checkout URL received");
