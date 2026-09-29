@@ -7,9 +7,15 @@ export function detectDevice(): DeviceType {
 
   const userAgent = window.navigator.userAgent.toLowerCase();
   const platform = window.navigator.platform.toLowerCase();
+  const maxTouchPoints = window.navigator.maxTouchPoints ?? 0;
 
   // iOS detection (iPhone, iPad, iPod)
   if (/iphone|ipad|ipod/.test(userAgent)) {
+    return "ios";
+  }
+
+  // iPadOS 13+ often reports as MacIntel with touch.
+  if (/mac/.test(platform) && maxTouchPoints > 1) {
     return "ios";
   }
 
@@ -30,6 +36,15 @@ export function detectDevice(): DeviceType {
   }
 
   return "other";
+}
+
+/** Heuristic for crawlers / link unfurlers that should get the selection page. */
+export function isLikelyBotUserAgent(userAgent?: string): boolean {
+  const ua = (userAgent ?? "").toLowerCase();
+  if (!ua) return false;
+  return /bot|crawl|spider|slurp|facebookexternalhit|preview|whatsapp|telegram|discordbot|linkedinbot|twitterbot|embedly|quora|pinterest|slackbot|vkshare|w3c_validator|googlebot|bingbot|semrush|ahrefs|mj12|dotbot|applebot|meta-externalagent/i.test(
+    ua,
+  );
 }
 
 export function isApplePlatform(): boolean {

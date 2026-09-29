@@ -199,6 +199,29 @@ describe("posthog analytics", () => {
     );
   });
 
+  it("tracks download_app_link_opened with routing context", async () => {
+    const analytics = await import("./posthog-analytics");
+    analytics.trackPostHogDownloadAppLinkOpened({
+      detected_platform: "ios",
+      destination_platform: "ios",
+      source_page: "/download-app",
+      referrer: "https://example.com",
+      auto_redirect: true,
+      store_url: "https://apps.apple.com/us/app/keenvpn-secure-vpn/id6753761859",
+    });
+    expect(capture).toHaveBeenCalledWith(
+      "download_app_link_opened",
+      expect.objectContaining({
+        detected_platform: "ios",
+        destination_platform: "ios",
+        source_page: "/download-app",
+        referrer: "https://example.com/",
+        auto_redirect: true,
+        platform: "web",
+      }),
+    );
+  });
+
   it("dedupes email signup_method_selected across retries", async () => {
     const analytics = await import("./posthog-analytics");
     analytics.trackPostHogSignupMethodSelected(

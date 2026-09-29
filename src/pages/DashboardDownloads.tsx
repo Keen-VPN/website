@@ -27,9 +27,6 @@ interface DownloadSection {
   items: DownloadItem[];
 }
 
-const CHROME_EXTENSION_URL =
-  "https://chromewebstore.google.com/detail/keenvpn-%E2%80%94-browser-protect/fdmiheabmohipekdgphijdboekojllfh";
-
 const SECTIONS: DownloadSection[] = [
   {
     title: "Desktop apps",
@@ -87,7 +84,7 @@ const SECTIONS: DownloadSection[] = [
         title: "Chrome",
         subtitle: "Available on Chrome Web store",
         cta: "Add extension",
-        href: CHROME_EXTENSION_URL,
+        href: APP_STORE_URLS.chrome,
         icon: <Chrome className="h-5 w-5 text-dash-ink" />,
       },
     ],
