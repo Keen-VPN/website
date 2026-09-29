@@ -80,11 +80,12 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
   const closingSoon = perk.settlementStatus === "closing_soon";
   const actions = resolveClaimActions(perk);
   const host = claimHost(actions.claimUrl);
-  // formatSettlementDate returns null for blank or invalid dates, so each
-  // source is tried in turn rather than relying on ?? (which keeps "").
+  // Glance first, like settlementDaysRemaining, so "Claim by" and days left
+  // always come from the same record. formatSettlementDate returns null for
+  // blank or invalid dates, so each source is tried in turn.
   const deadline =
-    formatSettlementDate(perk.claimDeadline) ??
-    formatSettlementDate(perk.atAGlance?.claimBy);
+    formatSettlementDate(perk.atAGlance?.claimBy) ??
+    formatSettlementDate(perk.claimDeadline);
   const payment =
     firstNonBlank(perk.potentialPayment, perk.atAGlance?.expectedPayout) ??
     "See claim details";
