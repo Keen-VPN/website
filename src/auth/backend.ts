@@ -570,7 +570,20 @@ export interface PerkItem {
   /** True when a workflow application is in progress but not yet completed. */
   applicationInProgress?: boolean;
   applicationWorkflowId?: string;
+  /** Class-action settlement fields (only on category "class_action"). */
+  settlementStatus?: SettlementStatus;
+  potentialPayment?: string | null;
+  claimDeadline?: string | null;
+  docsNeeded?: boolean;
+  docsNeededLabel?: string;
+  eligibilityTags?: string[];
+  proofSummary?: string;
+  eligibleRegion?: string;
 }
+
+export type SettlementStatus = "open" | "closing_soon" | "closed";
+
+export type SettlementStatusFilter = SettlementStatus | "all";
 
 export interface PerksListPayload {
   userAccessTier: PerkAccessTier;
@@ -579,16 +592,34 @@ export interface PerksListPayload {
   perks: PerkItem[];
 }
 
+export interface FetchPerksOptions {
+  category?: string;
+  search?: string;
+  tab?: PerkUserTab;
+  /** Class-action only. The API defaults to open settlements. */
+  status?: SettlementStatusFilter;
+  /** Class-action only. */
+  docsNeeded?: boolean;
+}
+
+export function buildPerksQuery(options?: FetchPerksOptions): string {
+  const params = new URLSearchParams();
+  if (options?.category) params.set("category", options.category);
+  if (options?.search?.trim()) params.set("search", options.search.trim());
+  if (options?.tab) params.set("tab", options.tab);
+  if (options?.status) params.set("status", options.status);
+  if (typeof options?.docsNeeded === "boolean") {
+    params.set("docsNeeded", String(options.docsNeeded));
+  }
+  return params.toString();
+}
+
 export async function fetchPerks(
   sessionToken: string,
-  options?: { category?: string; search?: string; tab?: PerkUserTab },
+  options?: FetchPerksOptions,
 ): Promise<{ success: boolean; data?: PerksListPayload; error?: string }> {
   try {
-    const params = new URLSearchParams();
-    if (options?.category) params.set("category", options.category);
-    if (options?.search?.trim()) params.set("search", options.search.trim());
-    if (options?.tab) params.set("tab", options.tab);
-    const query = params.toString();
+    const query = buildPerksQuery(options);
     const url = `${BACKEND_URL}/perks${query ? `?${query}` : ""}`;
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${sessionToken}` },
@@ -613,6 +644,70 @@ export async function fetchPerks(
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to load perks",
+    };
+  }
+}
+
+export interface SettlementAtAGlance {
+  status: SettlementStatus;
+  proof: string;
+  paymentMethod: string;
+  expectedPayout: string;
+  claimBy: string | null;
+  daysRemaining: number | null;
+}
+
+export interface PerkDetail extends PerkItem {
+  redeemedAt: string | null;
+  /** Class-action detail fields; absent for other categories. */
+  whatHappened?: string;
+  whoMayQualify?: string;
+  whatYouMayNeed?: string;
+  howToClaim?: string;
+  atAGlance?: SettlementAtAGlance;
+  claimUrl?: string | null;
+  caseLabel?: string | null;
+  cta?: {
+    primary: string;
+    secondary: string | null;
+    primaryDisabled: boolean;
+  };
+}
+
+export async function fetchPerk(
+  sessionToken: string,
+  perkId: string,
+): Promise<{
+  success: boolean;
+  data?: PerkDetail;
+  error?: string;
+  notFound?: boolean;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/perks/${encodeURIComponent(perkId)}`,
+      { headers: { Authorization: `Bearer ${sessionToken}` } },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        notFound: response.status === 404,
+        error: extractBackendErrorMessage(data, "Failed to load perk"),
+      };
+    }
+    const inner =
+      data && typeof data === "object" && !Array.isArray(data)
+        ? (data as Record<string, unknown>)["data"]
+        : undefined;
+    if (!inner || typeof inner !== "object" || Array.isArray(inner)) {
+      return { success: false, error: "Invalid perk response" };
+    }
+    return { success: true, data: inner as PerkDetail };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to load perk",
     };
   }
 }
