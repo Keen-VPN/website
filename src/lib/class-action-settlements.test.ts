@@ -4,12 +4,15 @@ import {
   claimHost,
   displaySettlementTitle,
   filterSettlements,
+  firstNonBlank,
   formatDaysLeft,
   formatSettlementDate,
   isClaimWindowClosed,
   isSubscribedToPerkOffers,
   parseClassActionFilter,
   resolveClaimActions,
+  settlementClaimDeadline,
+  settlementDaysRemaining,
   settlementInitials,
   settlementStats,
   sortSettlements,
@@ -97,6 +100,22 @@ describe("sortSettlements", () => {
     ]);
   });
 
+  it("sorts by the same effective deadline the card displays", () => {
+    const glance = {
+      status: "open" as const,
+      proof: "",
+      paymentMethod: "",
+      expectedPayout: "",
+      daysRemaining: null,
+    };
+    const later = perk({ id: "later", claimDeadline: "2026-10-01T00:00:00Z" });
+    const glanceSooner = {
+      ...perk({ id: "glance", claimDeadline: "2026-12-01T00:00:00Z" }),
+      atAGlance: { ...glance, claimBy: "2026-09-30T00:00:00Z" },
+    };
+    expect(ids(sortSettlements([later, glanceSooner], "all"))).toEqual(["glance", "later"]);
+  });
+
   it("sorts closed rows newest first", () => {
     expect(ids(sortSettlements(filterSettlements(rows, "closed"), "closed"))).toEqual([
       "closed-new",
@@ -129,6 +148,7 @@ describe("display helpers", () => {
     expect(formatSettlementDate("2026-09-28T00:00:00.000Z")).toBe("28 Sep 2026");
     expect(formatSettlementDate("2026-08-01T00:00:00.000Z")).toBe("1 Aug 2026");
     expect(formatSettlementDate(null)).toBeNull();
+    expect(formatSettlementDate("")).toBeNull();
     expect(formatSettlementDate("nope")).toBeNull();
     expect(formatDaysLeft(13)).toBe("13 days left");
     expect(formatDaysLeft(1)).toBe("1 day left");
@@ -279,5 +299,60 @@ describe("isClaimWindowClosed", () => {
     expect(
       isClaimWindowClosed({ settlementStatus: "open", cta: { ...cta, primaryDisabled: true } }),
     ).toBe(true);
+  });
+});
+
+describe("settlementDaysRemaining", () => {
+  const glance = {
+    status: "open" as const,
+    proof: "",
+    paymentMethod: "",
+    expectedPayout: "",
+    claimBy: null,
+  };
+
+  it("prefers the detail glance, then the perk value", () => {
+    expect(settlementDaysRemaining({ daysRemaining: 5, atAGlance: { ...glance, daysRemaining: 4 } })).toBe(4);
+    expect(settlementDaysRemaining({ daysRemaining: 5, atAGlance: { ...glance, daysRemaining: null } })).toBe(5);
+    expect(settlementDaysRemaining({ daysRemaining: 5 })).toBe(5);
+    expect(settlementDaysRemaining({ daysRemaining: null })).toBeNull();
+  });
+});
+
+describe("firstNonBlank", () => {
+  it("skips null, undefined, empty and whitespace values", () => {
+    expect(firstNonBlank(null, "", "  ", "Up to $60")).toBe("Up to $60");
+    expect(firstNonBlank(undefined, " Varies ")).toBe("Varies");
+    expect(firstNonBlank("", null, undefined)).toBeNull();
+    expect(firstNonBlank()).toBeNull();
+  });
+});
+
+describe("settlementClaimDeadline", () => {
+  const glance = {
+    status: "open" as const,
+    proof: "",
+    paymentMethod: "",
+    expectedPayout: "",
+    daysRemaining: null,
+  };
+
+  it("prefers a valid glance date, then the perk date", () => {
+    expect(
+      settlementClaimDeadline({
+        claimDeadline: "2026-11-14T00:00:00Z",
+        atAGlance: { ...glance, claimBy: "2026-10-03T00:00:00Z" },
+      }),
+    ).toBe("3 Oct 2026");
+    expect(
+      settlementClaimDeadline({
+        claimDeadline: "2026-11-14T00:00:00Z",
+        atAGlance: { ...glance, claimBy: "" },
+      }),
+    ).toBe("14 Nov 2026");
+    expect(settlementClaimDeadline({ claimDeadline: "2026-11-14T00:00:00Z" })).toBe(
+      "14 Nov 2026",
+    );
+    expect(settlementClaimDeadline({ claimDeadline: null })).toBeNull();
   });
 });

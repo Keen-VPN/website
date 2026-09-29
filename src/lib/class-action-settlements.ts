@@ -79,10 +79,20 @@ export function filterSettlements(
   }
 }
 
-function deadlineTime(perk: Pick<PerkItem, "claimDeadline">): number | null {
-  if (!perk.claimDeadline) return null;
-  const time = Date.parse(perk.claimDeadline);
+type DeadlineSources = Pick<PerkDetail, "claimDeadline" | "atAGlance">;
+
+function parseDeadline(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const time = Date.parse(iso);
   return Number.isNaN(time) ? null : time;
+}
+
+/**
+ * The one effective claim deadline, as epoch ms: the detail glance date when
+ * valid, else the perk's own. Display, days left and sorting all read this order.
+ */
+export function settlementDeadlineTime(perk: DeadlineSources): number | null {
+  return parseDeadline(perk.atAGlance?.claimBy) ?? parseDeadline(perk.claimDeadline);
 }
 
 /** Open rows: soonest deadline first. Closed rows: newest first. Nulls last. */
@@ -92,8 +102,8 @@ export function sortSettlements(
 ): PerkItem[] {
   const direction = filter === "closed" ? -1 : 1;
   return [...perks].sort((a, b) => {
-    const at = deadlineTime(a);
-    const bt = deadlineTime(b);
+    const at = settlementDeadlineTime(a);
+    const bt = settlementDeadlineTime(b);
     if (at === null && bt === null) return a.title.localeCompare(b.title);
     if (at === null) return 1;
     if (bt === null) return -1;
@@ -167,6 +177,33 @@ export function formatSettlementDate(iso: string | null | undefined): string | n
   if (Number.isNaN(date.getTime())) return null;
   // Manual so every ICU build renders "Sep" (en-GB short months can be "Sept").
   return `${date.getUTCDate()} ${SHORT_MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+}
+
+/** First value that is not null, undefined, empty or whitespace, trimmed. */
+export function firstNonBlank(
+  ...values: (string | null | undefined)[]
+): string | null {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
+
+/** Formatted "Claim by" date for list and detail, from settlementDeadlineTime. */
+export function settlementClaimDeadline(perk: DeadlineSources): string | null {
+  const time = settlementDeadlineTime(perk);
+  return time === null ? null : formatSettlementDate(new Date(time).toISOString());
+}
+
+/**
+ * Days left for list and detail alike: the detail glance value when present,
+ * else the perk's own. Both come from the same claim deadline on the backend.
+ */
+export function settlementDaysRemaining(
+  perk: Pick<PerkDetail, "daysRemaining" | "atAGlance">,
+): number | null {
+  return perk.atAGlance?.daysRemaining ?? perk.daysRemaining ?? null;
 }
 
 export function formatDaysLeft(days: number | null | undefined): string | null {

@@ -19,10 +19,12 @@ import {
   CLASS_ACTION_CATEGORY,
   claimHost,
   displaySettlementTitle,
+  firstNonBlank,
   formatDaysLeft,
-  formatSettlementDate,
   isSettlementClosed,
   resolveClaimActions,
+  settlementClaimDeadline,
+  settlementDaysRemaining,
   settlementStatusLabel,
 } from "@/lib/class-action-settlements";
 import { cn } from "@/lib/utils";
@@ -78,10 +80,13 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
   const closingSoon = perk.settlementStatus === "closing_soon";
   const actions = resolveClaimActions(perk);
   const host = claimHost(actions.claimUrl);
-  const deadline = formatSettlementDate(perk.claimDeadline);
+  const deadline = settlementClaimDeadline(perk);
+  const payment =
+    firstNonBlank(perk.potentialPayment, perk.atAGlance?.expectedPayout) ??
+    "See claim details";
   const daysLeft = closed
     ? null
-    : formatDaysLeft(perk.daysRemaining);
+    : formatDaysLeft(settlementDaysRemaining(perk));
 
   const claim = () => {
     if (!actions.canClaim || !actions.claimUrl) return;
@@ -183,7 +188,7 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
             <p className="mt-1 text-[24px] font-bold leading-tight text-[#0f2040]">
               {closed
                 ? "Closed — no longer claimable"
-                : perk.potentialPayment ?? "See claim details"}
+                : payment}
             </p>
             {closed ? (
               <p className="mt-4 text-[15px] leading-[1.6] text-[#627086]">
