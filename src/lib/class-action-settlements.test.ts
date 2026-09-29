@@ -100,6 +100,22 @@ describe("sortSettlements", () => {
     ]);
   });
 
+  it("sorts by the same effective deadline the card displays", () => {
+    const glance = {
+      status: "open" as const,
+      proof: "",
+      paymentMethod: "",
+      expectedPayout: "",
+      daysRemaining: null,
+    };
+    const later = perk({ id: "later", claimDeadline: "2026-10-01T00:00:00Z" });
+    const glanceSooner = {
+      ...perk({ id: "glance", claimDeadline: "2026-12-01T00:00:00Z" }),
+      atAGlance: { ...glance, claimBy: "2026-09-30T00:00:00Z" },
+    };
+    expect(ids(sortSettlements([later, glanceSooner], "all"))).toEqual(["glance", "later"]);
+  });
+
   it("sorts closed rows newest first", () => {
     expect(ids(sortSettlements(filterSettlements(rows, "closed"), "closed"))).toEqual([
       "closed-new",

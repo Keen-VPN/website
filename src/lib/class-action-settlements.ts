@@ -79,10 +79,20 @@ export function filterSettlements(
   }
 }
 
-function deadlineTime(perk: Pick<PerkItem, "claimDeadline">): number | null {
-  if (!perk.claimDeadline) return null;
-  const time = Date.parse(perk.claimDeadline);
+type DeadlineSources = Pick<PerkDetail, "claimDeadline" | "atAGlance">;
+
+function parseDeadline(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const time = Date.parse(iso);
   return Number.isNaN(time) ? null : time;
+}
+
+/**
+ * The one effective claim deadline, as epoch ms: the detail glance date when
+ * valid, else the perk's own. Display, days left and sorting all read this order.
+ */
+export function settlementDeadlineTime(perk: DeadlineSources): number | null {
+  return parseDeadline(perk.atAGlance?.claimBy) ?? parseDeadline(perk.claimDeadline);
 }
 
 /** Open rows: soonest deadline first. Closed rows: newest first. Nulls last. */
@@ -92,8 +102,8 @@ export function sortSettlements(
 ): PerkItem[] {
   const direction = filter === "closed" ? -1 : 1;
   return [...perks].sort((a, b) => {
-    const at = deadlineTime(a);
-    const bt = deadlineTime(b);
+    const at = settlementDeadlineTime(a);
+    const bt = settlementDeadlineTime(b);
     if (at === null && bt === null) return a.title.localeCompare(b.title);
     if (at === null) return 1;
     if (bt === null) return -1;
@@ -180,17 +190,10 @@ export function firstNonBlank(
   return null;
 }
 
-/**
- * Formatted "Claim by" date for list and detail alike: the detail glance value
- * when it is a valid date, else the perk's own. Same order as settlementDaysRemaining.
- */
-export function settlementClaimDeadline(
-  perk: Pick<PerkDetail, "claimDeadline" | "atAGlance">,
-): string | null {
-  return (
-    formatSettlementDate(perk.atAGlance?.claimBy) ??
-    formatSettlementDate(perk.claimDeadline)
-  );
+/** Formatted "Claim by" date for list and detail, from settlementDeadlineTime. */
+export function settlementClaimDeadline(perk: DeadlineSources): string | null {
+  const time = settlementDeadlineTime(perk);
+  return time === null ? null : formatSettlementDate(new Date(time).toISOString());
 }
 
 /**
