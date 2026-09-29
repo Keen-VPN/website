@@ -105,16 +105,18 @@ export default function DownloadApp() {
     if (redirectedRef.current) return;
     redirectedRef.current = true;
 
+    const destinationUrl = decision.storeUrl;
+
     void recordAppDownloadClicked({
       platform: toAppDownloadPlatform(decision.destinationPlatform),
       sourcePage: "/download-app",
       cta: `download_app_auto_${decision.destinationPlatform}`,
-      storeUrl: decision.storeUrl,
+      storeUrl: destinationUrl,
     });
 
     // Brief pause so analytics keepalive can flush before navigation.
     const timer = window.setTimeout(() => {
-      window.location.replace(decision.storeUrl!);
+      window.location.replace(destinationUrl);
     }, 150);
 
     return () => window.clearTimeout(timer);

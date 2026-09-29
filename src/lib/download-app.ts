@@ -14,13 +14,13 @@ export type DownloadAppDestinationPlatform =
   | "chrome"
   | "select";
 
-export type DownloadAppDecision = {
+export interface DownloadAppDecision {
   detectedPlatform: DeviceType | "bot" | "unknown";
   destinationPlatform: DownloadAppDestinationPlatform;
   /** Absolute store URL, or null when showing the selection page. */
   storeUrl: string | null;
   shouldAutoRedirect: boolean;
-};
+}
 
 const STORE_PLATFORMS = [
   "ios",
@@ -155,12 +155,12 @@ export function toAppDownloadPlatform(
   return platform;
 }
 
-export const DOWNLOAD_APP_PLATFORM_OPTIONS: Array<{
+export const DOWNLOAD_APP_PLATFORM_OPTIONS: {
   id: DownloadAppStorePlatform;
   title: string;
   subtitle: string;
   cta: string;
-}> = [
+}[] = [
   {
     id: "windows",
     title: "Windows",
