@@ -135,7 +135,7 @@ export default function DashboardSidebar({
           {...linkProps}
         >
           <Gavel className="h-4 w-4 shrink-0" />
-          Class Action
+          Class Actions
         </NavLink>
 
         <NavLink
