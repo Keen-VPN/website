@@ -121,6 +121,12 @@ export function displaySettlementTitle(title: string): string {
 
 const LOGO_FALLBACK_INITIALS = "CA";
 
+/** Uppercase one character, keeping it as-is when uppercasing expands it (ß → SS). */
+function upperInitial(char: string): string {
+  const upper = char.toLocaleUpperCase();
+  return [...upper].length === 1 ? upper : char;
+}
+
 /**
  * Exactly two uppercase letters for the logo fallback: the first letter of each
  * of the first two words, or the first two letters of a single-word name.
@@ -135,9 +141,9 @@ export function settlementInitials(
     if (words.length === 0) continue;
     const letters =
       words.length >= 2
-        ? `${[...words[0]][0]}${[...words[1]][0]}`
-        : [...words[0]].slice(0, 2).join("");
-    if ([...letters].length === 2) return letters.toLocaleUpperCase();
+        ? [[...words[0]][0], [...words[1]][0]]
+        : [...words[0]].slice(0, 2);
+    if (letters.length === 2) return letters.map(upperInitial).join("");
   }
   return LOGO_FALLBACK_INITIALS;
 }
@@ -171,7 +177,10 @@ export interface SettlementClaimActions {
   claimUrl: string | null;
   /** Primary "Open the official claim form" can be used. */
   canClaim: boolean;
-  /** Show "Check an existing claim" (closed settlements, or when the API asks). */
+  /**
+   * Show "Check an existing claim" (closed settlements, or when the API asks).
+   * Never for members who cannot access the perk; the claim-site link follows this too.
+   */
   showCheckExisting: boolean;
 }
 
@@ -184,11 +193,12 @@ export function resolveClaimActions(
   const raw = perk.claimUrl?.trim() ?? "";
   const claimUrl = raw && isSafeHttpUrl(raw) ? raw : null;
   const closed = isSettlementClosed(perk) || perk.cta?.primaryDisabled === true;
+  const accessible = perk.accessible !== false;
   return {
     claimUrl,
-    canClaim: Boolean(claimUrl) && !closed && perk.accessible !== false,
+    canClaim: Boolean(claimUrl) && accessible && !closed,
     showCheckExisting:
-      Boolean(claimUrl) && (closed || Boolean(perk.cta?.secondary)),
+      Boolean(claimUrl) && accessible && (closed || Boolean(perk.cta?.secondary)),
   };
 }
 

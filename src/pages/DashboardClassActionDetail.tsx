@@ -77,7 +77,9 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
   const actions = resolveClaimActions(perk);
   const host = claimHost(actions.claimUrl);
   const deadline = formatSettlementDate(perk.claimDeadline);
-  const daysLeft = formatDaysLeft(perk.atAGlance?.daysRemaining ?? perk.daysRemaining);
+  const daysLeft = closed
+    ? null
+    : formatDaysLeft(perk.atAGlance?.daysRemaining ?? perk.daysRemaining);
 
   const claim = () => {
     if (!actions.canClaim || !actions.claimUrl) return;
@@ -262,7 +264,7 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
 
           <SettlementCard>
             <h2 className="text-[18px] font-semibold text-[#0f2040]">Source</h2>
-            {host && actions.claimUrl ? (
+            {host && actions.claimUrl && (actions.canClaim || actions.showCheckExisting) ? (
               <dl className="mt-3 grid grid-cols-[120px_minmax(0,1fr)] gap-y-2 text-[14px]">
                 <dt className="text-[#8390a5]">Claim site</dt>
                 <dd className="min-w-0">

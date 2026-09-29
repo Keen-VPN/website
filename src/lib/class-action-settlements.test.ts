@@ -178,10 +178,17 @@ describe("resolveClaimActions", () => {
     }
   });
 
-  it("disables claiming when the member cannot access the perk", () => {
+  it("hides every claim link when the member cannot access the perk", () => {
     expect(
-      resolveClaimActions({ settlementStatus: "open", claimUrl: "https://a.com", cta, accessible: false })
-        .canClaim,
+      resolveClaimActions({ settlementStatus: "open", claimUrl: "https://a.com", cta, accessible: false }),
+    ).toEqual({ claimUrl: "https://a.com", canClaim: false, showCheckExisting: false });
+    expect(
+      resolveClaimActions({
+        settlementStatus: "closed",
+        claimUrl: "https://a.com",
+        cta: { ...cta, secondary: "Check an existing claim", primaryDisabled: true },
+        accessible: false,
+      }).showCheckExisting,
     ).toBe(false);
   });
 
@@ -238,5 +245,10 @@ describe("settlementInitials", () => {
     expect(settlementInitials("X", "Yelp")).toBe("YE");
     expect(settlementInitials(null, "!!!")).toBe("CA");
     expect(settlementInitials("Élan Vital", "x")).toBe("ÉV");
+  });
+
+  it("keeps one character per initial when uppercasing would expand it", () => {
+    expect(settlementInitials("ßa", "x")).toBe("ßA");
+    expect(settlementInitials("ß Bank", "x")).toBe("ßB");
   });
 });
