@@ -21,7 +21,7 @@ import {
   displaySettlementTitle,
   formatDaysLeft,
   formatSettlementDate,
-  isClaimWindowClosed,
+  isSettlementClosed,
   resolveClaimActions,
   settlementStatusLabel,
 } from "@/lib/class-action-settlements";
@@ -72,7 +72,9 @@ function GlanceRow({ label, value }: { label: string; value: string }) {
 }
 
 function SettlementDetailView({ perk }: { perk: PerkDetail }) {
-  const closed = isClaimWindowClosed(perk);
+  // Page state follows settlementStatus, like the list, filters and back link.
+  // A disabled primary CTA is handled by resolveClaimActions for the buttons only.
+  const closed = isSettlementClosed(perk);
   const closingSoon = perk.settlementStatus === "closing_soon";
   const actions = resolveClaimActions(perk);
   const host = claimHost(actions.claimUrl);
@@ -103,7 +105,9 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
     ? "Claim window closed"
     : !actions.claimUrl
       ? "Claim link unavailable"
-      : perk.ctaLabel;
+      : perk.cta?.primaryDisabled
+        ? perk.cta.primary
+        : perk.ctaLabel;
 
   const claimButton =
     actions.canClaim ? (
