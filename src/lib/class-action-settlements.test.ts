@@ -4,6 +4,7 @@ import {
   claimHost,
   displaySettlementTitle,
   filterSettlements,
+  firstNonBlank,
   formatDaysLeft,
   formatSettlementDate,
   isClaimWindowClosed,
@@ -130,6 +131,7 @@ describe("display helpers", () => {
     expect(formatSettlementDate("2026-09-28T00:00:00.000Z")).toBe("28 Sep 2026");
     expect(formatSettlementDate("2026-08-01T00:00:00.000Z")).toBe("1 Aug 2026");
     expect(formatSettlementDate(null)).toBeNull();
+    expect(formatSettlementDate("")).toBeNull();
     expect(formatSettlementDate("nope")).toBeNull();
     expect(formatDaysLeft(13)).toBe("13 days left");
     expect(formatDaysLeft(1)).toBe("1 day left");
@@ -297,5 +299,14 @@ describe("settlementDaysRemaining", () => {
     expect(settlementDaysRemaining({ daysRemaining: 5, atAGlance: { ...glance, daysRemaining: null } })).toBe(5);
     expect(settlementDaysRemaining({ daysRemaining: 5 })).toBe(5);
     expect(settlementDaysRemaining({ daysRemaining: null })).toBeNull();
+  });
+});
+
+describe("firstNonBlank", () => {
+  it("skips null, undefined, empty and whitespace values", () => {
+    expect(firstNonBlank(null, "", "  ", "Up to $60")).toBe("Up to $60");
+    expect(firstNonBlank(undefined, " Varies ")).toBe("Varies");
+    expect(firstNonBlank("", null, undefined)).toBeNull();
+    expect(firstNonBlank()).toBeNull();
   });
 });

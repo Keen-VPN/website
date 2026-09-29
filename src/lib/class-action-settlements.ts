@@ -169,6 +169,17 @@ export function formatSettlementDate(iso: string | null | undefined): string | n
   return `${date.getUTCDate()} ${SHORT_MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
+/** First value that is not null, undefined, empty or whitespace, trimmed. */
+export function firstNonBlank(
+  ...values: (string | null | undefined)[]
+): string | null {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
+
 /**
  * Days left for list and detail alike: the detail glance value when present,
  * else the perk's own. Both come from the same claim deadline on the backend.

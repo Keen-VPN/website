@@ -19,6 +19,7 @@ import {
   CLASS_ACTION_CATEGORY,
   claimHost,
   displaySettlementTitle,
+  firstNonBlank,
   formatDaysLeft,
   formatSettlementDate,
   isSettlementClosed,
@@ -79,9 +80,14 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
   const closingSoon = perk.settlementStatus === "closing_soon";
   const actions = resolveClaimActions(perk);
   const host = claimHost(actions.claimUrl);
-  const deadline = formatSettlementDate(
-    perk.claimDeadline ?? perk.atAGlance?.claimBy,
-  );
+  // formatSettlementDate returns null for blank or invalid dates, so each
+  // source is tried in turn rather than relying on ?? (which keeps "").
+  const deadline =
+    formatSettlementDate(perk.claimDeadline) ??
+    formatSettlementDate(perk.atAGlance?.claimBy);
+  const payment =
+    firstNonBlank(perk.potentialPayment, perk.atAGlance?.expectedPayout) ??
+    "See claim details";
   const daysLeft = closed
     ? null
     : formatDaysLeft(settlementDaysRemaining(perk));
@@ -186,9 +192,7 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
             <p className="mt-1 text-[24px] font-bold leading-tight text-[#0f2040]">
               {closed
                 ? "Closed — no longer claimable"
-                : perk.potentialPayment ??
-                  perk.atAGlance?.expectedPayout ??
-                  "See claim details"}
+                : payment}
             </p>
             {closed ? (
               <p className="mt-4 text-[15px] leading-[1.6] text-[#627086]">
