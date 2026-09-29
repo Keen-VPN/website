@@ -23,10 +23,10 @@ import {
   displaySettlementTitle,
   filterSettlements,
   formatDaysLeft,
-  formatSettlementDate,
   isSettlementClosed,
   isSubscribedToPerkOffers,
   parseClassActionFilter,
+  settlementClaimDeadline,
   settlementDaysRemaining,
   settlementStats,
   sortSettlements,
@@ -89,7 +89,7 @@ function FilterChip({
 function SettlementListCard({ perk }: { perk: PerkItem }) {
   const closed = isSettlementClosed(perk);
   const closingSoon = perk.settlementStatus === "closing_soon";
-  const deadline = formatSettlementDate(perk.claimDeadline);
+  const deadline = settlementClaimDeadline(perk);
   const daysLeft = closed
     ? null
     : formatDaysLeft(settlementDaysRemaining(perk));

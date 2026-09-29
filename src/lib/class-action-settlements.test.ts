@@ -11,6 +11,7 @@ import {
   isSubscribedToPerkOffers,
   parseClassActionFilter,
   resolveClaimActions,
+  settlementClaimDeadline,
   settlementDaysRemaining,
   settlementInitials,
   settlementStats,
@@ -308,5 +309,34 @@ describe("firstNonBlank", () => {
     expect(firstNonBlank(undefined, " Varies ")).toBe("Varies");
     expect(firstNonBlank("", null, undefined)).toBeNull();
     expect(firstNonBlank()).toBeNull();
+  });
+});
+
+describe("settlementClaimDeadline", () => {
+  const glance = {
+    status: "open" as const,
+    proof: "",
+    paymentMethod: "",
+    expectedPayout: "",
+    daysRemaining: null,
+  };
+
+  it("prefers a valid glance date, then the perk date", () => {
+    expect(
+      settlementClaimDeadline({
+        claimDeadline: "2026-11-14T00:00:00Z",
+        atAGlance: { ...glance, claimBy: "2026-10-03T00:00:00Z" },
+      }),
+    ).toBe("3 Oct 2026");
+    expect(
+      settlementClaimDeadline({
+        claimDeadline: "2026-11-14T00:00:00Z",
+        atAGlance: { ...glance, claimBy: "" },
+      }),
+    ).toBe("14 Nov 2026");
+    expect(settlementClaimDeadline({ claimDeadline: "2026-11-14T00:00:00Z" })).toBe(
+      "14 Nov 2026",
+    );
+    expect(settlementClaimDeadline({ claimDeadline: null })).toBeNull();
   });
 });

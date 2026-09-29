@@ -181,6 +181,19 @@ export function firstNonBlank(
 }
 
 /**
+ * Formatted "Claim by" date for list and detail alike: the detail glance value
+ * when it is a valid date, else the perk's own. Same order as settlementDaysRemaining.
+ */
+export function settlementClaimDeadline(
+  perk: Pick<PerkDetail, "claimDeadline" | "atAGlance">,
+): string | null {
+  return (
+    formatSettlementDate(perk.atAGlance?.claimBy) ??
+    formatSettlementDate(perk.claimDeadline)
+  );
+}
+
+/**
  * Days left for list and detail alike: the detail glance value when present,
  * else the perk's own. Both come from the same claim deadline on the backend.
  */
