@@ -65,13 +65,15 @@ function BackLink({ closed }: { closed: boolean }) {
 function GlanceRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4 py-1.5">
-      <dt className="text-[14px] text-[#8390a5]">{label}</dt>
+      <dt className="text-[14px] text-[#627086]">{label}</dt>
       <dd className="text-right text-[14px] font-semibold text-[#0f2040]">{value}</dd>
     </div>
   );
 }
 
 function SettlementDetailView({ perk }: { perk: PerkDetail }) {
+  // Page state follows settlementStatus, like the list, filters and back link.
+  // A disabled primary CTA is handled by resolveClaimActions for the buttons only.
   const closed = isSettlementClosed(perk);
   const closingSoon = perk.settlementStatus === "closing_soon";
   const actions = resolveClaimActions(perk);
@@ -79,7 +81,7 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
   const deadline = formatSettlementDate(perk.claimDeadline);
   const daysLeft = closed
     ? null
-    : formatDaysLeft(perk.atAGlance?.daysRemaining ?? perk.daysRemaining);
+    : formatDaysLeft(perk.daysRemaining);
 
   const claim = () => {
     if (!actions.canClaim || !actions.claimUrl) return;
@@ -103,7 +105,9 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
     ? "Claim window closed"
     : !actions.claimUrl
       ? "Claim link unavailable"
-      : perk.ctaLabel;
+      : perk.cta?.primaryDisabled
+        ? perk.cta.primary
+        : perk.ctaLabel;
 
   const claimButton =
     actions.canClaim ? (
@@ -146,7 +150,7 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
                 {displaySettlementTitle(perk.title)}
               </h1>
               {perk.caseLabel ? (
-                <p className="mt-2 text-[14px] text-[#8390a5]">{perk.caseLabel}</p>
+                <p className="mt-2 text-[14px] text-[#627086]">{perk.caseLabel}</p>
               ) : null}
             </div>
           </div>
@@ -160,15 +164,15 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
             <p
               className={cn(
                 "mt-1 text-[28px] font-bold leading-tight",
-                closingSoon ? "text-[#c2531b]" : closed ? "text-[#8390a5]" : "text-[#0f2040]",
+                closingSoon ? "text-[#b24a14]" : closed ? "text-[#8390a5]" : "text-[#0f2040]",
               )}
             >
               {deadline ?? "No deadline listed"}
             </p>
             {closed && deadline ? (
-              <p className="text-[15px] text-[#8390a5]">Deadline passed {deadline}</p>
+              <p className="text-[15px] text-[#627086]">Deadline passed {deadline}</p>
             ) : daysLeft ? (
-              <p className={cn("text-[15px]", closingSoon ? "text-[#c2531b]" : "text-[#627086]")}>
+              <p className={cn("text-[15px]", closingSoon ? "text-[#b24a14]" : "text-[#627086]")}>
                 {daysLeft}
               </p>
             ) : null}
@@ -256,7 +260,7 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
               <div className="pt-2">
                 {claimButton}
                 {actions.canClaim && host ? (
-                  <p className="mt-3 text-[14px] text-[#8390a5]">Opens {host} in a new tab</p>
+                  <p className="mt-3 text-[14px] text-[#627086]">Opens {host} in a new tab</p>
                 ) : null}
               </div>
             ) : null}
@@ -266,7 +270,7 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
             <h2 className="text-[18px] font-semibold text-[#0f2040]">Source</h2>
             {host && actions.claimUrl && (actions.canClaim || actions.showCheckExisting) ? (
               <dl className="mt-3 grid grid-cols-[120px_minmax(0,1fr)] gap-y-2 text-[14px]">
-                <dt className="text-[#8390a5]">Claim site</dt>
+                <dt className="text-[#627086]">Claim site</dt>
                 <dd className="min-w-0">
                   <a
                     href={actions.claimUrl}
@@ -279,7 +283,7 @@ function SettlementDetailView({ perk }: { perk: PerkDetail }) {
                 </dd>
               </dl>
             ) : null}
-            <p className="mt-4 border-t border-[#e7edf5] pt-4 text-[13px] leading-[1.6] text-[#8390a5]">
+            <p className="mt-4 border-t border-[#e7edf5] pt-4 text-[13px] leading-[1.6] text-[#627086]">
               KeenVPN summarises public settlement notices for convenience. It is
               not legal advice, and the official settlement website is always the
               authority on eligibility and deadlines.

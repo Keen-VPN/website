@@ -7,8 +7,8 @@ import {
 import { cn } from "@/lib/utils";
 
 const STATUS_STYLES: Record<SettlementStatus, string> = {
-  open: "bg-[#e6f9f0] text-[#1a9e5a]",
-  closing_soon: "bg-[#fff4eb] text-[#c2531b]",
+  open: "bg-[#e6f9f0] text-[#137a45]",
+  closing_soon: "bg-[#fff4eb] text-[#b24a14]",
   closed: "bg-[#f0f3f8] text-[#627086]",
 };
 
@@ -108,7 +108,7 @@ export function SettlementCard({
 
 export function EyebrowLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-[1.2px] text-[#8390a5]">
+    <p className="text-[11px] font-semibold uppercase tracking-[1.2px] text-[#627086]">
       {children}
     </p>
   );
