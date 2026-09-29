@@ -4169,7 +4169,13 @@ function hasTrialCtaViewDedupe(viewKey: string): boolean {
   }
 }
 
-function markTrialCtaViewDedupe(viewKey: string): void {
+/** Claim in-flight / in-memory immediately so concurrent callers skip. */
+function claimTrialCtaViewInMemory(viewKey: string): void {
+  trialCtaViewSeenInMemory.add(viewKey);
+}
+
+/** Persist across remounts only after backend confirms tracked. */
+function persistTrialCtaViewDedupe(viewKey: string): void {
   trialCtaViewSeenInMemory.add(viewKey);
   if (typeof window === "undefined") return;
   try {
@@ -4177,6 +4183,10 @@ function markTrialCtaViewDedupe(viewKey: string): void {
   } catch {
     /* private mode — in-memory set still covers remounts in this tab */
   }
+}
+
+function releaseTrialCtaViewInMemory(viewKey: string): void {
+  trialCtaViewSeenInMemory.delete(viewKey);
 }
 
 export async function recordTrialCtaEvent(input: {
@@ -4200,14 +4210,22 @@ export async function recordTrialCtaEvent(input: {
   if (viewKey && hasTrialCtaViewDedupe(viewKey)) {
     return;
   }
+  // Close the concurrent-call window before the async fetch.
+  if (viewKey) {
+    claimTrialCtaViewInMemory(viewKey);
+  }
 
   let sessionToken: string | null = null;
   try {
     sessionToken = getSessionToken();
   } catch {
+    if (viewKey) releaseTrialCtaViewInMemory(viewKey);
     return;
   }
-  if (!sessionToken) return;
+  if (!sessionToken) {
+    if (viewKey) releaseTrialCtaViewInMemory(viewKey);
+    return;
+  }
 
   try {
     const response = await fetch(
@@ -4227,6 +4245,7 @@ export async function recordTrialCtaEvent(input: {
       },
     );
     if (!response.ok) {
+      if (viewKey) releaseTrialCtaViewInMemory(viewKey);
       return;
     }
     const data: unknown = await response.json().catch(() => ({}));
@@ -4235,13 +4254,13 @@ export async function recordTrialCtaEvent(input: {
       data !== null &&
       (data as { tracked?: boolean }).tracked === true;
     if (!tracked) {
+      if (viewKey) releaseTrialCtaViewInMemory(viewKey);
       return;
     }
 
-    // Persist view dedupe only after the backend accepts the event (or reports
-    // it was already tracked). Failed requests can retry later in the session.
+    // Persist across remounts only after backend accepts / already-tracked.
     if (viewKey) {
-      markTrialCtaViewDedupe(viewKey);
+      persistTrialCtaViewDedupe(viewKey);
     }
 
     if (input.eventName === "trial_cta_viewed") {
@@ -4256,7 +4275,8 @@ export async function recordTrialCtaEvent(input: {
       });
     }
   } catch {
-    /* non-fatal — leave dedupe unset so a later attempt can retry */
+    if (viewKey) releaseTrialCtaViewInMemory(viewKey);
+    /* non-fatal — leave sessionStorage unset so a later attempt can retry */
   }
 }
 

@@ -585,9 +585,10 @@ const Subscribe = () => {
       }
 
       if (result.url) {
-        // Count click only when checkout actually starts (redirect imminent).
+        // Count click only when checkout actually starts; await so PostHog
+        // fires before this page unloads on redirect.
         if (startsWithFreeTrial) {
-          void recordTrialCtaEvent({
+          await recordTrialCtaEvent({
             eventName: "trial_cta_clicked",
             userId: user.id,
             sourcePage: "/subscribe",
