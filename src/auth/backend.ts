@@ -27,6 +27,8 @@ import {
   trackPostHogAccountCreated,
   trackPostHogAppDownloadClicked,
   trackPostHogSignupStarted,
+  trackPostHogTrialCtaClicked,
+  trackPostHogTrialCtaViewed,
   type AppDownloadPlatform,
 } from "@/lib/posthog-analytics";
 import { trackRedditLeadCompleted } from "@/lib/reddit-analytics";
@@ -4147,6 +4149,137 @@ export async function recordAppDownloadClicked(input: {
   }
 }
 
+/**
+ * Records trial CTA impression or click (PostHog + backend product_events).
+ * Distinct from trial_started (activation). Requires a logged-in user id so
+ * admin KPI reports and PostHog funnel counts stay authenticated-only.
+ *
+ * View is session-deduped (Pricing → Subscribe should count once). Backend also
+ * dedupes trial_cta_viewed per user. Click is recorded only when checkout starts.
+ */
+const trialCtaViewSeenInMemory = new Set<string>();
+
+function hasTrialCtaViewDedupe(viewKey: string): boolean {
+  if (trialCtaViewSeenInMemory.has(viewKey)) return true;
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(viewKey) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Claim in-flight / in-memory immediately so concurrent callers skip. */
+function claimTrialCtaViewInMemory(viewKey: string): void {
+  trialCtaViewSeenInMemory.add(viewKey);
+}
+
+/** Persist across remounts only after backend confirms tracked. */
+function persistTrialCtaViewDedupe(viewKey: string): void {
+  trialCtaViewSeenInMemory.add(viewKey);
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(viewKey, "1");
+  } catch {
+    /* private mode — in-memory set still covers remounts in this tab */
+  }
+}
+
+function releaseTrialCtaViewInMemory(viewKey: string): void {
+  trialCtaViewSeenInMemory.delete(viewKey);
+}
+
+export async function recordTrialCtaEvent(input: {
+  eventName: "trial_cta_viewed" | "trial_cta_clicked";
+  userId?: string | null;
+  sourcePage?: string;
+  cta?: string;
+}): Promise<void> {
+  const userId = input.userId?.trim();
+  if (!userId) return;
+
+  const sourcePage =
+    input.sourcePage ??
+    (typeof window !== "undefined" ? window.location.pathname : undefined);
+  const cta = input.cta ?? "start_free_trial";
+  const viewKey =
+    input.eventName === "trial_cta_viewed"
+      ? `keen_trial_cta_viewed:${userId}`
+      : null;
+
+  if (viewKey && hasTrialCtaViewDedupe(viewKey)) {
+    return;
+  }
+  // Close the concurrent-call window before the async fetch.
+  if (viewKey) {
+    claimTrialCtaViewInMemory(viewKey);
+  }
+
+  let sessionToken: string | null = null;
+  try {
+    sessionToken = getSessionToken();
+  } catch {
+    if (viewKey) releaseTrialCtaViewInMemory(viewKey);
+    return;
+  }
+  if (!sessionToken) {
+    if (viewKey) releaseTrialCtaViewInMemory(viewKey);
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/marketing-attribution/trial-cta`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({
+          event_name: input.eventName,
+          source_page: sourcePage,
+          cta,
+        }),
+        keepalive: true,
+      },
+    );
+    if (!response.ok) {
+      if (viewKey) releaseTrialCtaViewInMemory(viewKey);
+      return;
+    }
+    const data: unknown = await response.json().catch(() => ({}));
+    const tracked =
+      typeof data === "object" &&
+      data !== null &&
+      (data as { tracked?: boolean }).tracked === true;
+    if (!tracked) {
+      if (viewKey) releaseTrialCtaViewInMemory(viewKey);
+      return;
+    }
+
+    // Persist across remounts only after backend accepts / already-tracked.
+    if (viewKey) {
+      persistTrialCtaViewDedupe(viewKey);
+    }
+
+    if (input.eventName === "trial_cta_viewed") {
+      trackPostHogTrialCtaViewed(userId, {
+        source_page: sourcePage ?? null,
+        cta,
+      });
+    } else {
+      trackPostHogTrialCtaClicked(userId, {
+        source_page: sourcePage ?? null,
+        cta,
+      });
+    }
+  } catch {
+    if (viewKey) releaseTrialCtaViewInMemory(viewKey);
+    /* non-fatal — leave sessionStorage unset so a later attempt can retry */
+  }
+}
+
 /** Records sticker_landing when a sticker QR/URL is opened (pre-account). */
 export async function recordStickerLanding(
   utmAttribution?: import("@/lib/utm-attribution").StoredUtmAttribution,
@@ -4514,6 +4647,82 @@ export interface AdminDownloadFunnelReport {
     web_signup_to_paid_rate: number;
     rows: AdminWebToAppFunnelRow[];
   };
+}
+
+export interface AdminSignupTrialPaidFunnelReport {
+  from: string;
+  to: string;
+  stages: {
+    visitors: number;
+    signups: number;
+    trial_cta_viewed: number;
+    trial_cta_clicked: number;
+    trial_started: number;
+    paid: number;
+  };
+  rates: {
+    visitor_to_signup: number;
+    signup_to_cta_viewed: number;
+    signup_to_cta_clicked: number;
+    signup_to_trial: number;
+    trial_to_paid: number;
+    signup_to_paid: number;
+  };
+  drop_off: {
+    visitor_to_signup: number;
+    signup_to_cta_viewed: number;
+    cta_viewed_to_clicked: number;
+    cta_clicked_to_trial: number;
+    trial_to_paid: number;
+  };
+}
+
+export async function adminFetchSignupTrialPaidFunnelReport(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  error?: string;
+  data?: AdminSignupTrialPaidFunnelReport;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/utm-attribution/signup-trial-paid${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to load signup → trial → paid funnel",
+        ),
+      };
+    }
+    const record = data as { data?: AdminSignupTrialPaidFunnelReport };
+    if (!record.data) {
+      return { ok: false, error: "Invalid signup-trial-paid funnel response" };
+    }
+    return { ok: true, data: record.data };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, error: "Request aborted" };
+    }
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
 }
 
 export interface AdminDownloadFunnelUserRow {

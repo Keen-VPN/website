@@ -24,7 +24,7 @@ import {
   featureComparisonValueForPlan,
   faqs,
 } from "@/constants/pricing";
-import { fetchSubscriptionPlans, getSessionToken } from "@/auth/backend";
+import { fetchSubscriptionPlans, getSessionToken, recordTrialCtaEvent } from "@/auth/backend";
 import { useAnnualUpgrade } from "@/hooks/use-annual-upgrade";
 import { useTwoYearPlanChange } from "@/hooks/use-plan-change";
 import { useMembershipSharing } from "@/hooks/use-membership-sharing";
@@ -104,6 +104,24 @@ const Pricing = () => {
     () => getPricingCtaKind(authLoading, user, subscription?.status, trial),
     [authLoading, user, subscription?.status, trial],
   );
+
+  const trialCtaViewTrackedRef = useRef(false);
+  useEffect(() => {
+    if (
+      ctaKind !== "start_free_trial" ||
+      !user?.id ||
+      trialCtaViewTrackedRef.current
+    ) {
+      return;
+    }
+    trialCtaViewTrackedRef.current = true;
+    void recordTrialCtaEvent({
+      eventName: "trial_cta_viewed",
+      userId: user.id,
+      sourcePage: "/pricing",
+      cta: "start_free_trial",
+    });
+  }, [ctaKind, user?.id]);
 
   const isMonthlyStripeUpgradeEligible = canUpgradeStripeToAnnual(subscription);
   const annualBillingAlreadyScheduled = hasScheduledAnnualBilling(subscription);

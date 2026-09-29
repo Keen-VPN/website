@@ -27,6 +27,7 @@ import {
   createCheckoutSession,
   getSessionToken,
   recordSignupStarted,
+  recordTrialCtaEvent,
   CHECKOUT_ERROR_SESSION_EXPIRED,
 } from "@/auth/backend";
 import { queuePostHogSignupMethodSelected } from "@/lib/posthog-analytics";
@@ -584,6 +585,16 @@ const Subscribe = () => {
       }
 
       if (result.url) {
+        // Count click only when checkout actually starts; await so PostHog
+        // fires before this page unloads on redirect.
+        if (startsWithFreeTrial) {
+          await recordTrialCtaEvent({
+            eventName: "trial_cta_clicked",
+            userId: user.id,
+            sourcePage: "/subscribe",
+            cta: "start_free_trial",
+          });
+        }
         window.location.href = result.url;
       } else {
         throw new Error("No checkout URL received");
