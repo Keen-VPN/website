@@ -251,4 +251,21 @@ describe("settlementInitials", () => {
     expect(settlementInitials("ßa", "x")).toBe("ßA");
     expect(settlementInitials("ß Bank", "x")).toBe("ßB");
   });
+
+  it("keeps decomposed accented letters whole", () => {
+    expect(settlementInitials("E\u0301lan Vital", "x")).toBe("ÉV");
+  });
+
+  it("never returns anything but exactly two characters", () => {
+    const names = [
+      "ßa", "ß", "ﬀ", "ǆungla", "İstanbul Bank", "E\u0301lan", "Ⅻ Corp",
+      "😀 Emoji Co", "東京 電力", "A", "a b c d", "", "   ", "!!!", null,
+      "AT&T Inc.", "3M", "ʼn Company", "ΐ Bank",
+    ];
+    for (const name of names) {
+      for (const title of ["", "Class Action: ", "x", "Harbor Streaming settlement"]) {
+        expect([...settlementInitials(name, title)]).toHaveLength(2);
+      }
+    }
+  });
 });

@@ -137,7 +137,8 @@ export function settlementInitials(
   title: string,
 ): string {
   for (const source of [partnerName, displaySettlementTitle(title)]) {
-    const words = (source ?? "").match(/[\p{L}\p{N}]+/gu) ?? [];
+    // NFC so a decomposed "É" (E + accent mark) stays one letter in one word.
+    const words = (source ?? "").normalize("NFC").match(/[\p{L}\p{N}]+/gu) ?? [];
     if (words.length === 0) continue;
     const letters =
       words.length >= 2
