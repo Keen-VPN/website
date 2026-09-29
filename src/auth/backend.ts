@@ -4653,7 +4653,7 @@ export interface AdminSignupTrialPaidFunnelReport {
   from: string;
   to: string;
   stages: {
-    visitors: number;
+    signup_started: number;
     signups: number;
     trial_cta_viewed: number;
     trial_cta_clicked: number;
@@ -4661,7 +4661,6 @@ export interface AdminSignupTrialPaidFunnelReport {
     paid: number;
   };
   rates: {
-    visitor_to_signup: number;
     signup_to_cta_viewed: number;
     signup_to_cta_clicked: number;
     signup_to_trial: number;
@@ -4669,7 +4668,6 @@ export interface AdminSignupTrialPaidFunnelReport {
     signup_to_paid: number;
   };
   drop_off: {
-    visitor_to_signup: number;
     signup_to_cta_viewed: number;
     cta_viewed_to_clicked: number;
     cta_clicked_to_trial: number;
@@ -4709,11 +4707,34 @@ export async function adminFetchSignupTrialPaidFunnelReport(params?: {
         ),
       };
     }
-    const record = data as { data?: AdminSignupTrialPaidFunnelReport };
-    if (!record.data) {
+    const record = data as {
+      data?: AdminSignupTrialPaidFunnelReport & {
+        stages?: AdminSignupTrialPaidFunnelReport["stages"] & {
+          visitors?: number;
+        };
+      };
+    };
+    if (!record.data?.stages) {
       return { ok: false, error: "Invalid signup-trial-paid funnel response" };
     }
-    return { ok: true, data: record.data };
+    // Rollout: old API used `visitors`; prefer signup_started when present.
+    const stages = record.data.stages;
+    const signupStarted =
+      typeof stages.signup_started === "number"
+        ? stages.signup_started
+        : typeof stages.visitors === "number"
+          ? stages.visitors
+          : 0;
+    return {
+      ok: true,
+      data: {
+        ...record.data,
+        stages: {
+          ...stages,
+          signup_started: signupStarted,
+        },
+      },
+    };
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") {
       return { ok: false, error: "Request aborted" };
