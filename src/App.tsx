@@ -119,9 +119,6 @@ const AdminEmailUnsubscribes = lazy(
 const AdminClassActionEmailCta = lazy(
   () => import("./pages/admin/AdminClassActionEmailCta"),
 );
-const AdminClassActionEmailCta = lazy(
-  () => import("./pages/admin/AdminClassActionEmailCta"),
-);
 const AdminUserProfiles = lazy(
   () => import("./pages/admin/AdminUserProfiles"),
 );
