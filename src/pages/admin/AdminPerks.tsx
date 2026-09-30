@@ -43,10 +43,13 @@ import {
   adminFetchPerkReactivations,
   adminFetchPerksMetrics,
   adminListExpiredPerks,
+  adminListNotReceivedPerks,
   adminListPerks,
   adminListWorkflowTypes,
   adminReactivatePerk,
+  adminResolveNotReceivedPerk,
   adminUpdatePerk,
+  type AdminNotReceivedPerkRow,
   type AdminPerk,
   type AdminPerkReactivation,
   type AdminPerksMetrics,
@@ -522,6 +525,27 @@ export default function AdminPerks() {
   const [toInput, setToInput] = useState("");
   const metricsRequest = useRef<AbortController | null>(null);
   const historyRequestRef = useRef(0);
+  const [notReceivedRows, setNotReceivedRows] = useState<
+    AdminNotReceivedPerkRow[]
+  >([]);
+  const [loadingNotReceived, setLoadingNotReceived] = useState(false);
+  const [notReceivedError, setNotReceivedError] = useState<string | null>(null);
+  const [resolvingRedemptionId, setResolvingRedemptionId] = useState<
+    string | null
+  >(null);
+
+  const loadNotReceived = useCallback(async () => {
+    setLoadingNotReceived(true);
+    setNotReceivedError(null);
+    const res = await adminListNotReceivedPerks({ limit: 100 });
+    if (!res.ok) {
+      setNotReceivedRows([]);
+      setNotReceivedError(res.error ?? "Failed to load not-received queue");
+    } else {
+      setNotReceivedRows(res.data ?? []);
+    }
+    setLoadingNotReceived(false);
+  }, []);
 
   const loadMetrics = useCallback(async (fromValue: string, toValue: string) => {
     metricsRequest.current?.abort();
@@ -642,8 +666,9 @@ export default function AdminPerks() {
 
   useEffect(() => {
     void loadMetrics("", "");
+    void loadNotReceived();
     return () => metricsRequest.current?.abort();
-  }, [loadMetrics]);
+  }, [loadMetrics, loadNotReceived]);
 
   const applyDraft = useCallback((draft: PerkFormDraft) => {
     sessionBlankEndsAtRef.current =
@@ -1182,6 +1207,168 @@ export default function AdminPerks() {
             <p className="mt-1 text-2xl font-semibold">
               {metrics?.lifecycle?.snoozesInWindow ?? (loadingMetrics ? "…" : 0)}
             </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Confirmed received</p>
+            <p className="mt-1 text-2xl font-semibold">
+              {metrics?.confirmedReceived ?? (loadingMetrics ? "…" : 0)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Confirm rate{" "}
+              {loadingMetrics
+                ? "…"
+                : formatPercent(metrics?.confirmationRate ?? null)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Not received (open)</p>
+            <p className="mt-1 text-2xl font-semibold">
+              {metrics?.lifecycle?.notReceivedOpen ??
+                (loadingMetrics ? "…" : 0)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-8 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold">
+                Claimed but not received
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Members who reported a claimed perk wasn&apos;t delivered.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void loadNotReceived()}
+              disabled={loadingNotReceived}
+            >
+              Refresh
+            </Button>
+          </div>
+          {notReceivedError ? (
+            <p className="text-sm text-destructive">{notReceivedError}</p>
+          ) : null}
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="border-b border-border bg-muted/40">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Member</th>
+                  <th className="px-3 py-2 font-medium">Perk</th>
+                  <th className="px-3 py-2 font-medium">Reported</th>
+                  <th className="px-3 py-2 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingNotReceived ? (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-4 text-muted-foreground">
+                      Loading queue…
+                    </td>
+                  </tr>
+                ) : notReceivedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-4 text-muted-foreground">
+                      No open not-received reports.
+                    </td>
+                  </tr>
+                ) : (
+                  notReceivedRows.map((row) => (
+                    <tr key={row.id} className="border-t border-border">
+                      <td className="px-3 py-3 align-top">
+                        <div className="font-medium">
+                          {row.userDisplayName || row.userEmail}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {row.userEmail}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 align-top">
+                        <div className="font-medium">{row.perkTitle}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {row.partnerName || "—"} · {row.perkCategory}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 align-top text-muted-foreground">
+                        {row.notReceivedAt
+                          ? new Date(row.notReceivedAt).toLocaleString()
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-3 align-top">
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={resolvingRedemptionId === row.id}
+                            onClick={() => {
+                              setResolvingRedemptionId(row.id);
+                              void adminResolveNotReceivedPerk(row.id, {
+                                resolution: "confirmed_received",
+                              }).then((res) => {
+                                setResolvingRedemptionId(null);
+                                if (res.ok) void loadNotReceived();
+                                else
+                                  setNotReceivedError(
+                                    res.error ?? "Failed to resolve",
+                                  );
+                              });
+                            }}
+                          >
+                            Mark received
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={resolvingRedemptionId === row.id}
+                            onClick={() => {
+                              setResolvingRedemptionId(row.id);
+                              void adminResolveNotReceivedPerk(row.id, {
+                                resolution: "reopened",
+                              }).then((res) => {
+                                setResolvingRedemptionId(null);
+                                if (res.ok) void loadNotReceived();
+                                else
+                                  setNotReceivedError(
+                                    res.error ?? "Failed to resolve",
+                                  );
+                              });
+                            }}
+                          >
+                            Reopen claim
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            disabled={resolvingRedemptionId === row.id}
+                            onClick={() => {
+                              setResolvingRedemptionId(row.id);
+                              void adminResolveNotReceivedPerk(row.id, {
+                                resolution: "dismissed",
+                                note: "Reviewed in admin; no further action",
+                              }).then((res) => {
+                                setResolvingRedemptionId(null);
+                                if (res.ok) void loadNotReceived();
+                                else
+                                  setNotReceivedError(
+                                    res.error ?? "Failed to resolve",
+                                  );
+                              });
+                            }}
+                          >
+                            Dismiss
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 

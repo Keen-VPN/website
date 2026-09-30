@@ -57,12 +57,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   approveFriendDiscoveryDraft,
   claimPerk,
+  confirmPerkReceived,
   dismissPerk,
   fetchFriendsDashboard,
   fetchPerks,
   getUserProfileInformation,
   getSessionToken,
   recordPerkEvent,
+  reportPerkNotReceived,
   restorePerk,
   snoozePerk,
   submitPerkRequest,
@@ -71,6 +73,7 @@ import {
   type PerkDiscoveryOutcome,
   type PerkItem,
   type PerkRequestCategory,
+  type PerkUserStats,
   type PerkUserTab,
 } from "@/auth";
 import { listWorkflows } from "@/auth/backend";
@@ -219,6 +222,7 @@ const Perks = () => {
   const { toast } = useToast();
 
   const [perks, setPerks] = useState<PerkItem[]>([]);
+  const [userStats, setUserStats] = useState<PerkUserStats | null>(null);
   const [categories, setCategories] = useState<PerkCategory[]>([]);
   const [userAccessTier, setUserAccessTier] = useState<string>("free");
   const [selectedCategory, setSelectedCategory] = useState<
@@ -305,9 +309,11 @@ const Perks = () => {
       setPerks(res.data.perks);
       setCategories(res.data.categories);
       setUserAccessTier(res.data.userAccessTier);
+      setUserStats(res.data.userStats ?? null);
       setFetchError(null);
     } else {
       setPerks([]);
+      setUserStats(null);
       setFetchError(
         res.error?.trim() || "Unable to load perks. Please try again.",
       );
@@ -777,6 +783,55 @@ const Perks = () => {
     }, "Perk moved back to New");
   };
 
+  const handleConfirmReceived = (perk: PerkItem) => {
+    const session = requireSession();
+    if (!session) return;
+    void runPerkAction(perk.id, async () => {
+      const res = await confirmPerkReceived(session, perk.id);
+      if (res.success) {
+        trackPerksEvent("perk_confirmed_received", {
+          perk_id: perk.id,
+          source: "perks_page",
+        });
+        if (typeof res.lifetimeSavingsCents === "number") {
+          setUserStats((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  lifetimeSavingsCents: res.lifetimeSavingsCents!,
+                  confirmedCount: prev.confirmedCount + 1,
+                  awaitingConfirmationCount: Math.max(
+                    0,
+                    prev.awaitingConfirmationCount - 1,
+                  ),
+                }
+              : {
+                  lifetimeSavingsCents: res.lifetimeSavingsCents!,
+                  confirmedCount: 1,
+                  awaitingConfirmationCount: 0,
+                },
+          );
+        }
+      }
+      return res;
+    }, "Marked as received — thanks for confirming");
+  };
+
+  const handleReportNotReceived = (perk: PerkItem) => {
+    const session = requireSession();
+    if (!session) return;
+    void runPerkAction(perk.id, async () => {
+      const res = await reportPerkNotReceived(session, perk.id);
+      if (res.success) {
+        trackPerksEvent("perk_not_received", {
+          perk_id: perk.id,
+          source: "perks_page",
+        });
+      }
+      return res;
+    }, "Thanks — we'll look into this");
+  };
+
   const handleSnoozedToNotInterested = (perk: PerkItem) => {
     const session = requireSession();
     if (!session) return;
@@ -851,6 +906,27 @@ const Perks = () => {
               </span>
               .
             </p>
+            {userStats ? (
+              <p className="mx-auto mt-3 max-w-2xl text-sm text-muted-foreground">
+                {userStats.confirmedCount > 0 ? (
+                  <>
+                    Confirmed value received:{" "}
+                    <span className="font-medium text-foreground">
+                      ${(userStats.lifetimeSavingsCents / 100).toFixed(0)}
+                    </span>
+                    {userStats.awaitingConfirmationCount > 0
+                      ? ` · ${userStats.awaitingConfirmationCount} awaiting confirmation`
+                      : null}
+                  </>
+                ) : userStats.awaitingConfirmationCount > 0 ? (
+                  <>
+                    {userStats.awaitingConfirmationCount} claimed perk
+                    {userStats.awaitingConfirmationCount === 1 ? "" : "s"}{" "}
+                    awaiting confirmation
+                  </>
+                ) : null}
+              </p>
+            ) : null}
           </div>
 
           {user ? (
@@ -986,6 +1062,10 @@ const Perks = () => {
                         onDismiss={() => handleDismiss(perk)}
                         onRestore={() => handleRestore(perk)}
                         onUnclaim={() => handleUnclaim(perk)}
+                        onConfirmReceived={() => handleConfirmReceived(perk)}
+                        onReportNotReceived={() =>
+                          handleReportNotReceived(perk)
+                        }
                         onSnoozedToNotInterested={() => handleSnoozedToNotInterested(perk)}
                         onNotInterestedToSnoozed={() => handleNotInterestedToSnoozed(perk)}
                       />
@@ -1022,6 +1102,10 @@ const Perks = () => {
                           onDismiss={() => handleDismiss(perk)}
                           onRestore={() => handleRestore(perk)}
                           onUnclaim={() => handleUnclaim(perk)}
+                        onConfirmReceived={() => handleConfirmReceived(perk)}
+                        onReportNotReceived={() =>
+                          handleReportNotReceived(perk)
+                        }
                           onSnoozedToNotInterested={() => handleSnoozedToNotInterested(perk)}
                           onNotInterestedToSnoozed={() => handleNotInterestedToSnoozed(perk)}
                         />
@@ -1436,6 +1520,8 @@ function PerkCard({
   onDismiss,
   onRestore,
   onUnclaim,
+  onConfirmReceived,
+  onReportNotReceived,
   onSnoozedToNotInterested,
   onNotInterestedToSnoozed,
 }: {
@@ -1451,6 +1537,8 @@ function PerkCard({
   onDismiss: () => void;
   onRestore: () => void;
   onUnclaim: () => void;
+  onConfirmReceived: () => void;
+  onReportNotReceived: () => void;
   onSnoozedToNotInterested: () => void;
   onNotInterestedToSnoozed: () => void;
 }) {
@@ -1515,7 +1603,13 @@ function PerkCard({
             </Badge>
           ) : null}
           {perk.redeemed ? (
-            <Badge className="bg-green-600">Claimed</Badge>
+            perk.confirmationStatus === "confirmed_received" ? (
+              <Badge className="bg-green-600">Received</Badge>
+            ) : perk.confirmationStatus === "not_received" ? (
+              <Badge variant="destructive">Didn&apos;t receive</Badge>
+            ) : (
+              <Badge className="bg-green-600">Claimed</Badge>
+            )
           ) : null}
           {hasActiveApplication ? (
             <Badge variant="outline" className="border-primary/40 text-primary">
@@ -1638,16 +1732,57 @@ function PerkCard({
           </div>
         ) : null}
         {tab === "completed" ? (
-          <div className="relative z-20 flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={acting}
-              onClick={onUnclaim}
-            >
-              Move back to New
-            </Button>
+          <div className="relative z-20 space-y-3">
+            {perk.confirmationStatus === "claimed" ||
+            !perk.confirmationStatus ? (
+              <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+                <p className="mb-2 text-sm font-medium text-foreground">
+                  Did you successfully receive this perk?
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={acting}
+                    onClick={onConfirmReceived}
+                  >
+                    ✅ I Received This Perk
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={acting}
+                    onClick={onReportNotReceived}
+                  >
+                    ❌ Didn&apos;t Receive It
+                  </Button>
+                </div>
+              </div>
+            ) : perk.confirmationStatus === "confirmed_received" ? (
+              <p className="text-sm text-muted-foreground">
+                Confirmed received
+                {typeof perk.estimatedValueCents === "number"
+                  ? ` · ~$${(perk.estimatedValueCents / 100).toFixed(0)} value`
+                  : null}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                You reported this wasn&apos;t received. Our team can help —
+                thanks for the heads-up.
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={acting}
+                onClick={onUnclaim}
+              >
+                Move back to New
+              </Button>
+            </div>
           </div>
         ) : null}
         {tab === "snoozed" ? (
