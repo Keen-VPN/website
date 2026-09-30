@@ -801,8 +801,11 @@ function PlansTab() {
           const twoYear = isTwoYearApiPlan(plan);
           const annual = isAnnualPlan(plan);
           const isFamily = tier === 'family';
-          // The longest available term is the single featured value card.
-          const featured = twoYear || (isFamily && annual && !tierHasTwoYear);
+          // One featured purchasable card: offered 2-year, else Family annual.
+          // Retained current-only 2-year cards stay unfeatured so annual keeps Best value.
+          const featured =
+            (twoYear && OFFER_TWO_YEAR_PLANS) ||
+            (isFamily && annual && !tierHasPurchasableTwoYear);
           const monthly = monthlyEquivalent(plan);
           const coveredMonths = getApiPlanPaidMonths(plan);
           const standardTermPrice = monthlyPlan
