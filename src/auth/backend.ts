@@ -535,6 +535,11 @@ export type PerkRedemptionType =
 
 export type PerkUserTab = "new" | "completed" | "snoozed" | "not_interested";
 
+export type PerkConfirmationStatus =
+  | "claimed"
+  | "confirmed_received"
+  | "not_received";
+
 export type PerkRequestCategory =
   | "finance"
   | "software"
@@ -557,6 +562,9 @@ export interface PerkItem {
   isFeatured: boolean;
   accessible: boolean;
   redeemed: boolean;
+  confirmationStatus?: PerkConfirmationStatus | null;
+  confirmedAt?: string | null;
+  estimatedValueCents?: number | null;
   ctaLabel: string;
   startsAt: string | null;
   endsAt: string | null;
@@ -585,11 +593,18 @@ export type SettlementStatus = "open" | "closing_soon" | "closed";
 
 export type SettlementStatusFilter = SettlementStatus | "all";
 
+export interface PerkUserStats {
+  confirmedCount: number;
+  lifetimeSavingsCents: number;
+  awaitingConfirmationCount: number;
+}
+
 export interface PerksListPayload {
   userAccessTier: PerkAccessTier;
   categories: PerkCategory[];
   tab: PerkUserTab | null;
   perks: PerkItem[];
+  userStats?: PerkUserStats;
 }
 
 export interface FetchPerksOptions {
@@ -876,6 +891,133 @@ export async function unclaimPerk(
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to unclaim perk",
+    };
+  }
+}
+
+export async function confirmPerkReceived(
+  sessionToken: string,
+  perkId: string,
+): Promise<{
+  success: boolean;
+  confirmationStatus?: PerkConfirmationStatus;
+  confirmedAt?: string | null;
+  estimatedValueCents?: number | null;
+  lifetimeSavingsCents?: number;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/perks/${encodeURIComponent(perkId)}/confirm-received`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to confirm perk receipt",
+        ),
+      };
+    }
+    const payload =
+      data && typeof data === "object" && !Array.isArray(data)
+        ? (data as Record<string, unknown>)
+        : {};
+    if (payload["success"] === false) {
+      const err = payload["error"];
+      return {
+        success: false,
+        error:
+          typeof err === "string" ? err : "Unable to confirm perk receipt",
+      };
+    }
+    return {
+      success: true,
+      confirmationStatus:
+        typeof payload.confirmationStatus === "string"
+          ? (payload.confirmationStatus as PerkConfirmationStatus)
+          : "confirmed_received",
+      confirmedAt:
+        typeof payload.confirmedAt === "string" ? payload.confirmedAt : null,
+      estimatedValueCents:
+        typeof payload.estimatedValueCents === "number"
+          ? payload.estimatedValueCents
+          : null,
+      lifetimeSavingsCents:
+        typeof payload.lifetimeSavingsCents === "number"
+          ? payload.lifetimeSavingsCents
+          : undefined,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to confirm perk receipt",
+    };
+  }
+}
+
+export async function reportPerkNotReceived(
+  sessionToken: string,
+  perkId: string,
+): Promise<{
+  success: boolean;
+  confirmationStatus?: PerkConfirmationStatus;
+  notReceivedAt?: string | null;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/perks/${encodeURIComponent(perkId)}/report-not-received`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      },
+    );
+    const data: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        success: false,
+        error: extractBackendErrorMessage(
+          data,
+          "Failed to report perk issue",
+        ),
+      };
+    }
+    const payload =
+      data && typeof data === "object" && !Array.isArray(data)
+        ? (data as Record<string, unknown>)
+        : {};
+    if (payload["success"] === false) {
+      const err = payload["error"];
+      return {
+        success: false,
+        error: typeof err === "string" ? err : "Unable to report perk issue",
+      };
+    }
+    return {
+      success: true,
+      confirmationStatus:
+        typeof payload.confirmationStatus === "string"
+          ? (payload.confirmationStatus as PerkConfirmationStatus)
+          : "not_received",
+      notReceivedAt:
+        typeof payload.notReceivedAt === "string"
+          ? payload.notReceivedAt
+          : null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to report perk issue",
     };
   }
 }
@@ -6069,6 +6211,9 @@ export interface AdminPerksMetrics {
   clicks: number;
   claimEvents: number;
   redemptions: number;
+  confirmedReceived?: number;
+  notReceivedReports?: number;
+  confirmationRate?: number | null;
   clickThroughRate: number | null;
   claimRate: number | null;
   snoozeRate: number | null;
@@ -6077,6 +6222,7 @@ export interface AdminPerksMetrics {
     snoozedNow: number;
     notInterestedNow: number;
     completedTotal: number;
+    notReceivedOpen?: number;
     expiringIn7Days: number;
     expiringIn30Days: number;
     expiredCatalog: number;
@@ -6440,6 +6586,108 @@ export async function adminClonePerk(
     }
     const record = raw as { data?: AdminPerk };
     return { ok: true, data: record.data };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export interface AdminNotReceivedPerkRow {
+  id: string;
+  perkId: string;
+  userId: string;
+  redeemedAt: string;
+  notReceivedAt: string | null;
+  redemptionSource: string | null;
+  partnerName: string | null;
+  perkTitle: string;
+  perkCategory: string;
+  offerText: string;
+  userEmail: string;
+  userDisplayName: string | null;
+  adminResolvedAt: string | null;
+  adminResolutionNote: string | null;
+  adminResolvedBy: { id: string; email: string; name: string } | null;
+}
+
+export async function adminListNotReceivedPerks(options?: {
+  includeResolved?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<{
+  ok: boolean;
+  data?: AdminNotReceivedPerkRow[];
+  hasMore?: boolean;
+  error?: string;
+}> {
+  try {
+    const params = new URLSearchParams();
+    if (options?.includeResolved) params.set("includeResolved", "true");
+    if (typeof options?.limit === "number") {
+      params.set("limit", String(options.limit));
+    }
+    if (typeof options?.offset === "number") {
+      params.set("offset", String(options.offset));
+    }
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/perks/not-received${suffix}`,
+      { credentials: "include" },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          raw,
+          "Failed to load not-received perks",
+        ),
+      };
+    }
+    const record = raw as {
+      data?: AdminNotReceivedPerkRow[];
+      pagination?: { hasMore?: boolean };
+    };
+    return {
+      ok: true,
+      data: record.data ?? [],
+      hasMore: record.pagination?.hasMore === true,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Network error",
+    };
+  }
+}
+
+export async function adminResolveNotReceivedPerk(
+  redemptionId: string,
+  payload: {
+    resolution: "confirmed_received" | "dismissed" | "reopened";
+    note?: string;
+  },
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/admin/perks/redemptions/${encodeURIComponent(redemptionId)}/resolve`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
+    const raw: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(raw, "Failed to resolve report"),
+      };
+    }
+    return { ok: true };
   } catch (e) {
     return {
       ok: false,

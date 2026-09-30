@@ -43,10 +43,13 @@ import {
   adminFetchPerkReactivations,
   adminFetchPerksMetrics,
   adminListExpiredPerks,
+  adminListNotReceivedPerks,
   adminListPerks,
   adminListWorkflowTypes,
   adminReactivatePerk,
+  adminResolveNotReceivedPerk,
   adminUpdatePerk,
+  type AdminNotReceivedPerkRow,
   type AdminPerk,
   type AdminPerkReactivation,
   type AdminPerksMetrics,
@@ -461,6 +464,8 @@ function redemptionLabel(type: PerkRedemptionType) {
   );
 }
 
+const NOT_RECEIVED_PAGE_SIZE = 500;
+
 export default function AdminPerks() {
   const { admin, can } = useAdminAuth();
   const { workflowsEnabled } = useFeatureFlags();
@@ -522,6 +527,77 @@ export default function AdminPerks() {
   const [toInput, setToInput] = useState("");
   const metricsRequest = useRef<AbortController | null>(null);
   const historyRequestRef = useRef(0);
+  const [notReceivedRows, setNotReceivedRows] = useState<
+    AdminNotReceivedPerkRow[]
+  >([]);
+  const [loadingNotReceived, setLoadingNotReceived] = useState(false);
+  const [loadingMoreNotReceived, setLoadingMoreNotReceived] = useState(false);
+  const [notReceivedHasMore, setNotReceivedHasMore] = useState(false);
+  const [notReceivedError, setNotReceivedError] = useState<string | null>(null);
+  const [resolvingRedemptionIds, setResolvingRedemptionIds] = useState<
+    Set<string>
+  >(() => new Set());
+  const notReceivedRequestRef = useRef(0);
+
+  const loadNotReceived = useCallback(async () => {
+    const requestId = ++notReceivedRequestRef.current;
+    setLoadingNotReceived(true);
+    setLoadingMoreNotReceived(false);
+    setNotReceivedError(null);
+    setNotReceivedHasMore(false);
+
+    const res = await adminListNotReceivedPerks({
+      limit: NOT_RECEIVED_PAGE_SIZE,
+      offset: 0,
+    });
+    if (requestId !== notReceivedRequestRef.current) return;
+    if (!res.ok) {
+      setNotReceivedRows([]);
+      setNotReceivedHasMore(false);
+      setNotReceivedError(res.error ?? "Failed to load not-received queue");
+      setLoadingNotReceived(false);
+      return;
+    }
+
+    const page = res.data ?? [];
+    setNotReceivedRows(page);
+    setNotReceivedHasMore(res.hasMore === true && page.length > 0);
+    setLoadingNotReceived(false);
+  }, []);
+
+  const loadMoreNotReceived = useCallback(async () => {
+    if (loadingNotReceived || loadingMoreNotReceived || !notReceivedHasMore) {
+      return;
+    }
+    const requestId = notReceivedRequestRef.current;
+    setLoadingMoreNotReceived(true);
+    setNotReceivedError(null);
+
+    const res = await adminListNotReceivedPerks({
+      limit: NOT_RECEIVED_PAGE_SIZE,
+      offset: notReceivedRows.length,
+    });
+    if (requestId !== notReceivedRequestRef.current) return;
+    if (!res.ok) {
+      setNotReceivedError(res.error ?? "Failed to load more reports");
+      setLoadingMoreNotReceived(false);
+      return;
+    }
+
+    const page = res.data ?? [];
+    setNotReceivedRows((prev) => {
+      const seen = new Set(prev.map((row) => row.id));
+      const appended = page.filter((row) => !seen.has(row.id));
+      return [...prev, ...appended];
+    });
+    setNotReceivedHasMore(res.hasMore === true && page.length > 0);
+    setLoadingMoreNotReceived(false);
+  }, [
+    loadingMoreNotReceived,
+    loadingNotReceived,
+    notReceivedHasMore,
+    notReceivedRows.length,
+  ]);
 
   const loadMetrics = useCallback(async (fromValue: string, toValue: string) => {
     metricsRequest.current?.abort();
@@ -557,6 +633,41 @@ export default function AdminPerks() {
     setLoadingMetrics(false);
     metricsRequest.current = null;
   }, []);
+
+  const resolveNotReceived = useCallback(
+    async (
+      redemptionId: string,
+      payload: {
+        resolution: "confirmed_received" | "dismissed" | "reopened";
+        note?: string;
+      },
+    ) => {
+      if (!canWrite) return;
+      setResolvingRedemptionIds((prev) => {
+        const next = new Set(prev);
+        next.add(redemptionId);
+        return next;
+      });
+      try {
+        const res = await adminResolveNotReceivedPerk(redemptionId, payload);
+        if (!res.ok) {
+          setNotReceivedError(res.error ?? "Failed to resolve");
+          return;
+        }
+        await Promise.all([
+          loadNotReceived(),
+          loadMetrics(fromInput, toInput),
+        ]);
+      } finally {
+        setResolvingRedemptionIds((prev) => {
+          const next = new Set(prev);
+          next.delete(redemptionId);
+          return next;
+        });
+      }
+    },
+    [canWrite, fromInput, loadMetrics, loadNotReceived, toInput],
+  );
 
   const loadExpired = useCallback(async () => {
     setLoadingExpired(true);
@@ -642,8 +753,9 @@ export default function AdminPerks() {
 
   useEffect(() => {
     void loadMetrics("", "");
+    void loadNotReceived();
     return () => metricsRequest.current?.abort();
-  }, [loadMetrics]);
+  }, [loadMetrics, loadNotReceived]);
 
   const applyDraft = useCallback((draft: PerkFormDraft) => {
     sessionBlankEndsAtRef.current =
@@ -1183,6 +1295,168 @@ export default function AdminPerks() {
               {metrics?.lifecycle?.snoozesInWindow ?? (loadingMetrics ? "…" : 0)}
             </p>
           </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Confirmed received</p>
+            <p className="mt-1 text-2xl font-semibold">
+              {metrics?.confirmedReceived ?? (loadingMetrics ? "…" : 0)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Confirm rate{" "}
+              {loadingMetrics
+                ? "…"
+                : formatPercent(metrics?.confirmationRate ?? null)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm text-muted-foreground">Not received (open)</p>
+            <p className="mt-1 text-2xl font-semibold">
+              {metrics?.lifecycle?.notReceivedOpen ??
+                (loadingMetrics ? "…" : 0)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-8 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold">
+                Claimed but not received
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Members who reported a claimed perk wasn&apos;t delivered.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void loadNotReceived()}
+              disabled={loadingNotReceived}
+            >
+              Refresh
+            </Button>
+          </div>
+          {notReceivedError ? (
+            <p className="text-sm text-destructive">{notReceivedError}</p>
+          ) : null}
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="border-b border-border bg-muted/40">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Member</th>
+                  <th className="px-3 py-2 font-medium">Perk</th>
+                  <th className="px-3 py-2 font-medium">Reported</th>
+                  <th className="px-3 py-2 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingNotReceived ? (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-4 text-muted-foreground">
+                      Loading queue…
+                    </td>
+                  </tr>
+                ) : notReceivedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-4 text-muted-foreground">
+                      No open not-received reports.
+                    </td>
+                  </tr>
+                ) : (
+                  notReceivedRows.map((row) => {
+                    const resolving = resolvingRedemptionIds.has(row.id);
+                    return (
+                    <tr key={row.id} className="border-t border-border">
+                      <td className="px-3 py-3 align-top">
+                        <div className="font-medium">
+                          {row.userDisplayName || row.userEmail}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {row.userEmail}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 align-top">
+                        <div className="font-medium">{row.perkTitle}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {row.partnerName || "—"} · {row.perkCategory}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 align-top text-muted-foreground">
+                        {row.notReceivedAt
+                          ? new Date(row.notReceivedAt).toLocaleString()
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-3 align-top">
+                        {canWrite ? (
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={resolving}
+                            onClick={() => {
+                              void resolveNotReceived(row.id, {
+                                resolution: "confirmed_received",
+                              });
+                            }}
+                          >
+                            Mark received
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={resolving}
+                            onClick={() => {
+                              void resolveNotReceived(row.id, {
+                                resolution: "reopened",
+                              });
+                            }}
+                          >
+                            Reopen claim
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            disabled={resolving}
+                            onClick={() => {
+                              void resolveNotReceived(row.id, {
+                                resolution: "dismissed",
+                                note: "Reviewed in admin; no further action",
+                              });
+                            }}
+                          >
+                            Dismiss
+                          </Button>
+                        </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            View only
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          {notReceivedHasMore ? (
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={loadingNotReceived || loadingMoreNotReceived}
+                onClick={() => void loadMoreNotReceived()}
+              >
+                {loadingMoreNotReceived
+                  ? "Loading more…"
+                  : `Load more (${notReceivedRows.length} shown)`}
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-border">
