@@ -794,11 +794,12 @@ const Perks = () => {
           source: "perks_page",
         });
         if (typeof res.lifetimeSavingsCents === "number") {
+          const lifetimeSavingsCents = res.lifetimeSavingsCents;
           setUserStats((prev) =>
             prev
               ? {
                   ...prev,
-                  lifetimeSavingsCents: res.lifetimeSavingsCents!,
+                  lifetimeSavingsCents,
                   confirmedCount: prev.confirmedCount + 1,
                   awaitingConfirmationCount: Math.max(
                     0,
@@ -806,7 +807,7 @@ const Perks = () => {
                   ),
                 }
               : {
-                  lifetimeSavingsCents: res.lifetimeSavingsCents!,
+                  lifetimeSavingsCents,
                   confirmedCount: 1,
                   awaitingConfirmationCount: 0,
                 },
