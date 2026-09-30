@@ -6539,9 +6539,11 @@ export interface AdminNotReceivedPerkRow {
 export async function adminListNotReceivedPerks(options?: {
   includeResolved?: boolean;
   limit?: number;
+  offset?: number;
 }): Promise<{
   ok: boolean;
   data?: AdminNotReceivedPerkRow[];
+  hasMore?: boolean;
   error?: string;
 }> {
   try {
@@ -6549,6 +6551,9 @@ export async function adminListNotReceivedPerks(options?: {
     if (options?.includeResolved) params.set("includeResolved", "true");
     if (typeof options?.limit === "number") {
       params.set("limit", String(options.limit));
+    }
+    if (typeof options?.offset === "number") {
+      params.set("offset", String(options.offset));
     }
     const suffix = params.toString() ? `?${params.toString()}` : "";
     const response = await fetch(
@@ -6565,8 +6570,15 @@ export async function adminListNotReceivedPerks(options?: {
         ),
       };
     }
-    const record = raw as { data?: AdminNotReceivedPerkRow[] };
-    return { ok: true, data: record.data ?? [] };
+    const record = raw as {
+      data?: AdminNotReceivedPerkRow[];
+      pagination?: { hasMore?: boolean };
+    };
+    return {
+      ok: true,
+      data: record.data ?? [],
+      hasMore: record.pagination?.hasMore === true,
+    };
   } catch (e) {
     return {
       ok: false,

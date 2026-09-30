@@ -530,7 +530,6 @@ export default function AdminPerks() {
   >([]);
   const [loadingNotReceived, setLoadingNotReceived] = useState(false);
   const [notReceivedError, setNotReceivedError] = useState<string | null>(null);
-  const [notReceivedCapped, setNotReceivedCapped] = useState(false);
   const [resolvingRedemptionIds, setResolvingRedemptionIds] = useState<
     Set<string>
   >(() => new Set());
@@ -540,19 +539,33 @@ export default function AdminPerks() {
     const requestId = ++notReceivedRequestRef.current;
     setLoadingNotReceived(true);
     setNotReceivedError(null);
-    // Backend max page size is 500; load the full supported page so open reports
-    // are not silently dropped at the old hard-cap of 100.
-    const res = await adminListNotReceivedPerks({ limit: 500 });
-    if (requestId !== notReceivedRequestRef.current) return;
-    if (!res.ok) {
-      setNotReceivedRows([]);
-      setNotReceivedCapped(false);
-      setNotReceivedError(res.error ?? "Failed to load not-received queue");
-    } else {
-      const rows = res.data ?? [];
-      setNotReceivedRows(rows);
-      setNotReceivedCapped(rows.length >= 500);
+    const pageSize = 500;
+    const allRows: AdminNotReceivedPerkRow[] = [];
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const res = await adminListNotReceivedPerks({
+        limit: pageSize,
+        offset,
+      });
+      if (requestId !== notReceivedRequestRef.current) return;
+      if (!res.ok) {
+        setNotReceivedRows([]);
+        setNotReceivedError(res.error ?? "Failed to load not-received queue");
+        setLoadingNotReceived(false);
+        return;
+      }
+      const page = res.data ?? [];
+      allRows.push(...page);
+      hasMore = res.hasMore === true && page.length > 0;
+      offset += page.length;
+      // Safety: avoid unbounded loops if the API keeps claiming hasMore.
+      if (offset > 10_000) break;
     }
+
+    if (requestId !== notReceivedRequestRef.current) return;
+    setNotReceivedRows(allRows);
     setLoadingNotReceived(false);
   }, []);
 
@@ -1295,12 +1308,6 @@ export default function AdminPerks() {
           </div>
           {notReceivedError ? (
             <p className="text-sm text-destructive">{notReceivedError}</p>
-          ) : null}
-          {notReceivedCapped ? (
-            <p className="text-sm text-amber-700">
-              Showing the newest 500 open reports (API page limit). Resolve some
-              to surface older items.
-            </p>
           ) : null}
           <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full min-w-[720px] text-left text-sm">
