@@ -14,7 +14,11 @@ export default defineConfig({
   plugins: [
     react(),
     viteCompression(),
-    Sitemap({ hostname: 'https://vpnkeen.com' }),
+    Sitemap({
+      hostname: "https://vpnkeen.com",
+      // Keep public/robots.txt; avoid closeBundle write when dist is incomplete.
+      generateRobotsTxt: false,
+    }),
   ],
   resolve: {
     alias: {
