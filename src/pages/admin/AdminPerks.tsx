@@ -464,6 +464,8 @@ function redemptionLabel(type: PerkRedemptionType) {
   );
 }
 
+const NOT_RECEIVED_PAGE_SIZE = 500;
+
 export default function AdminPerks() {
   const { admin, can } = useAdminAuth();
   const { workflowsEnabled } = useFeatureFlags();
@@ -529,6 +531,8 @@ export default function AdminPerks() {
     AdminNotReceivedPerkRow[]
   >([]);
   const [loadingNotReceived, setLoadingNotReceived] = useState(false);
+  const [loadingMoreNotReceived, setLoadingMoreNotReceived] = useState(false);
+  const [notReceivedHasMore, setNotReceivedHasMore] = useState(false);
   const [notReceivedError, setNotReceivedError] = useState<string | null>(null);
   const [resolvingRedemptionIds, setResolvingRedemptionIds] = useState<
     Set<string>
@@ -538,36 +542,62 @@ export default function AdminPerks() {
   const loadNotReceived = useCallback(async () => {
     const requestId = ++notReceivedRequestRef.current;
     setLoadingNotReceived(true);
+    setLoadingMoreNotReceived(false);
     setNotReceivedError(null);
-    const pageSize = 500;
-    const allRows: AdminNotReceivedPerkRow[] = [];
-    let offset = 0;
-    let hasMore = true;
+    setNotReceivedHasMore(false);
 
-    while (hasMore) {
-      const res = await adminListNotReceivedPerks({
-        limit: pageSize,
-        offset,
-      });
-      if (requestId !== notReceivedRequestRef.current) return;
-      if (!res.ok) {
-        setNotReceivedRows([]);
-        setNotReceivedError(res.error ?? "Failed to load not-received queue");
-        setLoadingNotReceived(false);
-        return;
-      }
-      const page = res.data ?? [];
-      allRows.push(...page);
-      hasMore = res.hasMore === true && page.length > 0;
-      offset += page.length;
-      // Safety: avoid unbounded loops if the API keeps claiming hasMore.
-      if (offset > 10_000) break;
+    const res = await adminListNotReceivedPerks({
+      limit: NOT_RECEIVED_PAGE_SIZE,
+      offset: 0,
+    });
+    if (requestId !== notReceivedRequestRef.current) return;
+    if (!res.ok) {
+      setNotReceivedRows([]);
+      setNotReceivedHasMore(false);
+      setNotReceivedError(res.error ?? "Failed to load not-received queue");
+      setLoadingNotReceived(false);
+      return;
     }
 
-    if (requestId !== notReceivedRequestRef.current) return;
-    setNotReceivedRows(allRows);
+    const page = res.data ?? [];
+    setNotReceivedRows(page);
+    setNotReceivedHasMore(res.hasMore === true && page.length > 0);
     setLoadingNotReceived(false);
   }, []);
+
+  const loadMoreNotReceived = useCallback(async () => {
+    if (loadingNotReceived || loadingMoreNotReceived || !notReceivedHasMore) {
+      return;
+    }
+    const requestId = notReceivedRequestRef.current;
+    setLoadingMoreNotReceived(true);
+    setNotReceivedError(null);
+
+    const res = await adminListNotReceivedPerks({
+      limit: NOT_RECEIVED_PAGE_SIZE,
+      offset: notReceivedRows.length,
+    });
+    if (requestId !== notReceivedRequestRef.current) return;
+    if (!res.ok) {
+      setNotReceivedError(res.error ?? "Failed to load more reports");
+      setLoadingMoreNotReceived(false);
+      return;
+    }
+
+    const page = res.data ?? [];
+    setNotReceivedRows((prev) => {
+      const seen = new Set(prev.map((row) => row.id));
+      const appended = page.filter((row) => !seen.has(row.id));
+      return [...prev, ...appended];
+    });
+    setNotReceivedHasMore(res.hasMore === true && page.length > 0);
+    setLoadingMoreNotReceived(false);
+  }, [
+    loadingMoreNotReceived,
+    loadingNotReceived,
+    notReceivedHasMore,
+    notReceivedRows.length,
+  ]);
 
   const loadMetrics = useCallback(async (fromValue: string, toValue: string) => {
     metricsRequest.current?.abort();
@@ -1412,6 +1442,21 @@ export default function AdminPerks() {
               </tbody>
             </table>
           </div>
+          {notReceivedHasMore ? (
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={loadingNotReceived || loadingMoreNotReceived}
+                onClick={() => void loadMoreNotReceived()}
+              >
+                {loadingMoreNotReceived
+                  ? "Loading more…"
+                  : `Load more (${notReceivedRows.length} shown)`}
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-border">
