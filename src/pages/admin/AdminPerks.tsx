@@ -530,19 +530,28 @@ export default function AdminPerks() {
   >([]);
   const [loadingNotReceived, setLoadingNotReceived] = useState(false);
   const [notReceivedError, setNotReceivedError] = useState<string | null>(null);
-  const [resolvingRedemptionId, setResolvingRedemptionId] = useState<
-    string | null
-  >(null);
+  const [notReceivedCapped, setNotReceivedCapped] = useState(false);
+  const [resolvingRedemptionIds, setResolvingRedemptionIds] = useState<
+    Set<string>
+  >(() => new Set());
+  const notReceivedRequestRef = useRef(0);
 
   const loadNotReceived = useCallback(async () => {
+    const requestId = ++notReceivedRequestRef.current;
     setLoadingNotReceived(true);
     setNotReceivedError(null);
-    const res = await adminListNotReceivedPerks({ limit: 100 });
+    // Backend max page size is 500; load the full supported page so open reports
+    // are not silently dropped at the old hard-cap of 100.
+    const res = await adminListNotReceivedPerks({ limit: 500 });
+    if (requestId !== notReceivedRequestRef.current) return;
     if (!res.ok) {
       setNotReceivedRows([]);
+      setNotReceivedCapped(false);
       setNotReceivedError(res.error ?? "Failed to load not-received queue");
     } else {
-      setNotReceivedRows(res.data ?? []);
+      const rows = res.data ?? [];
+      setNotReceivedRows(rows);
+      setNotReceivedCapped(rows.length >= 500);
     }
     setLoadingNotReceived(false);
   }, []);
@@ -581,6 +590,41 @@ export default function AdminPerks() {
     setLoadingMetrics(false);
     metricsRequest.current = null;
   }, []);
+
+  const resolveNotReceived = useCallback(
+    async (
+      redemptionId: string,
+      payload: {
+        resolution: "confirmed_received" | "dismissed" | "reopened";
+        note?: string;
+      },
+    ) => {
+      if (!canWrite) return;
+      setResolvingRedemptionIds((prev) => {
+        const next = new Set(prev);
+        next.add(redemptionId);
+        return next;
+      });
+      try {
+        const res = await adminResolveNotReceivedPerk(redemptionId, payload);
+        if (!res.ok) {
+          setNotReceivedError(res.error ?? "Failed to resolve");
+          return;
+        }
+        await Promise.all([
+          loadNotReceived(),
+          loadMetrics(fromInput, toInput),
+        ]);
+      } finally {
+        setResolvingRedemptionIds((prev) => {
+          const next = new Set(prev);
+          next.delete(redemptionId);
+          return next;
+        });
+      }
+    },
+    [canWrite, fromInput, loadMetrics, loadNotReceived, toInput],
+  );
 
   const loadExpired = useCallback(async () => {
     setLoadingExpired(true);
@@ -1252,6 +1296,12 @@ export default function AdminPerks() {
           {notReceivedError ? (
             <p className="text-sm text-destructive">{notReceivedError}</p>
           ) : null}
+          {notReceivedCapped ? (
+            <p className="text-sm text-amber-700">
+              Showing the newest 500 open reports (API page limit). Resolve some
+              to surface older items.
+            </p>
+          ) : null}
           <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-border bg-muted/40">
@@ -1276,7 +1326,9 @@ export default function AdminPerks() {
                     </td>
                   </tr>
                 ) : (
-                  notReceivedRows.map((row) => (
+                  notReceivedRows.map((row) => {
+                    const resolving = resolvingRedemptionIds.has(row.id);
+                    return (
                     <tr key={row.id} className="border-t border-border">
                       <td className="px-3 py-3 align-top">
                         <div className="font-medium">
@@ -1298,22 +1350,15 @@ export default function AdminPerks() {
                           : "—"}
                       </td>
                       <td className="px-3 py-3 align-top">
+                        {canWrite ? (
                         <div className="flex flex-wrap gap-2">
                           <Button
                             type="button"
                             size="sm"
-                            disabled={resolvingRedemptionId === row.id}
+                            disabled={resolving}
                             onClick={() => {
-                              setResolvingRedemptionId(row.id);
-                              void adminResolveNotReceivedPerk(row.id, {
+                              void resolveNotReceived(row.id, {
                                 resolution: "confirmed_received",
-                              }).then((res) => {
-                                setResolvingRedemptionId(null);
-                                if (res.ok) void loadNotReceived();
-                                else
-                                  setNotReceivedError(
-                                    res.error ?? "Failed to resolve",
-                                  );
                               });
                             }}
                           >
@@ -1323,18 +1368,10 @@ export default function AdminPerks() {
                             type="button"
                             size="sm"
                             variant="outline"
-                            disabled={resolvingRedemptionId === row.id}
+                            disabled={resolving}
                             onClick={() => {
-                              setResolvingRedemptionId(row.id);
-                              void adminResolveNotReceivedPerk(row.id, {
+                              void resolveNotReceived(row.id, {
                                 resolution: "reopened",
-                              }).then((res) => {
-                                setResolvingRedemptionId(null);
-                                if (res.ok) void loadNotReceived();
-                                else
-                                  setNotReceivedError(
-                                    res.error ?? "Failed to resolve",
-                                  );
                               });
                             }}
                           >
@@ -1344,28 +1381,26 @@ export default function AdminPerks() {
                             type="button"
                             size="sm"
                             variant="ghost"
-                            disabled={resolvingRedemptionId === row.id}
+                            disabled={resolving}
                             onClick={() => {
-                              setResolvingRedemptionId(row.id);
-                              void adminResolveNotReceivedPerk(row.id, {
+                              void resolveNotReceived(row.id, {
                                 resolution: "dismissed",
                                 note: "Reviewed in admin; no further action",
-                              }).then((res) => {
-                                setResolvingRedemptionId(null);
-                                if (res.ok) void loadNotReceived();
-                                else
-                                  setNotReceivedError(
-                                    res.error ?? "Failed to resolve",
-                                  );
                               });
                             }}
                           >
                             Dismiss
                           </Button>
                         </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            View only
+                          </span>
+                        )}
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
