@@ -13,6 +13,14 @@ import {
   isAdminReportDateRangeValid,
 } from "@/lib/admin-utils";
 
+function metricValue(
+  reportValue: string | undefined,
+  loading: boolean,
+): string {
+  if (reportValue !== undefined) return reportValue;
+  return loading ? "…" : "—";
+}
+
 export default function AdminClassActionEmailCta() {
   const { can } = useAdminAuth();
   const canView = can("emails.broadcast");
@@ -29,7 +37,7 @@ export default function AdminClassActionEmailCta() {
     if (!isAdminReportDateRangeValid(from, to)) {
       activeRequest.current?.abort();
       activeRequest.current = null;
-      setReport(null);
+      // Keep the last successful report visible; only surface the date error.
       setError(
         from.trim() && to.trim()
           ? "From date must be on or before To date."
@@ -53,7 +61,8 @@ export default function AdminClassActionEmailCta() {
 
     if (controller.signal.aborted) return;
     if (!res.ok || !res.data) {
-      setReport(null);
+      // Do not clear the previous report — a transient failure should not look
+      // like a legitimate empty window of zeros.
       setError(res.error === "aborted" ? null : res.error ?? "Failed to load");
       setLoading(false);
       return;
@@ -78,6 +87,17 @@ export default function AdminClassActionEmailCta() {
       </div>
     );
   }
+
+  const emptyCtaMessage = loading
+    ? "Loading…"
+    : error && !report
+      ? "—"
+      : "No CTA clicks in this window.";
+  const emptyPerkMessage = loading
+    ? "Loading…"
+    : error && !report
+      ? "—"
+      : "No class-action announcement sends in this window.";
 
   return (
     <div className="space-y-6">
@@ -132,33 +152,41 @@ export default function AdminClassActionEmailCta() {
         {[
           {
             label: "Emails sent",
-            value: report?.emails_sent.toLocaleString() ?? (loading ? "…" : "0"),
+            value: metricValue(
+              report?.emails_sent.toLocaleString(),
+              loading,
+            ),
           },
           {
             label: "CTA clicks",
-            value:
-              report?.total_cta_clicks.toLocaleString() ??
-              (loading ? "…" : "0"),
+            value: metricValue(
+              report?.total_cta_clicks.toLocaleString(),
+              loading,
+            ),
           },
           {
             label: "Unique users",
-            value:
-              report?.unique_users_clicked.toLocaleString() ??
-              (loading ? "…" : "0"),
+            value: metricValue(
+              report?.unique_users_clicked.toLocaleString(),
+              loading,
+            ),
           },
           {
             label: "Overall CTR",
             value: loading
               ? "…"
-              : report?.overall_ctr == null
+              : report == null
                 ? "—"
-                : formatAdminRate(report.overall_ctr * 100),
+                : report.overall_ctr == null
+                  ? "—"
+                  : formatAdminRate(report.overall_ctr * 100),
           },
           {
             label: "Bot clicks excluded",
-            value:
-              report?.bot_clicks_excluded.toLocaleString() ??
-              (loading ? "…" : "0"),
+            value: metricValue(
+              report?.bot_clicks_excluded.toLocaleString(),
+              loading,
+            ),
           },
         ].map((card) => (
           <div
@@ -184,7 +212,7 @@ export default function AdminClassActionEmailCta() {
             {(report?.by_cta ?? []).length === 0 ? (
               <tr>
                 <td className="p-3 text-muted-foreground" colSpan={3}>
-                  {loading ? "Loading…" : "No CTA clicks in this window."}
+                  {emptyCtaMessage}
                 </td>
               </tr>
             ) : (
@@ -217,17 +245,13 @@ export default function AdminClassActionEmailCta() {
             {(report?.by_perk ?? []).length === 0 ? (
               <tr>
                 <td className="p-3 text-muted-foreground" colSpan={7}>
-                  {loading
-                    ? "Loading…"
-                    : "No class-action announcement sends in this window."}
+                  {emptyPerkMessage}
                 </td>
               </tr>
             ) : (
               (report?.by_perk ?? []).map((row) => (
                 <tr key={row.perk_id} className="border-b border-border/60">
-                  <td className="p-3">
-                    {row.perk_title ?? row.perk_id}
-                  </td>
+                  <td className="p-3">{row.perk_title ?? row.perk_id}</td>
                   <td className="p-3">{row.emails_sent.toLocaleString()}</td>
                   <td className="p-3">{row.total_clicks.toLocaleString()}</td>
                   <td className="p-3">{row.unique_users.toLocaleString()}</td>
