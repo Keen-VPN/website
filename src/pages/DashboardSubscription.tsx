@@ -672,7 +672,9 @@ function PlansTab() {
   const monthlyPlan = tierPlans.find(
     (plan) => !isAnnualPlan(plan) && !isTwoYearApiPlan(plan),
   );
-  const tierHasTwoYear =
+  // Only purchasable 2-year cards count as the featured "best value" term.
+  // A retained current 2-year card (offer off) should not suppress Family annual.
+  const tierHasPurchasableTwoYear =
     OFFER_TWO_YEAR_PLANS && tierPlans.some(isTwoYearApiPlan);
 
   const startCheckout = async (plan: ApiPlan) => {
