@@ -4,7 +4,6 @@ import {
   formatTwoYearComparisonPrice,
   getApiPlanPaidMonths,
   isTwoYearApiPlan,
-  OFFER_TWO_YEAR_PLANS,
   resolvePricingPlanSelection,
   transformApiPlans,
   twoYearHeroPriceDisplay,
@@ -162,35 +161,111 @@ describe("transformApiPlans with a 2-year price", () => {
     expect(family.twoYearId).toBe("family_2year");
     expect(family.twoYearPriceId).toBe("price_family_2year");
     expect(family.twoYearPrice).toBe(179.99);
-    expect(resolvePricingPlanSelection(family, "twoYear")).toEqual(
-      OFFER_TWO_YEAR_PLANS
-        ? { planId: "family_2year", billingPeriod: "2year" }
-        : { planId: "family_yearly", billingPeriod: "year" },
-    );
   });
 });
 
 describe("resolvePricingPlanSelection for the 2-year term", () => {
-  it("selects the dedicated 2-year plan id when offered, else annual", () => {
+  it("selects the dedicated 2-year plan id when offered", () => {
     const [individual] = transformApiPlans([
       monthlyPlan,
       annualPlan,
       twoYearPlan,
     ]);
 
-    expect(resolvePricingPlanSelection(individual, "twoYear")).toEqual(
-      OFFER_TWO_YEAR_PLANS
-        ? { planId: "premium_2year", billingPeriod: "2year" }
-        : { planId: "premium_yearly", billingPeriod: "year" },
-    );
+    expect(
+      resolvePricingPlanSelection(individual, "twoYear", {
+        offerTwoYearPlans: true,
+      }),
+    ).toEqual({
+      planId: "premium_2year",
+      billingPeriod: "2year",
+    });
+  });
+
+  it("falls back to annual when 2-year is not offered", () => {
+    const [individual] = transformApiPlans([
+      monthlyPlan,
+      annualPlan,
+      twoYearPlan,
+    ]);
+
+    expect(
+      resolvePricingPlanSelection(individual, "twoYear", {
+        offerTwoYearPlans: false,
+      }),
+    ).toEqual({
+      planId: "premium_yearly",
+      billingPeriod: "year",
+    });
   });
 
   it("falls back to the longest available term for plans without a 2-year price", () => {
     const [individual] = transformApiPlans([monthlyPlan, annualPlan]);
 
-    expect(resolvePricingPlanSelection(individual, "twoYear")).toEqual({
+    expect(
+      resolvePricingPlanSelection(individual, "twoYear", {
+        offerTwoYearPlans: true,
+      }),
+    ).toEqual({
       planId: "premium_yearly",
       billingPeriod: "year",
+    });
+  });
+
+  it("maps Family 2-year to Family annual when the offer is disabled", () => {
+    const familyMonthly = apiPlan({
+      id: "family_monthly",
+      name: "KeenVPN Family - Monthly",
+      price: 14.99,
+      priceId: "price_family_monthly",
+    });
+    const familyAnnual = apiPlan({
+      id: "family_yearly",
+      name: "KeenVPN Family - Annual",
+      price: 119.99,
+      period: "year",
+      interval: "year",
+      billingPeriod: "year",
+      priceId: "price_family_annual",
+    });
+    const familyTwoYear = apiPlan({
+      id: "family_2year",
+      name: "KeenVPN Family - 2 Years",
+      price: 179.99,
+      period: "2 years",
+      interval: "year",
+      billingPeriod: "2year",
+      priceId: "price_family_2year",
+      intervalCount: 2,
+      paidMonths: 24,
+    });
+
+    const plans = transformApiPlans([
+      monthlyPlan,
+      annualPlan,
+      familyMonthly,
+      familyAnnual,
+      familyTwoYear,
+    ]);
+    const family = plans.find((p) => p.id === "family");
+    expect(family).toBeDefined();
+    if (!family) return;
+
+    expect(
+      resolvePricingPlanSelection(family, "twoYear", {
+        offerTwoYearPlans: false,
+      }),
+    ).toEqual({
+      planId: "family_yearly",
+      billingPeriod: "year",
+    });
+    expect(
+      resolvePricingPlanSelection(family, "twoYear", {
+        offerTwoYearPlans: true,
+      }),
+    ).toEqual({
+      planId: "family_2year",
+      billingPeriod: "2year",
     });
   });
 });

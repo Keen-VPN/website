@@ -126,11 +126,14 @@ export interface PricingPlan {
 export function resolvePricingPlanSelection(
   plan: PricingPlan | null | undefined,
   requestedPeriod: PricingTerm,
+  options?: { offerTwoYearPlans?: boolean },
 ): { planId: string; billingPeriod: "month" | "year" | "2year" } | null {
   if (!plan) return null;
 
+  const offerTwoYearPlans = options?.offerTwoYearPlans ?? OFFER_TWO_YEAR_PLANS;
+
   if (requestedPeriod === "twoYear") {
-    if (OFFER_TWO_YEAR_PLANS && plan.twoYearId) {
+    if (offerTwoYearPlans && plan.twoYearId) {
       return { planId: plan.twoYearId, billingPeriod: "2year" };
     }
     // When 2-year is not offered (or plan has no 2-year price), use annual.

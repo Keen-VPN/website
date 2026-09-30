@@ -157,6 +157,34 @@ const matchesRequestedPlan = (plan: ApiPlan, requestedPlanId: string) => {
   return false;
 };
 
+/** When 2-year isn't offered, deep-link aliases resolve to the annual catalog id. */
+const resolveOfferedSubscribePlanId = (requestedPlanId: string): string => {
+  if (OFFER_TWO_YEAR_PLANS) return requestedPlanId;
+  const id = requestedPlanId.toLowerCase();
+  if (
+    id === "premium_2year" ||
+    id === "premium_two_year" ||
+    id === "premium-2year"
+  ) {
+    return "premium_yearly";
+  }
+  if (
+    id === "family_2year" ||
+    id === "family_two_year" ||
+    id === "family-2year" ||
+    id === "family-two-year"
+  ) {
+    return "family_yearly";
+  }
+  return requestedPlanId;
+};
+
+const isOfferedPurchasablePlan = (plan: ApiPlan): boolean => {
+  if (!isPurchasablePlan(plan)) return false;
+  if (!OFFER_TWO_YEAR_PLANS && isTwoYearApiPlan(plan)) return false;
+  return true;
+};
+
 interface PlanTierSelectorProps {
   tiers: string[];
   selectedTier: string;
@@ -464,11 +492,7 @@ const Subscribe = () => {
         const response = await fetchSubscriptionPlans();
 
         if (response.success && response.plans && response.plans.length > 0) {
-          const purchasablePlans = response.plans.filter((plan) => {
-            if (!isPurchasablePlan(plan)) return false;
-            if (!OFFER_TWO_YEAR_PLANS && isTwoYearApiPlan(plan)) return false;
-            return true;
-          });
+          const purchasablePlans = response.plans.filter(isOfferedPurchasablePlan);
           setAllPlans(purchasablePlans);
 
           const requestedReturnedPlan = planIdParam
@@ -487,13 +511,14 @@ const Subscribe = () => {
         } else {
           console.error("Failed to load plan:", response.error);
           if (planIdParam) {
-            const planResponse = await fetchSubscriptionPlanById(planIdParam);
+            const lookupPlanId = resolveOfferedSubscribePlanId(planIdParam);
+            const planResponse = await fetchSubscriptionPlanById(lookupPlanId);
             const fallbackPlan =
               planResponse.success && planResponse.plan
                 ? (planResponse.plan as unknown as ApiPlan)
                 : null;
             setSelectedPlan(
-              fallbackPlan && isPurchasablePlan(fallbackPlan)
+              fallbackPlan && isOfferedPurchasablePlan(fallbackPlan)
                 ? fallbackPlan
                 : null,
             );
