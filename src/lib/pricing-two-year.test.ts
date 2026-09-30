@@ -49,6 +49,43 @@ const twoYearPlan = apiPlan({
   paidMonths: 24,
 });
 
+const familyMonthly = apiPlan({
+  id: "family_monthly",
+  name: "KeenVPN Family - Monthly",
+  price: 14.99,
+  priceId: "price_family_monthly",
+});
+
+const familyAnnual = apiPlan({
+  id: "family_yearly",
+  name: "KeenVPN Family - Annual",
+  price: 119.99,
+  period: "year",
+  interval: "year",
+  billingPeriod: "year",
+  priceId: "price_family_annual",
+});
+
+const familyTwoYear = apiPlan({
+  id: "family_2year",
+  name: "KeenVPN Family - 2 Years",
+  price: 179.99,
+  period: "2 years",
+  interval: "year",
+  billingPeriod: "2year",
+  priceId: "price_family_2year",
+  intervalCount: 2,
+  paidMonths: 24,
+});
+
+const familyCatalogPlans = [
+  monthlyPlan,
+  annualPlan,
+  familyMonthly,
+  familyAnnual,
+  familyTwoYear,
+];
+
 describe("isTwoYearApiPlan", () => {
   it("detects the 2-year term from the billing period or the Stripe interval count", () => {
     expect(isTwoYearApiPlan(twoYearPlan)).toBe(true);
@@ -120,40 +157,7 @@ describe("transformApiPlans with a 2-year price", () => {
   });
 
   it("maps Family 2-year onto the Family pricing card", () => {
-    const familyMonthly = apiPlan({
-      id: "family_monthly",
-      name: "KeenVPN Family - Monthly",
-      price: 14.99,
-      priceId: "price_family_monthly",
-    });
-    const familyAnnual = apiPlan({
-      id: "family_yearly",
-      name: "KeenVPN Family - Annual",
-      price: 119.99,
-      period: "year",
-      interval: "year",
-      billingPeriod: "year",
-      priceId: "price_family_annual",
-    });
-    const familyTwoYear = apiPlan({
-      id: "family_2year",
-      name: "KeenVPN Family - 2 Years",
-      price: 179.99,
-      period: "2 years",
-      interval: "year",
-      billingPeriod: "2year",
-      priceId: "price_family_2year",
-      intervalCount: 2,
-      paidMonths: 24,
-    });
-
-    const plans = transformApiPlans([
-      monthlyPlan,
-      annualPlan,
-      familyMonthly,
-      familyAnnual,
-      familyTwoYear,
-    ]);
+    const plans = transformApiPlans(familyCatalogPlans);
     const family = plans.find((p) => p.id === "family");
     expect(family).toBeDefined();
     if (!family) return;
@@ -213,40 +217,7 @@ describe("resolvePricingPlanSelection for the 2-year term", () => {
   });
 
   it("maps Family 2-year to Family annual when the offer is disabled", () => {
-    const familyMonthly = apiPlan({
-      id: "family_monthly",
-      name: "KeenVPN Family - Monthly",
-      price: 14.99,
-      priceId: "price_family_monthly",
-    });
-    const familyAnnual = apiPlan({
-      id: "family_yearly",
-      name: "KeenVPN Family - Annual",
-      price: 119.99,
-      period: "year",
-      interval: "year",
-      billingPeriod: "year",
-      priceId: "price_family_annual",
-    });
-    const familyTwoYear = apiPlan({
-      id: "family_2year",
-      name: "KeenVPN Family - 2 Years",
-      price: 179.99,
-      period: "2 years",
-      interval: "year",
-      billingPeriod: "2year",
-      priceId: "price_family_2year",
-      intervalCount: 2,
-      paidMonths: 24,
-    });
-
-    const plans = transformApiPlans([
-      monthlyPlan,
-      annualPlan,
-      familyMonthly,
-      familyAnnual,
-      familyTwoYear,
-    ]);
+    const plans = transformApiPlans(familyCatalogPlans);
     const family = plans.find((p) => p.id === "family");
     expect(family).toBeDefined();
     if (!family) return;
