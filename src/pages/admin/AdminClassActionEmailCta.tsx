@@ -97,7 +97,7 @@ export default function AdminClassActionEmailCta() {
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-sm">
-            From
+            From (UTC)
             <input
               type="date"
               value={fromInput}
@@ -106,7 +106,7 @@ export default function AdminClassActionEmailCta() {
             />
           </label>
           <label className="text-sm">
-            To
+            To (UTC, exclusive)
             <input
               type="date"
               value={toInput}
@@ -188,7 +188,7 @@ export default function AdminClassActionEmailCta() {
                 </td>
               </tr>
             ) : (
-              report!.by_cta.map((row) => (
+              (report?.by_cta ?? []).map((row) => (
                 <tr key={row.cta_id} className="border-b border-border/60">
                   <td className="p-3 font-mono text-xs">{row.cta_id}</td>
                   <td className="p-3">{row.total_clicks.toLocaleString()}</td>
@@ -223,7 +223,7 @@ export default function AdminClassActionEmailCta() {
                 </td>
               </tr>
             ) : (
-              report!.by_perk.map((row) => (
+              (report?.by_perk ?? []).map((row) => (
                 <tr key={row.perk_id} className="border-b border-border/60">
                   <td className="p-3">
                     {row.perk_title ?? row.perk_id}
