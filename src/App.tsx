@@ -116,6 +116,12 @@ const AdminBroadcastEmail = lazy(
 const AdminEmailUnsubscribes = lazy(
   () => import("./pages/admin/AdminEmailUnsubscribes"),
 );
+const AdminClassActionEmailCta = lazy(
+  () => import("./pages/admin/AdminClassActionEmailCta"),
+);
+const AdminClassActionEmailCta = lazy(
+  () => import("./pages/admin/AdminClassActionEmailCta"),
+);
 const AdminUserProfiles = lazy(
   () => import("./pages/admin/AdminUserProfiles"),
 );
@@ -420,6 +426,10 @@ const App = () => (
                 <Route
                   path="email-unsubscribes"
                   element={<AdminEmailUnsubscribes />}
+                />
+                <Route
+                  path="class-action-email-cta"
+                  element={<AdminClassActionEmailCta />}
                 />
               </Route>
               <Route path="*" element={<NotFound />} />

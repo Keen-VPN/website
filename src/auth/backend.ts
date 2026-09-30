@@ -5327,6 +5327,82 @@ export async function adminFetchEmailUnsubscribeCategories(params?: {
   );
 }
 
+export interface AdminClassActionEmailCtaReport {
+  from: string;
+  to: string;
+  emails_sent: number;
+  total_cta_clicks: number;
+  unique_users_clicked: number;
+  bot_clicks_excluded: number;
+  overall_ctr: number | null;
+  by_cta: Array<{
+    cta_id: string;
+    total_clicks: number;
+    unique_users: number;
+  }>;
+  by_perk: Array<{
+    perk_id: string;
+    perk_title: string | null;
+    emails_sent: number;
+    total_clicks: number;
+    unique_users: number;
+    ctr: number | null;
+    subsequent_trials: number;
+    subsequent_paid: number;
+  }>;
+}
+
+export async function adminFetchClassActionEmailCtaReport(params?: {
+  from?: string;
+  to?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  ok: boolean;
+  data?: AdminClassActionEmailCtaReport;
+  error?: string;
+}> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(
+      `${BACKEND_URL}/admin/email-cta/class-action${suffix}`,
+      {
+        method: "GET",
+        credentials: "include",
+        signal: params?.signal,
+      },
+    );
+    const body: unknown = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: extractBackendErrorMessage(
+          body,
+          "Failed to load class-action email CTA report",
+        ),
+      };
+    }
+    const record = body as { data?: AdminClassActionEmailCtaReport };
+    if (!record.data) {
+      return { ok: false, error: "Invalid class-action email CTA response" };
+    }
+    return { ok: true, data: record.data };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return { ok: false, error: "aborted" };
+    }
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to load class-action email CTA report",
+    };
+  }
+}
+
 export async function adminFetchWeeklySessionKpis(params?: {
   year?: number;
   week?: number;

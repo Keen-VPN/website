@@ -109,6 +109,15 @@ export default function AdminSidebarLayout() {
                 Email Unsubscribes
               </NavLink>
             ) : null}
+            {can("emails.broadcast") ? (
+              <NavLink
+                to="/admin/class-action-email-cta"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                <Mail className="h-4 w-4" />
+                Class Action Email CTAs
+              </NavLink>
+            ) : null}
             <NavLink
               to="/admin/perks"
               className={({ isActive }) => linkClass(isActive)}
