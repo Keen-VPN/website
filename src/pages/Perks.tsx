@@ -913,7 +913,7 @@ const Perks = () => {
                   <>
                     Confirmed value received:{" "}
                     <span className="font-medium text-foreground">
-                      ${(userStats.lifetimeSavingsCents / 100).toFixed(0)}
+                      ${(userStats.lifetimeSavingsCents / 100).toFixed(2)}
                     </span>
                     {userStats.awaitingConfirmationCount > 0
                       ? ` · ${userStats.awaitingConfirmationCount} awaiting confirmation`
@@ -1404,7 +1404,13 @@ function PerkDetailsDialog({
                   </Badge>
                 ) : null}
                 {perk.redeemed ? (
-                  <Badge className="bg-green-600">Claimed</Badge>
+                  perk.confirmationStatus === "confirmed_received" ? (
+                    <Badge className="bg-green-600">Received</Badge>
+                  ) : perk.confirmationStatus === "not_received" ? (
+                    <Badge variant="destructive">Didn&apos;t receive</Badge>
+                  ) : (
+                    <Badge className="bg-green-600">Claimed</Badge>
+                  )
                 ) : null}
               </div>
 

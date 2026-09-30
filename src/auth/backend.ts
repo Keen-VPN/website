@@ -928,6 +928,14 @@ export async function confirmPerkReceived(
       data && typeof data === "object" && !Array.isArray(data)
         ? (data as Record<string, unknown>)
         : {};
+    if (payload["success"] === false) {
+      const err = payload["error"];
+      return {
+        success: false,
+        error:
+          typeof err === "string" ? err : "Unable to confirm perk receipt",
+      };
+    }
     return {
       success: true,
       confirmationStatus:
@@ -987,6 +995,13 @@ export async function reportPerkNotReceived(
       data && typeof data === "object" && !Array.isArray(data)
         ? (data as Record<string, unknown>)
         : {};
+    if (payload["success"] === false) {
+      const err = payload["error"];
+      return {
+        success: false,
+        error: typeof err === "string" ? err : "Unable to report perk issue",
+      };
+    }
     return {
       success: true,
       confirmationStatus:
