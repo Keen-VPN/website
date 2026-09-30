@@ -27,6 +27,7 @@ import {
   getApiPlanPaidMonths,
   isClassicFamilyPlanId,
   isTwoYearApiPlan,
+  OFFER_TWO_YEAR_PLANS,
 } from '@/lib/pricing';
 import {
   formatCurrency,
@@ -570,6 +571,7 @@ function PlansTab() {
     (isIndividualSubscriber || isFamilySubscriber) &&
     canUpgradeStripeToAnnual(subscription);
   const canOneClickTwoYear =
+    OFFER_TWO_YEAR_PLANS &&
     (isIndividualSubscriber || isFamilySubscriber) &&
     canSwitchStripeToTwoYear(subscription);
   const annualAlreadyScheduled = hasScheduledAnnualBilling(subscription);
@@ -648,8 +650,13 @@ function PlansTab() {
   }, []);
 
   const tierPlans = useMemo(() => {
-    const filtered = plans.filter((p) => getPlanTier(p) === tier);
-    // Both tiers: Monthly, 2-year (when configured), then 1-year.
+    const filtered = plans.filter((p) => {
+      if (getPlanTier(p) !== tier) return false;
+      // Hide 2-year purchase cards while still supporting existing 2-year subs.
+      if (!OFFER_TWO_YEAR_PLANS && isTwoYearApiPlan(p)) return false;
+      return true;
+    });
+    // Monthly first, then 1-year (2-year omitted when not offered).
     return [...filtered].sort((a, b) => {
       const rank = (p: ApiPlan) =>
         isTwoYearApiPlan(p) ? 1 : isAnnualPlan(p) ? 2 : 0;
@@ -659,7 +666,8 @@ function PlansTab() {
   const monthlyPlan = tierPlans.find(
     (plan) => !isAnnualPlan(plan) && !isTwoYearApiPlan(plan),
   );
-  const tierHasTwoYear = tierPlans.some(isTwoYearApiPlan);
+  const tierHasTwoYear =
+    OFFER_TWO_YEAR_PLANS && tierPlans.some(isTwoYearApiPlan);
 
   const startCheckout = async (plan: ApiPlan) => {
     const sessionToken = getSessionToken();

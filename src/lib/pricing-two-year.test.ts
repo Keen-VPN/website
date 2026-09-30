@@ -4,6 +4,7 @@ import {
   formatTwoYearComparisonPrice,
   getApiPlanPaidMonths,
   isTwoYearApiPlan,
+  OFFER_TWO_YEAR_PLANS,
   resolvePricingPlanSelection,
   transformApiPlans,
   twoYearHeroPriceDisplay,
@@ -161,25 +162,27 @@ describe("transformApiPlans with a 2-year price", () => {
     expect(family.twoYearId).toBe("family_2year");
     expect(family.twoYearPriceId).toBe("price_family_2year");
     expect(family.twoYearPrice).toBe(179.99);
-    expect(resolvePricingPlanSelection(family, "twoYear")).toEqual({
-      planId: "family_2year",
-      billingPeriod: "2year",
-    });
+    expect(resolvePricingPlanSelection(family, "twoYear")).toEqual(
+      OFFER_TWO_YEAR_PLANS
+        ? { planId: "family_2year", billingPeriod: "2year" }
+        : { planId: "family_yearly", billingPeriod: "year" },
+    );
   });
 });
 
 describe("resolvePricingPlanSelection for the 2-year term", () => {
-  it("selects the dedicated 2-year plan id", () => {
+  it("selects the dedicated 2-year plan id when offered, else annual", () => {
     const [individual] = transformApiPlans([
       monthlyPlan,
       annualPlan,
       twoYearPlan,
     ]);
 
-    expect(resolvePricingPlanSelection(individual, "twoYear")).toEqual({
-      planId: "premium_2year",
-      billingPeriod: "2year",
-    });
+    expect(resolvePricingPlanSelection(individual, "twoYear")).toEqual(
+      OFFER_TWO_YEAR_PLANS
+        ? { planId: "premium_2year", billingPeriod: "2year" }
+        : { planId: "premium_yearly", billingPeriod: "year" },
+    );
   });
 
   it("falls back to the longest available term for plans without a 2-year price", () => {

@@ -58,19 +58,29 @@ const Pricing = () => {
         const response = await fetchSubscriptionPlans();
 
         if (response.success && response.plans && response.plans.length > 0) {
-          // Find annual and monthly plans
+          const isTwoYearPlan = (p: Record<string, unknown>) => {
+            const period = String(p.billingPeriod || p.period || "").toLowerCase();
+            if (["2year", "two_year", "two-year", "2 years"].includes(period)) {
+              return true;
+            }
+            return p.interval === "year" && Number(p.intervalCount) === 2;
+          };
+
+          // Find annual and monthly plans (exclude multi-year so prices stay correct).
           const foundAnnualPlan = response.plans.find(
             (p: Record<string, unknown>) =>
-              p.period === "year" ||
-              p.billingPeriod === "year" ||
-              p.interval === "year"
+              !isTwoYearPlan(p) &&
+              (p.period === "year" ||
+                p.billingPeriod === "year" ||
+                p.interval === "year")
           );
 
           const foundMonthlyPlan = response.plans.find(
             (p: Record<string, unknown>) =>
-              p.period === "month" ||
-              p.billingPeriod === "month" ||
-              p.interval === "month"
+              !isTwoYearPlan(p) &&
+              (p.period === "month" ||
+                p.billingPeriod === "month" ||
+                p.interval === "month")
           );
 
           if (foundAnnualPlan) {

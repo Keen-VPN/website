@@ -14,6 +14,7 @@ import {
   getApiPlanPaidMonths,
   isClassicFamilyPlanId,
   isTwoYearApiPlan,
+  OFFER_TWO_YEAR_PLANS,
 } from "@/lib/pricing";
 import { Check, Gift, Loader2, ExternalLink, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -130,7 +131,10 @@ const matchesRequestedPlan = (plan: ApiPlan, requestedPlanId: string) => {
     requestedPlanId === "premium_two_year" ||
     requestedPlanId === "premium-2year"
   ) {
-    return isTwoYearApiPlan(plan) && plan.id.toLowerCase().includes("premium");
+    if (OFFER_TWO_YEAR_PLANS) {
+      return isTwoYearApiPlan(plan) && plan.id.toLowerCase().includes("premium");
+    }
+    return isAnnualPlan(plan) && plan.id.toLowerCase().includes("premium");
   }
   if (
     requestedPlanId === "family_2year" ||
@@ -138,7 +142,10 @@ const matchesRequestedPlan = (plan: ApiPlan, requestedPlanId: string) => {
     requestedPlanId === "family-2year" ||
     requestedPlanId === "family-two-year"
   ) {
-    return isTwoYearApiPlan(plan) && isClassicFamilyPlanId(plan.id);
+    if (OFFER_TWO_YEAR_PLANS) {
+      return isTwoYearApiPlan(plan) && isClassicFamilyPlanId(plan.id);
+    }
+    return isAnnualPlan(plan) && isClassicFamilyPlanId(plan.id);
   }
   if (requestedPlanId === "premium_monthly") {
     return (
@@ -457,7 +464,11 @@ const Subscribe = () => {
         const response = await fetchSubscriptionPlans();
 
         if (response.success && response.plans && response.plans.length > 0) {
-          const purchasablePlans = response.plans.filter(isPurchasablePlan);
+          const purchasablePlans = response.plans.filter((plan) => {
+            if (!isPurchasablePlan(plan)) return false;
+            if (!OFFER_TWO_YEAR_PLANS && isTwoYearApiPlan(plan)) return false;
+            return true;
+          });
           setAllPlans(purchasablePlans);
 
           const requestedReturnedPlan = planIdParam
