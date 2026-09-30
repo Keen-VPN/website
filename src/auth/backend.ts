@@ -5335,12 +5335,12 @@ export interface AdminClassActionEmailCtaReport {
   unique_users_clicked: number;
   bot_clicks_excluded: number;
   overall_ctr: number | null;
-  by_cta: Array<{
+  by_cta: {
     cta_id: string;
     total_clicks: number;
     unique_users: number;
-  }>;
-  by_perk: Array<{
+  }[];
+  by_perk: {
     perk_id: string;
     perk_title: string | null;
     emails_sent: number;
@@ -5349,7 +5349,7 @@ export interface AdminClassActionEmailCtaReport {
     ctr: number | null;
     subsequent_trials: number;
     subsequent_paid: number;
-  }>;
+  }[];
 }
 
 export async function adminFetchClassActionEmailCtaReport(params?: {
