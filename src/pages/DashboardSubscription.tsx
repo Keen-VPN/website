@@ -652,17 +652,23 @@ function PlansTab() {
   const tierPlans = useMemo(() => {
     const filtered = plans.filter((p) => {
       if (getPlanTier(p) !== tier) return false;
-      // Hide 2-year purchase cards while still supporting existing 2-year subs.
-      if (!OFFER_TWO_YEAR_PLANS && isTwoYearApiPlan(p)) return false;
+      // Hide 2-year purchase cards, but keep the subscriber's current 2-year plan.
+      if (
+        !OFFER_TWO_YEAR_PLANS &&
+        isTwoYearApiPlan(p) &&
+        !isCurrentCatalogPlan(p, subscription)
+      ) {
+        return false;
+      }
       return true;
     });
-    // Monthly first, then 1-year (2-year omitted when not offered).
+    // Monthly first, then 2-year (current only when not offered), then 1-year.
     return [...filtered].sort((a, b) => {
       const rank = (p: ApiPlan) =>
         isTwoYearApiPlan(p) ? 1 : isAnnualPlan(p) ? 2 : 0;
       return rank(a) - rank(b);
     });
-  }, [plans, tier]);
+  }, [plans, subscription, tier]);
   const monthlyPlan = tierPlans.find(
     (plan) => !isAnnualPlan(plan) && !isTwoYearApiPlan(plan),
   );
