@@ -35,6 +35,7 @@ import {
   formatAnnualComparisonPrice,
   formatTwoYearBillingDetail,
   formatTwoYearComparisonPrice,
+  OFFER_TWO_YEAR_PLANS,
   resolvePricingPlanSelection,
   transformApiPlans,
   twoYearHeroPriceDisplay,
@@ -164,7 +165,8 @@ const Pricing = () => {
     switchToTwoYear,
     trackTwoYearEvent,
   } = useTwoYearPlanChange();
-  const isTwoYearSwitchEligible = canSwitchStripeToTwoYear(subscription);
+  const isTwoYearSwitchEligible =
+    OFFER_TWO_YEAR_PLANS && canSwitchStripeToTwoYear(subscription);
   const isTrialingSubscription =
     subscription?.status.toLowerCase() === "trialing";
   const twoYearViewTrackedRef = useRef(false);
@@ -230,12 +232,12 @@ const Pricing = () => {
     currentSubscriptionPeriod !== selectedBusinessPeriod;
   const annualSavingsLabel =
     premiumPlan?.annualSavingsLabel ?? DEFAULT_ANNUAL_SAVINGS_LABEL;
-  // The 2-year term is only offered once the backend exposes its Stripe price.
+  // The 2-year term is only offered when enabled and the backend exposes its price.
   const twoYearPlan = useMemo(
     () => plans.find((p) => Boolean(p.twoYearId)),
     [plans],
   );
-  const twoYearOffered = Boolean(twoYearPlan);
+  const twoYearOffered = OFFER_TWO_YEAR_PLANS && Boolean(twoYearPlan);
   const twoYearToggleLabel = twoYearPlan
     ? (twoYearPlan.twoYearSavingsLabel ?? "Best value")
     : null;

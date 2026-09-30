@@ -36,6 +36,12 @@ export type PricingTerm = "monthly" | "annual" | "twoYear";
 
 export const TWO_YEAR_PAID_MONTHS = 24;
 
+/**
+ * When false, marketing + portal UIs stop offering 2-year purchase/switch CTAs.
+ * Existing 2-year subscribers still see correct renewal/status copy.
+ */
+export const OFFER_TWO_YEAR_PLANS = false;
+
 export function isTwoYearApiPlan(plan: ApiPlan): boolean {
   const period = (plan.billingPeriod || plan.period || "").toLowerCase();
   if (["2year", "two_year", "two-year", "2 years"].includes(period)) {
@@ -120,14 +126,17 @@ export interface PricingPlan {
 export function resolvePricingPlanSelection(
   plan: PricingPlan | null | undefined,
   requestedPeriod: PricingTerm,
+  options?: { offerTwoYearPlans?: boolean },
 ): { planId: string; billingPeriod: "month" | "year" | "2year" } | null {
   if (!plan) return null;
 
+  const offerTwoYearPlans = options?.offerTwoYearPlans ?? OFFER_TWO_YEAR_PLANS;
+
   if (requestedPeriod === "twoYear") {
-    if (plan.twoYearId) {
+    if (offerTwoYearPlans && plan.twoYearId) {
       return { planId: plan.twoYearId, billingPeriod: "2year" };
     }
-    // Plans without a 2-year price (Business) keep their longest available term.
+    // When 2-year is not offered (or plan has no 2-year price), use annual.
     if (plan.annualId) {
       return { planId: plan.annualId, billingPeriod: "year" };
     }

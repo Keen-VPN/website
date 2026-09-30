@@ -4,6 +4,7 @@ import { Check, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { fetchSubscriptionPlans } from "@/auth/backend";
 import { useAuth } from "@/contexts/AuthContext";
+import { isTwoYearApiPlan, type ApiPlan } from "@/lib/pricing";
 
 interface Plan {
   name: string;
@@ -36,19 +37,19 @@ const Pricing = () => {
       "Kill switch protection",
     ];
 
-    const transformPlan = (apiPlan: Record<string, unknown>): Plan => {
+    const transformPlan = (apiPlan: ApiPlan): Plan => {
       return {
-        name: (apiPlan.name as string) || "KeenVPN Premium",
+        name: apiPlan.name || "KeenVPN Premium",
         price: `$${apiPlan.price || 100}`,
         period: "/month",
         description:
-          (apiPlan.description as string) || "Complete VPN protection for the entire year",
+          apiPlan.description || "Complete VPN protection for the entire year",
         features:
-          (apiPlan.features as Record<string, unknown>[])
+          apiPlan.features
             ?.filter((f) => f.included)
-            ?.map((f) => f.name as string) || defaultFeatures,
+            ?.map((f) => f.name) || defaultFeatures,
         buttonText: "Get KeenVPN",
-        planId: apiPlan.id as string,
+        planId: apiPlan.id,
       };
     };
 
@@ -58,19 +59,21 @@ const Pricing = () => {
         const response = await fetchSubscriptionPlans();
 
         if (response.success && response.plans && response.plans.length > 0) {
-          // Find annual and monthly plans
+          // Find annual and monthly plans (exclude multi-year so prices stay correct).
           const foundAnnualPlan = response.plans.find(
-            (p: Record<string, unknown>) =>
-              p.period === "year" ||
-              p.billingPeriod === "year" ||
-              p.interval === "year"
+            (p) =>
+              !isTwoYearApiPlan(p) &&
+              (p.period === "year" ||
+                p.billingPeriod === "year" ||
+                p.interval === "year"),
           );
 
           const foundMonthlyPlan = response.plans.find(
-            (p: Record<string, unknown>) =>
-              p.period === "month" ||
-              p.billingPeriod === "month" ||
-              p.interval === "month"
+            (p) =>
+              !isTwoYearApiPlan(p) &&
+              (p.period === "month" ||
+                p.billingPeriod === "month" ||
+                p.interval === "month"),
           );
 
           if (foundAnnualPlan) {
