@@ -8,6 +8,33 @@ import { isSafeHttpUrl } from "@/lib/safe-url";
 
 export const CLASS_ACTION_CATEGORY = "class_action";
 
+export const CLASS_ACTION_PAGE_PATH_PREFIX = "/class-actions";
+
+const PERK_CA_ID_PREFIX = "perk_ca_";
+
+/** Prefer API sourceSlug; otherwise derive from perk_ca_* id. */
+export function resolveClassActionPageSlug(perk: {
+  id: string;
+  sourceSlug?: string | null;
+}): string {
+  const fromSource = perk.sourceSlug?.trim();
+  if (fromSource) return fromSource;
+  const id = perk.id.trim();
+  if (id.startsWith(PERK_CA_ID_PREFIX) && id.length > PERK_CA_ID_PREFIX.length) {
+    return id.slice(PERK_CA_ID_PREFIX.length);
+  }
+  return id;
+}
+
+export function classActionDetailPath(perk: {
+  id: string;
+  sourceSlug?: string | null;
+}): string {
+  return `${CLASS_ACTION_PAGE_PATH_PREFIX}/${encodeURIComponent(
+    resolveClassActionPageSlug(perk),
+  )}`;
+}
+
 export type ClassActionFilter = "all" | "closing_soon" | "no_docs" | "closed";
 
 export const CLASS_ACTION_FILTERS: readonly ClassActionFilter[] = [

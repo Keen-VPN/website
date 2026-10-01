@@ -96,13 +96,28 @@ export type PerkAnalyticsEventName =
   | "perk_moved_from_snoozed_to_not_interested"
   | "perk_moved_from_not_interested_to_snoozed"
   | "perk_workflow_cancelled"
-  | "perk_application_started";
+  | "perk_application_started"
+  | "class_action_page_viewed"
+  | "class_action_claim_cta_clicked"
+  | "class_action_signup";
 
 export function trackPerksEvent(
   eventName: PerkAnalyticsEventName,
   payload: ProductAnalyticsPayload = {},
 ): void {
   emitProductEvent(eventName, payload, "keen_perks");
+}
+
+export type ClassActionAnalyticsEventName =
+  | "class_action_page_viewed"
+  | "class_action_claim_cta_clicked"
+  | "class_action_signup";
+
+export function trackClassActionEvent(
+  eventName: ClassActionAnalyticsEventName,
+  payload: ProductAnalyticsPayload = {},
+): void {
+  emitProductEvent(eventName, payload, "keen_class_action");
 }
 
 export type PerksLandingEventName =

@@ -326,6 +326,10 @@ const App = () => (
                 <Route path="/referrals" element={<DashboardReferrals />} />
                 <Route path="/class-action" element={<DashboardClassAction />} />
                 <Route
+                  path="/class-actions/:slug"
+                  element={<DashboardClassActionDetail />}
+                />
+                <Route
                   path="/class-action/:id"
                   element={<DashboardClassActionDetail />}
                 />
