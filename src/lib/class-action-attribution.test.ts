@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import {
   captureClassActionAttributionFromRedirect,
   consumeClassActionAttribution,
@@ -6,6 +6,7 @@ import {
   extractClassActionSlugFromPath,
   markClassActionNewSignup,
   peekClassActionAttribution,
+  retainClassActionNewSignupForRedirect,
 } from "./class-action-attribution";
 
 function memoryStorage(): Storage {
@@ -27,6 +28,10 @@ function memoryStorage(): Storage {
 }
 
 describe("class-action-attribution", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("extracts slug only from root /class-actions/:slug paths", () => {
     expect(
       extractClassActionSlugFromPath(
@@ -38,6 +43,12 @@ describe("class-action-attribution", () => {
         "/class-actions/disney-youtube-tv-settlement?utm=1",
       ),
     ).toBe("disney-youtube-tv-settlement");
+    expect(extractClassActionSlugFromPath("/class-actions/disney/")).toBe(
+      "disney",
+    );
+    expect(extractClassActionSlugFromPath("/class-actions/my%20plan")).toBe(
+      "my plan",
+    );
     expect(
       extractClassActionSlugFromPath("/foo/class-actions/disney"),
     ).toBeNull();
@@ -58,17 +69,51 @@ describe("class-action-attribution", () => {
     expect(peekClassActionAttribution(storage)).toBeNull();
   });
 
-  it("ignores non class-action redirects", () => {
+  it("clears prior attribution when redirect is not a class-action path", () => {
     const storage = memoryStorage();
+    captureClassActionAttributionFromRedirect("/class-actions/disney", storage);
     captureClassActionAttributionFromRedirect("/perks", storage);
     expect(peekClassActionAttribution(storage)).toBeNull();
   });
 
-  it("tracks new-signup flag separately", () => {
+  it("returns null for corrupt attribution storage", () => {
     const storage = memoryStorage();
-    expect(consumeClassActionNewSignupFlag(storage)).toBe(false);
-    markClassActionNewSignup(storage);
-    expect(consumeClassActionNewSignupFlag(storage)).toBe(true);
-    expect(consumeClassActionNewSignupFlag(storage)).toBe(false);
+    storage.setItem("keenvpn_class_action_attribution", "{not-json");
+    expect(peekClassActionAttribution(storage)).toBeNull();
+    storage.setItem(
+      "keenvpn_class_action_attribution",
+      JSON.stringify({ path: "/class-actions/disney" }),
+    );
+    expect(peekClassActionAttribution(storage)).toBeNull();
+  });
+
+  it("expires stale attribution", () => {
+    const storage = memoryStorage();
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    storage.setItem(
+      "keenvpn_class_action_attribution",
+      JSON.stringify({
+        path: "/class-actions/disney",
+        slug: "disney",
+        capturedAt: eightDaysAgo.toISOString(),
+      }),
+    );
+    expect(consumeClassActionAttribution(storage)).toBeNull();
+  });
+
+  it("tracks new-signup flag scoped to slug", () => {
+    const storage = memoryStorage();
+    expect(consumeClassActionNewSignupFlag("disney", storage)).toBe(false);
+    markClassActionNewSignup("disney", storage);
+    expect(consumeClassActionNewSignupFlag("other", storage)).toBe(false);
+    expect(consumeClassActionNewSignupFlag("disney", storage)).toBe(true);
+    expect(consumeClassActionNewSignupFlag("disney", storage)).toBe(false);
+  });
+
+  it("clears new-signup flag when post-login redirect is not class-action", () => {
+    const storage = memoryStorage();
+    markClassActionNewSignup("disney", storage);
+    retainClassActionNewSignupForRedirect("/dashboard", storage);
+    expect(consumeClassActionNewSignupFlag("disney", storage)).toBe(false);
   });
 });
