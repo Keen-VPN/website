@@ -6,11 +6,11 @@
 const STORAGE_KEY = "keenvpn_class_action_attribution";
 const NEW_SIGNUP_FLAG = "keenvpn_class_action_new_signup";
 
-export type ClassActionAttribution = {
+export interface ClassActionAttribution {
   path: string;
   slug: string;
   capturedAt: string;
-};
+}
 
 function parseAttribution(raw: string | null): ClassActionAttribution | null {
   if (!raw) return null;
