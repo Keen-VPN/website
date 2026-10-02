@@ -33,6 +33,11 @@ import {
 } from "@/lib/posthog-analytics";
 import { trackRedditLeadCompleted } from "@/lib/reddit-analytics";
 import { storeBusinessInviteAutoAcceptedNotice, clearBusinessInviteAutoAcceptedNotice } from "@/auth/business-invite-auto-accepted";
+import {
+  consumeClassActionAttribution,
+  markClassActionNewSignup,
+} from "@/lib/class-action-attribution";
+import { trackClassActionEvent } from "@/lib/product-analytics";
 
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "/api";
 
@@ -42,6 +47,32 @@ function trackNewAccount(response: BackendAuthResponse): void {
   if (createdUser && response.user?.id) {
     trackRedditLeadCompleted(response.user.id);
     trackPostHogAccountCreated(response.user.id);
+    // Consume once so later signups in the same tab cannot re-attribute.
+    const attribution = consumeClassActionAttribution();
+    if (attribution) {
+      markClassActionNewSignup();
+      trackClassActionEvent("class_action_signup", {
+        class_action_slug: attribution.slug,
+        redirect_path: attribution.path,
+        user_id: response.user.id,
+      });
+      const session =
+        typeof response.sessionToken === "string"
+          ? response.sessionToken
+          : null;
+      if (session) {
+        void recordPerkEvent(
+          session,
+          "class_action_signup",
+          {
+            source: "class_action_page",
+            classActionSlug: attribution.slug,
+            visitorType: "new_signup",
+          },
+          { keepalive: true },
+        );
+      }
+    }
   }
   // Only store on new-account create. Backend already gates auto-accept the
   // same way; this keeps a stale/replayed field from re-showing the banner.
@@ -587,6 +618,8 @@ export interface PerkItem {
   eligibilityTags?: string[];
   proofSummary?: string;
   eligibleRegion?: string;
+  /** Class-action page slug for /class-actions/:slug URLs. */
+  sourceSlug?: string | null;
 }
 
 export type SettlementStatus = "open" | "closing_soon" | "closed";
@@ -1031,8 +1064,18 @@ export async function recordPerkEvent(
     | "perk_restored_to_new"
     | "perk_marked_not_interested"
     | "perk_moved_from_snoozed_to_not_interested"
-    | "perk_moved_from_not_interested_to_snoozed",
-  payload?: { perkId?: string; platform?: string; source?: string },
+    | "perk_moved_from_not_interested_to_snoozed"
+    | "class_action_page_viewed"
+    | "class_action_claim_cta_clicked"
+    | "class_action_signup",
+  payload?: {
+    perkId?: string;
+    platform?: string;
+    source?: string;
+    visitorType?: string;
+    classActionSlug?: string;
+  },
+  options?: { keepalive?: boolean },
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/perks/events`, {
@@ -1046,7 +1089,10 @@ export async function recordPerkEvent(
         perkId: payload?.perkId,
         platform: payload?.platform ?? "web",
         source: payload?.source ?? "perks_page",
+        visitorType: payload?.visitorType,
+        classActionSlug: payload?.classActionSlug,
       }),
+      keepalive: options?.keepalive === true,
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {

@@ -20,6 +20,7 @@ import {
 } from "@/components/dashboard/class-action/SettlementParts";
 import {
   CLASS_ACTION_CATEGORY,
+  classActionDetailPath,
   displaySettlementTitle,
   filterSettlements,
   formatDaysLeft,
@@ -93,7 +94,7 @@ function SettlementListCard({ perk }: { perk: PerkItem }) {
   const daysLeft = closed
     ? null
     : formatDaysLeft(settlementDaysRemaining(perk));
-  const detailPath = `/class-action/${encodeURIComponent(perk.id)}`;
+  const detailPath = classActionDetailPath(perk);
   const eligibility = perk.eligibilityTags?.filter(Boolean) ?? [];
 
   return (
