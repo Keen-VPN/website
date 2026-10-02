@@ -50,6 +50,19 @@ describe("class-action-attribution", () => {
       "my plan",
     );
     expect(
+      extractClassActionSlugFromPath(
+        "https://vpnkeen.com/class-actions/disney-youtube-tv-settlement",
+      ),
+    ).toBe("disney-youtube-tv-settlement");
+    expect(
+      extractClassActionSlugFromPath(
+        "https://portal.vpnkeen.com/class-actions/disney/",
+      ),
+    ).toBe("disney");
+    expect(
+      extractClassActionSlugFromPath("https://evil.com/class-actions/disney"),
+    ).toBeNull();
+    expect(
       extractClassActionSlugFromPath("/foo/class-actions/disney"),
     ).toBeNull();
     expect(extractClassActionSlugFromPath("/class-action/disney")).toBeNull();

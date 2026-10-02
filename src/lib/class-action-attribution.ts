@@ -21,9 +21,21 @@ interface ClassActionNewSignupFlag {
 
 function redirectPathname(path: string): string | null {
   const trimmed = path.trim();
-  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+  if (!trimmed) return null;
   try {
-    return new URL(trimmed, "https://vpnkeen.com").pathname;
+    if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+      return new URL(trimmed, "https://vpnkeen.com").pathname;
+    }
+    const url = new URL(trimmed);
+    const host = url.hostname.toLowerCase();
+    if (
+      host === "vpnkeen.com" ||
+      host === "www.vpnkeen.com" ||
+      host === "portal.vpnkeen.com"
+    ) {
+      return url.pathname;
+    }
+    return null;
   } catch {
     return null;
   }
