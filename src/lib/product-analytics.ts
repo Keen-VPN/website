@@ -96,10 +96,7 @@ export type PerkAnalyticsEventName =
   | "perk_moved_from_snoozed_to_not_interested"
   | "perk_moved_from_not_interested_to_snoozed"
   | "perk_workflow_cancelled"
-  | "perk_application_started"
-  | "class_action_page_viewed"
-  | "class_action_claim_cta_clicked"
-  | "class_action_signup";
+  | "perk_application_started";
 
 export function trackPerksEvent(
   eventName: PerkAnalyticsEventName,

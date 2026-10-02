@@ -34,8 +34,8 @@ import {
 import { trackRedditLeadCompleted } from "@/lib/reddit-analytics";
 import { storeBusinessInviteAutoAcceptedNotice, clearBusinessInviteAutoAcceptedNotice } from "@/auth/business-invite-auto-accepted";
 import {
+  consumeClassActionAttribution,
   markClassActionNewSignup,
-  peekClassActionAttribution,
 } from "@/lib/class-action-attribution";
 import { trackClassActionEvent } from "@/lib/product-analytics";
 
@@ -47,7 +47,8 @@ function trackNewAccount(response: BackendAuthResponse): void {
   if (createdUser && response.user?.id) {
     trackRedditLeadCompleted(response.user.id);
     trackPostHogAccountCreated(response.user.id);
-    const attribution = peekClassActionAttribution();
+    // Consume once so later signups in the same tab cannot re-attribute.
+    const attribution = consumeClassActionAttribution();
     if (attribution) {
       markClassActionNewSignup();
       trackClassActionEvent("class_action_signup", {
@@ -60,11 +61,16 @@ function trackNewAccount(response: BackendAuthResponse): void {
           ? response.sessionToken
           : null;
       if (session) {
-        void recordPerkEvent(session, "class_action_signup", {
-          source: "class_action_page",
-          classActionSlug: attribution.slug,
-          visitorType: "new_signup",
-        });
+        void recordPerkEvent(
+          session,
+          "class_action_signup",
+          {
+            source: "class_action_page",
+            classActionSlug: attribution.slug,
+            visitorType: "new_signup",
+          },
+          { keepalive: true },
+        );
       }
     }
   }
@@ -1069,6 +1075,7 @@ export async function recordPerkEvent(
     visitorType?: string;
     classActionSlug?: string;
   },
+  options?: { keepalive?: boolean },
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/perks/events`, {
@@ -1085,6 +1092,7 @@ export async function recordPerkEvent(
         visitorType: payload?.visitorType,
         classActionSlug: payload?.classActionSlug,
       }),
+      keepalive: options?.keepalive === true,
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {

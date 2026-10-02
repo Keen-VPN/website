@@ -12,6 +12,16 @@ export interface ClassActionAttribution {
   capturedAt: string;
 }
 
+function redirectPathname(path: string): string | null {
+  const trimmed = path.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+  try {
+    return new URL(trimmed, "https://vpnkeen.com").pathname;
+  } catch {
+    return null;
+  }
+}
+
 function parseAttribution(raw: string | null): ClassActionAttribution | null {
   if (!raw) return null;
   try {
@@ -19,7 +29,7 @@ function parseAttribution(raw: string | null): ClassActionAttribution | null {
     if (
       typeof parsed.path === "string" &&
       typeof parsed.slug === "string" &&
-      parsed.path.includes("/class-actions/")
+      extractClassActionSlugFromPath(parsed.path)
     ) {
       return {
         path: parsed.path,
@@ -36,8 +46,11 @@ function parseAttribution(raw: string | null): ClassActionAttribution | null {
   return null;
 }
 
+/** Only matches routes whose pathname starts at `/class-actions/:slug`. */
 export function extractClassActionSlugFromPath(path: string): string | null {
-  const match = path.match(/\/class-actions\/([^/?#]+)/);
+  const pathname = redirectPathname(path);
+  if (!pathname) return null;
+  const match = pathname.match(/^\/class-actions\/([^/]+)\/?$/);
   if (!match?.[1]) return null;
   try {
     return decodeURIComponent(match[1]);

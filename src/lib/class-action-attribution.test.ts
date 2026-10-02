@@ -27,12 +27,24 @@ function memoryStorage(): Storage {
 }
 
 describe("class-action-attribution", () => {
-  it("extracts slug from redirect paths", () => {
+  it("extracts slug only from root /class-actions/:slug paths", () => {
     expect(
       extractClassActionSlugFromPath(
         "/class-actions/sandoz-fougera-econazole-cream-settlement",
       ),
     ).toBe("sandoz-fougera-econazole-cream-settlement");
+    expect(
+      extractClassActionSlugFromPath(
+        "/class-actions/disney-youtube-tv-settlement?utm=1",
+      ),
+    ).toBe("disney-youtube-tv-settlement");
+    expect(
+      extractClassActionSlugFromPath("/foo/class-actions/disney"),
+    ).toBeNull();
+    expect(extractClassActionSlugFromPath("/class-action/disney")).toBeNull();
+    expect(
+      extractClassActionSlugFromPath("/class-actions/disney/extra"),
+    ).toBeNull();
   });
 
   it("captures and peeks attribution from post-login redirect", () => {
@@ -43,6 +55,12 @@ describe("class-action-attribution", () => {
     );
     expect(peekClassActionAttribution(storage)?.slug).toBe("disney");
     expect(consumeClassActionAttribution(storage)?.slug).toBe("disney");
+    expect(peekClassActionAttribution(storage)).toBeNull();
+  });
+
+  it("ignores non class-action redirects", () => {
+    const storage = memoryStorage();
+    captureClassActionAttributionFromRedirect("/perks", storage);
     expect(peekClassActionAttribution(storage)).toBeNull();
   });
 

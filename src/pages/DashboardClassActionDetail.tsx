@@ -376,8 +376,10 @@ export default function DashboardClassActionDetail() {
   const { user, loading: authLoading } = useAuth();
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [reloadKey, setReloadKey] = useState(0);
-  const [visitorType] = useState<"new_signup" | "returning">(() =>
-    consumeClassActionNewSignupFlag() ? "new_signup" : "returning",
+  // Default returning; only promote to new_signup after a successful load so
+  // failed/not_found fetches do not burn the post-signup attribution flag.
+  const [visitorType, setVisitorType] = useState<"new_signup" | "returning">(
+    "returning",
   );
 
   useEffect(() => {
@@ -388,15 +390,18 @@ export default function DashboardClassActionDetail() {
       return;
     }
     let cancelled = false;
+    setVisitorType("returning");
     setState({ kind: "loading" });
     void fetchPerk(session, idOrSlug).then((res) => {
       if (cancelled) return;
       if (res.success && res.data) {
-        setState(
-          res.data.category === CLASS_ACTION_CATEGORY
-            ? { kind: "ready", perk: res.data }
-            : { kind: "not_found" },
-        );
+        if (res.data.category === CLASS_ACTION_CATEGORY) {
+          const isNewSignup = consumeClassActionNewSignupFlag();
+          setVisitorType(isNewSignup ? "new_signup" : "returning");
+          setState({ kind: "ready", perk: res.data });
+        } else {
+          setState({ kind: "not_found" });
+        }
       } else if (res.notFound) {
         setState({ kind: "not_found" });
       } else {
