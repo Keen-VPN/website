@@ -396,7 +396,11 @@ export default function DashboardClassActionDetail() {
       if (cancelled) return;
       if (res.success && res.data) {
         if (res.data.category === CLASS_ACTION_CATEGORY) {
-          const isNewSignup = consumeClassActionNewSignupFlag();
+          // Backend resolves sourceSlug and perk ids on GET /perks/:id.
+          const pageSlug = resolveClassActionPageSlug(res.data);
+          const isNewSignup =
+            consumeClassActionNewSignupFlag(idOrSlug) ||
+            consumeClassActionNewSignupFlag(pageSlug);
           setVisitorType(isNewSignup ? "new_signup" : "returning");
           setState({ kind: "ready", perk: res.data });
         } else {

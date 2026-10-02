@@ -50,7 +50,7 @@ function trackNewAccount(response: BackendAuthResponse): void {
     // Consume once so later signups in the same tab cannot re-attribute.
     const attribution = consumeClassActionAttribution();
     if (attribution) {
-      markClassActionNewSignup();
+      markClassActionNewSignup(attribution.slug);
       trackClassActionEvent("class_action_signup", {
         class_action_slug: attribution.slug,
         redirect_path: attribution.path,

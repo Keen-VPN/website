@@ -87,9 +87,12 @@ describe("post-login redirect storage", () => {
     expect(storage.getItem("keenvpn_post_login_redirect")).toBe(
       "/class-actions/disney",
     );
-    expect(storage.getItem("keenvpn_class_action_attribution")).toContain(
-      "disney",
-    );
+    const raw = storage.getItem("keenvpn_class_action_attribution");
+    expect(raw).toBeTruthy();
+    expect(JSON.parse(raw as string)).toMatchObject({
+      path: "/class-actions/disney",
+      slug: "disney",
+    });
   });
 });
 
