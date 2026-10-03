@@ -1,3 +1,5 @@
+import { captureClassActionAttributionFromRedirect } from "@/lib/class-action-attribution";
+
 export const POST_LOGIN_REDIRECT_PARAM = "redirect";
 const STORAGE_KEY = "keenvpn_post_login_redirect";
 const AUTH_REDIRECT_PENDING_KEY = "auth_redirect_pending";
@@ -58,6 +60,7 @@ export function capturePostLoginRedirectFromSearch(
   const safe = sanitizePostLoginRedirect(raw);
   if (safe) {
     storage.setItem(STORAGE_KEY, safe);
+    captureClassActionAttributionFromRedirect(safe, storage);
     return;
   }
 

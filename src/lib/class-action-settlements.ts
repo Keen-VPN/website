@@ -8,6 +8,29 @@ import { isSafeHttpUrl } from "@/lib/safe-url";
 
 export const CLASS_ACTION_CATEGORY = "class_action";
 
+export const CLASS_ACTION_PAGE_PATH_PREFIX = "/class-actions";
+
+/** Prefer API sourceSlug; otherwise use the full perk id for stable routing. */
+export function resolveClassActionPageSlug(perk: {
+  id: string;
+  sourceSlug?: string | null;
+}): string {
+  const fromSource = perk.sourceSlug?.trim();
+  if (fromSource) return fromSource;
+  // Keep the full perk id (e.g. perk_ca_…) so /perks/:id works without relying
+  // on backend slug derivation when sourceSlug is absent.
+  return perk.id.trim();
+}
+
+export function classActionDetailPath(perk: {
+  id: string;
+  sourceSlug?: string | null;
+}): string {
+  return `${CLASS_ACTION_PAGE_PATH_PREFIX}/${encodeURIComponent(
+    resolveClassActionPageSlug(perk),
+  )}`;
+}
+
 export type ClassActionFilter = "all" | "closing_soon" | "no_docs" | "closed";
 
 export const CLASS_ACTION_FILTERS: readonly ClassActionFilter[] = [

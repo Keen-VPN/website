@@ -105,6 +105,18 @@ export function trackPerksEvent(
   emitProductEvent(eventName, payload, "keen_perks");
 }
 
+export type ClassActionAnalyticsEventName =
+  | "class_action_page_viewed"
+  | "class_action_claim_cta_clicked"
+  | "class_action_signup";
+
+export function trackClassActionEvent(
+  eventName: ClassActionAnalyticsEventName,
+  payload: ProductAnalyticsPayload = {},
+): void {
+  emitProductEvent(eventName, payload, "keen_class_action");
+}
+
 export type PerksLandingEventName =
   | "perks_section_viewed"
   | "perks_cta_clicked"

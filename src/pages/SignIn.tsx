@@ -33,6 +33,7 @@ import {
   trackPostHogEmailVerified,
   trackPostHogSignupMethodSelected,
 } from "@/lib/posthog-analytics";
+import { retainClassActionNewSignupForRedirect } from "@/lib/class-action-attribution";
 import GoogleIcon from "@/components/ui/google-icon";
 import AuthProductPreview from "@/components/auth/AuthProductPreview";
 import SEOHead from "@/components/SEOHead";
@@ -99,12 +100,15 @@ const SignIn = () => {
     }
     const redirectUrl = consumePostLoginRedirect();
     if (redirectUrl) {
+      retainClassActionNewSignupForRedirect(redirectUrl);
       return redirectUrl;
     }
     const pendingInviteAcceptUrl = peekPendingMembershipInviteAcceptRedirect();
     if (pendingInviteAcceptUrl) {
+      retainClassActionNewSignupForRedirect(pendingInviteAcceptUrl);
       return pendingInviteAcceptUrl;
     }
+    retainClassActionNewSignupForRedirect(null);
     return "/dashboard";
   }, []);
 
@@ -137,15 +141,18 @@ const SignIn = () => {
         // OAuth return URLs often omit ?redirect=, which would clear storage.
         const redirectUrl = consumePostLoginRedirect();
         if (redirectUrl) {
+          retainClassActionNewSignupForRedirect(redirectUrl);
           window.location.href = redirectUrl;
           return;
         }
         const pendingInviteAcceptUrl =
           peekPendingMembershipInviteAcceptRedirect();
         if (pendingInviteAcceptUrl) {
+          retainClassActionNewSignupForRedirect(pendingInviteAcceptUrl);
           window.location.href = pendingInviteAcceptUrl;
           return;
         }
+        retainClassActionNewSignupForRedirect(null);
         window.location.href = "/dashboard";
       }
     }

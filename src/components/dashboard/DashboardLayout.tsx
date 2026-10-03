@@ -20,7 +20,10 @@ export default function DashboardLayout() {
   const pathname = location.pathname.replace(/\/+$/, "") || "/";
   const title =
     PAGE_TITLES[pathname] ??
-    (pathname.startsWith("/class-action/") ? "Class Actions" : "Dashboard");
+    (pathname.startsWith("/class-action/") ||
+    pathname.startsWith("/class-actions/")
+      ? "Class Actions"
+      : "Dashboard");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
